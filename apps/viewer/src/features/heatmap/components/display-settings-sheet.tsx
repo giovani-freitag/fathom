@@ -5,6 +5,15 @@ import { Dialog, Slider, Switch } from 'radix-ui';
 import type { ReactElement } from 'react';
 import { ControlButton } from '@ui/primitives/control-button';
 
+/**
+ * Travel of the intensity slider.
+ *
+ * Bounded to where the control still says something: below this the field goes
+ * black and above it every bucket saturates, so a wider range would spend half
+ * its travel on two useless pictures.
+ */
+const COLOUR_GAIN_RANGE = { minimum: 0.4, maximum: 3, step: 0.05 } as const;
+
 interface DisplaySettingsSheetProps {
     readonly state: ChartState;
     readonly onChange: (patch: ChartSettingsPatch) => void;
@@ -52,9 +61,9 @@ export function DisplaySettingsSheet({ state, onChange }: DisplaySettingsSheetPr
                             </span>
                             <Slider.Root
                                 value={[state.colourGain]}
-                                min={0.2}
-                                max={6}
-                                step={0.1}
+                                min={COLOUR_GAIN_RANGE.minimum}
+                                max={COLOUR_GAIN_RANGE.maximum}
+                                step={COLOUR_GAIN_RANGE.step}
                                 onValueChange={([gain]) => { onChange({ colourGain: gain ?? 1 }); }}
                                 className="relative flex h-11 w-full touch-none select-none items-center"
                             >

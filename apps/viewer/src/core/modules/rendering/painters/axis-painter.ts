@@ -1,5 +1,10 @@
 import { choosePriceTicks, chooseTimeTicks } from '@core/domain/axis-ticks';
-import { formatAxisTagPrice, formatAxisTime, formatPrice } from '@core/domain/formatting';
+import {
+    formatAxisTagPrice,
+    formatAxisTime,
+    formatClockTime,
+    formatPrice,
+} from '@core/domain/formatting';
 import { RENDER_METRICS, RENDER_PALETTE } from '../render-palette';
 import type { PaintContext } from '../render-types';
 
@@ -50,7 +55,12 @@ export class AxisPainter {
     }
 
     /**
-     * Draws the time axis gutter and its labels.
+     * Draws the time axis: its gutter, its labels, and the instant pinned on it.
+     *
+     * The pinned tag is drawn here rather than by the crosshair so the axis can
+     * drop the labels it covers. Painting them independently leaves the ends of
+     * a covered label sticking out either side of the tag, which reads as two
+     * overlapping times.
      *
      * @param paint - The shared paint context.
      */
@@ -66,21 +76,60 @@ export class AxisPainter {
         context.lineTo(layout.priceAxisX, axisY + 0.5);
         context.stroke();
 
+        const pinnedTag = this.resolvePinnedTimeTag(paint);
         context.fillStyle = RENDER_PALETTE.inkMuted;
         context.textAlign = 'center';
         context.textBaseline = 'middle';
         const spanMs = request.viewport.toMs - request.viewport.fromMs;
+
         for (const timestampMs of chooseTimeTicks(request.viewport, layout.plotWidth)) {
+            const label = formatAxisTime(timestampMs, spanMs);
             const x = projector.timeToX(timestampMs);
-            if (x < 24 || x > layout.plotWidth - 24) {
+
+            // Measured rather than assumed: labels are centred on their tick, so
+            // a fixed inset lets the first and last one hang off the edge and
+            // lose a digit, which is worse than not drawing them.
+            const halfWidth = context.measureText(label).width / 2;
+            if (x - halfWidth < 0 || x + halfWidth > layout.plotWidth) {
                 continue;
             }
-            context.fillText(
-                formatAxisTime(timestampMs, spanMs),
-                x,
-                axisY + RENDER_METRICS.timeAxisHeight / 2,
-            );
+            if (pinnedTag !== null && x + halfWidth > pinnedTag.left && x - halfWidth < pinnedTag.right) {
+                continue;
+            }
+            context.fillText(label, x, axisY + RENDER_METRICS.timeAxisHeight / 2);
         }
+
+        if (pinnedTag !== null) {
+            this.drawTimeTag(paint, pinnedTag);
+        }
+    }
+
+    private resolvePinnedTimeTag(paint: PaintContext): PinnedTimeTag | null {
+        const pointer = paint.request.pointer;
+        if (pointer === null || paint.crosshairY === null) {
+            return null;
+        }
+
+        const label = formatClockTime(paint.projector.xToTime(pointer.x));
+        const width = paint.context.measureText(label).width + 10;
+        const left = Math.min(Math.max(pointer.x - width / 2, 0), paint.layout.plotWidth - width);
+        return { label, left, right: left + width };
+    }
+
+    private drawTimeTag(paint: PaintContext, tag: PinnedTimeTag): void {
+        const { context, layout } = paint;
+        const width = tag.right - tag.left;
+
+        context.fillStyle = RENDER_PALETTE.inkPrimary;
+        context.fillRect(tag.left, layout.plotHeight, width, RENDER_METRICS.timeAxisHeight);
+        context.fillStyle = RENDER_PALETTE.surface;
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText(
+            tag.label,
+            tag.left + width / 2,
+            layout.plotHeight + RENDER_METRICS.timeAxisHeight / 2,
+        );
     }
 
     /**
@@ -105,27 +154,10 @@ export class AxisPainter {
         context.fillText(formatAxisTagPrice(tag.price), layout.priceAxisX + 6, tag.y);
     }
 
-    /**
-     * Pins a label into the time axis, kept inside the plot's bounds.
-     *
-     * @param paint - The shared paint context.
-     * @param label - Text to pin.
-     * @param x - Where on the plot the label points at.
-     */
-    paintTimeTag(paint: PaintContext, label: string, x: number): void {
-        const { context, layout } = paint;
-        const labelWidth = context.measureText(label).width + 10;
-        const left = Math.min(Math.max(x - labelWidth / 2, 0), layout.plotWidth - labelWidth);
+}
 
-        context.fillStyle = RENDER_PALETTE.inkPrimary;
-        context.fillRect(left, layout.plotHeight, labelWidth, RENDER_METRICS.timeAxisHeight);
-        context.fillStyle = RENDER_PALETTE.surface;
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        context.fillText(
-            label,
-            left + labelWidth / 2,
-            layout.plotHeight + RENDER_METRICS.timeAxisHeight / 2,
-        );
-    }
+interface PinnedTimeTag {
+    readonly label: string;
+    readonly left: number;
+    readonly right: number;
 }

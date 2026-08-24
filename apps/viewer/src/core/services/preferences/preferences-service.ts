@@ -45,7 +45,16 @@ export class PreferencesService {
         if (raw === null) {
             return DEFAULT_PREFERENCES;
         }
-        return { ...DEFAULT_PREFERENCES, ...raw };
+
+        const merged = { ...DEFAULT_PREFERENCES, ...raw };
+        return {
+            ...merged,
+            // Stored values outlive the control that produced them: a gain saved
+            // by an earlier, wider slider would otherwise reopen the chart on a
+            // picture the current control cannot undo.
+            colourGain: clampToRange(merged.colourGain, 0.4, 3),
+            visibleSpanMs: clampToRange(merged.visibleSpanMs, 30_000, 90 * 24 * 60 * 60 * 1_000),
+        };
     }
 
     /**
@@ -73,4 +82,11 @@ export class PreferencesService {
             return null;
         }
     }
+}
+
+function clampToRange(value: number, minimum: number, maximum: number): number {
+    if (!Number.isFinite(value)) {
+        return minimum;
+    }
+    return Math.min(Math.max(value, minimum), maximum);
 }

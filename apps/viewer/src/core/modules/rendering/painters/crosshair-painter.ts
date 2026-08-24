@@ -1,5 +1,5 @@
 import { findClusterAt, findFrameNearest } from '@core/domain/dataset-lookup';
-import { formatClockTime, formatQuantity } from '@core/domain/formatting';
+import { formatQuantity } from '@core/domain/formatting';
 import { RENDER_PALETTE } from '../render-palette';
 import type { PaintContext, PointerReadout } from '../render-types';
 import type { AxisPainter } from './axis-painter';
@@ -52,7 +52,6 @@ export class CrosshairPainter {
             background: RENDER_PALETTE.inkPrimary,
             foreground: RENDER_PALETTE.surface,
         });
-        this.axisPainter.paintTimeTag(paint, formatClockTime(timestampMs), pointer.x);
         this.paintReadout(paint, pointer, price, timestampMs);
     }
 

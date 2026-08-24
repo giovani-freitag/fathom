@@ -57,7 +57,7 @@ describe('CrosshairPainter', () => {
         expect(recording.calls).toEqual([]);
     });
 
-    it('pins both a price and a clock reading', () => {
+    it('pins the price under the cursor into the price axis', () => {
         const recording = createRecordingContext();
         const paint = buildPaintContext(recording, {
             dataset: { frames: [buildFrame()] },
@@ -66,7 +66,19 @@ describe('CrosshairPainter', () => {
 
         buildPainter().paint(paint);
 
-        expect(readLabels(recording).length).toBeGreaterThanOrEqual(2);
+        expect(readLabels(recording).length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('leaves the clock reading to the time axis, which can clear its own labels', () => {
+        const recording = createRecordingContext();
+        const paint = buildPaintContext(recording, {
+            dataset: { frames: [buildFrame()] },
+            pointer: { x: 300, y: 200 },
+        });
+
+        buildPainter().paint(paint);
+
+        expect(readLabels(recording).some((label) => label.includes(':'))).toBe(false);
     });
 
     it('reports the size resting under the cursor', () => {
