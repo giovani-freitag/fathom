@@ -181,3 +181,42 @@ describe('appendClusters onto a grouped price grid', () => {
         expect(buildGroupedDataset().clusterIntervalMs).toBe(60_000);
     });
 });
+
+describe('replaceDataset saturation stability', () => {
+    function buildWith(quantity: number, previousSaturationQuantity?: number) {
+        const touchBucket = 100;
+        const frame: LiquidityFrame = {
+            capturedAtMs: 1_000,
+            bestBidPrice: 1_000,
+            bestAskPrice: 1_001,
+            bids: { lowestBucketIndex: touchBucket - 1, quantities: Float32Array.from([quantity]) },
+            asks: { lowestBucketIndex: touchBucket, quantities: Float32Array.from([quantity]) },
+        };
+        return replaceDataset({
+            instrumentSymbol: 'BTCUSDT',
+            window: { priceBucketSize: 10, sampleIntervalMs: 1_000, frames: [frame] },
+            clusters: [],
+            clusterPriceBucketSize: 10,
+            clusterIntervalMs: 1_000,
+            gaps: [],
+            previousRevision: 0,
+            ...(previousSaturationQuantity === undefined ? {} : { previousSaturationQuantity }),
+        });
+    }
+
+    it('adopts the measured value on the first window', () => {
+        expect(buildWith(100).saturationQuantity).toBe(100);
+    });
+
+    it('holds the previous value through a small drift', () => {
+        expect(buildWith(110, 100).saturationQuantity).toBe(100);
+    });
+
+    it('adopts a genuinely different value', () => {
+        expect(buildWith(400, 100).saturationQuantity).toBe(400);
+    });
+
+    it('adapts away from the empty placeholder', () => {
+        expect(buildWith(300, 1).saturationQuantity).toBe(300);
+    });
+});

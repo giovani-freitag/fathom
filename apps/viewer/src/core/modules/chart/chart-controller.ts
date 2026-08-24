@@ -282,6 +282,7 @@ export class ChartController {
                 clusterIntervalMs: loaded.clusterIntervalMs,
                 gaps: loaded.gaps,
                 previousRevision: current.dataset.revision,
+                previousSaturationQuantity: current.dataset.saturationQuantity,
             });
             return {
                 ...current,
@@ -334,16 +335,41 @@ export class ChartController {
     }
 
     private advanceViewport(state: ChartState, dataset: ChartDataset): ChartViewport {
-        const newestMs = newestFrameTimestamp(dataset);
-        if (!state.isFollowingLive || newestMs === null || newestMs <= state.viewport.toMs) {
+        if (!state.isFollowingLive) {
             return state.viewport;
         }
-        const deltaMs = newestMs - state.viewport.toMs;
-        return {
-            ...state.viewport,
-            fromMs: state.viewport.fromMs + deltaMs,
-            toMs: newestMs,
-        };
+        return this.followPrice(this.followTime(state.viewport, dataset), dataset);
+    }
+
+    private followTime(viewport: ChartViewport, dataset: ChartDataset): ChartViewport {
+        const newestMs = newestFrameTimestamp(dataset);
+        if (newestMs === null || newestMs <= viewport.toMs) {
+            return viewport;
+        }
+        return { ...viewport, fromMs: viewport.fromMs + (newestMs - viewport.toMs), toMs: newestMs };
+    }
+
+    /**
+     * Recentres the price axis once the book has left the screen entirely.
+     *
+     * A chart left running all day watches price walk off the top or bottom and
+     * then shows an empty field. Following only after the touch is fully gone,
+     * rather than whenever it nears an edge, is what keeps this from fighting a
+     * reader who deliberately parked the axis on a wall.
+     */
+    private followPrice(viewport: ChartViewport, dataset: ChartDataset): ChartViewport {
+        const newestFrame = dataset.frames[dataset.frames.length - 1];
+        if (newestFrame === undefined) {
+            return viewport;
+        }
+
+        const touchPrice = (newestFrame.bestBidPrice + newestFrame.bestAskPrice) / 2;
+        if (touchPrice >= viewport.lowPrice && touchPrice <= viewport.highPrice) {
+            return viewport;
+        }
+
+        const halfSpan = (viewport.highPrice - viewport.lowPrice) / 2;
+        return { ...viewport, lowPrice: touchPrice - halfSpan, highPrice: touchPrice + halfSpan };
     }
 
     /**

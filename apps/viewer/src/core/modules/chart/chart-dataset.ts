@@ -12,6 +12,15 @@ const SATURATION_SAMPLE_LIMIT = 40_000;
 /** Where resting size stops brightening; above this the whole field washes out. */
 const SATURATION_PERCENTILE = 0.995;
 
+/**
+ * How far the saturation point must move before it is adopted.
+ *
+ * Recomputed per window, the percentile drifts a few percent with every pan, and
+ * every drift recolours the whole field. Holding it until the change is real is
+ * what lets a wall keep its colour while the view moves across it.
+ */
+const SATURATION_HYSTERESIS = 0.25;
+
 /** Everything currently loaded for one instrument, as one immutable snapshot. */
 export interface ChartDataset {
     readonly instrumentSymbol: string;
@@ -58,6 +67,8 @@ export interface DatasetReplaceRequest {
     readonly clusterIntervalMs: number;
     readonly gaps: readonly RecordingGap[];
     readonly previousRevision: number;
+    /** Saturation already on screen, kept when the new window barely differs. */
+    readonly previousSaturationQuantity?: number;
 }
 
 /**
@@ -76,12 +87,27 @@ export function replaceDataset(request: DatasetReplaceRequest): ChartDataset {
         frames: request.window.frames,
         clusters: request.clusters,
         gaps: request.gaps,
-        saturationQuantity: resolveSaturationQuantity(
-            sampleQuantities(request.window.frames),
-            SATURATION_PERCENTILE,
+        saturationQuantity: chooseSaturation(
+            resolveSaturationQuantity(sampleQuantities(request.window.frames), SATURATION_PERCENTILE),
+            request.previousSaturationQuantity,
         ),
         revision: request.previousRevision + 1,
     };
+}
+
+/**
+ * Keeps the saturation already on screen unless the window genuinely differs.
+ *
+ * @param measured - Percentile of the window just loaded.
+ * @param previous - Saturation the previous window was drawn with.
+ * @returns The saturation to draw with.
+ */
+function chooseSaturation(measured: number, previous: number | undefined): number {
+    if (previous === undefined || previous <= 0) {
+        return measured;
+    }
+    const drift = Math.abs(measured - previous) / previous;
+    return drift < SATURATION_HYSTERESIS ? previous : measured;
 }
 
 /**

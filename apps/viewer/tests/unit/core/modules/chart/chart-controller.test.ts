@@ -288,3 +288,56 @@ describe('ChartController failures', () => {
         expect(controller.store.read().errorMessage).toBeNull();
     });
 });
+
+describe('ChartController price following', () => {
+    it('leaves the price axis alone while the book is on screen', async () => {
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        const before = controller.store.read().viewport;
+
+        mocks.lastSubscription()?.onFrames(buildWindow([buildFrame(before.toMs + 1_000, 79_000)]));
+
+        expect(controller.store.read().viewport.lowPrice).toBe(before.lowPrice);
+    });
+
+    it('recentres once the book has left the screen entirely', async () => {
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        const before = controller.store.read().viewport;
+
+        mocks.lastSubscription()?.onFrames(buildWindow([buildFrame(before.toMs + 1_000, 90_000)]));
+
+        const after = controller.store.read().viewport;
+        expect(90_000 > after.lowPrice && 90_000 < after.highPrice).toBe(true);
+    });
+
+    it('keeps the price span when it recentres', async () => {
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        const before = controller.store.read().viewport;
+
+        mocks.lastSubscription()?.onFrames(buildWindow([buildFrame(before.toMs + 1_000, 90_000)]));
+
+        const after = controller.store.read().viewport;
+        expect(after.highPrice - after.lowPrice).toBeCloseTo(before.highPrice - before.lowPrice, 6);
+    });
+
+    it('never drags the price axis while parked in history', async () => {
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        controller.applyView({
+            viewport: controller.store.read().viewport,
+            surfaceWidthPx: SURFACE_WIDTH,
+            isFollowingLive: false,
+        });
+        const before = controller.store.read().viewport;
+
+        mocks.lastSubscription()?.onFrames(buildWindow([buildFrame(before.toMs + 1_000, 90_000)]));
+
+        expect(controller.store.read().viewport.lowPrice).toBe(before.lowPrice);
+    });
+});
