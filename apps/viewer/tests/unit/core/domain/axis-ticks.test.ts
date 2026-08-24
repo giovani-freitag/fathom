@@ -97,3 +97,41 @@ describe('tick density adapts to the label size', () => {
         expect(ticks.length).toBeLessThanOrEqual(4);
     });
 });
+
+describe('the time step ladder has no wide gaps', () => {
+    it('labels a quarter-hour window more than twice', () => {
+        const quarterHour = { ...VIEWPORT, fromMs: 0, toMs: 900_000 };
+
+        const ticks = chooseTimeTicks({ viewport: quarterHour, extentPx: 1_450, minimumSpacingPx: 100 });
+
+        expect(ticks.length).toBeGreaterThanOrEqual(6);
+    });
+
+    it('labels an hour window more than twice', () => {
+        const hour = { ...VIEWPORT, fromMs: 0, toMs: 3_600_000 };
+
+        const ticks = chooseTimeTicks({ viewport: hour, extentPx: 1_450, minimumSpacingPx: 100 });
+
+        expect(ticks.length).toBeGreaterThanOrEqual(6);
+    });
+
+    it('labels a day window more than twice', () => {
+        const day = { ...VIEWPORT, fromMs: 0, toMs: 86_400_000 };
+
+        const ticks = chooseTimeTicks({ viewport: day, extentPx: 1_450, minimumSpacingPx: 100 });
+
+        expect(ticks.length).toBeGreaterThanOrEqual(6);
+    });
+
+    it('labels a narrow phone axis at least twice on every preset span', () => {
+        const spans = [60_000, 300_000, 900_000, 3_600_000, 14_400_000, 86_400_000];
+
+        const counts = spans.map((spanMs) => chooseTimeTicks({
+            viewport: { ...VIEWPORT, fromMs: 0, toMs: spanMs },
+            extentPx: 330,
+            minimumSpacingPx: 92,
+        }).length);
+
+        expect(counts.every((count) => count >= 2)).toBe(true);
+    });
+});

@@ -8,11 +8,16 @@ const PRICE_TICK_STEPS = [1, 2, 2.5, 5, 10];
  *
  * Fixed rather than derived so labels fall on whole seconds, minutes, and hours;
  * a computed step lands at 37-second intervals and reads as noise.
+ *
+ * The ladder is deliberately dense. A gap between neighbouring steps is a gap in
+ * how many labels an axis can carry: with nothing between one and five minutes,
+ * a window wanting a label roughly every minute jumps to one every five and the
+ * axis empties out.
  */
 const TIME_TICK_STEPS_MS = [
-    1_000, 5_000, 15_000, 30_000,
-    60_000, 300_000, 900_000, 1_800_000,
-    3_600_000, 10_800_000, 21_600_000, 43_200_000,
+    1_000, 2_000, 5_000, 10_000, 15_000, 30_000,
+    60_000, 120_000, 300_000, 600_000, 900_000, 1_800_000,
+    3_600_000, 7_200_000, 10_800_000, 21_600_000, 43_200_000,
     86_400_000, 172_800_000, 604_800_000,
 ];
 
