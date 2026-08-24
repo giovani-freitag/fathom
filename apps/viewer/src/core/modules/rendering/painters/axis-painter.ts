@@ -1,4 +1,3 @@
-import { choosePriceTicks, chooseTimeTicks } from '@core/domain/axis-ticks';
 import {
     formatAxisTagPrice,
     formatAxisTime,
@@ -31,7 +30,7 @@ export class AxisPainter {
      * @param paint - The shared paint context.
      */
     paintPriceAxis(paint: PaintContext): void {
-        const { context, layout, projector, request } = paint;
+        const { context, layout, projector } = paint;
         const axisX = layout.priceAxisX;
 
         context.fillStyle = RENDER_PALETTE.axisBackdrop;
@@ -45,7 +44,7 @@ export class AxisPainter {
         context.fillStyle = RENDER_PALETTE.inkMuted;
         context.textAlign = 'left';
         context.textBaseline = 'middle';
-        for (const price of choosePriceTicks(request.viewport, layout.plotHeight)) {
+        for (const price of paint.priceTicks) {
             const y = projector.priceToY(price);
             if (y < 8 || y > layout.plotHeight - 4) {
                 continue;
@@ -82,7 +81,7 @@ export class AxisPainter {
         context.textBaseline = 'middle';
         const spanMs = request.viewport.toMs - request.viewport.fromMs;
 
-        for (const timestampMs of chooseTimeTicks(request.viewport, layout.plotWidth)) {
+        for (const timestampMs of paint.timeTicks) {
             const label = formatAxisTime(timestampMs, spanMs);
             const x = projector.timeToX(timestampMs);
 

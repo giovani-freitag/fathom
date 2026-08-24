@@ -16,26 +16,37 @@ const TIME_TICK_STEPS_MS = [
     86_400_000, 172_800_000, 604_800_000,
 ];
 
-const PRICE_TICK_SPACING_PX = 64;
-const TIME_TICK_SPACING_PX = 96;
-
 /** Ticks past this count mean a degenerate viewport, not a dense axis. */
 const MAXIMUM_TICKS = 512;
 
 /**
+ * What an axis needs to space its ticks.
+ *
+ * The spacing is passed in rather than fixed because a label's width depends on
+ * the font the surface is drawing with: a phone renders shorter labels in a
+ * smaller face, and a constant tuned for a desktop leaves it with one tick.
+ */
+export interface TickRequest {
+    readonly viewport: ChartViewport;
+    /** Length of the axis in CSS pixels: width for time, height for price. */
+    readonly extentPx: number;
+    readonly minimumSpacingPx: number;
+}
+
+/**
  * Prices to label on the vertical axis.
  *
- * @param viewport - The visible slice of time and price.
- * @param plotHeight - Height of the plot area, in CSS pixels.
+ * @param request - The viewport, the axis length, and the spacing to respect.
  * @returns Ascending prices, spaced on a round step.
  */
-export function choosePriceTicks(viewport: ChartViewport, plotHeight: number): number[] {
+export function choosePriceTicks(request: TickRequest): number[] {
+    const { viewport, extentPx, minimumSpacingPx } = request;
     const span = viewport.highPrice - viewport.lowPrice;
     if (span <= 0) {
         return [];
     }
 
-    const targetCount = Math.max(2, Math.floor(plotHeight / PRICE_TICK_SPACING_PX));
+    const targetCount = Math.max(2, Math.floor(extentPx / Math.max(1, minimumSpacingPx)));
     const step = chooseNicePriceStep(span / targetCount);
 
     const ticks: number[] = [];
@@ -49,17 +60,17 @@ export function choosePriceTicks(viewport: ChartViewport, plotHeight: number): n
 /**
  * Instants to label on the horizontal axis.
  *
- * @param viewport - The visible slice of time and price.
- * @param plotWidth - Width of the plot area, in CSS pixels.
+ * @param request - The viewport, the axis length, and the spacing to respect.
  * @returns Ascending instants, spaced on a calendar-friendly step.
  */
-export function chooseTimeTicks(viewport: ChartViewport, plotWidth: number): number[] {
+export function chooseTimeTicks(request: TickRequest): number[] {
+    const { viewport, extentPx, minimumSpacingPx } = request;
     const spanMs = viewport.toMs - viewport.fromMs;
     if (spanMs <= 0) {
         return [];
     }
 
-    const targetCount = Math.max(2, Math.floor(plotWidth / TIME_TICK_SPACING_PX));
+    const targetCount = Math.max(2, Math.floor(extentPx / Math.max(1, minimumSpacingPx)));
     const desiredStep = spanMs / targetCount;
     const step = TIME_TICK_STEPS_MS.find((candidate) => candidate >= desiredStep)
         ?? TIME_TICK_STEPS_MS[TIME_TICK_STEPS_MS.length - 1]!;

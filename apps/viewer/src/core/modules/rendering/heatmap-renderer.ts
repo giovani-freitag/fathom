@@ -1,3 +1,5 @@
+import { choosePriceTicks, chooseTimeTicks } from '@core/domain/axis-ticks';
+import { formatAxisTime } from '@core/domain/formatting';
 import { ViewportProjector } from '@core/domain/viewport-projector';
 import { EMPTY_LAYOUT, resolveChartLayout } from './chart-layout';
 import { DepthField } from './depth-field';
@@ -14,6 +16,23 @@ import type { ChartLayout, PaintContext, RenderRequest } from './render-types';
 
 /** Retina beyond this buys nothing visible and costs four times the fill rate. */
 const MAXIMUM_PIXEL_RATIO = 2;
+
+/**
+ * Clear space between time labels, as a multiple of one label's width.
+ *
+ * Horizontal crowding is a width problem: a label reading `18:52:15` needs far
+ * more room than one reading `13/ago`, and the axis has to adapt to whichever
+ * the current span produces.
+ */
+const TIME_LABEL_SPACING_FACTOR = 1.9;
+
+/**
+ * Clear space between price labels, in CSS pixels.
+ *
+ * Vertical crowding is a line-height problem, not a width one: how many digits a
+ * price has says nothing about how close two of them can sit.
+ */
+const PRICE_LABEL_SPACING_PX = 56;
 
 export type { PointerReadout, RenderRequest } from './render-types';
 
@@ -129,6 +148,11 @@ export class HeatmapRenderer {
             ? RENDER_METRICS.labelFontCompact
             : RENDER_METRICS.labelFont;
 
+        const spanMs = request.viewport.toMs - request.viewport.fromMs;
+        const timeLabelWidth = context.measureText(
+            formatAxisTime(request.viewport.toMs, spanMs),
+        ).width;
+
         const paint: PaintContext = {
             context,
             layout: this.layout,
@@ -139,6 +163,16 @@ export class HeatmapRenderer {
             }),
             request,
             crosshairY: this.resolveCrosshairY(request),
+            priceTicks: choosePriceTicks({
+                viewport: request.viewport,
+                extentPx: this.layout.plotHeight,
+                minimumSpacingPx: PRICE_LABEL_SPACING_PX,
+            }),
+            timeTicks: chooseTimeTicks({
+                viewport: request.viewport,
+                extentPx: this.layout.plotWidth,
+                minimumSpacingPx: timeLabelWidth * TIME_LABEL_SPACING_FACTOR,
+            }),
         };
 
         this.gapPainter.paint(paint);

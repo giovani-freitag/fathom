@@ -1,4 +1,5 @@
 import type { ChartViewport } from '@core/domain/chart-viewport';
+import { choosePriceTicks, chooseTimeTicks } from '@core/domain/axis-ticks';
 import { ViewportProjector } from '@core/domain/viewport-projector';
 import type { ChartDataset } from '@core/modules/chart/chart-dataset';
 import { EMPTY_DATASET } from '@core/modules/chart/chart-dataset';
@@ -81,6 +82,8 @@ export interface PaintContextOptions {
     readonly isVolumeProfileVisible?: boolean;
     readonly cssWidth?: number;
     readonly cssHeight?: number;
+    readonly priceTickSpacingPx?: number;
+    readonly timeTickSpacingPx?: number;
 }
 
 /**
@@ -104,6 +107,16 @@ export function buildPaintContext(
     return {
         context: recording.context,
         layout,
+        priceTicks: choosePriceTicks({
+            viewport,
+            extentPx: layout.plotHeight,
+            minimumSpacingPx: options.priceTickSpacingPx ?? 64,
+        }),
+        timeTicks: chooseTimeTicks({
+            viewport,
+            extentPx: layout.plotWidth,
+            minimumSpacingPx: options.timeTickSpacingPx ?? 96,
+        }),
         projector: new ViewportProjector({
             viewport,
             width: layout.plotWidth,

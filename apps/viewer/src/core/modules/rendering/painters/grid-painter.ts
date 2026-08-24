@@ -1,4 +1,3 @@
-import { choosePriceTicks, chooseTimeTicks } from '@core/domain/axis-ticks';
 import { RENDER_PALETTE } from '../render-palette';
 import type { PaintContext } from '../render-types';
 
@@ -15,18 +14,18 @@ export class GridPainter {
      * @param paint - The shared paint context.
      */
     paint(paint: PaintContext): void {
-        const { context, layout, projector, request } = paint;
+        const { context, layout, projector } = paint;
 
         context.strokeStyle = RENDER_PALETTE.hairlineFaint;
         context.lineWidth = 1;
         context.beginPath();
 
-        for (const price of choosePriceTicks(request.viewport, layout.plotHeight)) {
+        for (const price of paint.priceTicks) {
             const y = Math.round(projector.priceToY(price)) + 0.5;
             context.moveTo(0, y);
             context.lineTo(layout.plotWidth, y);
         }
-        for (const timestampMs of chooseTimeTicks(request.viewport, layout.plotWidth)) {
+        for (const timestampMs of paint.timeTicks) {
             const x = Math.round(projector.timeToX(timestampMs)) + 0.5;
             context.moveTo(x, 0);
             context.lineTo(x, layout.plotHeight);

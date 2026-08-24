@@ -48,4 +48,13 @@ export interface PaintContext {
     readonly request: RenderRequest;
     /** Y of the crosshair when one is over the plot, so layers can yield to it. */
     readonly crosshairY: number | null;
+    /**
+     * The ticks every layer must agree on.
+     *
+     * Resolved once and shared rather than recomputed per layer: a gridline and
+     * its label disagreeing by a pixel is the kind of defect nobody can explain
+     * later, and measuring label widths needs the surface's font anyway.
+     */
+    readonly priceTicks: readonly number[];
+    readonly timeTicks: readonly number[];
 }
