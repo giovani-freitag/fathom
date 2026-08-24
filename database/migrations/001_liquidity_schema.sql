@@ -1,0 +1,101 @@
+CREATE EXTENSION IF NOT EXISTS timescaledb;
+
+-- One row per time bucket: the whole visible depth ladder at that instant.
+--
+-- Bids and asks carry their own offset and array so neither stores the other
+-- side's empty half, and the bucket straddling the spread cannot merge resting
+-- bid size into resting ask size. The price of `bid_quantities[i]` (1-based, as
+-- PostgreSQL indexes arrays) is `(bid_lowest_bucket_index + i - 1) * price_bucket_size`.
+--
+-- Modelling one row per price level instead would produce roughly 40 million
+-- rows per day at this resolution, which no single-node database serves well.
+CREATE TABLE IF NOT EXISTS liquidity_frame (
+    captured_at             TIMESTAMPTZ      NOT NULL,
+    instrument_symbol       TEXT             NOT NULL,
+    price_bucket_size       DOUBLE PRECISION NOT NULL,
+    best_bid_price          DOUBLE PRECISION NOT NULL,
+    best_ask_price          DOUBLE PRECISION NOT NULL,
+    bid_lowest_bucket_index INTEGER          NOT NULL,
+    bid_quantities          REAL[]           NOT NULL,
+    ask_lowest_bucket_index INTEGER          NOT NULL,
+    ask_quantities          REAL[]           NOT NULL,
+    CONSTRAINT liquidity_frame_book_is_uncrossed CHECK (best_bid_price < best_ask_price)
+);
+
+-- Aggressive executions, pre-aggregated by the collector onto the same time and
+-- price grid as the frames. Raw prints reach ~100/s on a liquid perpetual, which
+-- is far below the resolution any zoom level of the heatmap can resolve.
+--
+-- Every column rolls up to a coarser grid without loss: the quantities and the
+-- count sum, and `largest_trade_quantity` maxes, so a single large print stays
+-- visible after aggregation instead of dissolving into its neighbours.
+CREATE TABLE IF NOT EXISTS trade_cluster (
+    executed_at            TIMESTAMPTZ      NOT NULL,
+    instrument_symbol      TEXT             NOT NULL,
+    price_bucket_size      DOUBLE PRECISION NOT NULL,
+    price_bucket_index     INTEGER          NOT NULL,
+    buy_quantity           REAL             NOT NULL,
+    sell_quantity          REAL             NOT NULL,
+    trade_count            INTEGER          NOT NULL,
+    largest_trade_quantity REAL             NOT NULL
+);
+
+-- Periods with no recording, written explicitly. Order book history cannot be
+-- backfilled from any public venue, so an unrecorded window must be stored as a
+-- fact; otherwise the renderer draws a straight line across a connectivity drop
+-- and invents liquidity that never rested there.
+CREATE TABLE IF NOT EXISTS recording_gap (
+    gap_started_at    TIMESTAMPTZ NOT NULL,
+    gap_ended_at      TIMESTAMPTZ NOT NULL,
+    instrument_symbol TEXT        NOT NULL,
+    gap_reason        TEXT        NOT NULL,
+    CONSTRAINT recording_gap_ends_after_it_starts CHECK (gap_ended_at >= gap_started_at)
+);
+
+SELECT create_hypertable(
+    'liquidity_frame', by_range('captured_at', INTERVAL '1 day'),
+    if_not_exists => TRUE
+);
+SELECT create_hypertable(
+    'trade_cluster', by_range('executed_at', INTERVAL '1 day'),
+    if_not_exists => TRUE
+);
+
+-- Restarts replay the current second, and a retried write batch replays whatever
+-- the failed attempt already committed. Both collapse onto these keys.
+CREATE UNIQUE INDEX IF NOT EXISTS liquidity_frame_identity_idx
+    ON liquidity_frame (instrument_symbol, captured_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS trade_cluster_identity_idx
+    ON trade_cluster (instrument_symbol, executed_at DESC, price_bucket_index);
+
+CREATE INDEX IF NOT EXISTS recording_gap_symbol_time_idx
+    ON recording_gap (instrument_symbol, gap_started_at DESC);
+
+ALTER TABLE liquidity_frame SET (
+    timescaledb.enable_columnstore = true,
+    timescaledb.segmentby          = 'instrument_symbol',
+    timescaledb.orderby            = 'captured_at DESC'
+);
+
+ALTER TABLE trade_cluster SET (
+    timescaledb.enable_columnstore = true,
+    timescaledb.segmentby          = 'instrument_symbol',
+    timescaledb.orderby            = 'executed_at DESC'
+);
+
+-- Two days of row storage keeps the write path and any recent-history query on
+-- uncompressed chunks; everything older converts to columnar, where the mostly
+-- empty depth arrays collapse by more than an order of magnitude.
+CALL add_columnstore_policy('liquidity_frame', after => INTERVAL '2 days', if_not_exists => TRUE);
+CALL add_columnstore_policy('trade_cluster', after => INTERVAL '2 days', if_not_exists => TRUE);
+
+-- Which contracts a collector has ever recorded, and on what grid. Deriving this
+-- from the frames themselves would mean a DISTINCT scan over the whole hypertable
+-- on every viewer load; the collector knows the answer at startup for free.
+CREATE TABLE IF NOT EXISTS instrument_registry (
+    instrument_symbol TEXT PRIMARY KEY,
+    price_bucket_size DOUBLE PRECISION NOT NULL,
+    frame_interval_ms INTEGER          NOT NULL,
+    registered_at     TIMESTAMPTZ      NOT NULL DEFAULT now()
+);

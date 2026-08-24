@@ -1,0 +1,93 @@
+@import 'tailwindcss';
+
+/*
+ * Sounding-instrument palette: an abyssal ground so the depth field is the only
+ * bright thing on screen, with phosphor accents for the chrome that has to be
+ * readable over it.
+ */
+@theme {
+    --font-display: 'Archivo', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'Azeret Mono', ui-monospace, 'SF Mono', monospace;
+
+    --color-abyss-950: #03060a;
+    --color-abyss-900: #05080c;
+    --color-abyss-850: #080d14;
+    --color-abyss-800: #0a1019;
+    --color-abyss-700: #111a26;
+    --color-abyss-600: #1a2735;
+
+    --color-hairline: #1b2836;
+    --color-hairline-bright: #2a3d50;
+
+    --color-ink-100: #dce7f1;
+    --color-ink-300: #9db0c2;
+    --color-ink-500: #62778b;
+    --color-ink-700: #3d4d5e;
+
+    --color-phosphor: #35e0c4;
+    --color-phosphor-dim: #1c7a6c;
+    --color-bid: #2bd4a8;
+    --color-ask: #ff5c72;
+    --color-amber: #ffb454;
+}
+
+:root {
+    color-scheme: dark;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    background: var(--color-abyss-900);
+    color: var(--color-ink-100);
+    font-family: var(--font-display);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* The chart owns every gesture; letting the page rubber-band would fight it. */
+    overscroll-behavior: none;
+}
+
+/*
+ * The chart surface must never scroll, select, or fire the browser's own zoom.
+ * Without this a two-finger pinch zooms the document instead of the time axis.
+ */
+.chart-surface {
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.numeric {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
+/* A faint scan texture keeps the empty abyss from reading as a dead element. */
+.abyss-grain::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: repeating-linear-gradient(
+        0deg,
+        transparent 0 3px,
+        var(--color-phosphor) 3px 4px
+    );
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}

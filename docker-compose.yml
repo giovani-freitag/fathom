@@ -1,0 +1,30 @@
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg17
+    container_name: fathom-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fathom
+      POSTGRES_USER: fathom
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - fathom-data:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fathom -d fathom"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=timescaledb
+      - -c
+      - max_wal_size=4GB
+      - -c
+      - synchronous_commit=off
+
+volumes:
+  fathom-data:
