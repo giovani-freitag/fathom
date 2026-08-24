@@ -74,3 +74,51 @@ describe('resolveSaturationQuantity', () => {
         expect(resolveSaturationQuantity(quantities, 0.9)).toBe(1);
     });
 });
+
+/**
+ * Percentiles measured over 186k depth buckets of BTCUSDT, so a change to the
+ * response curve is judged against the book it has to draw rather than against
+ * taste.
+ */
+const MEASURED_DEPTH = {
+    tenthPercentile: 4.35,
+    median: 17.6,
+    ninetiethPercentile: 55.4,
+    ninetyNinthPercentile: 239,
+    saturation: 327,
+} as const;
+
+describe('DepthColourScale against a real book', () => {
+    const scale = new DepthColourScale({
+        saturationQuantity: MEASURED_DEPTH.saturation,
+        gain: 1,
+    });
+    const share = (quantity: number) => scale.toRampIndex(quantity) / 255;
+
+    it('leaves the typical bucket in the cold end, so walls have something to stand out against', () => {
+        expect(share(MEASURED_DEPTH.median)).toBeLessThan(0.25);
+    });
+
+    it('keeps thin levels visible rather than black', () => {
+        expect(share(MEASURED_DEPTH.tenthPercentile)).toBeGreaterThan(0.02);
+    });
+
+    it('spends most of the ramp on the decile where walls live', () => {
+        const wallBand = share(MEASURED_DEPTH.ninetyNinthPercentile)
+            - share(MEASURED_DEPTH.ninetiethPercentile);
+
+        expect(wallBand).toBeGreaterThan(0.4);
+    });
+
+    it('puts a genuine wall in the hot end', () => {
+        expect(share(MEASURED_DEPTH.ninetyNinthPercentile)).toBeGreaterThan(0.75);
+    });
+
+    it('still separates the top decile into distinguishable steps', () => {
+        const steps = new Set(
+            [60, 90, 130, 180, 240, 300].map((quantity) => scale.toRampIndex(quantity)),
+        );
+
+        expect(steps.size).toBe(6);
+    });
+});

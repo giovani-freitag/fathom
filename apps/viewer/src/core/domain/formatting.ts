@@ -60,8 +60,16 @@ export function formatQuantity(quantity: number): string {
     return quantity.toFixed(quantity >= 10 ? 1 : 3);
 }
 
+const SIX_HOURS_MS = 6 * 60 * 60 * 1_000;
+const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1_000;
+const ONE_HOUR_MS = 60 * 60 * 1_000;
+
 /**
  * Renders a time axis label at the granularity the span calls for.
+ *
+ * A tick landing on midnight names its day rather than reading `00:00`. Over a
+ * window wide enough to cross one, a row of clock times gives no way to tell
+ * which side of the wrap a wall was on.
  *
  * @param timestampMs - Unix milliseconds.
  * @param spanMs - Width of the visible window, which decides the granularity.
@@ -69,10 +77,17 @@ export function formatQuantity(quantity: number): string {
  */
 export function formatAxisTime(timestampMs: number, spanMs: number): string {
     const moment = new Date(timestampMs);
-    if (spanMs > 3 * 24 * 60 * 60 * 1_000) {
+    if (spanMs > THREE_DAYS_MS) {
         return dayFormatter.format(moment);
     }
-    return clockFormatter.format(moment).slice(0, spanMs > 60 * 60 * 1_000 ? 5 : 8);
+    if (spanMs > SIX_HOURS_MS && isStartOfDay(moment)) {
+        return dayFormatter.format(moment);
+    }
+    return clockFormatter.format(moment).slice(0, spanMs > ONE_HOUR_MS ? 5 : 8);
+}
+
+function isStartOfDay(moment: Date): boolean {
+    return moment.getHours() === 0 && moment.getMinutes() === 0 && moment.getSeconds() === 0;
 }
 
 /**
