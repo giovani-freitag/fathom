@@ -104,6 +104,19 @@ O passo nunca fica mais fino que a grade gravada. Pedir mais colunas do que há
 frames deixaria buckets vazios entre os reais, e o renderizador desenharia um
 pente de colunas em branco.
 
+Medido contra o arquivo:
+
+| Janela pedida | Profundidade | No fio | Agressões |
+| --- | --- | --- | --- |
+| 15 min | 0,15 s | 303 KB | 0,01 s |
+| 1 h | 0,24 s | 906 KB | 0,01 s |
+| 2,4 h | 0,24 s | 1,3 MB | 0,01 s |
+
+Dez vezes mais janela custa 1,6 vezes mais tempo: a conta acompanha o número de
+colunas devolvidas, não a largura do intervalo — que é exatamente o ponto de
+sondar por índice em vez de varrer. As agressões ficam constantes porque as views
+contínuas já as agregaram.
+
 ## Execuções
 
 As agressões já chegam agregadas na mesma grade dos frames: o coletor soma por
