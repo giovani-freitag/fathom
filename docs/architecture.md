@@ -61,6 +61,27 @@ que ele próprio cobre**. Fora dela o conhecimento local é preservado. Substitu
 livro inteiro jogaria fora justamente a profundidade que o produto existe para
 mostrar.
 
+### Quanto tempo o livro leva para encher
+
+Medido na base, contando faixas de preço preenchidas depois de uma
+ressincronização:
+
+| Segundos após retomar | Faixas preenchidas |
+| --- | --- |
+| 1 | 173 de 316 (55%) |
+| 10 | 260 de 317 (82%) |
+| 60 | 311 de 317 (98%) |
+| 300 | 317 de 317 (100%) |
+
+O snapshot REST entrega pouco mais da metade da janela gravada; o resto chega
+pelo fluxo de mudanças em cerca de um minuto.
+
+**Consequência para a leitura:** no primeiro minuto após qualquer retomada, uma
+parede distante que já existia antes ainda não apareceu. Ela vai surgir no
+gráfico como se tivesse sido colocada naquele instante. Esse minuto sempre vem
+logo depois de uma faixa de lacuna — que já é desenhada — então na prática o
+próprio gráfico marca onde não confiar.
+
 ## Amostragem em janelas largas
 
 Duas semanas a uma coluna por segundo são 1,2 milhão de colunas para uma tela de
