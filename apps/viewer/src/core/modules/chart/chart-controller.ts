@@ -21,13 +21,14 @@ import {
     newestFrameTimestamp,
     replaceDataset,
 } from './chart-dataset';
+import {
+    followLiveEdge,
+    followTouchPrice,
+    frameOnBook,
+    resolveTradePriceGroupSize,
+    resolveViewportBounds,
+} from './viewport-policy';
 import { type LoadedWindow, WindowLoader, type WindowLoadRequest } from './window-loader';
-
-const MINIMUM_SPAN_MS = 5_000;
-const MAXIMUM_SPAN_MS = 90 * 24 * 60 * 60 * 1_000;
-
-/** Fraction of mid price shown on first load, where the working book actually is. */
-const INITIAL_PRICE_RANGE_RATIO = 0.004;
 
 export type ChartPhase = 'initialising' | 'ready' | 'empty' | 'failed';
 
@@ -214,33 +215,16 @@ export class ChartController {
 
     private resolveBounds(): ViewportBounds {
         const state = this.store.read();
-        const instrument = state.instruments.find(
-            (candidate) => candidate.instrumentSymbol === state.instrumentSymbol,
-        );
-
-        return {
-            earliestMs: instrument?.firstFrameAtMs ?? 0,
-            // The tail may be seconds ahead of the newest frame the viewer holds,
-            // so the edge follows the clock rather than the data.
-            latestMs: Math.max(Date.now(), instrument?.lastFrameAtMs ?? 0),
-            minimumSpanMs: MINIMUM_SPAN_MS,
-            maximumSpanMs: MAXIMUM_SPAN_MS,
-            minimumPriceSpan: state.dataset.priceBucketSize * 4,
-        };
+        return resolveViewportBounds({
+            instrument: state.instruments.find(
+                (candidate) => candidate.instrumentSymbol === state.instrumentSymbol,
+            ),
+            priceBucketSize: state.dataset.priceBucketSize,
+            nowMs: Date.now(),
+        });
     }
 
-    private resolveTradePriceGroupSize(): number {
-        const state = this.store.read();
-        const priceSpan = state.viewport.highPrice - state.viewport.lowPrice;
-        const bucketSize = state.dataset.priceBucketSize;
-        if (priceSpan <= 0 || bucketSize <= 0) {
-            return 1;
-        }
-        // Aim for bubbles no smaller than a few pixels: below that they merge
-        // into a smear and cost bandwidth for nothing.
-        const visibleBuckets = priceSpan / bucketSize;
-        return Math.max(1, Math.round(visibleBuckets / 220));
-    }
+
 
     private buildLoadRequest(): WindowLoadRequest | null {
         const state = this.store.read();
@@ -251,7 +235,7 @@ export class ChartController {
             symbol: state.instrumentSymbol,
             viewport: state.viewport,
             surfaceWidthPx: this.surfaceWidthPx,
-            priceGroupSize: this.resolveTradePriceGroupSize(),
+            priceGroupSize: resolveTradePriceGroupSize(state.viewport, state.dataset.priceBucketSize),
         };
     }
 
@@ -338,57 +322,21 @@ export class ChartController {
         if (!state.isFollowingLive) {
             return state.viewport;
         }
-        return this.followPrice(this.followTime(state.viewport, dataset), dataset);
-    }
-
-    private followTime(viewport: ChartViewport, dataset: ChartDataset): ChartViewport {
-        const newestMs = newestFrameTimestamp(dataset);
-        if (newestMs === null || newestMs <= viewport.toMs) {
-            return viewport;
-        }
-        return { ...viewport, fromMs: viewport.fromMs + (newestMs - viewport.toMs), toMs: newestMs };
+        return followTouchPrice(followLiveEdge(state.viewport, dataset), dataset);
     }
 
     /**
-     * Recentres the price axis once the book has left the screen entirely.
+     * Frames the price axis on the book, once per instrument.
      *
-     * A chart left running all day watches price walk off the top or bottom and
-     * then shows an empty field. Following only after the touch is fully gone,
-     * rather than whenever it nears an edge, is what keeps this from fighting a
-     * reader who deliberately parked the axis on a wall.
-     */
-    private followPrice(viewport: ChartViewport, dataset: ChartDataset): ChartViewport {
-        const newestFrame = dataset.frames[dataset.frames.length - 1];
-        if (newestFrame === undefined) {
-            return viewport;
-        }
-
-        const touchPrice = (newestFrame.bestBidPrice + newestFrame.bestAskPrice) / 2;
-        if (touchPrice >= viewport.lowPrice && touchPrice <= viewport.highPrice) {
-            return viewport;
-        }
-
-        const halfSpan = (viewport.highPrice - viewport.lowPrice) / 2;
-        return { ...viewport, lowPrice: touchPrice - halfSpan, highPrice: touchPrice + halfSpan };
-    }
-
-    /**
-     * Centres the price axis on the book the first time real depth arrives.
-     *
-     * The initial viewport is built before any price is known, so the price
-     * range is a placeholder until a window lands. Reframing on every load
-     * instead would fight the user's own zoom.
+     * Reframing on every load would fight the reader's own zoom, so the flag is
+     * cleared as soon as real depth has been seen.
      */
     private framePriceRange(viewport: ChartViewport, dataset: ChartDataset): ChartViewport {
-        const newestFrame = dataset.frames[dataset.frames.length - 1];
-        if (!this.needsPriceFraming || newestFrame === undefined) {
+        if (!this.needsPriceFraming || dataset.frames.length === 0) {
             return viewport;
         }
-
         this.needsPriceFraming = false;
-        const midPrice = (newestFrame.bestBidPrice + newestFrame.bestAskPrice) / 2;
-        const halfRange = midPrice * INITIAL_PRICE_RANGE_RATIO;
-        return { ...viewport, lowPrice: midPrice - halfRange, highPrice: midPrice + halfRange };
+        return frameOnBook(viewport, dataset);
     }
 
     private get isDisposed(): boolean {
