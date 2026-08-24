@@ -118,3 +118,27 @@ export function resolveTradePriceGroupSize(
     }
     return Math.max(1, Math.round((priceSpan / priceBucketSize) / 220));
 }
+
+/**
+ * How much history exists for an instrument.
+ *
+ * Drives which spans a reader is offered: order book history cannot be
+ * backfilled, so a window wider than the recording would show empty ground
+ * rather than a chart still loading.
+ *
+ * @param instruments - Everything the archive reports.
+ * @param instrumentSymbol - The contract on screen, if one is chosen.
+ * @returns Milliseconds between the first and newest recorded frame.
+ */
+export function resolveRecordedSpanMs(
+    instruments: readonly InstrumentCoverage[],
+    instrumentSymbol: string | null,
+): number {
+    const instrument = instruments.find(
+        (candidate) => candidate.instrumentSymbol === instrumentSymbol,
+    );
+    if (instrument?.firstFrameAtMs == null || instrument.lastFrameAtMs == null) {
+        return 0;
+    }
+    return Math.max(0, instrument.lastFrameAtMs - instrument.firstFrameAtMs);
+}

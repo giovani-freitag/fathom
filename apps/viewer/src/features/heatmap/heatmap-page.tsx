@@ -1,5 +1,6 @@
 import { Radar, RefreshCw, TriangleAlert } from 'lucide-react';
 import { type ReactElement, useCallback, useEffect } from 'react';
+import { resolveRecordedSpanMs } from '@core/modules/chart/viewport-policy';
 import { useKernel } from '@react/kernel-context';
 import { useChartState } from '@react/use-chart-state';
 import { ControlButton } from '@ui/primitives/control-button';
@@ -38,14 +39,7 @@ export function HeatmapPage(): ReactElement {
         handleSpanSelect(viewport.toMs - viewport.fromMs);
     }, [handleSpanSelect, kernel]);
 
-    const selectedInstrument = state.instruments.find(
-        (candidate) => candidate.instrumentSymbol === state.instrumentSymbol,
-    );
-    const recordedSpanMs = selectedInstrument === undefined
-        || selectedInstrument.firstFrameAtMs === null
-        || selectedInstrument.lastFrameAtMs === null
-        ? 0
-        : selectedInstrument.lastFrameAtMs - selectedInstrument.firstFrameAtMs;
+    const recordedSpanMs = resolveRecordedSpanMs(state.instruments, state.instrumentSymbol);
 
     return (
         <div className="flex h-dvh flex-col bg-abyss-900 pt-[env(safe-area-inset-top)]">

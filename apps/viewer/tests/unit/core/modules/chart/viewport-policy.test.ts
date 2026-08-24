@@ -4,6 +4,7 @@ import {
     followLiveEdge,
     followTouchPrice,
     frameOnBook,
+    resolveRecordedSpanMs,
     resolveTradePriceGroupSize,
     resolveViewportBounds,
 } from '@core/modules/chart/viewport-policy';
@@ -157,5 +158,23 @@ describe('resolveTradePriceGroupSize', () => {
 
     it('never returns a grouping below one', () => {
         expect(resolveTradePriceGroupSize({ ...VIEWPORT, highPrice: 78_000 }, 10)).toBe(1);
+    });
+});
+
+describe('resolveRecordedSpanMs', () => {
+    it('measures between the first and newest recorded frame', () => {
+        expect(resolveRecordedSpanMs([INSTRUMENT], 'BTCUSDT')).toBe(1_500_000);
+    });
+
+    it('reports nothing for an instrument that was never recorded', () => {
+        expect(resolveRecordedSpanMs([{ ...INSTRUMENT, firstFrameAtMs: null }], 'BTCUSDT')).toBe(0);
+    });
+
+    it('reports nothing when no instrument is chosen', () => {
+        expect(resolveRecordedSpanMs([INSTRUMENT], null)).toBe(0);
+    });
+
+    it('reports nothing for an unknown instrument', () => {
+        expect(resolveRecordedSpanMs([INSTRUMENT], 'ETHUSDT')).toBe(0);
     });
 });

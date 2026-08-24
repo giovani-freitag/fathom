@@ -1,5 +1,6 @@
 import type { ChartSettingsPatch, ChartState } from '@core/modules/chart/chart-controller';
 import { formatDuration } from '@core/domain/formatting';
+import { resolveRecordedSpanMs } from '@core/modules/chart/viewport-policy';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { Dialog, Slider, Switch } from 'radix-ui';
 import type { ReactElement } from 'react';
@@ -92,6 +93,10 @@ export function DisplaySettingsSheet({ state, onChange }: DisplaySettingsSheetPr
                         />
 
                         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-hairline pt-4 text-[11px]">
+                            <dt className="text-ink-500">Gravado até agora</dt>
+                            <dd className="numeric text-right text-ink-100">
+                                {formatDuration(resolveRecordedSpanMs(state.instruments, state.instrumentSymbol))}
+                            </dd>
                             <dt className="text-ink-500">Resolução</dt>
                             <dd className="numeric text-right text-ink-300">
                                 {formatDuration(state.dataset.sampleIntervalMs)} por coluna
@@ -102,7 +107,15 @@ export function DisplaySettingsSheet({ state, onChange }: DisplaySettingsSheetPr
                             </dd>
                             <dt className="text-ink-500">Colunas carregadas</dt>
                             <dd className="numeric text-right text-ink-300">{state.dataset.frames.length}</dd>
+                            <dt className="text-ink-500">Lacunas na janela</dt>
+                            <dd className="numeric text-right text-ink-300">{state.dataset.gaps.length}</dd>
                         </dl>
+
+                        <p className="text-[11px] leading-relaxed text-ink-500">
+                            Janelas maiores que o gravado ficam desabilitadas. Histórico de livro
+                            não é recuperável: o gráfico só cobre o tempo em que o coletor esteve
+                            rodando.
+                        </p>
                     </div>
                 </Dialog.Content>
             </Dialog.Portal>
