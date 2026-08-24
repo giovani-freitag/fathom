@@ -26,6 +26,13 @@ processo que grava, o buraco na base é permanente — e é a única coisa no si
 que não dá para refazer. Separar garante que abrir dez abas do gráfico não
 custa um segundo de gravação.
 
+## Limites do gateway
+
+Cada socket ao vivo abre seu próprio cursor contra o mesmo banco em que o coletor
+escreve, então o número deles é limitado. Ligado a um endereço de LAN, algumas
+abas esquecidas são normais e um cliente descontrolado não pode disputar espaço
+com a gravação.
+
 ## O gateway lê do arquivo, não do coletor
 
 O tempo real chega ao navegador por um *tail* do banco, não por um túnel a partir
@@ -118,6 +125,31 @@ de milhares de pixels por quadro.
 
 Duas telas empilhadas: profundidade embaixo, cromo em cima. Mover o cursor repinta
 só a camada fina.
+
+### Um segundo novo não reconstrói a janela
+
+O campo absorve os frames que chegam ao vivo em vez de ser refeito. Medido numa
+janela de uma hora, antes e depois:
+
+| | Repinturas em 12s | Custo total |
+| --- | --- | --- |
+| Reconstruindo | 24 de 712 mil pixels | 501 ms |
+| Absorvendo | 12 de uma coluna | 0,8 ms |
+
+Meio segundo a cada doze era 4% da thread principal gasta redesenhando dados que
+não mudaram. No desktop isso passava despercebido; num celular, três a cinco vezes
+mais lento, vira engasgo no meio de um pinch.
+
+O campo recusa a absorção e pede reconstrução quando a grade muda, quando as
+colunas de folga acabam, ou quando o preço sai da faixa já pintada.
+
+### Camadas
+
+O coordenador não desenha nada: resolve o layout, o campo e os ticks, e entrega
+tudo num contexto compartilhado para cada camada — lacunas, grade, perfil,
+agressões, linha de preço, eixos, crosshair. Os ticks são resolvidos uma vez e
+compartilhados, porque uma linha de grade e seu rótulo discordarem por um pixel é
+o tipo de defeito que ninguém consegue explicar depois.
 
 ## Camadas do viewer
 
