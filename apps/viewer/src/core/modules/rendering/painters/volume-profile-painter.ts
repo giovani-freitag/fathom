@@ -11,6 +11,8 @@ interface ProfileRow {
 interface VolumeProfile {
     readonly rows: readonly ProfileRow[];
     readonly maximumVolume: number;
+    /** Row that traded the most, which is where price tends to come back to. */
+    readonly busiestRow: ProfileRow | null;
 }
 
 /**
@@ -40,7 +42,33 @@ export class VolumeProfilePainter {
         context.lineTo(layout.profileX + 0.5, layout.plotHeight);
         context.stroke();
 
-        this.paintBars(paint, buildVolumeProfile(paint));
+        const profile = buildVolumeProfile(paint);
+        this.paintBars(paint, profile);
+        this.paintPointOfControl(paint, profile);
+    }
+
+    /**
+     * Marks the price level that traded the most in view.
+     *
+     * The busiest level is where the most positions were opened, and price
+     * returning to it is one of the few things a volume profile actually says.
+     * Without the mark a reader has to eyeball which of several long bars wins.
+     */
+    private paintPointOfControl(paint: PaintContext, profile: VolumeProfile): void {
+        const busiestRow = profile.busiestRow;
+        if (busiestRow === null) {
+            return;
+        }
+
+        const { context, layout } = paint;
+        const y = Math.round(busiestRow.y) + 0.5;
+
+        context.strokeStyle = RENDER_PALETTE.amber;
+        context.lineWidth = 1;
+        context.beginPath();
+        context.moveTo(layout.profileX, y);
+        context.lineTo(layout.profileX + layout.profileWidth, y);
+        context.stroke();
     }
 
     private paintBars(paint: PaintContext, profile: VolumeProfile): void {
@@ -91,6 +119,7 @@ function buildVolumeProfile(paint: PaintContext): VolumeProfile {
 
     const rows: ProfileRow[] = [];
     let maximumVolume = 0;
+    let busiestRow: ProfileRow | null = null;
 
     for (const [bucketIndex, volume] of volumeByBucket) {
         const price = toBucketCentrePrice(bucketIndex, request.dataset.clusterPriceBucketSize);
@@ -98,9 +127,15 @@ function buildVolumeProfile(paint: PaintContext): VolumeProfile {
         if (y < 0 || y > layout.plotHeight) {
             continue;
         }
-        maximumVolume = Math.max(maximumVolume, volume.buyQuantity + volume.sellQuantity);
-        rows.push({ y, buyQuantity: volume.buyQuantity, sellQuantity: volume.sellQuantity });
+
+        const row = { y, buyQuantity: volume.buyQuantity, sellQuantity: volume.sellQuantity };
+        const total = volume.buyQuantity + volume.sellQuantity;
+        if (total > maximumVolume) {
+            maximumVolume = total;
+            busiestRow = row;
+        }
+        rows.push(row);
     }
 
-    return { rows, maximumVolume };
+    return { rows, maximumVolume, busiestRow };
 }

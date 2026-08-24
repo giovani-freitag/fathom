@@ -1,10 +1,11 @@
 import { DepthColourScale } from '@core/domain/depth-colour-scale';
-import { formatQuantity } from '@core/domain/formatting';
+import { formatQuantity, resolveBaseAsset } from '@core/domain/formatting';
 import { type ReactElement, useEffect, useRef } from 'react';
 
 interface DepthLegendProps {
     readonly saturationQuantity: number;
     readonly colourGain: number;
+    readonly instrumentSymbol: string | null;
 }
 
 /**
@@ -13,7 +14,11 @@ interface DepthLegendProps {
  * Intensity is relative to the loaded window rather than absolute, so without
  * the number beside it the ramp says nothing about how large a wall actually is.
  */
-export function DepthLegend({ saturationQuantity, colourGain }: DepthLegendProps): ReactElement {
+export function DepthLegend({
+    saturationQuantity,
+    colourGain,
+    instrumentSymbol,
+}: DepthLegendProps): ReactElement {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
     useEffect(() => {
@@ -40,10 +45,13 @@ export function DepthLegend({ saturationQuantity, colourGain }: DepthLegendProps
 
     return (
         <div className="pointer-events-none flex select-none items-center gap-2 rounded-md border border-hairline bg-abyss-900/80 px-2 py-1.5 backdrop-blur-sm">
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-ink-500">máx</span>
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-ink-500">
+                livro
+            </span>
             <canvas ref={canvasRef} width={72} height={6} className="rounded-sm" />
             <span className="numeric text-[10px] text-ink-300">
                 {formatQuantity(saturationQuantity / Math.max(colourGain, 0.01))}
+                {instrumentSymbol === null ? '' : ` ${resolveBaseAsset(instrumentSymbol)}`}
             </span>
         </div>
     );

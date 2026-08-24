@@ -106,3 +106,24 @@ export function formatDuration(durationMs: number): string {
     const hours = Math.round(minutes / 60);
     return hours < 48 ? `${hours}h` : `${Math.round(hours / 24)}d`;
 }
+
+/**
+ * Quote currencies a perpetual's symbol can end in.
+ *
+ * Ordered longest first so `BTCUSDT` resolves against `USDT` rather than `USD`.
+ */
+const QUOTE_SUFFIXES = ['USDT', 'USDC', 'BUSD', 'USD'];
+
+/**
+ * The asset a contract is denominated in, read off its symbol.
+ *
+ * Sizes on this chart are in the base asset, and a bare number leaves the reader
+ * guessing whether a wall of 316 is contracts, coins, or dollars.
+ *
+ * @param instrumentSymbol - Venue symbol, such as `BTCUSDT`.
+ * @returns The base asset, or the whole symbol when no known quote is found.
+ */
+export function resolveBaseAsset(instrumentSymbol: string): string {
+    const suffix = QUOTE_SUFFIXES.find((candidate) => instrumentSymbol.endsWith(candidate));
+    return suffix === undefined ? instrumentSymbol : instrumentSymbol.slice(0, -suffix.length);
+}

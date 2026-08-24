@@ -78,6 +78,7 @@ export function HeatmapPage(): ReactElement {
                     <DepthLegend
                         saturationQuantity={state.dataset.saturationQuantity}
                         colourGain={state.colourGain}
+                        instrumentSymbol={state.instrumentSymbol}
                     />
                 </div>
 
