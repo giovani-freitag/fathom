@@ -1,6 +1,9 @@
 import type { LiquidityFrame } from '@fathom/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { LiveTailService } from '../../../../src/services/live-tail/live-tail-service.ts';
+import {
+    LiveTailService,
+    TooManySubscribersError,
+} from '../../../../src/services/live-tail/live-tail-service.ts';
 import { createLiquidityQueryServiceMock } from '../../../mocks/liquidity-query-service.ts';
 
 function buildFrame(capturedAtMs: number): LiquidityFrame {
@@ -13,8 +16,25 @@ function buildFrame(capturedAtMs: number): LiquidityFrame {
     };
 }
 
-function buildService(query: ReturnType<typeof createLiquidityQueryServiceMock>): LiveTailService {
-    return new LiveTailService({ query: query.service, pollIntervalMs: 100, maxFramesPerPoll: 50 });
+function buildService(
+    query: ReturnType<typeof createLiquidityQueryServiceMock>,
+    maximumSubscriptions = 24,
+): LiveTailService {
+    return new LiveTailService({
+        query: query.service,
+        pollIntervalMs: 100,
+        maxFramesPerPoll: 50,
+        maximumSubscriptions,
+    });
+}
+
+function buildRequest() {
+    return {
+        instrumentSymbol: 'BTCUSDT',
+        afterMs: 5_000,
+        onFrames: vi.fn(),
+        onText: vi.fn(),
+    };
 }
 
 describe('LiveTailService', () => {
@@ -141,5 +161,32 @@ describe('LiveTailService', () => {
         service.stop();
 
         expect(service.subscriptionCount).toBe(0);
+    });
+});
+
+describe('LiveTailService budget', () => {
+    it('serves viewers up to its budget', () => {
+        const service = buildService(createLiquidityQueryServiceMock(), 2);
+
+        service.subscribe(buildRequest());
+        service.subscribe(buildRequest());
+
+        expect(service.subscriptionCount).toBe(2);
+    });
+
+    it('refuses a viewer past the budget rather than starving the recording', () => {
+        const service = buildService(createLiquidityQueryServiceMock(), 1);
+        service.subscribe(buildRequest());
+
+        expect(() => service.subscribe(buildRequest())).toThrow(TooManySubscribersError);
+    });
+
+    it('frees the slot once a viewer disconnects', () => {
+        const service = buildService(createLiquidityQueryServiceMock(), 1);
+        const unsubscribe = service.subscribe(buildRequest());
+
+        unsubscribe();
+
+        expect(() => service.subscribe(buildRequest())).not.toThrow();
     });
 });

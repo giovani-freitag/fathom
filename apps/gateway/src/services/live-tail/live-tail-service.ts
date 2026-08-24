@@ -15,6 +15,15 @@ export interface LiveTailServiceConfig {
     readonly query: LiquidityQueryService;
     readonly pollIntervalMs: number;
     readonly maxFramesPerPoll: number;
+    readonly maximumSubscriptions: number;
+}
+
+/** Raised when the gateway is already tailing for as many viewers as it will. */
+export class TooManySubscribersError extends Error {
+    constructor(maximumSubscriptions: number) {
+        super(`The gateway is already serving ${maximumSubscriptions} live tails`);
+        this.name = 'TooManySubscribersError';
+    }
 }
 
 /**
@@ -37,8 +46,13 @@ export class LiveTailService {
      *
      * @param request - Instrument, resume point, and the two delivery callbacks.
      * @returns A canceller; calling it twice is safe.
+     * @throws TooManySubscribersError when the tail budget is already spent.
      */
     subscribe(request: LiveTailSubscriptionRequest): Unsubscribe {
+        if (this.subscriptions.size >= this.config.maximumSubscriptions) {
+            throw new TooManySubscribersError(this.config.maximumSubscriptions);
+        }
+
         const subscription = new LiveTailSubscription(request, this.config);
         this.subscriptions.add(subscription);
         subscription.start();

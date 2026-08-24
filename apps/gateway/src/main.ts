@@ -21,6 +21,7 @@ const liveTail = new LiveTailService({
     query,
     pollIntervalMs: LIVE_TAIL_SETTINGS.pollIntervalMs,
     maxFramesPerPoll: LIVE_TAIL_SETTINGS.maxFramesPerPoll,
+    maximumSubscriptions: LIVE_TAIL_SETTINGS.maximumSubscriptions,
 });
 
 const server = new Server({

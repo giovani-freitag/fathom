@@ -8,7 +8,15 @@ import {
 const INITIAL_RECONNECT_DELAY_MS = 1_000;
 const MAXIMUM_RECONNECT_DELAY_MS = 15_000;
 
-export type LiveFeedStatus = 'idle' | 'connecting' | 'streaming' | 'reconnecting';
+export type LiveFeedStatus = 'idle' | 'connecting' | 'streaming' | 'reconnecting' | 'refused';
+
+/**
+ * Close codes that mean retrying will not help.
+ *
+ * A policy refusal is a decision, not a fault: reconnecting against one loops
+ * forever and hammers the very gateway that said no.
+ */
+const PERMANENT_CLOSE_CODES = new Set([1008, 1003]);
 
 export interface LiveFeedServiceConfig {
     /** Absolute origin of the gateway; the scheme is swapped for the socket one. */
@@ -150,9 +158,16 @@ export class LiveFeedService {
         }
     }
 
-    private handleSocketClose(): void {
+    private handleSocketClose(event: Event): void {
+        const closeCode = event instanceof CloseEvent ? event.code : 0;
         this.closeSocket();
         if (this.wasStopped) {
+            return;
+        }
+
+        if (PERMANENT_CLOSE_CODES.has(closeCode)) {
+            this.wasStopped = true;
+            this.subscription?.onStatusChanged('refused');
             return;
         }
 

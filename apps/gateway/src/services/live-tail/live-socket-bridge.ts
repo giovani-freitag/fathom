@@ -34,22 +34,30 @@ export class LiveSocketBridge {
 
     /**
      * Announces the subscription and begins forwarding.
+     *
+     * A refused subscription closes the socket with a policy code rather than
+     * leaving it open and silent, so the viewer can say why nothing is arriving.
      */
     start(): void {
         this.config.socket.on('close', this.handleSocketClose);
         this.config.socket.on('error', this.handleSocketClose);
 
+        try {
+            this.unsubscribe = this.config.liveTail.subscribe({
+                instrumentSymbol: this.config.instrumentSymbol,
+                afterMs: this.config.afterMs,
+                onFrames: this.handleFrames,
+                onText: this.handleText,
+            });
+        } catch (error) {
+            this.config.socket.close(1013, describeRefusal(error));
+            return;
+        }
+
         this.handleText({
             kind: 'subscribed',
             instrumentSymbol: this.config.instrumentSymbol,
             priceBucketSize: this.config.priceBucketSize,
-        });
-
-        this.unsubscribe = this.config.liveTail.subscribe({
-            instrumentSymbol: this.config.instrumentSymbol,
-            afterMs: this.config.afterMs,
-            onFrames: this.handleFrames,
-            onText: this.handleText,
         });
     }
 
@@ -84,4 +92,8 @@ export class LiveSocketBridge {
     private isSocketWritable(): boolean {
         return this.config.socket.readyState === this.config.socket.OPEN;
     }
+}
+
+function describeRefusal(error: unknown): string {
+    return error instanceof Error ? error.message : 'Live tail refused';
 }

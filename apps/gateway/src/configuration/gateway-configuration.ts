@@ -24,6 +24,15 @@ export const LIVE_TAIL_SETTINGS = {
     maxFramesPerPoll: 120,
     /** Frames older than this are not replayed to a socket that just connected. */
     initialBacklogMs: 60_000,
+    /**
+     * Live tails allowed at once.
+     *
+     * Each one polls the archive on its own cursor, and the archive is the same
+     * database the collector writes to. Bound to a LAN address, a handful of
+     * forgotten tabs is normal and a runaway client should not be able to starve
+     * the recording.
+     */
+    maximumSubscriptions: 24,
 } as const;
 
 export const QUERY_LIMITS = {

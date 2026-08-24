@@ -11,6 +11,7 @@ const LIVE_TONES: Record<ChartState['liveStatus'], StatusTone> = {
     streaming: 'live',
     connecting: 'pending',
     reconnecting: 'stale',
+    refused: 'stale',
     idle: 'idle',
 };
 
@@ -18,6 +19,7 @@ const LIVE_LABELS: Record<ChartState['liveStatus'], string> = {
     streaming: 'ao vivo',
     connecting: 'conectando',
     reconnecting: 'reconectando',
+    refused: 'recusado',
     idle: 'parado',
 };
 
