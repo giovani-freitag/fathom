@@ -40,6 +40,28 @@ pnpm gateway                  # serve a API e a interface em http://localhost:87
 Para deixar rodando de verdade, veja [docs/operations.md](docs/operations.md) — há
 unidades `systemd` prontas que sobrevivem a logout e reboot.
 
+## Como ler o gráfico
+
+| Elemento | O que é |
+| --- | --- |
+| Faixas horizontais | Liquidez parada no livro. Quanto mais quente, maior o tamanho |
+| Bolhas | Agressões: ordens a mercado que cruzaram o spread. Verde comprou, vermelho vendeu |
+| Linha tracejada ciano | Preço do livro na borda direita da janela |
+| Faixas âmbar tracejadas | Períodos sem gravação |
+| Painel à direita | Volume negociado por faixa de preço na janela |
+| Linha âmbar no painel | Faixa que mais negociou — para onde o preço costuma voltar |
+| Legenda `LIVRO` | Tamanho que satura a cor. É relativo à janela, não absoluto |
+
+Passe o cursor (ou o dedo) para ver, num ponto: quanto está parado no livro ali e
+quanto foi negociado naquela célula.
+
+**Gestos:** um dedo arrasta, dois dedos dão zoom nos dois eixos ao mesmo tempo. No
+desktop, a roda dá zoom no tempo e `shift` + roda no preço; duplo clique volta ao
+tempo real.
+
+O eixo de preço se recentra sozinho quando o preço sai da tela, mas só quando sai
+de vez — se você parkou o eixo numa parede, ele fica onde você deixou.
+
 ## Uso no celular
 
 O gateway serve a API **e** a interface na mesma porta, e escuta em `0.0.0.0`.
