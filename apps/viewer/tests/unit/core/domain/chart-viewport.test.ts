@@ -97,3 +97,40 @@ describe('clampViewport', () => {
         expect([clamped.lowPrice, clamped.highPrice]).toEqual([145, 155]);
     });
 });
+
+describe('clampViewport against a short recording', () => {
+    const SHORT_RECORDING: ViewportBounds = {
+        earliestMs: 1_000_000,
+        latestMs: 1_600_000,
+        minimumSpanMs: 5_000,
+        maximumSpanMs: 90 * 24 * 60 * 60 * 1_000,
+        minimumPriceSpan: 10,
+    };
+
+    it('never shows time past the newest frame', () => {
+        const clamped = clampViewport(
+            { ...VIEWPORT, fromMs: -2_000_000, toMs: 1_600_000 },
+            SHORT_RECORDING,
+        );
+
+        expect(clamped.toMs).toBeLessThanOrEqual(SHORT_RECORDING.latestMs);
+    });
+
+    it('shrinks a span wider than the recording instead of sliding into the future', () => {
+        const clamped = clampViewport(
+            { ...VIEWPORT, fromMs: -2_000_000, toMs: 1_600_000 },
+            SHORT_RECORDING,
+        );
+
+        expect(clamped.toMs - clamped.fromMs).toBe(600_000);
+    });
+
+    it('starts no earlier than the first frame', () => {
+        const clamped = clampViewport(
+            { ...VIEWPORT, fromMs: -2_000_000, toMs: 1_600_000 },
+            SHORT_RECORDING,
+        );
+
+        expect(clamped.fromMs).toBe(SHORT_RECORDING.earliestMs);
+    });
+});

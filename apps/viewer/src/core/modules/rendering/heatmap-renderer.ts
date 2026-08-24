@@ -1,5 +1,6 @@
 import type { LiquidityFrame, RecordingGap } from '@fathom/contracts';
 import { toBucketCentrePrice } from '@fathom/contracts';
+import { chooseTimeTicks, choosePriceTicks } from '@core/domain/axis-ticks';
 import type { ChartViewport } from '@core/domain/chart-viewport';
 import { formatAxisTagPrice, formatAxisTime, formatPrice, formatQuantity } from '@core/domain/formatting';
 import { ViewportProjector } from '@core/domain/viewport-projector';
@@ -626,51 +627,6 @@ function buildVolumeProfile(
     }
 
     return { rows, maximumVolume };
-}
-
-const PRICE_TICK_STEPS = [1, 2, 2.5, 5, 10];
-const TARGET_TICK_SPACING_PX = 64;
-
-function choosePriceTicks(viewport: ChartViewport, plotHeight: number): number[] {
-    const span = viewport.highPrice - viewport.lowPrice;
-    const targetCount = Math.max(2, Math.floor(plotHeight / TARGET_TICK_SPACING_PX));
-    const step = chooseNiceStep(span / targetCount);
-
-    const ticks: number[] = [];
-    const firstTick = Math.ceil(viewport.lowPrice / step) * step;
-    for (let price = firstTick; price <= viewport.highPrice; price += step) {
-        ticks.push(price);
-    }
-    return ticks;
-}
-
-const TIME_TICK_STEPS_MS = [
-    1_000, 5_000, 15_000, 30_000,
-    60_000, 300_000, 900_000, 1_800_000,
-    3_600_000, 10_800_000, 21_600_000, 43_200_000,
-    86_400_000, 172_800_000, 604_800_000,
-];
-
-function chooseTimeTicks(viewport: ChartViewport, plotWidth: number): number[] {
-    const spanMs = viewport.toMs - viewport.fromMs;
-    const targetCount = Math.max(2, Math.floor(plotWidth / 96));
-    const desiredStep = spanMs / targetCount;
-    const step = TIME_TICK_STEPS_MS.find((candidate) => candidate >= desiredStep)
-        ?? TIME_TICK_STEPS_MS[TIME_TICK_STEPS_MS.length - 1]!;
-
-    const ticks: number[] = [];
-    const firstTick = Math.ceil(viewport.fromMs / step) * step;
-    for (let timestampMs = firstTick; timestampMs <= viewport.toMs; timestampMs += step) {
-        ticks.push(timestampMs);
-    }
-    return ticks;
-}
-
-function chooseNiceStep(rawStep: number): number {
-    const magnitude = 10 ** Math.floor(Math.log10(Math.max(rawStep, Number.EPSILON)));
-    const normalised = rawStep / magnitude;
-    const step = PRICE_TICK_STEPS.find((candidate) => candidate >= normalised) ?? 10;
-    return step * magnitude;
 }
 
 const EMPTY_LAYOUT: ChartLayout = {

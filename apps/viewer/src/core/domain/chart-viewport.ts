@@ -95,8 +95,17 @@ export function zoomViewportPrice(request: ViewportZoomRequest): ChartViewport {
  * @returns A viewport within bounds, preserving the requested span where possible.
  */
 export function clampViewport(viewport: ChartViewport, bounds: ViewportBounds): ChartViewport {
+    // A span wider than what was ever recorded has nowhere to sit: pushing its
+    // start up to the first frame would push its end past the clock, and the
+    // chart would show empty future instead of saying it has less history than
+    // was asked for.
+    const recordedSpanMs = Math.max(bounds.minimumSpanMs, bounds.latestMs - bounds.earliestMs);
     const requestedSpanMs = viewport.toMs - viewport.fromMs;
-    const spanMs = Math.min(Math.max(requestedSpanMs, bounds.minimumSpanMs), bounds.maximumSpanMs);
+    const spanMs = Math.min(
+        Math.max(requestedSpanMs, bounds.minimumSpanMs),
+        bounds.maximumSpanMs,
+        recordedSpanMs,
+    );
 
     let fromMs = viewport.fromMs;
     if (fromMs + spanMs > bounds.latestMs) {

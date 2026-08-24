@@ -5,11 +5,20 @@ import type { ChartDataset } from '@core/modules/chart/chart-dataset';
 /**
  * Bucket rows the source image is allowed to hold.
  *
- * A wide window over a large price move spans thousands of buckets. The cap
- * bounds the allocation; beyond it the field covers the busiest span and the
- * rest is clipped rather than allocating tens of megabytes per repaint.
+ * A wide window over a large price move spans thousands of buckets, and the
+ * field is reallocated whenever the data changes.
  */
 const MAXIMUM_BUCKET_ROWS = 6_000;
+
+/**
+ * Total pixels the field may allocate, at four bytes each.
+ *
+ * The row cap alone is not enough: rows and columns both grow with the window,
+ * and their product is what a phone has to hold. Eight million pixels is
+ * thirty-two megabytes, which a wide desktop window can reach and a phone,
+ * having far fewer columns, never does.
+ */
+const MAXIMUM_FIELD_PIXELS = 8_000_000;
 
 export interface DepthFieldConfig {
     readonly dataset: ChartDataset;
@@ -160,13 +169,56 @@ function measureExtent(dataset: ChartDataset): FieldExtent {
         );
     }
 
-    const requestedRows = highestBucketIndex - lowestBucketIndex + 1;
-    const bucketCount = Math.min(Math.max(1, requestedRows), MAXIMUM_BUCKET_ROWS);
+    const requestedRows = Math.max(1, highestBucketIndex - lowestBucketIndex + 1);
+    const pixelBudgetRows = Math.floor(MAXIMUM_FIELD_PIXELS / Math.max(1, columnCount));
+    const bucketCount = Math.max(1, Math.min(requestedRows, MAXIMUM_BUCKET_ROWS, pixelBudgetRows));
 
     return {
         baseTimestampMs: firstFrame.capturedAtMs,
         columnCount: Math.max(1, columnCount),
-        lowestBucketIndex: highestBucketIndex - bucketCount + 1,
+        lowestBucketIndex: chooseRetainedBand({
+            frames: dataset.frames,
+            priceBucketSize: dataset.priceBucketSize,
+            lowestBucketIndex,
+            highestBucketIndex,
+            bucketCount,
+        }),
         bucketCount,
     };
+}
+
+interface RetainedBandRequest {
+    readonly frames: readonly LiquidityFrame[];
+    readonly priceBucketSize: number;
+    readonly lowestBucketIndex: number;
+    readonly highestBucketIndex: number;
+    readonly bucketCount: number;
+}
+
+/**
+ * Lowest bucket of the band the field keeps when it cannot hold the whole range.
+ *
+ * Centred on the median touch rather than anchored to either extreme: a window
+ * whose price trended spends most of its time nowhere near the top or the
+ * bottom, and clipping from one end throws away exactly the part that was busy.
+ *
+ * @param request - The frames, the grid, and the band size to fit.
+ * @returns The lowest bucket index the field should start at.
+ */
+function chooseRetainedBand(request: RetainedBandRequest): number {
+    const fullRange = request.highestBucketIndex - request.lowestBucketIndex + 1;
+    if (request.bucketCount >= fullRange) {
+        return request.lowestBucketIndex;
+    }
+
+    const midBuckets = request.frames
+        .map((frame) => Math.floor(
+            (frame.bestBidPrice + frame.bestAskPrice) / 2 / request.priceBucketSize,
+        ))
+        .sort((left, right) => left - right);
+    const medianBucket = midBuckets[Math.floor(midBuckets.length / 2)] ?? request.lowestBucketIndex;
+
+    const desiredLowest = medianBucket - Math.floor(request.bucketCount / 2);
+    const highestAllowedStart = request.highestBucketIndex - request.bucketCount + 1;
+    return Math.min(Math.max(desiredLowest, request.lowestBucketIndex), highestAllowedStart);
 }
