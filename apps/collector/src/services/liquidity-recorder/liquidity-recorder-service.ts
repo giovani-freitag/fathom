@@ -1,5 +1,6 @@
 import { floorToInterval, type LiquidityFrame } from '@fathom/contracts';
 import type { LiquidityArchiveService } from '@fathom/persistence';
+import { describeError } from '../../logging/collector-log.ts';
 import type { ExecutedTrade } from '../order-book/depth-types.ts';
 import type { OrderBookService } from '../order-book/order-book-service.ts';
 import { ArchiveWriteBuffer } from './archive-write-buffer.ts';
@@ -231,7 +232,6 @@ export class LiquidityRecorderService {
     }
 
     private handleGapWriteFailure(error: unknown): void {
-        const reason = error instanceof Error ? error.message : String(error);
-        this.config.onStatusChanged(`Could not record a gap: ${reason}`);
+        this.config.onStatusChanged(`Could not record a gap: ${describeError(error)}`);
     }
 }

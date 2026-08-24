@@ -76,6 +76,19 @@ export function formatAxisTime(timestampMs: number, spanMs: number): string {
 }
 
 /**
+ * Renders an instant as a wall clock reading.
+ *
+ * Always to the second, unlike the axis labels: the crosshair exists to answer
+ * "when exactly", and a label rounded to the minute cannot.
+ *
+ * @param timestampMs - Unix milliseconds.
+ * @returns The formatted time of day.
+ */
+export function formatClockTime(timestampMs: number): string {
+    return clockFormatter.format(new Date(timestampMs));
+}
+
+/**
  * Renders a duration as a human-readable span.
  *
  * @param durationMs - Length in milliseconds.

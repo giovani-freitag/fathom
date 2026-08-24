@@ -19,6 +19,8 @@ export interface ChartDataset {
     /** Grid the window was sampled onto; live frames land on the same grid. */
     readonly sampleIntervalMs: number;
     readonly clusterPriceBucketSize: number;
+    /** Time grid the executions were binned onto, which is coarser than the frames'. */
+    readonly clusterIntervalMs: number;
     readonly frames: readonly LiquidityFrame[];
     readonly clusters: readonly TradeCluster[];
     readonly gaps: readonly RecordingGap[];
@@ -39,6 +41,7 @@ export const EMPTY_DATASET: ChartDataset = {
     priceBucketSize: 1,
     sampleIntervalMs: 1_000,
     clusterPriceBucketSize: 1,
+    clusterIntervalMs: 1_000,
     frames: [],
     clusters: [],
     gaps: [],
@@ -51,6 +54,8 @@ export interface DatasetReplaceRequest {
     readonly window: LiquidityFrameWindow;
     readonly clusters: readonly TradeCluster[];
     readonly clusterPriceBucketSize: number;
+    /** Time grid the executions were binned onto, which is coarser than the frames'. */
+    readonly clusterIntervalMs: number;
     readonly gaps: readonly RecordingGap[];
     readonly previousRevision: number;
 }
@@ -67,6 +72,7 @@ export function replaceDataset(request: DatasetReplaceRequest): ChartDataset {
         priceBucketSize: request.window.priceBucketSize,
         sampleIntervalMs: Math.max(1, request.window.sampleIntervalMs),
         clusterPriceBucketSize: request.clusterPriceBucketSize,
+        clusterIntervalMs: Math.max(1, request.clusterIntervalMs),
         frames: request.window.frames,
         clusters: request.clusters,
         gaps: request.gaps,
@@ -155,8 +161,13 @@ export function appendFrames(
 /**
  * Merges newly streamed executions into a dataset.
  *
+ * The live tail always bins on the stored price grid, while a wide window is
+ * loaded on a coarser one. Arrivals are re-binned onto whatever grid the window
+ * is using, otherwise a streamed bubble would be drawn at a price the rest of
+ * the window does not use.
+ *
  * @param dataset - The snapshot to extend.
- * @param clusters - Newly arrived clusters.
+ * @param clusters - Newly arrived clusters, on the stored price grid.
  * @returns The extended snapshot, or the original when nothing was new.
  */
 export function appendClusters(
@@ -168,7 +179,13 @@ export function appendClusters(
     }
 
     const newestLoadedMs = dataset.clusters[dataset.clusters.length - 1]?.executedAtMs ?? -Infinity;
-    const freshClusters = clusters.filter((cluster) => cluster.executedAtMs > newestLoadedMs);
+    const groupSize = Math.max(1, Math.round(dataset.clusterPriceBucketSize / dataset.priceBucketSize));
+    const freshClusters = clusters
+        .filter((cluster) => cluster.executedAtMs > newestLoadedMs)
+        .map((cluster) => (groupSize === 1
+            ? cluster
+            : { ...cluster, priceBucketIndex: Math.floor(cluster.priceBucketIndex / groupSize) }));
+
     if (freshClusters.length === 0) {
         return dataset;
     }

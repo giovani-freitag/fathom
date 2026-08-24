@@ -1,0 +1,122 @@
+import type { ChartViewport } from '@core/domain/chart-viewport';
+import { ViewportProjector } from '@core/domain/viewport-projector';
+import type { ChartDataset } from '@core/modules/chart/chart-dataset';
+import { EMPTY_DATASET } from '@core/modules/chart/chart-dataset';
+import { resolveChartLayout } from '@core/modules/rendering/chart-layout';
+import type { PaintContext, RenderRequest } from '@core/modules/rendering/render-types';
+
+export interface RecordedCall {
+    readonly method: string;
+    readonly args: readonly unknown[];
+    /** Fill and stroke styles in force when the call was made. */
+    readonly fillStyle: string;
+    readonly strokeStyle: string;
+}
+
+export interface RecordingContext {
+    readonly context: CanvasRenderingContext2D;
+    readonly calls: RecordedCall[];
+    callsTo: (method: string) => RecordedCall[];
+}
+
+const RECORDED_METHODS = [
+    'clearRect', 'fillRect', 'strokeRect', 'beginPath', 'moveTo', 'lineTo',
+    'stroke', 'arc', 'fill', 'setLineDash', 'fillText', 'drawImage',
+    'putImageData', 'save', 'restore', 'closePath',
+] as const;
+
+/**
+ * A 2D context that records what was asked of it.
+ *
+ * Painters are pure in everything but their draw calls, so recording those is
+ * the whole assertion surface — and it works in jsdom, which has no real canvas.
+ */
+export function createRecordingContext(): RecordingContext {
+    const calls: RecordedCall[] = [];
+    const state = { fillStyle: '', strokeStyle: '' };
+
+    const recorder: Record<string, unknown> = {
+        get fillStyle() { return state.fillStyle; },
+        set fillStyle(value: string) { state.fillStyle = value; },
+        get strokeStyle() { return state.strokeStyle; },
+        set strokeStyle(value: string) { state.strokeStyle = value; },
+        lineWidth: 1,
+        font: '',
+        textAlign: 'left',
+        textBaseline: 'middle',
+        imageSmoothingEnabled: false,
+        measureText: (text: string) => ({ width: text.length * 6 }),
+        createImageData: (width: number, height: number) => ({
+            width,
+            height,
+            data: new Uint8ClampedArray(width * height * 4),
+        }),
+    };
+
+    for (const method of RECORDED_METHODS) {
+        recorder[method] = (...args: unknown[]) => {
+            calls.push({ method, args, fillStyle: state.fillStyle, strokeStyle: state.strokeStyle });
+        };
+    }
+
+    return {
+        context: recorder as unknown as CanvasRenderingContext2D,
+        calls,
+        callsTo: (method) => calls.filter((call) => call.method === method),
+    };
+}
+
+export const DEFAULT_VIEWPORT: ChartViewport = {
+    fromMs: 1_000_000,
+    toMs: 1_900_000,
+    lowPrice: 78_000,
+    highPrice: 79_000,
+};
+
+export interface PaintContextOptions {
+    readonly dataset?: Partial<ChartDataset>;
+    readonly viewport?: Partial<ChartViewport>;
+    readonly pointer?: RenderRequest['pointer'];
+    readonly crosshairY?: number | null;
+    readonly isVolumeProfileVisible?: boolean;
+    readonly cssWidth?: number;
+    readonly cssHeight?: number;
+}
+
+/**
+ * Builds a paint context around a recording canvas.
+ *
+ * @param recording - The canvas whose calls the test will assert on.
+ * @param options - Anything the test wants to differ from a plain live view.
+ * @returns The context painters take.
+ */
+export function buildPaintContext(
+    recording: RecordingContext,
+    options: PaintContextOptions = {},
+): PaintContext {
+    const viewport = { ...DEFAULT_VIEWPORT, ...options.viewport };
+    const layout = resolveChartLayout({
+        cssWidth: options.cssWidth ?? 1_000,
+        cssHeight: options.cssHeight ?? 600,
+        isVolumeProfileVisible: options.isVolumeProfileVisible ?? false,
+    });
+
+    return {
+        context: recording.context,
+        layout,
+        projector: new ViewportProjector({
+            viewport,
+            width: layout.plotWidth,
+            height: layout.plotHeight,
+        }),
+        request: {
+            viewport,
+            dataset: { ...EMPTY_DATASET, priceBucketSize: 10, ...options.dataset },
+            colourGain: 1,
+            isTradeOverlayVisible: true,
+            isVolumeProfileVisible: options.isVolumeProfileVisible ?? false,
+            pointer: options.pointer ?? null,
+        },
+        crosshairY: options.crosshairY ?? options.pointer?.y ?? null,
+    };
+}

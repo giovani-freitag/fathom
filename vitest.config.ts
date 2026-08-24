@@ -53,6 +53,7 @@ export default defineConfig({
                     environment: 'jsdom',
                     root: './apps/viewer',
                     include: ['tests/**/*.test.ts'],
+                    setupFiles: ['./tests/setup.ts'],
                 },
             },
             {

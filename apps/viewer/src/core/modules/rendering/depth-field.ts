@@ -6,7 +6,7 @@ import type { ChartDataset } from '@core/modules/chart/chart-dataset';
  * Bucket rows the source image is allowed to hold.
  *
  * A wide window over a large price move spans thousands of buckets, and the
- * field is reallocated whenever the data changes.
+ * field is reallocated whenever the window itself changes.
  */
 const MAXIMUM_BUCKET_ROWS = 6_000;
 
@@ -20,6 +20,15 @@ const MAXIMUM_BUCKET_ROWS = 6_000;
  */
 const MAXIMUM_FIELD_PIXELS = 8_000_000;
 
+/**
+ * Spare columns kept to the right of the loaded window.
+ *
+ * Streamed frames land in this headroom instead of forcing a reallocation every
+ * second. Ten minutes is far longer than a viewer sits on one window without the
+ * controller refetching anyway.
+ */
+const APPEND_HEADROOM_MS = 600_000;
+
 export interface DepthFieldConfig {
     readonly dataset: ChartDataset;
     readonly colourGain: number;
@@ -32,6 +41,10 @@ export interface DepthFieldConfig {
  * of pixels per frame. Painting once into a grid whose axes are time and price
  * bucket lets pan and zoom become a single scaled `drawImage`, which the browser
  * hands to the compositor.
+ *
+ * Streamed frames are painted onto the existing image rather than triggering a
+ * repaint of the whole window: a live second changes one column, and rebuilding
+ * the other two thousand costs tens of milliseconds twice a second for nothing.
  */
 export class DepthField {
     readonly baseTimestampMs: number;
@@ -43,18 +56,40 @@ export class DepthField {
     readonly saturationQuantity: number;
     readonly canvas: HTMLCanvasElement;
 
+    private readonly context: CanvasRenderingContext2D | null;
+    private readonly colourScale: DepthColourScale;
+    private readonly columnCapacity: number;
+    private readonly instrumentSymbol: string;
+    private readonly colourGain: number;
+
+    private paintedFrameCount = 0;
+    private lastPaintedFrame: LiquidityFrame | null = null;
+
     constructor(config: DepthFieldConfig) {
         const { dataset } = config;
         const extent = measureExtent(dataset);
 
+        this.instrumentSymbol = dataset.instrumentSymbol;
+        this.colourGain = config.colourGain;
         this.priceBucketSize = dataset.priceBucketSize;
         this.sampleIntervalMs = dataset.sampleIntervalMs;
         this.baseTimestampMs = extent.baseTimestampMs;
         this.columnCount = extent.columnCount;
+        this.columnCapacity = extent.columnCapacity;
         this.lowestBucketIndex = extent.lowestBucketIndex;
         this.bucketCount = extent.bucketCount;
         this.saturationQuantity = dataset.saturationQuantity;
-        this.canvas = this.paint(dataset, config.colourGain);
+        this.colourScale = new DepthColourScale({
+            saturationQuantity: dataset.saturationQuantity,
+            gain: config.colourGain,
+        });
+
+        this.canvas = document.createElement('canvas');
+        this.canvas.width = Math.max(1, extent.columnCapacity);
+        this.canvas.height = Math.max(1, extent.bucketCount);
+        this.context = this.canvas.getContext('2d');
+
+        this.paintRange(dataset.frames, 0);
     }
 
     /**
@@ -78,48 +113,144 @@ export class DepthField {
         return highestBucketIndex - price / this.priceBucketSize + 1;
     }
 
-    private paint(dataset: ChartDataset, colourGain: number): HTMLCanvasElement {
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, this.columnCount);
-        canvas.height = Math.max(1, this.bucketCount);
-
-        const context = canvas.getContext('2d');
-        if (context === null || this.columnCount === 0 || this.bucketCount === 0) {
-            return canvas;
+    /**
+     * Brings the image up to date with a dataset that only grew.
+     *
+     * @param dataset - The snapshot to catch up to.
+     * @param colourGain - Gain the caller wants rendered.
+     * @returns True when the image now represents the dataset; false when the
+     *          window changed in a way that needs a fresh field.
+     */
+    absorb(dataset: ChartDataset, colourGain: number): boolean {
+        if (!this.sharesGridWith(dataset, colourGain) || dataset.frames.length < this.paintedFrameCount) {
+            return false;
         }
 
-        const image = context.createImageData(canvas.width, canvas.height);
-        const scale = new DepthColourScale({
-            saturationQuantity: this.saturationQuantity,
-            gain: colourGain,
-        });
-
-        for (const frame of dataset.frames) {
-            this.paintFrame(image, frame, scale);
+        // Identity of the last painted frame, not just the count: a refetched
+        // window decodes fresh frame objects, so an unchanged count alone would
+        // let the field keep showing the window it painted before the pan.
+        if (dataset.frames[this.paintedFrameCount - 1] !== this.lastPaintedFrame) {
+            return false;
+        }
+        if (dataset.frames.length === this.paintedFrameCount) {
+            return true;
         }
 
-        context.putImageData(image, 0, 0);
-        return canvas;
+        const arrivals = dataset.frames.slice(this.paintedFrameCount);
+        if (!this.canHold(arrivals)) {
+            return false;
+        }
+
+        this.paintRange(arrivals, this.paintedFrameCount);
+        return true;
     }
 
-    private paintFrame(image: ImageData, frame: LiquidityFrame, scale: DepthColourScale): void {
-        const column = Math.round(this.timeToColumn(frame.capturedAtMs));
-        if (column < 0 || column >= this.columnCount) {
+    private sharesGridWith(dataset: ChartDataset, colourGain: number): boolean {
+        return dataset.instrumentSymbol === this.instrumentSymbol
+            && dataset.priceBucketSize === this.priceBucketSize
+            && dataset.sampleIntervalMs === this.sampleIntervalMs
+            && dataset.saturationQuantity === this.saturationQuantity
+            && colourGain === this.colourGain;
+    }
+
+    /**
+     * Whether arriving frames fit the image's columns and its price band.
+     *
+     * A price that walked out of the band would otherwise leave the live edge
+     * blank, which reads as missing data rather than as a stale field.
+     */
+    private canHold(arrivals: readonly LiquidityFrame[]): boolean {
+        const highestBucketIndex = this.lowestBucketIndex + this.bucketCount - 1;
+
+        for (const frame of arrivals) {
+            if (Math.round(this.timeToColumn(frame.capturedAtMs)) >= this.columnCapacity) {
+                return false;
+            }
+            const touchBucket = Math.floor(
+                (frame.bestBidPrice + frame.bestAskPrice) / 2 / this.priceBucketSize,
+            );
+            if (touchBucket < this.lowestBucketIndex || touchBucket > highestBucketIndex) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Records a run of frames as painted, whether or not pixels could be written.
+     *
+     * The bookkeeping is deliberately separate from the drawing: tying them
+     * together would leave a field with no drawing context permanently claiming
+     * it has absorbed nothing, and every arriving second would allocate another
+     * field that also cannot draw.
+     */
+    private paintRange(frames: readonly LiquidityFrame[], alreadyPaintedCount: number): void {
+        const lastFrame = frames[frames.length - 1];
+        if (lastFrame === undefined) {
             return;
         }
-        this.paintLadder(image, frame.bids.lowestBucketIndex, frame.bids.quantities, column, scale);
-        this.paintLadder(image, frame.asks.lowestBucketIndex, frame.asks.quantities, column, scale);
+
+        this.paintPixels(frames);
+        this.paintedFrameCount = alreadyPaintedCount + frames.length;
+        this.lastPaintedFrame = lastFrame;
+    }
+
+    private paintPixels(frames: readonly LiquidityFrame[]): void {
+        const context = this.context;
+        const bounds = this.measureColumnBounds(frames);
+        if (context === null || bounds === null || this.bucketCount === 0) {
+            return;
+        }
+
+        const width = bounds.lastColumn - bounds.firstColumn + 1;
+        const image = context.createImageData(width, this.bucketCount);
+        for (const frame of frames) {
+            this.paintFrame(image, frame, bounds.firstColumn, width);
+        }
+        context.putImageData(image, bounds.firstColumn, 0);
+    }
+
+    private measureColumnBounds(
+        frames: readonly LiquidityFrame[],
+    ): { firstColumn: number; lastColumn: number } | null {
+        let firstColumn = Number.POSITIVE_INFINITY;
+        let lastColumn = Number.NEGATIVE_INFINITY;
+
+        for (const frame of frames) {
+            const column = Math.round(this.timeToColumn(frame.capturedAtMs));
+            if (column < 0 || column >= this.columnCapacity) {
+                continue;
+            }
+            firstColumn = Math.min(firstColumn, column);
+            lastColumn = Math.max(lastColumn, column);
+        }
+
+        return Number.isFinite(firstColumn) ? { firstColumn, lastColumn } : null;
+    }
+
+    private paintFrame(
+        image: ImageData,
+        frame: LiquidityFrame,
+        columnOffset: number,
+        imageWidth: number,
+    ): void {
+        const column = Math.round(this.timeToColumn(frame.capturedAtMs)) - columnOffset;
+        if (column < 0 || column >= imageWidth) {
+            return;
+        }
+        this.paintLadder(image, frame.bids, column, imageWidth);
+        this.paintLadder(image, frame.asks, column, imageWidth);
     }
 
     private paintLadder(
         image: ImageData,
-        lowestBucketIndex: number,
-        quantities: Float32Array,
+        ladder: LiquidityFrame['bids'],
         column: number,
-        scale: DepthColourScale,
+        imageWidth: number,
     ): void {
         const ramp = DepthColourScale.ramp();
         const highestRow = this.lowestBucketIndex + this.bucketCount - 1;
+        const { quantities, lowestBucketIndex } = ladder;
 
         for (let offset = 0; offset < quantities.length; offset += 1) {
             const quantity = quantities[offset]!;
@@ -132,8 +263,8 @@ export class DepthField {
                 continue;
             }
 
-            const rampOffset = scale.toRampIndex(quantity) * 4;
-            const pixelOffset = (row * this.columnCount + column) * 4;
+            const rampOffset = this.colourScale.toRampIndex(quantity) * 4;
+            const pixelOffset = (row * imageWidth + column) * 4;
             image.data[pixelOffset] = ramp[rampOffset]!;
             image.data[pixelOffset + 1] = ramp[rampOffset + 1]!;
             image.data[pixelOffset + 2] = ramp[rampOffset + 2]!;
@@ -145,6 +276,7 @@ export class DepthField {
 interface FieldExtent {
     readonly baseTimestampMs: number;
     readonly columnCount: number;
+    readonly columnCapacity: number;
     readonly lowestBucketIndex: number;
     readonly bucketCount: number;
 }
@@ -153,11 +285,21 @@ function measureExtent(dataset: ChartDataset): FieldExtent {
     const firstFrame = dataset.frames[0];
     const lastFrame = dataset.frames[dataset.frames.length - 1];
     if (firstFrame === undefined || lastFrame === undefined) {
-        return { baseTimestampMs: 0, columnCount: 0, lowestBucketIndex: 0, bucketCount: 0 };
+        return {
+            baseTimestampMs: 0,
+            columnCount: 0,
+            columnCapacity: 1,
+            lowestBucketIndex: 0,
+            bucketCount: 0,
+        };
     }
 
     const sampleIntervalMs = Math.max(1, dataset.sampleIntervalMs);
-    const columnCount = Math.floor((lastFrame.capturedAtMs - firstFrame.capturedAtMs) / sampleIntervalMs) + 1;
+    const columnCount = Math.max(
+        1,
+        Math.floor((lastFrame.capturedAtMs - firstFrame.capturedAtMs) / sampleIntervalMs) + 1,
+    );
+    const columnCapacity = columnCount + Math.ceil(APPEND_HEADROOM_MS / sampleIntervalMs);
 
     let lowestBucketIndex = Number.POSITIVE_INFINITY;
     let highestBucketIndex = Number.NEGATIVE_INFINITY;
@@ -170,12 +312,13 @@ function measureExtent(dataset: ChartDataset): FieldExtent {
     }
 
     const requestedRows = Math.max(1, highestBucketIndex - lowestBucketIndex + 1);
-    const pixelBudgetRows = Math.floor(MAXIMUM_FIELD_PIXELS / Math.max(1, columnCount));
+    const pixelBudgetRows = Math.floor(MAXIMUM_FIELD_PIXELS / Math.max(1, columnCapacity));
     const bucketCount = Math.max(1, Math.min(requestedRows, MAXIMUM_BUCKET_ROWS, pixelBudgetRows));
 
     return {
         baseTimestampMs: firstFrame.capturedAtMs,
-        columnCount: Math.max(1, columnCount),
+        columnCount,
+        columnCapacity,
         lowestBucketIndex: chooseRetainedBand({
             frames: dataset.frames,
             priceBucketSize: dataset.priceBucketSize,

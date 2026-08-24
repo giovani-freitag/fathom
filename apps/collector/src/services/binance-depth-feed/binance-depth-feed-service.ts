@@ -1,4 +1,5 @@
 import WebSocket from 'ws';
+import { delay } from '../../timing/delay.ts';
 import type { DepthDiff, DepthSnapshot, ExecutedTrade } from '../order-book/depth-types.ts';
 import type {
     BinanceDepthLadderPayload,
@@ -319,10 +320,4 @@ function toExecutedTrade(payload: BinanceTradePayload): ExecutedTrade {
         quantity: Number(payload.q),
         isAggressorSelling: payload.m,
     };
-}
-
-function delay(milliseconds: number): Promise<void> {
-    const { promise, resolve } = Promise.withResolvers<void>();
-    setTimeout(resolve, milliseconds).unref();
-    return promise;
 }

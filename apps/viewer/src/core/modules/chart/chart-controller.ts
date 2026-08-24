@@ -264,11 +264,6 @@ export class ChartController {
             return;
         }
 
-        this.inFlightLoad?.abort();
-        const abortController = new AbortController();
-        this.inFlightLoad = abortController;
-        this.store.update((current) => ({ ...current, isLoadingWindow: true }));
-
         const spanMs = state.viewport.toMs - state.viewport.fromMs;
         const overscanMs = spanMs * OVERSCAN_RATIO;
         const fromMs = state.viewport.fromMs - overscanMs;
@@ -276,14 +271,20 @@ export class ChartController {
         const maxColumns = Math.min(4_000, Math.max(120, Math.round(this.surfaceWidthPx * (1 + 2 * OVERSCAN_RATIO))));
 
         // The surface reports its size before the first load returns, which asks
-        // for a window the initial load is already fetching. Without this the
-        // page opens by downloading the same depth twice.
+        // for a window the initial load is already fetching. Deciding this before
+        // touching the in-flight request matters: aborting first and returning
+        // here would cancel the very load this call is deferring to, and the
+        // chart would open with no data at all.
         const requestKey = `${symbol}|${Math.floor(fromMs)}|${Math.ceil(toMs)}|${maxColumns}`;
         if (requestKey === this.lastRequestedKey) {
-            this.store.update((current) => ({ ...current, isLoadingWindow: false }));
             return;
         }
         this.lastRequestedKey = requestKey;
+
+        this.inFlightLoad?.abort();
+        const abortController = new AbortController();
+        this.inFlightLoad = abortController;
+        this.store.update((current) => ({ ...current, isLoadingWindow: true }));
 
         try {
             const loaded = await this.fetchWindow({ symbol, fromMs, toMs, maxColumns }, abortController.signal);
@@ -300,6 +301,7 @@ export class ChartController {
                     window: loaded.window,
                     clusters: loaded.clusters,
                     clusterPriceBucketSize: loaded.clusterPriceBucketSize,
+                    clusterIntervalMs: loaded.clusterIntervalMs,
                     gaps: loaded.gaps,
                     previousRevision: current.dataset.revision,
                 });
@@ -338,6 +340,7 @@ export class ChartController {
             window,
             clusters: tradeResult.clusters,
             clusterPriceBucketSize: tradeResult.priceBucketSize,
+            clusterIntervalMs: tradeResult.sampleIntervalMs,
             gaps,
         };
     }
@@ -463,6 +466,7 @@ interface LoadedWindow {
     readonly window: LiquidityFrameWindow;
     readonly clusters: ChartDataset['clusters'];
     readonly clusterPriceBucketSize: number;
+    readonly clusterIntervalMs: number;
     readonly gaps: ChartDataset['gaps'];
 }
 

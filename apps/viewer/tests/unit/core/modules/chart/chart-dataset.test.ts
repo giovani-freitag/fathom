@@ -24,6 +24,7 @@ function buildDataset(...capturedAtMs: number[]) {
         window: { priceBucketSize: 10, sampleIntervalMs: 1_000, frames: capturedAtMs.map(buildFrame) },
         clusters: [],
         clusterPriceBucketSize: 10,
+        clusterIntervalMs: 1_000,
         gaps: [],
         previousRevision: 0,
     });
@@ -44,6 +45,7 @@ describe('replaceDataset', () => {
             window: { priceBucketSize: 10, sampleIntervalMs: 0, frames: [] },
             clusters: [],
             clusterPriceBucketSize: 10,
+            clusterIntervalMs: 1_000,
             gaps: [],
             previousRevision: 0,
         });
@@ -129,5 +131,53 @@ describe('newestFrameTimestamp', () => {
 
     it('reports the last frame in capture order', () => {
         expect(newestFrameTimestamp(buildDataset(1_000, 5_000))).toBe(5_000);
+    });
+});
+
+describe('appendClusters onto a grouped price grid', () => {
+    function buildGroupedDataset() {
+        return replaceDataset({
+            instrumentSymbol: 'BTCUSDT',
+            window: { priceBucketSize: 10, sampleIntervalMs: 1_000, frames: [buildFrame(1_000)] },
+            clusters: [],
+            clusterPriceBucketSize: 50,
+            clusterIntervalMs: 60_000,
+            gaps: [],
+            previousRevision: 0,
+        });
+    }
+
+    it('re-bins a streamed cluster onto the grid the window is using', () => {
+        const dataset = buildGroupedDataset();
+
+        const extended = appendClusters(dataset, [{
+            executedAtMs: 5_000,
+            priceBucketIndex: 7_894,
+            buyQuantity: 1,
+            sellQuantity: 0,
+            tradeCount: 1,
+            largestTradeQuantity: 1,
+        }]);
+
+        expect(extended.clusters[0]?.priceBucketIndex).toBe(1_578);
+    });
+
+    it('leaves the index alone when the window is on the stored grid', () => {
+        const dataset = buildDataset(1_000);
+
+        const extended = appendClusters(dataset, [{
+            executedAtMs: 5_000,
+            priceBucketIndex: 7_894,
+            buyQuantity: 1,
+            sellQuantity: 0,
+            tradeCount: 1,
+            largestTradeQuantity: 1,
+        }]);
+
+        expect(extended.clusters[0]?.priceBucketIndex).toBe(7_894);
+    });
+
+    it('carries the cluster time grid through', () => {
+        expect(buildGroupedDataset().clusterIntervalMs).toBe(60_000);
     });
 });

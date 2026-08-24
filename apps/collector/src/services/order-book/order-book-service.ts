@@ -1,3 +1,4 @@
+import { delay } from '../../timing/delay.ts';
 import type { DepthDiff, DepthSnapshot, OrderBookReading } from './depth-types.ts';
 import { OrderBookState } from './order-book-state.ts';
 
@@ -297,10 +298,4 @@ export class OrderBookService {
         const midPrice = (topOfBook.bestBidPrice + topOfBook.bestAskPrice) / 2;
         this.state.pruneBeyond(midPrice, midPrice * this.config.retainedPriceRangeRatio);
     }
-}
-
-function delay(milliseconds: number): Promise<void> {
-    const { promise, resolve } = Promise.withResolvers<void>();
-    setTimeout(resolve, milliseconds).unref();
-    return promise;
 }

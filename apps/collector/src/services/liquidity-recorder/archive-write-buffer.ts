@@ -1,5 +1,6 @@
 import type { LiquidityFrame, TradeCluster } from '@fathom/contracts';
 import type { LiquidityArchiveService } from '@fathom/persistence';
+import { describeError } from '../../logging/collector-log.ts';
 
 export interface ArchiveWriteBufferConfig {
     readonly archive: LiquidityArchiveService;
@@ -89,7 +90,7 @@ export class ArchiveWriteBuffer {
             });
         } catch (error) {
             this.pendingFrames.unshift(...frames);
-            this.config.onWriteFailed(describe(error));
+            this.config.onWriteFailed(describeError(error));
             this.dropOldestFramesOverCapacity();
         }
     }
@@ -108,7 +109,7 @@ export class ArchiveWriteBuffer {
             });
         } catch (error) {
             this.pendingTradeClusters.unshift(...clusters);
-            this.config.onWriteFailed(describe(error));
+            this.config.onWriteFailed(describeError(error));
             this.dropOldestClustersOverCapacity();
         }
     }
@@ -128,8 +129,4 @@ export class ArchiveWriteBuffer {
             this.pendingTradeClusters.splice(0, excessCount);
         }
     }
-}
-
-function describe(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
 }
