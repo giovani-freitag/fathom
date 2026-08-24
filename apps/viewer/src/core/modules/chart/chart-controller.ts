@@ -8,6 +8,7 @@ import {
     clampViewport,
     type ViewportBounds,
 } from '@core/domain/chart-viewport';
+import { describeLoadFailure } from '@core/domain/failure-copy';
 import { ObservableStore } from '@core/kernel/observable-store';
 import type { HeatmapApiService } from '@core/services/heatmap-api/heatmap-api-service';
 import type { LiveFeedService, LiveFeedStatus } from '@core/services/live-feed/live-feed-service';
@@ -20,21 +21,13 @@ import {
     newestFrameTimestamp,
     replaceDataset,
 } from './chart-dataset';
-
-/** Loaded window is this much wider than the view, so a short pan needs no refetch. */
-const OVERSCAN_RATIO = 0.6;
-
-/** Gesture settling time before a refetch; a pinch fires dozens of viewport writes. */
-const RELOAD_DEBOUNCE_MS = 220;
+import { type LoadedWindow, WindowLoader, type WindowLoadRequest } from './window-loader';
 
 const MINIMUM_SPAN_MS = 5_000;
 const MAXIMUM_SPAN_MS = 90 * 24 * 60 * 60 * 1_000;
 
 /** Fraction of mid price shown on first load, where the working book actually is. */
 const INITIAL_PRICE_RANGE_RATIO = 0.004;
-
-/** Executions binned finer than this per column are indistinguishable on screen. */
-const TARGET_TRADE_COLUMNS = 420;
 
 export type ChartPhase = 'initialising' | 'ready' | 'empty' | 'failed';
 
@@ -81,14 +74,9 @@ export class ChartController {
     readonly store: ObservableStore<ChartState>;
 
     private readonly config: ChartControllerConfig;
-    private loadedFromMs = 0;
-    private loadedToMs = 0;
-    private loadedSampleIntervalMs = Number.POSITIVE_INFINITY;
+    private readonly windowLoader: WindowLoader;
     private surfaceWidthPx = 800;
     private needsPriceFraming = true;
-    private lastRequestedKey = '';
-    private reloadTimer: ReturnType<typeof setTimeout> | null = null;
-    private inFlightLoad: AbortController | null = null;
     private wasDisposed = false;
 
     constructor(config: ChartControllerConfig) {
@@ -96,7 +84,16 @@ export class ChartController {
         this.handleLiveFrames = this.handleLiveFrames.bind(this);
         this.handleLiveText = this.handleLiveText.bind(this);
         this.handleLiveStatus = this.handleLiveStatus.bind(this);
-        this.handleReloadDue = this.handleReloadDue.bind(this);
+        this.handleWindowLoaded = this.handleWindowLoaded.bind(this);
+        this.handleLoadingChanged = this.handleLoadingChanged.bind(this);
+        this.publishFailure = this.publishFailure.bind(this);
+
+        this.windowLoader = new WindowLoader({
+            api: config.api,
+            onLoaded: this.handleWindowLoaded,
+            onFailed: this.publishFailure,
+            onLoadingChanged: this.handleLoadingChanged,
+        });
 
         const preferences = config.preferences.read();
         this.store = new ObservableStore<ChartState>({
@@ -139,12 +136,7 @@ export class ChartController {
      */
     dispose(): void {
         this.wasDisposed = true;
-        if (this.reloadTimer !== null) {
-            clearTimeout(this.reloadTimer);
-            this.reloadTimer = null;
-        }
-        this.inFlightLoad?.abort();
-        this.inFlightLoad = null;
+        this.windowLoader.dispose();
         this.config.liveFeed.disconnect();
     }
 
@@ -165,7 +157,7 @@ export class ChartController {
             return;
         }
 
-        this.resetLoadedRange();
+        this.windowLoader.reset();
         this.needsPriceFraming = true;
         this.store.update((state) => ({
             ...state,
@@ -194,8 +186,9 @@ export class ChartController {
             isFollowingLive: request.isFollowingLive ?? state.isFollowingLive,
         }));
 
-        if (this.isLoadedWindowStale(viewport)) {
-            this.scheduleReload();
+        const loadRequest = this.buildLoadRequest();
+        if (loadRequest !== null) {
+            this.windowLoader.scheduleIfStale(loadRequest);
         }
     }
 
@@ -236,115 +229,6 @@ export class ChartController {
         };
     }
 
-    private isLoadedWindowStale(viewport: ChartViewport): boolean {
-        const requiredSampleMs = (viewport.toMs - viewport.fromMs) / this.surfaceWidthPx;
-        const isOutsideLoaded = viewport.fromMs < this.loadedFromMs || viewport.toMs > this.loadedToMs;
-        // Half is the point where one stored column already covers two pixels;
-        // refetching before that trades a round trip for detail nobody can see.
-        const isTooCoarse = requiredSampleMs < this.loadedSampleIntervalMs / 2;
-        return isOutsideLoaded || isTooCoarse;
-    }
-
-    private scheduleReload(): void {
-        if (this.reloadTimer !== null) {
-            clearTimeout(this.reloadTimer);
-        }
-        this.reloadTimer = setTimeout(this.handleReloadDue, RELOAD_DEBOUNCE_MS);
-    }
-
-    private handleReloadDue(): void {
-        this.reloadTimer = null;
-        void this.loadWindow();
-    }
-
-    private async loadWindow(): Promise<void> {
-        const state = this.store.read();
-        const symbol = state.instrumentSymbol;
-        if (symbol === null || this.isDisposed) {
-            return;
-        }
-
-        const spanMs = state.viewport.toMs - state.viewport.fromMs;
-        const overscanMs = spanMs * OVERSCAN_RATIO;
-        const fromMs = state.viewport.fromMs - overscanMs;
-        const toMs = state.viewport.toMs + overscanMs;
-        const maxColumns = Math.min(4_000, Math.max(120, Math.round(this.surfaceWidthPx * (1 + 2 * OVERSCAN_RATIO))));
-
-        // The surface reports its size before the first load returns, which asks
-        // for a window the initial load is already fetching. Deciding this before
-        // touching the in-flight request matters: aborting first and returning
-        // here would cancel the very load this call is deferring to, and the
-        // chart would open with no data at all.
-        const requestKey = `${symbol}|${Math.floor(fromMs)}|${Math.ceil(toMs)}|${maxColumns}`;
-        if (requestKey === this.lastRequestedKey) {
-            return;
-        }
-        this.lastRequestedKey = requestKey;
-
-        this.inFlightLoad?.abort();
-        const abortController = new AbortController();
-        this.inFlightLoad = abortController;
-        this.store.update((current) => ({ ...current, isLoadingWindow: true }));
-
-        try {
-            const loaded = await this.fetchWindow({ symbol, fromMs, toMs, maxColumns }, abortController.signal);
-            if (this.wasDisposed || abortController.signal.aborted) {
-                return;
-            }
-
-            this.loadedFromMs = fromMs;
-            this.loadedToMs = toMs;
-            this.loadedSampleIntervalMs = loaded.window.sampleIntervalMs;
-            this.store.update((current) => {
-                const dataset = replaceDataset({
-                    instrumentSymbol: symbol,
-                    window: loaded.window,
-                    clusters: loaded.clusters,
-                    clusterPriceBucketSize: loaded.clusterPriceBucketSize,
-                    clusterIntervalMs: loaded.clusterIntervalMs,
-                    gaps: loaded.gaps,
-                    previousRevision: current.dataset.revision,
-                });
-                return {
-                    ...current,
-                    isLoadingWindow: false,
-                    phase: dataset.frames.length === 0 ? 'empty' : 'ready',
-                    dataset,
-                    viewport: this.framePriceRange(current.viewport, dataset),
-                };
-            });
-        } catch (error) {
-            this.lastRequestedKey = '';
-            if (error instanceof DOMException && error.name === 'AbortError') {
-                return;
-            }
-            this.publishFailure(error);
-        }
-    }
-
-    private async fetchWindow(
-        query: { symbol: string; fromMs: number; toMs: number; maxColumns: number },
-        signal: AbortSignal,
-    ): Promise<LoadedWindow> {
-        const priceGroupSize = this.resolveTradePriceGroupSize();
-        const [window, tradeResult, gaps] = await Promise.all([
-            this.config.api.fetchFrameWindow(query, signal),
-            this.config.api.fetchTradeClusters(
-                { ...query, maxColumns: TARGET_TRADE_COLUMNS, priceGroupSize, minimumQuantity: 0 },
-                signal,
-            ),
-            this.config.api.fetchGaps(query, signal),
-        ]);
-
-        return {
-            window,
-            clusters: tradeResult.clusters,
-            clusterPriceBucketSize: tradeResult.priceBucketSize,
-            clusterIntervalMs: tradeResult.sampleIntervalMs,
-            gaps,
-        };
-    }
-
     private resolveTradePriceGroupSize(): number {
         const state = this.store.read();
         const priceSpan = state.viewport.highPrice - state.viewport.lowPrice;
@@ -356,6 +240,58 @@ export class ChartController {
         // into a smear and cost bandwidth for nothing.
         const visibleBuckets = priceSpan / bucketSize;
         return Math.max(1, Math.round(visibleBuckets / 220));
+    }
+
+    private buildLoadRequest(): WindowLoadRequest | null {
+        const state = this.store.read();
+        if (state.instrumentSymbol === null) {
+            return null;
+        }
+        return {
+            symbol: state.instrumentSymbol,
+            viewport: state.viewport,
+            surfaceWidthPx: this.surfaceWidthPx,
+            priceGroupSize: this.resolveTradePriceGroupSize(),
+        };
+    }
+
+    private async loadWindow(): Promise<void> {
+        const request = this.buildLoadRequest();
+        if (request === null || this.wasDisposed) {
+            return;
+        }
+        await this.windowLoader.load(request);
+    }
+
+    private handleLoadingChanged(isLoadingWindow: boolean): void {
+        this.store.update((state) => ({ ...state, isLoadingWindow }));
+    }
+
+    private handleWindowLoaded(loaded: LoadedWindow): void {
+        const symbol = this.store.read().instrumentSymbol;
+        if (symbol === null || this.wasDisposed) {
+            return;
+        }
+
+        this.store.update((current) => {
+            const dataset = replaceDataset({
+                instrumentSymbol: symbol,
+                window: loaded.window,
+                clusters: loaded.clusters,
+                clusterPriceBucketSize: loaded.clusterPriceBucketSize,
+                clusterIntervalMs: loaded.clusterIntervalMs,
+                gaps: loaded.gaps,
+                previousRevision: current.dataset.revision,
+            });
+            return {
+                ...current,
+                isLoadingWindow: false,
+                phase: dataset.frames.length === 0 ? 'empty' : 'ready',
+                errorMessage: null,
+                dataset,
+                viewport: this.framePriceRange(current.viewport, dataset),
+            };
+        });
     }
 
     private openLiveTail(): void {
@@ -433,13 +369,6 @@ export class ChartController {
         return this.wasDisposed;
     }
 
-    private resetLoadedRange(): void {
-        this.loadedFromMs = 0;
-        this.loadedToMs = 0;
-        this.loadedSampleIntervalMs = Number.POSITIVE_INFINITY;
-        this.lastRequestedKey = '';
-    }
-
     private persistPreferences(): void {
         const state = this.store.read();
         this.config.preferences.write({
@@ -451,23 +380,23 @@ export class ChartController {
         });
     }
 
+    /**
+     * Records a load failure without throwing away what is already on screen.
+     *
+     * Frames already loaded are real recordings, and a reader looking at a wall
+     * from ten minutes ago still learns from it. Blanking the chart because the
+     * next request failed destroys good information to report a transient fault
+     * the status strip is already showing.
+     */
     private publishFailure(error: unknown): void {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = describeLoadFailure(error);
         this.store.update((state) => ({
             ...state,
-            phase: 'failed',
+            phase: state.dataset.frames.length > 0 ? state.phase : 'failed',
             isLoadingWindow: false,
             errorMessage,
         }));
     }
-}
-
-interface LoadedWindow {
-    readonly window: LiquidityFrameWindow;
-    readonly clusters: ChartDataset['clusters'];
-    readonly clusterPriceBucketSize: number;
-    readonly clusterIntervalMs: number;
-    readonly gaps: ChartDataset['gaps'];
 }
 
 function buildInitialState(preferences: ViewerPreferences): ChartState {

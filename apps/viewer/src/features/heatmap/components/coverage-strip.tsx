@@ -51,6 +51,12 @@ export function CoverageStrip({ state }: CoverageStripProps): ReactElement {
             )}
 
             {state.isLoadingWindow && <span className="text-ink-700">carregando…</span>}
+
+            {state.errorMessage !== null && state.phase === 'ready' && (
+                <span className="truncate text-ask" title={state.errorMessage}>
+                    {state.errorMessage}
+                </span>
+            )}
         </div>
     );
 }

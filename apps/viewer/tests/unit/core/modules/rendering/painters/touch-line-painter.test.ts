@@ -73,3 +73,42 @@ describe('TouchLinePainter', () => {
         expect(recording.callsTo('stroke')).toEqual([]);
     });
 });
+
+describe('TouchLinePainter in history', () => {
+    function buildFrameAt(capturedAtMs: number, midPrice: number): LiquidityFrame {
+        const touchBucket = Math.floor(midPrice / 10);
+        return {
+            capturedAtMs,
+            bestBidPrice: midPrice - 0.5,
+            bestAskPrice: midPrice + 0.5,
+            bids: { lowestBucketIndex: touchBucket - 1, quantities: Float32Array.from([1, 2]) },
+            asks: { lowestBucketIndex: touchBucket, quantities: Float32Array.from([2]) },
+        };
+    }
+
+    it('marks the price at the right edge, not the newest frame loaded', () => {
+        const recording = createRecordingContext();
+        const paint = buildPaintContext(recording, {
+            dataset: {
+                frames: [buildFrameAt(1_500_000, 78_400), buildFrameAt(9_000_000, 78_900)],
+            },
+        });
+
+        buildPainter().paint(paint);
+
+        const drawnY = Number(recording.callsTo('moveTo')[0]?.args[1]);
+        expect(Math.abs(drawnY - paint.projector.priceToY(78_400))).toBeLessThan(2);
+    });
+
+    it('still marks the current touch while the chart follows the live edge', () => {
+        const recording = createRecordingContext();
+        const paint = buildPaintContext(recording, {
+            dataset: { frames: [buildFrameAt(1_800_000, 78_600), buildFrameAt(1_899_000, 78_650)] },
+        });
+
+        buildPainter().paint(paint);
+
+        const drawnY = Number(recording.callsTo('moveTo')[0]?.args[1]);
+        expect(Math.abs(drawnY - paint.projector.priceToY(78_650))).toBeLessThan(2);
+    });
+});

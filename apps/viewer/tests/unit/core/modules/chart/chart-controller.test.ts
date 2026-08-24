@@ -73,10 +73,17 @@ describe('ChartController.initialize', () => {
 
         await controller.initialize();
 
-        expect([
-            controller.store.read().phase,
-            controller.store.read().errorMessage,
-        ]).toEqual(['failed', 'gateway unreachable']);
+        expect(controller.store.read().phase).toBe('failed');
+    });
+
+    it('explains the failure in the interface language', async () => {
+        const mocks = createChartServiceMocks();
+        mocks.fetchInstruments.mockRejectedValue(new Error('gateway unreachable'));
+        const controller = buildController(mocks);
+
+        await controller.initialize();
+
+        expect(controller.store.read().errorMessage).toBe('Não foi possível carregar a janela.');
     });
 });
 
@@ -214,5 +221,70 @@ describe('ChartController settings', () => {
         controller.dispose();
 
         expect(mocks.disconnect).toHaveBeenCalled();
+    });
+});
+
+describe('ChartController failures', () => {
+    it('keeps the chart on screen when a refetch fails', async () => {
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        mocks.fetchFrameWindow.mockRejectedValue(new Error('gateway unreachable'));
+
+        controller.applyView({
+            viewport: { ...controller.store.read().viewport, fromMs: 1_100_000, toMs: 1_400_000 },
+            surfaceWidthPx: SURFACE_WIDTH,
+        });
+        await new Promise((resolve) => setTimeout(resolve, 400));
+
+        expect([
+            controller.store.read().phase,
+            controller.store.read().dataset.frames.length,
+        ]).toEqual(['ready', 1]);
+    });
+
+    it('reports the failure even while the chart stays up', async () => {
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        mocks.fetchFrameWindow.mockRejectedValue(new Error('gateway unreachable'));
+
+        controller.applyView({
+            viewport: { ...controller.store.read().viewport, fromMs: 1_100_000, toMs: 1_400_000 },
+            surfaceWidthPx: SURFACE_WIDTH,
+        });
+        await new Promise((resolve) => setTimeout(resolve, 400));
+
+        expect(controller.store.read().errorMessage).not.toBeNull();
+    });
+
+    it('answers in the interface language rather than the driver s', async () => {
+        const mocks = createChartServiceMocks();
+        mocks.fetchInstruments.mockRejectedValue(new Error('fetch failed'));
+        const controller = buildController(mocks);
+
+        await controller.initialize();
+
+        expect(controller.store.read().errorMessage).not.toContain('fetch failed');
+    });
+
+    it('clears the failure once a load succeeds again', async () => {
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        mocks.fetchFrameWindow.mockRejectedValueOnce(new Error('gateway unreachable'));
+
+        controller.applyView({
+            viewport: { ...controller.store.read().viewport, fromMs: 1_100_000, toMs: 1_400_000 },
+            surfaceWidthPx: SURFACE_WIDTH,
+        });
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        controller.applyView({
+            viewport: { ...controller.store.read().viewport, fromMs: 1_050_000, toMs: 1_450_000 },
+            surfaceWidthPx: SURFACE_WIDTH,
+        });
+        await new Promise((resolve) => setTimeout(resolve, 400));
+
+        expect(controller.store.read().errorMessage).toBeNull();
     });
 });
