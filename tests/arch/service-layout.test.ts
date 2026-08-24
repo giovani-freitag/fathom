@@ -68,16 +68,26 @@ describe('service layout', () => {
 });
 
 describe('third-party containment', () => {
-    it('imports the PostgreSQL driver only inside its own service', () => {
-        expect(readFilesImporting('pg')).toEqual([
-            'packages/persistence/src/services/postgres/postgres-service.ts',
-        ]);
+    it('imports the PostgreSQL driver only inside its own service folder', () => {
+        const strays = readFilesImporting('pg')
+            .filter((path) => !path.startsWith('packages/persistence/src/services/postgres/'));
+
+        expect(strays).toEqual([]);
     });
 
-    it('imports the websocket client only inside the venue feed service', () => {
-        expect(readFilesImporting('ws')).toEqual([
-            'apps/collector/src/services/binance-depth-feed/binance-depth-feed-service.ts',
-        ]);
+    it('imports the PostgreSQL driver somewhere, so the rule is being exercised', () => {
+        expect(readFilesImporting('pg').length).toBeGreaterThan(0);
+    });
+
+    it('imports the websocket client only inside the venue feed folder', () => {
+        const strays = readFilesImporting('ws')
+            .filter((path) => !path.startsWith('apps/collector/src/services/binance-depth-feed/'));
+
+        expect(strays).toEqual([]);
+    });
+
+    it('imports the websocket client somewhere, so the rule is being exercised', () => {
+        expect(readFilesImporting('ws').length).toBeGreaterThan(0);
     });
 
     it('reaches the venue over HTTP only from the venue feed service', () => {

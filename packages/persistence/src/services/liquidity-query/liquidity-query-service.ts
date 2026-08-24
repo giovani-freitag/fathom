@@ -1,15 +1,22 @@
 import type {
     InstrumentCoverage,
-    LiquidityFrame,
     LiquidityFrameWindow,
     RecordingGap,
-    TradeCluster,
     TradeClusterQuery,
     TradeClusterWindow,
     WindowQuery,
 } from '@fathom/contracts';
 import type { PostgresService } from '../postgres/postgres-service.ts';
-import { toDepthLadder } from './postgres-row-mapping.ts';
+import {
+    type InstrumentRow,
+    type LiquidityFrameRow,
+    type RecordingGapRow,
+    toInstrumentCoverage,
+    toLiquidityFrame,
+    toRecordingGap,
+    toTradeCluster,
+    type TradeClusterRow,
+} from './postgres-row-mapping.ts';
 
 const MILLISECONDS_PER_SECOND = 1_000;
 const FRAME_COLUMNS = `
@@ -42,42 +49,9 @@ export interface FrameTailQuery {
     readonly maxFrames: number;
 }
 
-interface LiquidityFrameRow {
-    readonly captured_at: Date;
-    readonly best_bid_price: number;
-    readonly best_ask_price: number;
-    readonly bid_lowest_bucket_index: number;
-    readonly bid_quantities: unknown;
-    readonly ask_lowest_bucket_index: number;
-    readonly ask_quantities: unknown;
-}
-
 interface InstrumentGrid {
     readonly priceBucketSize: number;
     readonly frameIntervalMs: number;
-}
-
-interface InstrumentRow {
-    readonly instrument_symbol: string;
-    readonly price_bucket_size: number;
-    readonly frame_interval_ms: number;
-    readonly first_frame_at: Date | null;
-    readonly last_frame_at: Date | null;
-}
-
-interface TradeClusterRow {
-    readonly bucket_start: Date;
-    readonly grouped_bucket_index: number;
-    readonly buy_quantity: number;
-    readonly sell_quantity: number;
-    readonly trade_count: number;
-    readonly largest_trade_quantity: number;
-}
-
-interface RecordingGapRow {
-    readonly gap_started_at: Date;
-    readonly gap_ended_at: Date;
-    readonly gap_reason: string;
 }
 
 /**
@@ -296,43 +270,4 @@ function selectTradeSource(sampleIntervalMs: number): TradeSource {
         }
     }
     return selected;
-}
-
-function toLiquidityFrame(row: LiquidityFrameRow): LiquidityFrame {
-    return {
-        capturedAtMs: row.captured_at.getTime(),
-        bestBidPrice: row.best_bid_price,
-        bestAskPrice: row.best_ask_price,
-        bids: toDepthLadder(row.bid_lowest_bucket_index, row.bid_quantities),
-        asks: toDepthLadder(row.ask_lowest_bucket_index, row.ask_quantities),
-    };
-}
-
-function toInstrumentCoverage(row: InstrumentRow): InstrumentCoverage {
-    return {
-        instrumentSymbol: row.instrument_symbol,
-        priceBucketSize: row.price_bucket_size,
-        frameIntervalMs: row.frame_interval_ms,
-        firstFrameAtMs: row.first_frame_at?.getTime() ?? null,
-        lastFrameAtMs: row.last_frame_at?.getTime() ?? null,
-    };
-}
-
-function toTradeCluster(row: TradeClusterRow): TradeCluster {
-    return {
-        executedAtMs: row.bucket_start.getTime(),
-        priceBucketIndex: row.grouped_bucket_index,
-        buyQuantity: row.buy_quantity,
-        sellQuantity: row.sell_quantity,
-        tradeCount: row.trade_count,
-        largestTradeQuantity: row.largest_trade_quantity,
-    };
-}
-
-function toRecordingGap(row: RecordingGapRow): RecordingGap {
-    return {
-        gapStartedAtMs: row.gap_started_at.getTime(),
-        gapEndedAtMs: row.gap_ended_at.getTime(),
-        gapReason: row.gap_reason,
-    };
 }
