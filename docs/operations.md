@@ -15,12 +15,12 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Projects/Temp/Fathom/fathom
-ExecStart=/usr/bin/env node --env-file=%h/Projects/Temp/Fathom/fathom/.env %h/Projects/Temp/Fathom/fathom/dist/workers/collector.js
+WorkingDirectory=%h/fathom
+ExecStart=/usr/bin/env node --env-file=%h/fathom/.env %h/fathom/dist/workers/collector.js
 Restart=always
 RestartSec=5
-StandardOutput=append:%h/Projects/Temp/Fathom/fathom/collector.log
-StandardError=append:%h/Projects/Temp/Fathom/fathom/collector.log
+StandardOutput=append:%h/fathom/collector.log
+StandardError=append:%h/fathom/collector.log
 KillSignal=SIGTERM
 TimeoutStopSec=20
 
@@ -79,7 +79,7 @@ node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"
 O link compartilhado carrega o token uma vez:
 
 ```
-https://fathom-giovani.serveo.net/?token=SEU_TOKEN
+https://SEU-SUBDOMINIO.trycloudflare.com/?token=SEU_TOKEN
 ```
 
 Na primeira visita o gateway troca o token por um cookie de 30 dias, redireciona
@@ -95,7 +95,26 @@ o link.
 
 ### O túnel
 
-`~/.config/systemd/user/fathom-tunnel.service`:
+O `serveo`, que é a opção sem instalar nada, **não serve para este gráfico**.
+Medido: sobre HTTP/2 ele corta uma resposta de 2,6 MB em 344 kB, e não faz a
+ponte do WebSocket, então o mapa carrega vazio e o tempo real nunca conecta. O
+navegador negocia HTTP/2 sozinho, então não há como pedir para ele evitar isso.
+
+Use `cloudflared`, que fala HTTP/1.1 com o gateway e trata WebSocket:
+
+```bash
+mkdir -p ~/.local/bin
+curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
+  -o ~/.local/bin/cloudflared && chmod +x ~/.local/bin/cloudflared
+
+cloudflared tunnel --url http://localhost:8787
+```
+
+Ele imprime uma URL `*.trycloudflare.com`, sem conta e sem página de aviso. O
+endereço é sorteado e vive enquanto o processo viver, o que basta para mostrar
+o gráfico a alguém.
+
+Para deixar de pé, uma unidade de usuário:
 
 ```ini
 [Unit]
@@ -105,16 +124,11 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/ssh -N -T \
-  -o ExitOnForwardFailure=yes \
-  -o ServerAliveInterval=30 \
-  -o ServerAliveCountMax=3 \
-  -o StrictHostKeyChecking=accept-new \
-  -R fathom-giovani:80:localhost:8787 serveo.net
+ExecStart=%h/.local/bin/cloudflared tunnel --url http://localhost:8787
 Restart=always
 RestartSec=10
-StandardOutput=append:%h/Projects/Temp/Fathom/fathom/tunnel.log
-StandardError=append:%h/Projects/Temp/Fathom/fathom/tunnel.log
+StandardOutput=append:%h/fathom/tunnel.log
+StandardError=append:%h/fathom/tunnel.log
 
 [Install]
 WantedBy=default.target
@@ -123,16 +137,8 @@ WantedBy=default.target
 ```bash
 systemctl --user daemon-reload
 systemctl --user enable --now fathom-tunnel
-tail -f tunnel.log        # confirma o subdomínio que o serveo devolveu
+grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' tunnel.log | head -1
 ```
-
-O subdomínio é pedido no `-R`, e não sorteado, para o link sobreviver a uma
-reconexão. Se o serveo já tiver entregado esse nome a outra pessoa, o
-`ExitOnForwardFailure` derruba a sessão em vez de abrir um túnel num endereço
-que ninguém tem — o log diz qual, e aí é escolher outro nome.
-
-`ServerAliveInterval` detecta uma conexão morta em ~90 s; o `Restart=always`
-reconecta. É o mesmo efeito do autossh sem instalar nada.
 
 Ao subir o túnel, marque `FATHOM_TUNNELLED=true` e reinicie o gateway: o cookie
 passa a sair como `Secure`, e aí ele não vaza numa conexão em texto puro.
