@@ -38,6 +38,7 @@ export interface ChartState {
     readonly dataset: ChartDataset;
     readonly liveStatus: LiveFeedStatus;
     readonly isFollowingLive: boolean;
+    readonly isFollowingPrice: boolean;
     readonly isLoadingWindow: boolean;
     readonly colourGain: number;
     readonly isTradeOverlayVisible: boolean;
@@ -55,6 +56,8 @@ export interface ViewRequest {
     readonly surfaceWidthPx: number;
     /** Pass false when the gesture moved the view off the right edge. */
     readonly isFollowingLive?: boolean;
+    /** Pass false when the gesture chose a price band of its own. */
+    readonly isFollowingPrice?: boolean;
 }
 
 export type ChartSettingsPatch = Partial<
@@ -182,6 +185,7 @@ export class ChartController {
             ...state,
             viewport,
             isFollowingLive: request.isFollowingLive ?? state.isFollowingLive,
+            isFollowingPrice: request.isFollowingPrice ?? state.isFollowingPrice,
         }));
 
         const loadRequest = this.buildLoadRequest();
@@ -315,11 +319,20 @@ export class ChartController {
         this.store.update((state) => ({ ...state, liveStatus }));
     }
 
+    /**
+     * Moves the viewport for a newly streamed frame.
+     *
+     * Parked in history nothing moves at all. Live, time always follows, but the
+     * price axis only recentres while the reader has not chosen a band of their
+     * own — otherwise a deliberate pan is undone by the next second of data.
+     */
     private advanceViewport(state: ChartState, dataset: ChartDataset): ChartViewport {
         if (!state.isFollowingLive) {
             return state.viewport;
         }
-        return followTouchPrice(followLiveEdge(state.viewport, dataset), dataset);
+
+        const onLiveEdge = followLiveEdge(state.viewport, dataset);
+        return state.isFollowingPrice ? followTouchPrice(onLiveEdge, dataset) : onLiveEdge;
     }
 
     /**
@@ -386,6 +399,7 @@ function buildInitialState(preferences: ViewerPreferences): ChartState {
         dataset: EMPTY_DATASET,
         liveStatus: 'idle',
         isFollowingLive: true,
+        isFollowingPrice: true,
         isLoadingWindow: false,
         colourGain: preferences.colourGain,
         isTradeOverlayVisible: preferences.isTradeOverlayVisible,

@@ -2,6 +2,7 @@ import type { ChartViewport } from '../../../src/app/core/chart-viewport.ts';
 import { ChartGestureController } from '../../../src/app/core/chart-gesture-controller.ts';
 import { describe, expect, it } from 'vitest';
 import { createGestureSurface, type GestureSurfaceMock } from '../../mocks/gesture-surface.ts';
+import { resolveChartLayout } from '../../../src/app/painting/chart-layout.ts';
 
 const VIEWPORT: ChartViewport = {
     fromMs: 1_000_000,
@@ -21,6 +22,11 @@ function buildHarness(): Harness {
         surface: surface.surface,
         readViewport: surface.readViewport,
         readSurfaceSize: () => ({ width: surface.width, height: surface.height }),
+        readLayout: () => resolveChartLayout({
+            cssWidth: surface.width,
+            cssHeight: surface.height,
+            isVolumeProfileVisible: true,
+        }),
         onView: (request) => surface.published.push(request),
         onPointerMove: (pointer) => surface.pointers.push(pointer),
     });
@@ -156,5 +162,202 @@ describe('ChartGestureController', () => {
         const { controller } = buildHarness();
 
         expect(() => { controller.attach(); }).toThrow();
+    });
+});
+
+/** With a 1000x500 surface the plot ends at x=850 and y=478. */
+const PRICE_SCALE_X = 900;
+const TIME_SCALE_Y = 490;
+
+describe('ChartGestureController when the reader chooses a price band', () => {
+    it('stops recentring after a vertical drag', () => {
+        const { surface } = buildHarness();
+
+        dragBy(surface, 0, 120);
+
+        expect(surface.published.at(-1)?.isFollowingPrice).toBe(false);
+    });
+
+    it('leaves recentring alone when the drag is purely horizontal', () => {
+        const { surface } = buildHarness();
+
+        dragBy(surface, 150, 0);
+
+        expect(surface.published.at(-1)?.isFollowingPrice).toBeUndefined();
+    });
+
+    it('stops recentring after the price is zoomed', () => {
+        const { surface } = buildHarness();
+
+        surface.fire('wheel', { clientX: 500, clientY: 250, deltaY: 120, shiftKey: true });
+
+        expect(surface.published.at(-1)?.isFollowingPrice).toBe(false);
+    });
+
+    it('re-engages recentring on a double click', () => {
+        const { surface } = buildHarness();
+
+        surface.fire('dblclick', { clientX: 500, clientY: 250 });
+
+        expect(surface.published.at(-1)?.isFollowingPrice).toBe(true);
+    });
+});
+
+describe('ChartGestureController when an axis is dragged', () => {
+    it('widens the price span when the price scale is dragged down', () => {
+        const { surface } = buildHarness();
+
+        surface.fire('pointerdown', { pointerId: 1, clientX: PRICE_SCALE_X, clientY: 250 });
+        surface.fire('pointermove', { pointerId: 1, clientX: PRICE_SCALE_X, clientY: 430 });
+
+        const published = surface.published.at(-1)!.viewport;
+        expect(published.highPrice - published.lowPrice).toBeGreaterThan(1_000);
+    });
+
+    it('narrows the price span when the price scale is dragged up', () => {
+        const { surface } = buildHarness();
+
+        surface.fire('pointerdown', { pointerId: 1, clientX: PRICE_SCALE_X, clientY: 250 });
+        surface.fire('pointermove', { pointerId: 1, clientX: PRICE_SCALE_X, clientY: 70 });
+
+        const published = surface.published.at(-1)!.viewport;
+        expect(published.highPrice - published.lowPrice).toBeLessThan(1_000);
+    });
+
+    it('holds the time span while the price scale is dragged', () => {
+        const { surface } = buildHarness();
+
+        surface.fire('pointerdown', { pointerId: 1, clientX: PRICE_SCALE_X, clientY: 250 });
+        surface.fire('pointermove', { pointerId: 1, clientX: PRICE_SCALE_X, clientY: 430 });
+
+        const published = surface.published.at(-1)!.viewport;
+        expect(published.toMs - published.fromMs).toBeCloseTo(900_000, 6);
+    });
+
+    it('keeps the scale centred, so the middle price stays put', () => {
+        const { surface } = buildHarness();
+
+        surface.fire('pointerdown', { pointerId: 1, clientX: PRICE_SCALE_X, clientY: 250 });
+        surface.fire('pointermove', { pointerId: 1, clientX: PRICE_SCALE_X, clientY: 430 });
+
+        const published = surface.published.at(-1)!.viewport;
+        expect((published.highPrice + published.lowPrice) / 2).toBeCloseTo(78_500, 6);
+    });
+
+    it('restores the original span when the drag returns to where it began', () => {
+        const { surface } = buildHarness();
+
+        surface.fire('pointerdown', { pointerId: 1, clientX: PRICE_SCALE_X, clientY: 250 });
+        surface.fire('pointermove', { pointerId: 1, clientX: PRICE_SCALE_X, clientY: 430 });
+        surface.fire('pointermove', { pointerId: 1, clientX: PRICE_SCALE_X, clientY: 250 });
+
+        const published = surface.published.at(-1)!.viewport;
+        expect(published.highPrice - published.lowPrice).toBeCloseTo(1_000, 6);
+    });
+
+    it('widens the time span when the time scale is dragged left', () => {
+        const { surface } = buildHarness();
+
+        surface.fire('pointerdown', { pointerId: 1, clientX: 400, clientY: TIME_SCALE_Y });
+        surface.fire('pointermove', { pointerId: 1, clientX: 220, clientY: TIME_SCALE_Y });
+
+        const published = surface.published.at(-1)!.viewport;
+        expect(published.toMs - published.fromMs).toBeGreaterThan(900_000);
+    });
+
+    it('pins the right edge so the live edge survives a time rescale', () => {
+        const { surface } = buildHarness();
+
+        surface.fire('pointerdown', { pointerId: 1, clientX: 400, clientY: TIME_SCALE_Y });
+        surface.fire('pointermove', { pointerId: 1, clientX: 220, clientY: TIME_SCALE_Y });
+
+        expect(surface.published.at(-1)?.viewport.toMs).toBeCloseTo(VIEWPORT.toMs, 6);
+    });
+
+    it('does not drive the crosshair while an axis is being dragged', () => {
+        const { surface } = buildHarness();
+
+        surface.fire('pointerdown', { pointerId: 1, clientX: PRICE_SCALE_X, clientY: 250 });
+        surface.fire('pointermove', { pointerId: 1, clientX: PRICE_SCALE_X, clientY: 430 });
+
+        expect(surface.pointers).toEqual([]);
+    });
+
+    it('offers a resize cursor over the price scale', () => {
+        const { surface } = buildHarness();
+
+        surface.fire('pointermove', { pointerId: 7, clientX: PRICE_SCALE_X, clientY: 250 });
+
+        expect(surface.surface.style.cursor).toBe('ns-resize');
+    });
+
+    it('offers the crosshair back over the plot', () => {
+        const { surface } = buildHarness();
+
+        surface.fire('pointermove', { pointerId: 7, clientX: 400, clientY: 250 });
+
+        expect(surface.surface.style.cursor).toBe('crosshair');
+    });
+});
+
+/** A 380x780 surface is compact: the price axis is 58px, the profile 52px. */
+function buildPhoneHarness(): Harness {
+    const surface = createGestureSurface(VIEWPORT, { width: 380, height: 780 });
+    const controller = new ChartGestureController({
+        surface: surface.surface,
+        readViewport: surface.readViewport,
+        readSurfaceSize: () => ({ width: surface.width, height: surface.height }),
+        readLayout: () => resolveChartLayout({
+            cssWidth: surface.width,
+            cssHeight: surface.height,
+            isVolumeProfileVisible: true,
+        }),
+        onView: (request) => surface.published.push(request),
+        onPointerMove: (pointer) => surface.pointers.push(pointer),
+    });
+    controller.attach();
+    return { controller, surface };
+}
+
+describe('ChartGestureController on a phone', () => {
+    it('scales the price from the axis, which is still a thumb wide', () => {
+        const { surface } = buildPhoneHarness();
+
+        surface.fire('pointerdown', { pointerId: 1, clientX: 350, clientY: 300 });
+        surface.fire('pointermove', { pointerId: 1, clientX: 350, clientY: 480 });
+
+        const published = surface.published.at(-1)!.viewport;
+        expect(published.highPrice - published.lowPrice).toBeGreaterThan(1_000);
+    });
+
+    it('leaves the profile pannable rather than spending it on a grip', () => {
+        const { surface } = buildPhoneHarness();
+
+        surface.fire('pointerdown', { pointerId: 1, clientX: 295, clientY: 300 });
+        surface.fire('pointermove', { pointerId: 1, clientX: 295, clientY: 480 });
+
+        const published = surface.published.at(-1)!.viewport;
+        expect(published.highPrice - published.lowPrice).toBeCloseTo(1_000, 6);
+    });
+
+    it('pans from the bottom strip instead of rescaling time under the thumb', () => {
+        const { surface } = buildPhoneHarness();
+
+        surface.fire('pointerdown', { pointerId: 1, clientX: 150, clientY: 770 });
+        surface.fire('pointermove', { pointerId: 1, clientX: 40, clientY: 770 });
+
+        const published = surface.published.at(-1)!.viewport;
+        expect(published.toMs - published.fromMs).toBeCloseTo(900_000, 6);
+    });
+
+    it('still pinches to scale both axes', () => {
+        const { surface } = buildPhoneHarness();
+        surface.fire('pointerdown', { pointerId: 1, clientX: 120, clientY: 300 });
+        surface.fire('pointerdown', { pointerId: 2, clientX: 240, clientY: 300 });
+
+        surface.fire('pointermove', { pointerId: 2, clientX: 340, clientY: 300 });
+
+        const published = surface.published.at(-1)!.viewport;
+        expect(published.toMs - published.fromMs).toBeLessThan(900_000);
     });
 });

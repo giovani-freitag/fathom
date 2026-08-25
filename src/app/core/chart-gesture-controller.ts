@@ -4,6 +4,7 @@ import {
     zoomViewportPrice,
     zoomViewportTime,
 } from './chart-viewport.ts';
+import type { ChartLayout } from '../painting/render-types.ts';
 import type { PointerReadout } from '../painting/heatmap-renderer.ts';
 import type { ViewRequest } from './chart-controller.ts';
 
@@ -16,6 +17,23 @@ const MINIMUM_PINCH_DISTANCE_PX = 24;
 /** How close to the clock the right edge must stay to count as still following. */
 const LIVE_EDGE_TOLERANCE_MS = 5_000;
 
+/** Pointer travel along an axis that doubles the span it governs. */
+const AXIS_SCALE_DISTANCE_PX = 180;
+
+/**
+ * Which band of the surface a gesture started on.
+ *
+ * The axes are scale handles rather than scenery: dragging on one stretches the
+ * span it labels, which is the only way to change a proportion with one finger.
+ */
+type SurfaceRegion = 'plot' | 'price-scale' | 'time-scale';
+
+const REGION_CURSORS: Record<SurfaceRegion, string> = {
+    plot: 'crosshair',
+    'price-scale': 'ns-resize',
+    'time-scale': 'ew-resize',
+};
+
 export interface SurfaceSize {
     readonly width: number;
     readonly height: number;
@@ -25,6 +43,7 @@ export interface ChartGestureControllerConfig {
     readonly surface: HTMLElement;
     readonly readViewport: () => ChartViewport;
     readonly readSurfaceSize: () => SurfaceSize;
+    readonly readLayout: () => ChartLayout;
     readonly onView: (request: ViewRequest) => void;
     readonly onPointerMove: (pointer: PointerReadout | null) => void;
 }
@@ -37,6 +56,7 @@ interface PointerPosition {
 interface DragOrigin {
     readonly viewport: ChartViewport;
     readonly pointer: PointerPosition;
+    readonly region: SurfaceRegion;
 }
 
 interface PinchOrigin {
@@ -120,6 +140,7 @@ export class ChartGestureController {
         const position = this.toLocalPosition(event);
 
         if (!this.activePointers.has(event.pointerId)) {
+            this.config.surface.style.cursor = REGION_CURSORS[this.resolveRegion(position)];
             this.config.onPointerMove(position);
             return;
         }
@@ -129,8 +150,11 @@ export class ChartGestureController {
             this.applyPinch();
             return;
         }
+
         this.applyDrag(position);
-        this.config.onPointerMove(position);
+        if (this.dragOrigin?.region === 'plot') {
+            this.config.onPointerMove(position);
+        }
     }
 
     private handlePointerUp(event: PointerEvent): void {
@@ -187,6 +211,7 @@ export class ChartGestureController {
             viewport: { ...viewport, fromMs: nowMs - spanMs, toMs: nowMs },
             surfaceWidthPx: this.config.readSurfaceSize().width,
             isFollowingLive: true,
+            isFollowingPrice: true,
         });
     }
 
@@ -207,7 +232,31 @@ export class ChartGestureController {
         }
 
         this.pinchOrigin = null;
-        this.dragOrigin = positions[0] === undefined ? null : { viewport, pointer: positions[0] };
+        const pointer = positions[0];
+        this.dragOrigin = pointer === undefined
+            ? null
+            : { viewport, pointer, region: this.resolveRegion(pointer) };
+    }
+
+    /**
+     * Which band the given point falls in.
+     *
+     * A phone gets a narrower price handle and no time handle at all. The full
+     * desktop bands would spend 28% of a 390px screen on scale grips, and the
+     * 22px time axis is under any thumb anyway — pinch and the span presets
+     * already cover time there, so the pixels are better left pannable.
+     */
+    private resolveRegion(position: PointerPosition): SurfaceRegion {
+        const layout = this.config.readLayout();
+        const priceScaleX = layout.isCompact ? layout.priceAxisX : layout.profileX;
+
+        if (position.x >= priceScaleX) {
+            return 'price-scale';
+        }
+        if (!layout.isCompact && position.y >= layout.plotHeight) {
+            return 'time-scale';
+        }
+        return 'plot';
     }
 
     private applyDrag(position: PointerPosition): void {
@@ -216,6 +265,36 @@ export class ChartGestureController {
             return;
         }
 
+        if (origin.region === 'price-scale') {
+            this.applyPriceScaleDrag(origin, position);
+            return;
+        }
+        if (origin.region === 'time-scale') {
+            this.applyTimeScaleDrag(origin, position);
+            return;
+        }
+        this.applyPan(origin, position);
+    }
+
+    private applyPriceScaleDrag(origin: DragOrigin, position: PointerPosition): void {
+        this.publish(zoomViewportPrice({
+            viewport: origin.viewport,
+            anchorRatio: 0.5,
+            factor: resolveAxisScaleFactor(position.y - origin.pointer.y),
+        }));
+    }
+
+    private applyTimeScaleDrag(origin: DragOrigin, position: PointerPosition): void {
+        // Anchored at the right edge so stretching time does not push the live
+        // edge out of view, which is where the reader is looking.
+        this.publish(zoomViewportTime({
+            viewport: origin.viewport,
+            anchorRatio: 1,
+            factor: resolveAxisScaleFactor(origin.pointer.x - position.x),
+        }));
+    }
+
+    private applyPan(origin: DragOrigin, position: PointerPosition): void {
         const size = this.config.readSurfaceSize();
         const spanMs = origin.viewport.toMs - origin.viewport.fromMs;
         const priceSpan = origin.viewport.highPrice - origin.viewport.lowPrice;
@@ -258,11 +337,23 @@ export class ChartGestureController {
         }));
     }
 
+    /**
+     * Hands a gesture's viewport to the controller.
+     *
+     * A gesture that chose its own price band ends automatic recentring. Without
+     * this the next streamed frame drags the axis back the moment the touch
+     * leaves the screen, which reads as the chart refusing to be moved.
+     */
     private publish(viewport: ChartViewport): void {
+        const current = this.config.readViewport();
+        const didChoosePriceBand = viewport.lowPrice !== current.lowPrice
+            || viewport.highPrice !== current.highPrice;
+
         this.config.onView({
             viewport,
             surfaceWidthPx: this.config.readSurfaceSize().width,
             isFollowingLive: viewport.toMs >= Date.now() - LIVE_EDGE_TOLERANCE_MS,
+            ...(didChoosePriceBand ? { isFollowingPrice: false } : {}),
         });
     }
 
@@ -270,6 +361,19 @@ export class ChartGestureController {
         const bounds = this.config.surface.getBoundingClientRect();
         return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
     }
+}
+
+/**
+ * Turns pointer travel along an axis into a span multiplier.
+ *
+ * Exponential rather than linear so the gesture is reversible: dragging back to
+ * where it started restores the original span exactly.
+ *
+ * @param travelPx - Pixels dragged in the direction that widens the span.
+ * @returns The factor to scale the span by.
+ */
+function resolveAxisScaleFactor(travelPx: number): number {
+    return Math.exp(travelPx / AXIS_SCALE_DISTANCE_PX);
 }
 
 function resolveScaleFactor(originDistance: number, currentDistance: number): number {

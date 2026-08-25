@@ -20,7 +20,15 @@ export interface GestureSurfaceMock {
  * Driving real DOM events would test jsdom's pointer emulation rather than the
  * gesture arithmetic, which is the part that decides how the chart feels.
  */
-export function createGestureSurface(viewport: ChartViewport): GestureSurfaceMock {
+export interface GestureSurfaceSize {
+    readonly width: number;
+    readonly height: number;
+}
+
+export function createGestureSurface(
+    viewport: ChartViewport,
+    size: GestureSurfaceSize = { width: 1_000, height: 500 },
+): GestureSurfaceMock {
     const handlers = new Map<string, ((event: unknown) => void)[]>();
     const published: ViewRequest[] = [];
     const pointers: (({ x: number; y: number }) | null)[] = [];
@@ -32,7 +40,8 @@ export function createGestureSurface(viewport: ChartViewport): GestureSurfaceMoc
         removeEventListener: (type: string, handler: (event: unknown) => void) => {
             handlers.set(type, (handlers.get(type) ?? []).filter((candidate) => candidate !== handler));
         },
-        getBoundingClientRect: () => ({ left: 0, top: 0, width: 1_000, height: 500 }),
+        getBoundingClientRect: () => ({ left: 0, top: 0, width: size.width, height: size.height }),
+        style: { cursor: '' },
         setPointerCapture: vi.fn(),
         hasPointerCapture: () => true,
         releasePointerCapture: vi.fn(),
@@ -40,8 +49,8 @@ export function createGestureSurface(viewport: ChartViewport): GestureSurfaceMoc
 
     return {
         surface,
-        width: 1_000,
-        height: 500,
+        width: size.width,
+        height: size.height,
         published,
         pointers,
         readViewport: () => viewport,

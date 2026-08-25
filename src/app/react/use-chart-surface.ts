@@ -1,4 +1,5 @@
 import { ChartGestureController } from '../core/chart-gesture-controller.ts';
+import { resolveChartLayout } from '../painting/chart-layout.ts';
 import { HeatmapRenderer, type PointerReadout } from '../painting/heatmap-renderer.ts';
 import { type RefObject, useCallback, useEffect, useRef } from 'react';
 import { useKernel } from './kernel-context.ts';
@@ -70,6 +71,14 @@ export function useChartSurface(): ChartSurfaceHandles {
             surface: container,
             readViewport: () => kernel.chart.store.read().viewport,
             readSurfaceSize: () => container.getBoundingClientRect(),
+            readLayout: () => {
+                const bounds = container.getBoundingClientRect();
+                return resolveChartLayout({
+                    cssWidth: bounds.width,
+                    cssHeight: bounds.height,
+                    isVolumeProfileVisible: kernel.chart.store.read().isVolumeProfileVisible,
+                });
+            },
             onView: (request) => kernel.chart.applyView(request),
             onPointerMove: (pointer) => {
                 pointerRef.current = pointer;

@@ -325,6 +325,22 @@ describe('ChartController price following', () => {
         expect(after.highPrice - after.lowPrice).toBeCloseTo(before.highPrice - before.lowPrice, 6);
     });
 
+    it('holds a hand-chosen band even when the touch walks off screen', async () => {
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        const parked = controller.store.read().viewport;
+        controller.applyView({
+            viewport: { ...parked, lowPrice: 60_000, highPrice: 61_000 },
+            surfaceWidthPx: SURFACE_WIDTH,
+            isFollowingPrice: false,
+        });
+
+        mocks.lastSubscription()?.onFrames(buildWindow([buildFrame(parked.toMs + 1_000, 90_000)]));
+
+        expect(controller.store.read().viewport.lowPrice).toBe(60_000);
+    });
+
     it('never drags the price axis while parked in history', async () => {
         const mocks = createChartServiceMocks();
         const controller = buildController(mocks);
