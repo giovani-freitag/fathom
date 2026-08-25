@@ -11,12 +11,6 @@ interface DepthLegendProps {
 
 /**
  * The colour ramp, with the sizes at each of its ends.
- *
- * Intensity is relative to the loaded window rather than absolute, so without
- * the numbers beside it the ramp says nothing about how large a wall actually
- * is. Both ends are named because the cold end is not zero: everything below the
- * floor is painted as empty, and a reader who assumes otherwise misreads the
- * blank half of the field.
  */
 export function DepthLegend({
     floorQuantity,

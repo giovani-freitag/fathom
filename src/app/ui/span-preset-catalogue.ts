@@ -5,9 +5,6 @@ export interface SpanPreset {
 
 /**
  * The time windows the chart offers, from a single sweep to a full week.
- *
- * Kept out of the component module so Fast Refresh keeps working: a module that
- * exports both a component and a constant loses the ability to hot-reload.
  */
 export const SPAN_PRESETS: readonly SpanPreset[] = [
     { label: '1m', spanMs: 60_000 },

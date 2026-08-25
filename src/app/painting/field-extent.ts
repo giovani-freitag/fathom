@@ -3,28 +3,16 @@ import type { ChartDataset } from '../core/chart-dataset.ts';
 
 /**
  * Bucket rows the source image is allowed to hold.
- *
- * A wide window over a large price move spans thousands of buckets, and the
- * field is reallocated whenever the window itself changes.
  */
 const MAXIMUM_BUCKET_ROWS = 6_000;
 
 /**
  * Total pixels the field may allocate, at four bytes each.
- *
- * The row cap alone is not enough: rows and columns both grow with the window,
- * and their product is what a phone has to hold. Eight million pixels is
- * thirty-two megabytes, which a wide desktop window can reach and a phone,
- * having far fewer columns, never does.
  */
 const MAXIMUM_FIELD_PIXELS = 8_000_000;
 
 /**
  * Spare columns kept to the right of the loaded window.
- *
- * Streamed frames land in this headroom instead of forcing a reallocation every
- * second. Ten minutes is far longer than a viewer sits on one window without the
- * controller refetching anyway.
  */
 const APPEND_HEADROOM_MS = 600_000;
 
@@ -95,10 +83,6 @@ interface RetainedBandRequest {
 
 /**
  * Lowest bucket of the band the field keeps when it cannot hold the whole range.
- *
- * Centred on the median touch rather than anchored to either extreme: a window
- * whose price trended spends most of its time nowhere near the top or the
- * bottom, and clipping from one end throws away exactly the part that was busy.
  *
  * @param request - The frames, the grid, and the band size to fit.
  * @returns The lowest bucket index the field should start at.

@@ -3,9 +3,6 @@ import type { PaintContext } from '../render-types.ts';
 
 /**
  * Marks the windows during which nothing was recorded.
- *
- * Drawn before every other layer so the band reads as absent ground rather than
- * as something laid over data: there is no data there to lay anything over.
  */
 export class GapPainter {
     /**

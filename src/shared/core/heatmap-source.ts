@@ -23,11 +23,6 @@ export interface TradeClusterResult {
 
 /**
  * Where the chart reads recorded history from.
- *
- * Named for what it provides rather than how it is reached, because the same
- * chart is served two ways: over HTTP from a gateway that queries PostgreSQL,
- * and directly out of the browser's own archive when the page is recording for
- * itself. Neither the controller nor any painter can tell which it has.
  */
 export interface HeatmapSource {
     fetchInstruments(signal?: AbortSignal): Promise<readonly InstrumentCoverage[]>;

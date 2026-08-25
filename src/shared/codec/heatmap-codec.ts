@@ -54,13 +54,10 @@ export function encodeLiquidityFrameWindow(window: LiquidityFrameWindow): ArrayB
 /**
  * Reads a frame window back from its binary wire form.
  *
- * The returned quantity arrays are views over `buffer`, not copies, so the
- * caller must not reuse or detach the buffer while the frames are alive.
- *
  * @param buffer - A whole encoded window, starting at byte zero.
  * @returns The decoded window.
  * @throws HeatmapCodecError when the magic, version, or declared lengths do not
- *         match the payload.
+ * match the payload.
  */
 export function decodeLiquidityFrameWindow(buffer: ArrayBuffer): LiquidityFrameWindow {
     assertLittleEndianPlatform();

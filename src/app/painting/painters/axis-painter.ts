@@ -19,9 +19,6 @@ export interface PriceTag {
 
 /**
  * Draws the two axes, and the tags other layers pin into them.
- *
- * Tags live here rather than with the layers that request them so a pinned price
- * always lands in the same band, at the same height, whichever layer asked.
  */
 export class AxisPainter {
     /**
@@ -55,11 +52,6 @@ export class AxisPainter {
 
     /**
      * Draws the time axis: its gutter, its labels, and the instant pinned on it.
-     *
-     * The pinned tag is drawn here rather than by the crosshair so the axis can
-     * drop the labels it covers. Painting them independently leaves the ends of
-     * a covered label sticking out either side of the tag, which reads as two
-     * overlapping times.
      *
      * @param paint - The shared paint context.
      */

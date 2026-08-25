@@ -14,9 +14,6 @@ export interface LiveFeedSubscription {
 
 /**
  * How the chart learns about a second that was just recorded.
- *
- * A port because the two registrations differ only in where the tail comes
- * from: a socket to the gateway, or the archive this very page is filling.
  */
 export interface LiveFeed {
     connect(subscription: LiveFeedSubscription): void;

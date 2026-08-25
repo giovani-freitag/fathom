@@ -8,9 +8,6 @@ const MAXIMUM_RECONNECT_DELAY_MS = 15_000;
 
 /**
  * Close codes that mean retrying will not help.
- *
- * A policy refusal is a decision, not a fault: reconnecting against one loops
- * forever and hammers the very gateway that said no.
  */
 const PERMANENT_CLOSE_CODES = new Set([1008, 1003]);
 
@@ -21,17 +18,9 @@ export interface LiveFeedServiceConfig {
 
 /**
  * One viewer's tail.
- *
- * The delivery callbacks belong to the subscription rather than the service so
- * the consumer can be built after it: a controller needs the feed, and the feed
- * needs the controller's handlers.
  */
 /**
  * The only place the live socket is spoken.
- *
- * Reconnects on its own with backoff, resuming from the newest frame it has
- * delivered rather than from the original request, so a dropped connection
- * costs latency instead of a hole in the chart.
  */
 export class LiveFeedService implements LiveFeed {
     private readonly config: LiveFeedServiceConfig;

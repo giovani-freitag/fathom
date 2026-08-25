@@ -22,9 +22,6 @@ const AXIS_SCALE_DISTANCE_PX = 180;
 
 /**
  * Which band of the surface a gesture started on.
- *
- * The axes are scale handles rather than scenery: dragging on one stretches the
- * span it labels, which is the only way to change a proportion with one finger.
  */
 type SurfaceRegion = 'plot' | 'price-scale' | 'time-scale';
 
@@ -68,11 +65,6 @@ interface PinchOrigin {
 
 /**
  * Turns pointer, wheel, and touch input into viewport changes.
- *
- * Both gestures recompute from the viewport captured when the gesture began
- * rather than accumulating per event. Incremental application drifts under the
- * clamping the controller applies, which on a pinch shows up as the chart
- * sliding away under the fingers.
  */
 export class ChartGestureController {
     private readonly config: ChartGestureControllerConfig;
@@ -240,11 +232,6 @@ export class ChartGestureController {
 
     /**
      * Which band the given point falls in.
-     *
-     * A phone gets a narrower price handle and no time handle at all. The full
-     * desktop bands would spend 28% of a 390px screen on scale grips, and the
-     * 22px time axis is under any thumb anyway — pinch and the span presets
-     * already cover time there, so the pixels are better left pannable.
      */
     private resolveRegion(position: PointerPosition): SurfaceRegion {
         const layout = this.config.readLayout();
@@ -339,10 +326,6 @@ export class ChartGestureController {
 
     /**
      * Hands a gesture's viewport to the controller.
-     *
-     * A gesture that chose its own price band ends automatic recentring. Without
-     * this the next streamed frame drags the axis back the moment the touch
-     * leaves the screen, which reads as the chart refusing to be moved.
      */
     private publish(viewport: ChartViewport): void {
         const current = this.config.readViewport();
@@ -365,9 +348,6 @@ export class ChartGestureController {
 
 /**
  * Turns pointer travel along an axis into a span multiplier.
- *
- * Exponential rather than linear so the gesture is reversible: dragging back to
- * where it started restores the original span exactly.
  *
  * @param travelPx - Pixels dragged in the direction that widens the span.
  * @returns The factor to scale the span by.

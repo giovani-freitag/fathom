@@ -41,11 +41,6 @@ export interface WindowLoaderConfig {
 
 /**
  * Decides when the chart needs another round trip, and makes it.
- *
- * Owns the whole question of what is loaded: the range, the resolution, the
- * request in flight, and the one most recently asked for. Keeping that in one
- * object is what lets "do we already have this?" be answered by looking at a
- * single place rather than by reasoning across a controller.
  */
 export class WindowLoader {
     private readonly config: WindowLoaderConfig;
@@ -66,8 +61,6 @@ export class WindowLoader {
 
     /**
      * Fetches a window now, unless the identical one was already requested.
-     *
-     * Never rejects: a failure is reported through the configured callback.
      *
      * @param request - Instrument, viewport, surface width, and price binning.
      */

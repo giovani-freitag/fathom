@@ -5,9 +5,6 @@ import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
 
 /**
  * Row shapes each query produces, named as PostgreSQL returns them.
- *
- * They live beside the functions that translate them so a column rename shows up
- * in one file rather than two.
  */
 export interface LiquidityFrameRow {
     readonly captured_at: Date;
@@ -45,10 +42,6 @@ export interface RecordingGapRow {
 /**
  * Converts a `REAL[]` column into the dense typed array the renderer consumes.
  *
- * The driver normally parses float arrays into numbers, but falls back to the
- * raw `{1,2,3}` literal when no parser is registered for the element type. Both
- * shapes are accepted so a driver upgrade cannot silently produce NaN depth.
- *
  * @param column - Value the driver produced for a `REAL[]` column.
  * @returns The quantities, in column order.
  * @throws TypeError when the column is neither an array nor an array literal.
@@ -82,11 +75,6 @@ const CLOSING_BRACE = 125;
 
 /**
  * Reads a `real[]` literal straight into a typed array.
- *
- * The driver's own parser builds an `Array` of boxed numbers first, and a window
- * of a few thousand frames carries a couple of million of them. Scanning the
- * literal once and writing into the array we actually want cuts the read of a
- * four-hour window from 630ms to 250ms, which is the query's own time.
  *
  * @param literal - The array literal, `{1.5,2.25,0}`.
  * @returns The quantities, in order.

@@ -2,9 +2,6 @@ import type { SerializedPriceLevel } from '../core/depth-types.ts';
 
 /**
  * Shapes the venue publishes, named as the venue names them.
- *
- * These single-letter fields exist only inside this folder; the feed service
- * maps them onto the collector's own vocabulary before anything else sees them.
  */
 export interface BinanceDepthUpdatePayload {
     readonly e: 'depthUpdate';
@@ -20,10 +17,6 @@ export interface BinanceDepthUpdatePayload {
 
 /**
  * One printed execution.
- *
- * The aggregated variant of this stream publishes nothing on USD-M futures, and
- * raw prints are the better input regardless: the largest single execution in a
- * cell stays a real trade instead of a batch the venue had already merged.
  */
 export interface BinanceTradePayload {
     readonly e: 'trade';

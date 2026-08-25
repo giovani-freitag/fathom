@@ -65,26 +65,24 @@ export function formatPrice(price: number): string {
 /**
  * Renders a price for a tag pinned inside the price axis.
  *
- * One decimal rather than two: the axis is only as wide as its widest label, and
- * a tag that overflows it is unreadable exactly when it matters most.
- *
  * @param price - Price in quote currency.
  * @returns The formatted price.
  */
 export function formatAxisTagPrice(price: number): string {
+    // One decimal, not two: the axis is only as wide as its widest label, and a
+    // tag that overflows it is unreadable exactly when it matters most.
     return axisTagFormatter.format(price);
 }
 
 /**
  * Renders a resting or traded size compactly.
  *
- * Localised rather than fixed to a dot, because the prices beside it separate
- * thousands with one: `9.435` next to `80.750` reads as nine thousand.
- *
  * @param quantity - Size in base currency.
  * @returns The formatted size, abbreviated above a thousand.
  */
 export function formatQuantity(quantity: number): string {
+    // Localised rather than fixed to a dot: the prices beside it separate
+    // thousands with one, and `9.435` next to `80,750` reads as nine thousand.
     if (quantity >= 1_000) {
         return compactFormatter.format(quantity);
     }
@@ -100,10 +98,6 @@ const ONE_HOUR_MS = 60 * 60 * 1_000;
 /**
  * Renders a time axis label at the granularity the span calls for.
  *
- * A tick landing on midnight names its day rather than reading `00:00`. Over a
- * window wide enough to cross one, a row of clock times gives no way to tell
- * which side of the wrap a wall was on.
- *
  * @param timestampMs - Unix milliseconds.
  * @param spanMs - Width of the visible window, which decides the granularity.
  * @returns The formatted label.
@@ -113,6 +107,8 @@ export function formatAxisTime(timestampMs: number, spanMs: number): string {
     if (spanMs > THREE_DAYS_MS) {
         return dayFormatter.format(moment);
     }
+    // Across a window wide enough to cross midnight, a row of clock times gives
+    // no way to tell which side of the wrap a wall was on.
     if (spanMs > SIX_HOURS_MS && isStartOfDay(moment)) {
         return dayFormatter.format(moment);
     }
@@ -124,10 +120,7 @@ function isStartOfDay(moment: Date): boolean {
 }
 
 /**
- * Renders an instant as a wall clock reading.
- *
- * Always to the second, unlike the axis labels: the crosshair exists to answer
- * "when exactly", and a label rounded to the minute cannot.
+ * Renders an instant as a wall clock reading, always to the second.
  *
  * @param timestampMs - Unix milliseconds.
  * @returns The formatted time of day.
@@ -157,16 +150,11 @@ export function formatDuration(durationMs: number): string {
 
 /**
  * Quote currencies a perpetual's symbol can end in.
- *
- * Ordered longest first so `BTCUSDT` resolves against `USDT` rather than `USD`.
  */
 const QUOTE_SUFFIXES = ['USDT', 'USDC', 'BUSD', 'USD'];
 
 /**
  * The asset a contract is denominated in, read off its symbol.
- *
- * Sizes on this chart are in the base asset, and a bare number leaves the reader
- * guessing whether a wall of 316 is contracts, coins, or dollars.
  *
  * @param instrumentSymbol - Venue symbol, such as `BTCUSDT`.
  * @returns The base asset, or the whole symbol when no known quote is found.
@@ -178,9 +166,6 @@ export function resolveBaseAsset(instrumentSymbol: string): string {
 
 /**
  * Renders an instant as a full calendar date and wall clock reading.
- *
- * The year is spelled out because a heatmap is read weeks after the fact as
- * often as live, and `24 ago` alone cannot say which year's flash crash this is.
  *
  * @param timestampMs - Unix milliseconds.
  * @returns The formatted moment.

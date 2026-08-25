@@ -55,7 +55,7 @@ try {
 
     // The environment still names one contract: it is the seed a fresh database
     // needs, so a first run records something without anyone opening the chart.
-    await control.upsertInstrument({
+    await control.saveContract({
         instrumentSymbol,
         priceBucketSize,
         frameIntervalMs,

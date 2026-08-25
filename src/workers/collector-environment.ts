@@ -28,9 +28,6 @@ export function readCollectorConfiguration(): CollectorConfiguration {
 /**
  * The connection string the archive is opened with.
  *
- * Read separately from the recording settings because it says nothing about
- * what is recorded — only about where this particular registration puts it.
- *
  * @returns The connection string.
  * @throws ConfigurationError when it is missing.
  */

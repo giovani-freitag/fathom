@@ -1,8 +1,5 @@
 /**
  * Chrome colours, kept in one place so the canvas and the DOM stay one design.
- *
- * The canvas cannot read CSS custom properties without a per-frame
- * `getComputedStyle`, which is why these are literals rather than tokens.
  */
 export const RENDER_PALETTE = {
     surface: '#05080c',

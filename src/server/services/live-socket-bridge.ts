@@ -14,10 +14,6 @@ export interface LiveSocketBridgeConfig {
 
 /**
  * Binds one tail subscription to one socket.
- *
- * Frames go out as binary in the same format the history route serves, so the
- * viewer decodes live and historical depth with one code path; everything else
- * goes out as text, and the receiver dispatches on the message type.
  */
 export class LiveSocketBridge {
     private readonly config: LiveSocketBridgeConfig;
@@ -32,9 +28,6 @@ export class LiveSocketBridge {
 
     /**
      * Announces the subscription and begins forwarding.
-     *
-     * A refused subscription closes the socket with a policy code rather than
-     * leaving it open and silent, so the viewer can say why nothing is arriving.
      */
     start(): void {
         this.config.socket.on('close', this.handleSocketClose);

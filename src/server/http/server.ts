@@ -57,10 +57,6 @@ export interface ServerConfig {
 
 /**
  * HTTP and websocket surface over the recorded archive.
- *
- * Also serves the built viewer, so a phone on the same network reaches the whole
- * product at one address instead of needing a second origin and the CORS setup
- * that would come with it.
  */
 export class Server {
     private readonly config: ServerConfig;
@@ -159,11 +155,6 @@ export class Server {
 
     /**
      * Queues the API behind the plugins.
-     *
-     * Routes declared straight on the root instance are added before any
-     * `register` call has loaded, so the compression plugin's `onRoute` hook
-     * never sees them and the largest responses ship uncompressed. Registering
-     * them as a plugin puts them in the same queue, after the others.
      */
     private setupRoutes(): void {
         void this.app.register(this.registerApiRoutes);

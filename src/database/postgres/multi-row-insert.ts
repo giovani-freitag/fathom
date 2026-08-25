@@ -20,9 +20,6 @@ export function buildValuesClause(rowCount: number, columnCount: number): string
 /**
  * Splits a list into consecutive slices of at most `chunkSize` items.
  *
- * PostgreSQL accepts 65535 bind parameters per statement, which a long enough
- * write batch would otherwise exceed.
- *
  * @param items - Items to split.
  * @param chunkSize - Maximum items per slice; must be positive.
  * @returns Slices in original order, empty when `items` is empty.

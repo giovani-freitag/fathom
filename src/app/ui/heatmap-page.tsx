@@ -61,6 +61,7 @@ export function HeatmapPage(): ReactElement {
                 )}
                 <SettingsDrawer
                     recording={kernel.recording}
+                    onContractsChanged={() => { void kernel.chart.refreshInstruments(); }}
                     state={state}
                     onChange={(patch) => { kernel.chart.updateSettings(patch); }}
                 />

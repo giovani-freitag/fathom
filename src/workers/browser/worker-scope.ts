@@ -2,10 +2,6 @@ import type { CollectorCommand, CollectorEvent } from '../../shared/core/collect
 
 /**
  * The slice of a Worker's global this collector actually uses.
- *
- * Declared structurally rather than pulled from the `WebWorker` lib, because
- * that lib and `DOM` cannot both be in one program without colliding on the
- * globals they share — and the page this worker belongs to needs `DOM`.
  */
 export interface CollectorWorkerScope {
     readonly location: { readonly search: string };

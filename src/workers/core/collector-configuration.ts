@@ -47,9 +47,6 @@ export const WRITE_SETTINGS = {
     framesPerFlush: 60,
     /**
      * Frames held in memory while writes are failing.
-     *
-     * Roughly ten minutes at the default grid. Past this the oldest are dropped
-     * and the loss is recorded as a gap, which beats an unbounded heap.
      */
     maximumBufferedFrames: 600,
     maximumBufferedTradeClusters: 20_000,

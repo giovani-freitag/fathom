@@ -14,9 +14,6 @@ export const API_ROUTES = {
 
 /**
  * Upper bound on frames per response.
- *
- * A heatmap column is at least one device pixel wide, so a window denser than
- * the widest plausible canvas costs bandwidth that no viewer can render.
  */
 export const MAXIMUM_FRAMES_PER_WINDOW = 4_000;
 
@@ -45,9 +42,6 @@ export interface WindowQuery {
 
 /**
  * Execution query, which bins price on top of the shared time window.
- *
- * `priceGroupSize` counts stored buckets per returned bucket, so the response
- * grid is `storedPriceBucketSize * priceGroupSize` tall.
  */
 export interface TradeClusterQuery extends WindowQuery {
     readonly priceGroupSize: number;
@@ -72,9 +66,6 @@ export interface HealthResponse {
 
 /**
  * Messages the live socket sends as text.
- *
- * Frames travel as binary on the same socket, in the frame window format, so a
- * receiver dispatches on the message type rather than on a discriminator field.
  */
 export type LiveTextMessage =
     | { readonly kind: 'subscribed'; readonly instrumentSymbol: string; readonly priceBucketSize: number }

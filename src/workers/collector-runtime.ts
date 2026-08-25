@@ -14,17 +14,9 @@ import { LiquidityRecorderService } from './services/liquidity-recorder-service.
 
 /**
  * The collector's object graph and its lifecycle, wired by hand in one place.
- *
- * Reading the constructor tells you the whole wiring. The one knot is a callback
- * pointing back: the order book asks the feed for ladders, and the feed hands
- * the order book its updates.
  */
 /**
  * What the runtime needs beyond the settings read from the environment.
- *
- * The socket factory is injected rather than chosen here because the same
- * runtime is registered two ways: as a process by the server, and as a Web
- * Worker by the browser. Only the caller knows which platform it is on.
  */
 export interface CollectorRuntimeConfig {
     readonly configuration: CollectorConfiguration;
@@ -105,13 +97,11 @@ export class CollectorRuntime {
     /**
      * Connects every resource and begins recording.
      *
-     * The archive is expected to be open already: several runtimes may share
-     * one, and a runtime that opened or closed it would be reaching past its own
-     * lifetime into everyone else's.
-     *
      * @throws ArchiveUnavailableError when the archive rejects the first write.
      */
     async start(): Promise<void> {
+        // The archive is opened by whoever built it: several runtimes share
+        // one, and closing it here would stop the others mid-write.
         await this.recorder.start();
         this.orderBook.start();
         this.feed.connect();

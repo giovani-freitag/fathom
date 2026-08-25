@@ -24,11 +24,6 @@ export interface IndexedDbHeatmapSourceConfig {
 
 /**
  * The chart's read side when the page is its own collector.
- *
- * Mirrors `LiquidityQueryService` method for method, including the folding of
- * several probed instants into each column: a page and a gateway must draw the
- * same picture from the same recording, or the demo teaches something the real
- * thing does not do.
  */
 export class IndexedDbHeatmapSource implements HeatmapSource {
     private readonly database: IndexedDbService;
@@ -114,9 +109,6 @@ export class IndexedDbHeatmapSource implements HeatmapSource {
     /**
      * Stretches in a window that were not recorded.
      *
-     * A gap that began before the window but ended inside it still describes a
-     * hole on screen, so the range cannot be a simple bound on where it started.
-     *
      * @param query - Instrument and half-open range.
      * @returns The gaps overlapping the window.
      * @throws HeatmapSourceError when the archive cannot be read.
@@ -193,10 +185,6 @@ function rangeOver(query: FrameWindowQuery): IDBKeyRange {
 
 /**
  * Thins records down to roughly one per interval, keeping the first of each.
- *
- * The engine has no equivalent of the gateway's `DISTINCT ON` over a bucket, so
- * the same choice is made here: the first record of each interval, which is what
- * keeps a column anchored to a real instant rather than an average of two.
  */
 function keepEvery<TRecord extends { capturedAtMs: number }>(
     records: readonly TRecord[],

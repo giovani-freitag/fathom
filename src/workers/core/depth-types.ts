@@ -3,10 +3,6 @@ export type SerializedPriceLevel = readonly [price: string, quantity: string];
 
 /**
  * One incremental depth update, in venue-neutral terms.
- *
- * `previousFinalUpdateId` is what makes a dropped message detectable: it must
- * equal the `finalUpdateId` of the update that came before, so a break in the
- * chain is an unambiguous signal rather than a silent corruption.
  */
 export interface DepthDiff {
     readonly firstUpdateId: number;

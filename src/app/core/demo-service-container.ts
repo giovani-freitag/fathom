@@ -3,6 +3,9 @@ import { ChartController } from './chart-controller.ts';
 import type { CollectorEvent } from '../../shared/core/collector-worker-contract.ts';
 import { CollectorWorkerService } from '../services/collector-worker-service.ts';
 import { IndexedDbHeatmapSource } from '../../database/browser/indexed-db-heatmap-source.ts';
+import { BrowserRecordingControl } from '../../database/browser/browser-recording-control.ts';
+import { DEMO_CATALOGUE } from '../../workers/browser/demo-collector-configuration.ts';
+import { IndexedDbLiquidityArchive } from '../../database/browser/indexed-db-liquidity-archive.ts';
 import { IndexedDbService } from '../../database/browser/indexed-db-service.ts';
 import { PreferencesService } from '../services/preferences-service.ts';
 import type { ServiceContainer } from './service-container.ts';
@@ -21,20 +24,12 @@ export interface DemoServiceContainer extends ServiceContainer {
     readonly collector: CollectorWorkerService;
     /**
      * The page's own connection to the archive.
-     *
-     * Separate from the collector's on purpose: a Worker and its page cannot
-     * share one, and each side owning its connection is what lets either be
-     * torn down without the other noticing.
      */
     readonly database: IndexedDbService;
 }
 
 /**
  * The second registration: the page is its own collector and its own archive.
- *
- * The same `ChartController` and the same painters as the served version. What
- * changes is only where history comes from and how the tail arrives — which is
- * the whole reason those two are ports.
  *
  * @param config - The browser's storage and where collector events go.
  * @returns Every service the tree needs, plus the collector's handle.
@@ -48,13 +43,23 @@ export function createDemoServiceContainer(
     const preferences = new PreferencesService({ storage: config.storage });
     const collector = new CollectorWorkerService({ onEvent: config.onCollectorEvent });
 
+    // The page's own view of the same choice the worker reads: both go through
+    // the store, because a Worker cannot see local storage and a page cannot
+    // reach into a Worker's memory.
+    const recording = new BrowserRecordingControl({
+        archive: new IndexedDbLiquidityArchive({ database, frameCapacity: 1 }),
+        database,
+        estimateStorage: () => navigator.storage.estimate(),
+        catalogue: DEMO_CATALOGUE,
+    });
+
     return {
         api,
         liveFeed,
         preferences,
         collector,
         database,
-        recording: null,
+        recording,
         chart: new ChartController({ api, liveFeed, preferences }),
     };
 }

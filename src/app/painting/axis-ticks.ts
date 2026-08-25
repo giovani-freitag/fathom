@@ -5,14 +5,6 @@ const PRICE_TICK_STEPS = [1, 2, 2.5, 5, 10];
 
 /**
  * Steps a time axis is allowed to land on.
- *
- * Fixed rather than derived so labels fall on whole seconds, minutes, and hours;
- * a computed step lands at 37-second intervals and reads as noise.
- *
- * The ladder is deliberately dense. A gap between neighbouring steps is a gap in
- * how many labels an axis can carry: with nothing between one and five minutes,
- * a window wanting a label roughly every minute jumps to one every five and the
- * axis empties out.
  */
 const TIME_TICK_STEPS_MS = [
     1_000, 2_000, 5_000, 10_000, 15_000, 30_000,
@@ -26,10 +18,6 @@ const MAXIMUM_TICKS = 512;
 
 /**
  * What an axis needs to space its ticks.
- *
- * The spacing is passed in rather than fixed because a label's width depends on
- * the font the surface is drawing with: a phone renders shorter labels in a
- * smaller face, and a constant tuned for a desktop leaves it with one tick.
  */
 export interface TickRequest {
     readonly viewport: ChartViewport;

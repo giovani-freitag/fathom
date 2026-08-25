@@ -13,11 +13,6 @@ export interface ArchiveLiveFeedServiceConfig {
 
 /**
  * The tail when the archive is in this very page.
- *
- * There is no socket to wait on: the collector writes to storage the page can
- * read, so the tail is a poll rather than a push. Twice a second is well inside
- * the one-second grid, and a poll that finds nothing costs one indexed range
- * read against a store the browser already has open.
  */
 export class ArchiveLiveFeedService implements LiveFeed {
     private readonly source: HeatmapSource;
@@ -61,9 +56,6 @@ export class ArchiveLiveFeedService implements LiveFeed {
 
     /**
      * Reads whatever was filed since the last poll.
-     *
-     * Guarded against overlap: a slow read must not have a second one queued
-     * behind it, or a stalled archive turns into a growing pile of work.
      */
     private async poll(): Promise<void> {
         const subscription = this.subscription;

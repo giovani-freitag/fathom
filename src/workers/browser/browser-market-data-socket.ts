@@ -2,9 +2,6 @@ import type { MarketDataSocket } from '../core/market-data-socket.ts';
 
 /**
  * The platform WebSocket, behind the socket the feed expects.
- *
- * Binary frames are asked for as `arraybuffer` rather than the default Blob, so
- * decoding stays synchronous and a message never has to be awaited.
  */
 export function openBrowserMarketDataSocket(streamUrl: string): MarketDataSocket {
     const socket = new WebSocket(streamUrl);

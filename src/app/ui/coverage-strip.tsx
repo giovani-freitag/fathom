@@ -25,10 +25,6 @@ const LIVE_LABELS: Record<ChartState['liveStatus'], string> = {
 
 /**
  * What the chart is actually showing, and how trustworthy it is.
- *
- * The sampling interval and the gap count are here rather than hidden in a
- * settings panel because both change what the picture means: a wall that is
- * shorter than one sampled column may simply never have been recorded.
  */
 export function CoverageStrip({ state }: CoverageStripProps): ReactElement {
     const visibleGapCount = state.dataset.gaps.length;

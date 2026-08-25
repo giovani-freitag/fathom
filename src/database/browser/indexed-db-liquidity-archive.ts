@@ -25,11 +25,6 @@ const PRUNE_BATCH_FRAMES = 600;
 
 /**
  * The browser's write side, keeping the newest window and dropping the rest.
- *
- * Every write is a `put` rather than an `add`, which is this engine's spelling
- * of `ON CONFLICT DO NOTHING`: a retried batch converges instead of aborting,
- * and two tabs recording the same second write the same record rather than
- * corrupting each other.
  */
 export class IndexedDbLiquidityArchive implements LiquidityArchive {
     private readonly database: IndexedDbService;
@@ -130,18 +125,14 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
     /**
      * Drops the oldest frames once the window is longer than it may be.
      *
-     * A window rather than an age: with a wider recorded band or a second
-     * contract, the same span of time costs several times the bytes, and it is
-     * the bytes the device actually limits. Dropped time is not a gap — it was
-     * recorded and let go, and the coverage the chart reports says so by moving.
-     *
      * @param instrumentSymbol - Which contract to trim.
+     * @param frameCapacity - Overrides the capacity this archive was built with.
      * @returns How many frames were dropped.
      */
-    async pruneToCapacity(instrumentSymbol: string): Promise<number> {
+    async pruneToCapacity(instrumentSymbol: string, frameCapacity?: number): Promise<number> {
         const range = rangeForInstrument(instrumentSymbol);
         const stored = await this.database.countRange(STORES.liquidityFrame, range);
-        const excess = stored - this.frameCapacity;
+        const excess = stored - Math.max(1, frameCapacity ?? this.frameCapacity);
         if (excess <= 0) {
             return 0;
         }
@@ -174,9 +165,6 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
 
     /**
      * Removes only gaps that ended before the horizon.
-     *
-     * A gap that started outside the window but ended inside it still describes
-     * a hole the reader can see, so it cannot be dropped by start time alone.
      */
     private deleteGapsEndingBefore(
         gaps: IDBObjectStore,
@@ -224,9 +212,6 @@ function boundedRange(instrumentSymbol: string, horizonMs: number): IDBKeyRange 
 
 /**
  * Whether the browser refused because storage is spent.
- *
- * Distinguished from a transient abort because retrying a quota failure forever
- * only buries the reason the recording stopped.
  */
 function isQuotaExceeded(error: unknown): boolean {
     const cause = error instanceof IndexedDbQueryError ? error.cause : error;

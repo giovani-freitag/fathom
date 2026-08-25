@@ -29,10 +29,8 @@ export const InstrumentUpdateRouteSchema = {
     response: { 200: RecordingResponseSchema },
 };
 
-/**
- * A ceiling low enough to be useless is worse than none: it would drop every
- * partition the moment it is set, so the floor is one gigabyte.
- */
+// A gigabyte floor: a smaller ceiling would drop every partition the moment it
+// was set, and a control that erases the archive in one click is not a control.
 export const BudgetUpdateSchema = Type.Object({
     maximumBytes: Type.Integer({ minimum: 1_073_741_824 }),
 });

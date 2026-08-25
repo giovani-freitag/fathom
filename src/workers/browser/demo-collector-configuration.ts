@@ -5,6 +5,17 @@ export interface StorageOwner {
     readonly storage?: { estimate(): Promise<StorageEstimate> };
 }
 
+/**
+ * What a visitor may record, and what is on by default.
+ */
+export const DEMO_CATALOGUE = [
+    { instrumentSymbol: 'BTCUSDT', priceBucketSize: 10, frameIntervalMs: 1_000, isEnabled: true },
+    { instrumentSymbol: 'ETHUSDT', priceBucketSize: 0.5, frameIntervalMs: 1_000, isEnabled: false },
+    { instrumentSymbol: 'SOLUSDT', priceBucketSize: 0.1, frameIntervalMs: 1_000, isEnabled: false },
+    { instrumentSymbol: 'LTCUSDT', priceBucketSize: 0.05, frameIntervalMs: 1_000, isEnabled: false },
+    { instrumentSymbol: 'PAXGUSDT', priceBucketSize: 1, frameIntervalMs: 1_000, isEnabled: false },
+] as const;
+
 /** What a visitor sees unless the link says otherwise. */
 const DEMO_DEFAULTS = {
     instrumentSymbol: 'BTCUSDT',
@@ -49,10 +60,6 @@ export function readDemoConfiguration(search: string): CollectorConfiguration {
 
 /**
  * How many frames this device is willing to hold.
- *
- * Derived from the quota rather than fixed in time, because the same span costs
- * several times the bytes with a wider recorded band or a second contract, and
- * bytes are what the device actually limits.
  *
  * @param agent - The navigator whose storage is being asked about.
  * @returns The capacity, floored so a page always records something.

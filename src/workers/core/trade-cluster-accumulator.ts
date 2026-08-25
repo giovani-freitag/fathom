@@ -16,10 +16,6 @@ interface MutableCluster {
 
 /**
  * Bins raw executions onto the frame grid as they arrive.
- *
- * A liquid perpetual prints far faster than any zoom level of the heatmap can
- * resolve, so storing prints individually would cost two orders of magnitude
- * more rows than the picture can use.
  */
 export class TradeClusterAccumulator {
     private readonly config: TradeClusterAccumulatorConfig;

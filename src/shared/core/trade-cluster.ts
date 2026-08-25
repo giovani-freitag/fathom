@@ -1,9 +1,5 @@
 /**
  * Aggressive executions that landed in one time and price cell.
- *
- * Every field rolls up to a coarser grid without loss: quantities and count sum,
- * and `largestTradeQuantity` maxes, so one outsized print stays legible after
- * aggregation instead of dissolving into its neighbours.
  */
 export interface TradeCluster {
     readonly executedAtMs: number;

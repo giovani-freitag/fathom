@@ -2,11 +2,6 @@ import type { SerializedPriceLevel, TopOfBook } from './depth-types.ts';
 
 /**
  * The venue's book, mirrored locally.
- *
- * Prices key the maps as numbers rather than strings: parsing a decimal literal
- * always yields the same double, so a deletion still lands on the level an
- * earlier update created even when the venue changes its textual formatting
- * between the two messages.
  */
 export class OrderBookState {
     private readonly bidQuantityByPrice = new Map<number, number>();
@@ -39,11 +34,6 @@ export class OrderBookState {
     /**
      * Overwrites only the price span a fresh ladder actually covers.
      *
-     * A REST ladder reaches a few hundred levels from the touch while the local
-     * book, fed by unbounded diffs, reaches much further. Replacing wholesale
-     * would discard the deep resting size that is the entire point of the
-     * recording, so levels outside the ladder's own span are left untouched.
-     *
      * @param bidLevels - Every resting bid in the ladder.
      * @param askLevels - Every resting ask in the ladder.
      */
@@ -57,9 +47,6 @@ export class OrderBookState {
 
     /**
      * Drops levels further than a distance from a reference price.
-     *
-     * Diffs create levels at any depth and only remove them when the venue does,
-     * so a book left unpruned grows for as long as the process runs.
      *
      * @param referencePrice - Price the distance is measured from.
      * @param maximumDistance - Half-width of the band to keep, in quote currency.

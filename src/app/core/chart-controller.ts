@@ -80,10 +80,6 @@ export type ChartSettingsPatch = Partial<
 
 /**
  * Everything the chart knows, and the only thing that changes it.
- *
- * Holds the viewport, the loaded window, and the live tail, and decides when a
- * gesture has moved far enough to be worth another round trip. The renderer and
- * the React tree only read from here.
  */
 export class ChartController {
     readonly store: ObservableStore<ChartState>;
@@ -118,10 +114,22 @@ export class ChartController {
 
     /**
      * Loads the instrument list and opens the first window.
-     *
-     * Never rejects: a failure is published as the `failed` phase, because the
-     * shell has to stay on screen to explain it.
      */
+    /**
+     * Re-reads which contracts exist, without disturbing what is on screen.
+     *
+     * @throws nothing: a listing that will not answer leaves the current one.
+     */
+    async refreshInstruments(): Promise<void> {
+        try {
+            const instruments = await this.config.api.fetchInstruments();
+            this.store.update((current) => ({ ...current, instruments }));
+        } catch {
+            // The chart still has the contracts it knew about; a failed refresh
+            // is not worth replacing a working screen with an error.
+        }
+    }
+
     async initialize(): Promise<void> {
         try {
             const instruments = await this.config.api.fetchInstruments();
@@ -341,10 +349,6 @@ export class ChartController {
 
     /**
      * Moves the viewport for a newly streamed frame.
-     *
-     * Parked in history nothing moves at all. Live, time always follows, but the
-     * price axis only recentres while the reader has not chosen a band of their
-     * own — otherwise a deliberate pan is undone by the next second of data.
      */
     private advanceViewport(state: ChartState, dataset: ChartDataset): ChartViewport {
         if (!state.isFollowingLive) {
@@ -357,9 +361,6 @@ export class ChartController {
 
     /**
      * Frames the price axis on the book, once per instrument.
-     *
-     * Reframing on every load would fight the reader's own zoom, so the flag is
-     * cleared as soon as real depth has been seen.
      */
     private framePriceRange(viewport: ChartViewport, dataset: ChartDataset): ChartViewport {
         if (!this.needsPriceFraming || dataset.frames.length === 0) {
@@ -389,11 +390,6 @@ export class ChartController {
 
     /**
      * Records a load failure without throwing away what is already on screen.
-     *
-     * Frames already loaded are real recordings, and a reader looking at a wall
-     * from ten minutes ago still learns from it. Blanking the chart because the
-     * next request failed destroys good information to report a transient fault
-     * the status strip is already showing.
      */
     private publishFailure(error: unknown): void {
         const errorMessage = describeLoadFailure(error);

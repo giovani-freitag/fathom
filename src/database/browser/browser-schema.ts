@@ -2,29 +2,21 @@
 export const DATABASE_NAME = 'fathom-demo';
 
 /** Bumped only when a store or a key path changes. */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 /**
  * Store names, deliberately identical to the SQL tables.
- *
- * Keeping them the same means `database/migrations/001_liquidity_schema.sql`
- * documents both engines, and a reader moving between them is never guessing
- * which table a store corresponds to.
  */
 export const STORES = {
     instrumentRegistry: 'instrument_registry',
     liquidityFrame: 'liquidity_frame',
     tradeCluster: 'trade_cluster',
     recordingGap: 'recording_gap',
+    recordingControl: 'recording_control',
 } as const;
 
 /**
  * Creates the stores this version expects.
- *
- * Every key path is compound and starts with the instrument, so a range over
- * one contract is a prefix scan and never touches another's records. No
- * secondary index: every read the chart performs is such a prefix range, and an
- * index would cost a write on every frame to serve a query nobody makes.
  *
  * @param database - The connection being upgraded.
  */
@@ -41,6 +33,12 @@ export function createStores(database: IDBDatabase): void {
         database.createObjectStore(STORES.tradeCluster, {
             keyPath: ['instrumentSymbol', 'executedAtMs', 'priceBucketIndex'],
         });
+    }
+    if (!database.objectStoreNames.contains(STORES.recordingControl)) {
+        // One row, keyed by a name, holding the choice a reader made. In the
+        // store rather than in local storage because a Web Worker cannot read
+        // local storage, and the collector inside one has to see the choice.
+        database.createObjectStore(STORES.recordingControl, { keyPath: 'key' });
     }
     if (!database.objectStoreNames.contains(STORES.recordingGap)) {
         database.createObjectStore(STORES.recordingGap, {

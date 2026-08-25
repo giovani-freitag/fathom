@@ -34,9 +34,6 @@ export function toBucketCentrePrice(bucketIndex: number, priceBucketSize: number
 /**
  * Timestamp snapped down onto a fixed-interval grid.
  *
- * Frames must land on identical instants across restarts, otherwise every
- * restart introduces a column the renderer cannot align with its neighbours.
- *
  * @param timestampMs - Unix milliseconds to snap.
  * @param intervalMs - Grid spacing, in milliseconds.
  * @returns The grid instant at or before `timestampMs`.

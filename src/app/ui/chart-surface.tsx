@@ -3,9 +3,6 @@ import type { ReactElement } from 'react';
 
 /**
  * The two stacked canvases the chart is drawn on.
- *
- * Depth sits underneath as a single scaled image and the chrome on top, so a
- * pointer move repaints only the thin overlay instead of the whole field.
  */
 export function ChartSurface(): ReactElement {
     const { containerRef, depthCanvasRef, overlayCanvasRef } = useChartSurface();

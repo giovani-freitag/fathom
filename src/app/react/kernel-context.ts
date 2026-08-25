@@ -3,10 +3,6 @@ import { createContext, useContext } from 'react';
 
 /**
  * Carries the service container down the tree.
- *
- * The context and its provider live in separate files so Fast Refresh keeps
- * working: a module exporting both a component and a hook loses the ability to
- * hot-reload the component.
  */
 export const KernelContext = createContext<ServiceContainer | null>(null);
 

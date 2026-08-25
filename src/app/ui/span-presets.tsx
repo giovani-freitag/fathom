@@ -10,10 +10,6 @@ interface SpanPresetsProps {
 
 /**
  * Jumps the time axis to a fixed span ending at the live edge.
- *
- * A preset wider than what has actually been recorded stays visible but
- * disabled: order book history cannot be backfilled, so the limit is a property
- * of the recording rather than a temporary loading state.
  */
 export function SpanPresets({ activeSpanMs, recordedSpanMs, onSelect }: SpanPresetsProps): ReactElement {
     return (

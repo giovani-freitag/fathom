@@ -7,9 +7,6 @@ const CLOSE_GRACE_MS = 2_000;
 
 /**
  * The `ws` client, behind the socket the feed expects.
- *
- * This is the only file in the project that names `ws`, which is what keeps the
- * package out of a bundle meant for a browser.
  */
 export function openNodeMarketDataSocket(streamUrl: string): MarketDataSocket {
     const socket = new WebSocket(streamUrl);

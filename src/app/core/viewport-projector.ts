@@ -8,10 +8,6 @@ export interface ViewportProjectorConfig {
 
 /**
  * Maps between chart coordinates and surface pixels.
- *
- * Built fresh for each paint and each gesture rather than taking the viewport
- * per call: the conversions run once per pixel column in the render loop, and a
- * one-argument method keeps that loop readable.
  */
 export class ViewportProjector {
     private readonly viewport: ChartViewport;

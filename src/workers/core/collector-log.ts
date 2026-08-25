@@ -4,10 +4,6 @@ export type { CollectorLogLevel };
 
 /**
  * Where a collector says what it is doing.
- *
- * A port rather than a pair of functions because the destination is a property
- * of the registration, not of the collector: a process writes to its own
- * standard streams, and a Web Worker has none and must post to the page.
  */
 export interface CollectorLog {
     info(message: string): void;

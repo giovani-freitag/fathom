@@ -34,10 +34,6 @@ export class DepthLadderUnavailableError extends Error {
 
 /**
  * The only place the venue's API is spoken.
- *
- * Owns the socket's whole lifecycle — backoff, a silence watchdog, and a
- * reconnect scheduled ahead of the venue's own 24-hour cutoff — and translates
- * every payload into the collector's vocabulary on the way through.
  */
 export class BinanceDepthFeedService {
     private readonly config: BinanceDepthFeedServiceConfig;

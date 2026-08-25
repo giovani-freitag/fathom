@@ -15,10 +15,6 @@ export interface IndexedDbServiceConfig {
 
 /**
  * The only place browser storage is spoken.
- *
- * Callers get transactions and cursors shaped by their own record types, so no
- * IndexedDB type reaches the rest of the codebase and the connection's lifetime
- * stays in one place — the same arrangement the PostgreSQL pool has.
  */
 export class IndexedDbService {
     private readonly factory: IDBFactory | null;
@@ -155,9 +151,6 @@ export class IndexedDbService {
 
     /**
      * Lets go when another tab needs to upgrade the schema.
-     *
-     * Holding on would block that tab forever, so the connection is dropped and
-     * this page degrades to whatever it already loaded.
      */
     private handleVersionChange(): void {
         this.close();

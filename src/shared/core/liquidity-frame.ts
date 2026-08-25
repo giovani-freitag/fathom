@@ -1,8 +1,5 @@
 /**
  * Resting size on one side of the book, as a dense run of adjacent price buckets.
- *
- * `quantities[i]` rests at bucket `lowestBucketIndex + i`. Each side carries its
- * own offset so neither stores the other side's empty half.
  */
 export interface DepthLadder {
     readonly lowestBucketIndex: number;

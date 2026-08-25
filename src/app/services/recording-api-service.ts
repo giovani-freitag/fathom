@@ -1,17 +1,13 @@
 import { API_ROUTES } from '../../shared/core/api-contract.ts';
 import { HeatmapSourceError } from '../../shared/core/heatmap-source.ts';
+import type {
+    RecordedContract,
+    RecordingControl,
+    StorageBudget,
+} from '../../shared/core/recording-control.ts';
 
-/** One contract the gateway is willing to record, and whether it is. */
-export interface RecordedInstrument {
-    readonly instrumentSymbol: string;
-    readonly priceBucketSize: number;
-    readonly frameIntervalMs: number;
-    readonly isEnabled: boolean;
-}
-
-/** What is being recorded and how much disk it is allowed. */
-export interface RecordingState {
-    readonly instruments: readonly RecordedInstrument[];
+interface RecordingStateResponse {
+    readonly instruments: readonly RecordedContract[];
     readonly maximumBytes: number;
     readonly usedBytes: number;
 }
@@ -22,12 +18,8 @@ export interface RecordingApiServiceConfig {
 
 /**
  * What the gateway records, and the disk it may use.
- *
- * Separate from the chart's own source because it is a different question: the
- * source answers what was recorded, this answers what is being recorded, and a
- * page reading from its own archive has the first without the second.
  */
-export class RecordingApiService {
+export class RecordingApiService implements RecordingControl {
     private readonly baseUrl: string;
 
     constructor(config: RecordingApiServiceConfig) {
@@ -35,50 +27,67 @@ export class RecordingApiService {
     }
 
     /**
-     * Reads the current recording state.
+     * Every contract the gateway knows, and whether it is recording.
      *
-     * @param signal - Aborts the request when the reader moves on.
-     * @returns Every contract and the disk budget.
+     * @returns The contracts, ordered by symbol.
      * @throws HeatmapSourceError when the gateway cannot answer.
      */
-    async fetchState(signal?: AbortSignal): Promise<RecordingState> {
-        return this.request(API_ROUTES.recording, signal === undefined ? {} : { signal });
+    async listContracts(): Promise<readonly RecordedContract[]> {
+        return (await this.request(API_ROUTES.recording, {})).instruments;
     }
 
     /**
      * Turns a contract's recording on or off, or changes its grid.
      *
-     * The supervisor reconciles on its own schedule, so the returned state
-     * reflects the decision rather than a collector that has already started.
-     *
-     * @param instrument - The contract and what it should be.
-     * @returns The state after the change.
+     * @param contract - The contract and what it should be.
      * @throws HeatmapSourceError when the gateway refuses.
      */
-    async saveInstrument(instrument: RecordedInstrument): Promise<RecordingState> {
-        return this.request(API_ROUTES.recording, {
+    async saveContract(contract: RecordedContract): Promise<void> {
+        await this.request(API_ROUTES.recording, {
             method: 'PUT',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify(instrument),
+            body: JSON.stringify(contract),
         });
+    }
+
+    /**
+     * The disk ceiling and what the recording occupies.
+     *
+     * @returns Both in bytes; how much disk exists is not something a query can
+     *          see from inside the database, so it is reported as unknown.
+     * @throws HeatmapSourceError when the gateway cannot answer.
+     */
+    async readBudget(): Promise<StorageBudget> {
+        const state = await this.request(API_ROUTES.recording, {});
+        return {
+            maximumBytes: state.maximumBytes,
+            usedBytes: state.usedBytes,
+            availableBytes: null,
+        };
     }
 
     /**
      * Changes how much disk the whole recording may take.
      *
      * @param maximumBytes - The new ceiling.
-     * @returns The state after the change.
      * @throws HeatmapSourceError when the gateway refuses.
      */
-    async saveBudget(maximumBytes: number): Promise<RecordingState> {
-        return this.request(API_ROUTES.recordingBudget, {
+    async setBudget(maximumBytes: number): Promise<void> {
+        await this.request(API_ROUTES.recordingBudget, {
             method: 'PUT',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ maximumBytes }),
         });
     }
 
-    private async request(route: string, init: RequestInit): Promise<RecordingState> {
+    /**
+     * Nothing: the supervisor prunes on its own schedule, beside the recording.
+     */
+    async pruneToBudget(): Promise<number> {
+        return Promise.resolve(0);
+    }
+
+    private async request(route: string, init: RequestInit): Promise<RecordingStateResponse> {
         let response: Response;
         try {
             response = await fetch(new URL(route, this.baseUrl), init);
@@ -87,11 +96,8 @@ export class RecordingApiService {
         }
 
         if (!response.ok) {
-            throw new HeatmapSourceError(
-                'The gateway refused the change',
-                response.status,
-            );
+            throw new HeatmapSourceError('The gateway refused the change', response.status);
         }
-        return (await response.json()) as RecordingState;
+        return (await response.json()) as RecordingStateResponse;
     }
 }

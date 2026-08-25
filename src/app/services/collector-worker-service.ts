@@ -6,11 +6,6 @@ export interface CollectorWorkerServiceConfig {
 
 /**
  * The page's handle on the collector running beside it.
- *
- * The only file in the project that constructs a Worker. The collector is not
- * imported here: it is registered by URL, so the page depends on the contract
- * it exchanges rather than on anything inside the unit — the same relationship
- * the server has with the collector process.
  */
 export class CollectorWorkerService {
     private readonly config: CollectorWorkerServiceConfig;

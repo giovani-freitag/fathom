@@ -10,9 +10,6 @@ export interface DepthLayerRequest {
 
 /**
  * Blits the pre-rendered depth field into the plot.
- *
- * The whole reason the field exists: pan and zoom become one scaled draw the
- * browser hands to the compositor, instead of a per-pixel repaint per gesture.
  */
 export class DepthLayerPainter {
     /**

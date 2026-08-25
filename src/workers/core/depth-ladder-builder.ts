@@ -12,10 +12,6 @@ export interface LadderBuildRequest {
 /**
  * Projects a book reading onto the recorded price grid.
  *
- * Each side gets its own offset and array, so the bucket the spread falls in
- * never sums resting bid size into resting ask size, and neither side stores
- * the other's empty half.
- *
  * @param request - The reading, its instant, and the grid to project onto.
  * @returns The frame, with quantities in quote-currency-per-bucket order.
  */

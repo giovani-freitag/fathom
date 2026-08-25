@@ -6,23 +6,16 @@ import { SlidersHorizontal, X } from 'lucide-react';
 import { Dialog, Slider, Switch } from 'radix-ui';
 import type { ReactElement } from 'react';
 import { ControlButton } from './control-button.tsx';
-import type { RecordingApiService } from '../services/recording-api-service.ts';
+import type { RecordingControl } from '../../shared/core/recording-control.ts';
 import { RecordingPanel } from './recording-panel.tsx';
 
 /**
  * Travel of the intensity slider.
- *
- * Bounded to where the control still says something: below this the field goes
- * black and above it every bucket saturates, so a wider range would spend half
- * its travel on two useless pictures.
  */
 const COLOUR_GAIN_RANGE = { minimum: 0.4, maximum: 3, step: 0.05 } as const;
 
 /**
  * Renders a cut as the percentage of the book it sits at.
- *
- * Kept to a tenth when it needs one: the upper cut lives in the last percent,
- * where rounding to whole numbers would show every useful setting as 100%.
  */
 function formatCut(percentile: number): string {
     const percent = percentile * 100;
@@ -37,17 +30,14 @@ interface SettingsDrawerProps {
     readonly state: ChartState;
     readonly onChange: (patch: ChartSettingsPatch) => void;
     /** Absent when the page is its own collector and there is nothing to supervise. */
-    readonly recording: RecordingApiService | null;
+    readonly recording: RecordingControl | null;
+    readonly onContractsChanged: () => void;
 }
 
 /**
  * Everything a reader can change, in one drawer.
- *
- * Bottom-anchored on every size rather than centred on desktop: these are the
- * controls reached mid-gesture, and on a phone the top of the screen is the one
- * place a thumb cannot go.
  */
-export function SettingsDrawer({ state, onChange, recording }: SettingsDrawerProps): ReactElement {
+export function SettingsDrawer({ state, onChange, recording, onContractsChanged }: SettingsDrawerProps): ReactElement {
     return (
         <Dialog.Root>
             <Dialog.Trigger asChild>
@@ -208,7 +198,9 @@ export function SettingsDrawer({ state, onChange, recording }: SettingsDrawerPro
                             <dd className="numeric text-right text-ink-300">{state.dataset.gaps.length}</dd>
                         </dl>
 
-                        {recording === null ? null : <RecordingPanel recording={recording} />}
+                        {recording === null ? null : (
+                            <RecordingPanel recording={recording} onContractsChanged={onContractsChanged} />
+                        )}
 
                         <p className="text-[11px] leading-relaxed text-ink-500">
                             Windows wider than the recording are disabled. Book history cannot

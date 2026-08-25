@@ -7,9 +7,6 @@ interface ControlButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 /**
  * The chart's only button shape.
- *
- * Sized to the 44 pixel touch target a phone needs, since every control here is
- * reachable by thumb before it is reachable by cursor.
  */
 export function ControlButton({ children, isActive = false, ...attributes }: ControlButtonProps): ReactElement {
     const activeClasses = isActive

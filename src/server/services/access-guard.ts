@@ -20,11 +20,6 @@ export interface AccessGuardConfig {
 
 /**
  * Trades a token in the link for a cookie, then requires that cookie.
- *
- * A cookie rather than a header because the browser cannot set headers on a
- * WebSocket handshake: the live tail would be the one route left unguarded.
- * Trading the token once also means the shared link carries the secret exactly
- * once instead of on every request in every log along the way.
  */
 export class AccessGuard {
     private readonly config: AccessGuardConfig;
@@ -67,10 +62,6 @@ export class AccessGuard {
 
     /**
      * Answers a refusal in the shape the caller can read.
-     *
-     * A person opening a shared link in a browser gets a sentence; a program
-     * gets JSON. Serving raw JSON to a browser turns "you need the full link"
-     * into something that reads like the site is broken.
      */
     private async refuse(request: FastifyRequest, reply: FastifyReply): Promise<void> {
         const wantsHtml = (request.headers.accept ?? '').includes('text/html');

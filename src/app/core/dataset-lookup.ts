@@ -5,9 +5,6 @@ import type { ChartDataset } from './chart-dataset.ts';
 /**
  * Frame closest in time to an instant.
  *
- * Frames arrive in capture order, so the search is a bisection: a wide window
- * holds thousands and this runs on every pointer move.
- *
  * @param frames - Frames in ascending capture order.
  * @param timestampMs - The instant to look up.
  * @returns The nearest frame, or undefined when there are none.
@@ -43,10 +40,6 @@ export function findFrameNearest(
 
 /**
  * Executions in the cell containing a price and an instant.
- *
- * Executions sit on their own, coarser grid than the frames, and a bubble is
- * drawn at the start of its bin; measuring against the frame interval would miss
- * every bin wider than a second.
  *
  * @param dataset - The loaded window.
  * @param price - Price to look up, in quote currency.

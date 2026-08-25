@@ -5,9 +5,6 @@ import type { PaintContext } from '../render-types.ts';
 
 /**
  * Row height below which a number is not worth drawing.
- *
- * Set above the bare height of the glyphs: rows packed to the exact font size
- * are legible one at a time and a wall of noise forty at a time.
  */
 const LEGIBLE_ROW_HEIGHT_PX = 15;
 
@@ -30,9 +27,6 @@ const HEADER_FONT = '9px ui-monospace, SFMono-Regular, Menlo, monospace';
 
 /**
  * How the panel is divided for the current zoom.
- *
- * The panel earns a second column only once its rows can hold a digit, so this
- * is recomputed per paint rather than fixed at layout time.
  */
 interface ProfileColumns {
     readonly hasNumbers: boolean;
@@ -59,10 +53,6 @@ interface VolumeProfile {
 
 /**
  * Draws traded volume per price level, in its own band beside the plot.
- *
- * A band rather than an overlay: drawn across the field the bars sit on top of
- * the newest depth and read as a stain on the data instead of a measurement
- * beside it.
  */
 export class VolumeProfilePainter {
     /**
@@ -94,10 +84,6 @@ export class VolumeProfilePainter {
 
     /**
      * Names the columns once, quietly, at the top.
-     *
-     * Two bare numbers side by side are a riddle and two labelled ones are a
-     * reading. Set small and muted so it answers the first glance and then gets
-     * out of the way.
      */
     private paintHeader(paint: PaintContext, columns: ProfileColumns): void {
         if (!columns.hasNumbers) {
@@ -120,10 +106,6 @@ export class VolumeProfilePainter {
 
     /**
      * Writes the resting and traded size on each row.
-     *
-     * Only once the rows are tall enough to hold a digit. Zoomed out the same
-     * pass would stack overlapping numbers into a grey smear that hides the
-     * bars underneath, so below that height the bars speak alone.
      */
     private paintRowNumbers(
         paint: PaintContext,
@@ -174,10 +156,6 @@ export class VolumeProfilePainter {
 
     /**
      * Marks the price level that traded the most in view.
-     *
-     * The busiest level is where the most positions were opened, and price
-     * returning to it is one of the few things a volume profile actually says.
-     * Without the mark a reader has to eyeball which of several long bars wins.
      */
     private paintPointOfControl(paint: PaintContext, profile: VolumeProfile): void {
         const busiestRow = profile.busiestRow;
@@ -280,9 +258,6 @@ function buildVolumeProfile(paint: PaintContext): VolumeProfile {
 
 /**
  * What is resting at a price in the newest frame on screen.
- *
- * The newest rather than a sum over the window: resting size is a level, not a
- * flow, and adding a wall to itself once per second measures nothing.
  */
 function readRestingQuantity(paint: PaintContext, price: number): number {
     const { dataset } = paint.request;

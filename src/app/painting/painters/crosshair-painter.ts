@@ -34,11 +34,6 @@ export interface CrosshairPainterConfig {
 
 /**
  * Draws the crosshair and what sits under it.
- *
- * The readout answers both questions a reader has at a point: how much is
- * resting there, and how much actually traded. Either alone invites the wrong
- * conclusion — a thick wall nobody hit reads very differently from one being
- * eaten.
  */
 export class CrosshairPainter {
     private readonly axisPainter: AxisPainter;
@@ -147,9 +142,6 @@ export class CrosshairPainter {
 
     /**
      * How far the bucket sat from the middle of the book at that moment.
-     *
-     * Measured against the frame under the cursor rather than the live price, so
-     * the answer stays true when the reader is looking at an hour ago.
      */
     private describeDistance(frame: LiquidityFrame, bucketPrice: number): ReadoutLine {
         const midPrice = (frame.bestBidPrice + frame.bestAskPrice) / 2;

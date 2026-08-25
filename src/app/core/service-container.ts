@@ -5,27 +5,20 @@ import type { LiveFeed } from '../services/live-feed.ts';
 import { LiveFeedService } from '../services/live-feed-service.ts';
 import { PreferencesService } from '../services/preferences-service.ts';
 import { RecordingApiService } from '../services/recording-api-service.ts';
+import type { RecordingControl } from '../../shared/core/recording-control.ts';
 
 export interface ServiceContainer {
     readonly api: HeatmapSource;
     readonly liveFeed: LiveFeed;
     readonly preferences: PreferencesService;
     readonly chart: ChartController;
-    /**
-     * Absent when the page is its own collector: there is no supervisor to ask
-     * what it is recording, and nothing it could be told to record instead.
-     */
-    readonly recording: RecordingApiService | null;
+    /** Absent when the page is its own collector and there is no supervisor. */
+    readonly recording: RecordingControl | null;
 }
 
 export interface ServiceContainerConfig {
     /**
      * Absolute origin of the gateway, scheme included.
-     *
-     * Absolute and required on purpose. A relative `/api` only resolves because
-     * a browser resolves it against `location`, and depending on that would make
-     * the core untestable outside a DOM — the one thing this layering exists to
-     * avoid. The entry point owns the browser and passes it in.
      */
     readonly baseUrl: string;
     /** Absent in a test that runs outside a DOM. */
@@ -34,9 +27,6 @@ export interface ServiceContainerConfig {
 
 /**
  * Builds the object graph, by hand and in one place.
- *
- * No container library and no decorators: reading this function tells you the
- * whole wiring.
  *
  * @param config - The gateway origin and the storage to persist preferences in.
  * @returns Every service the tree needs.

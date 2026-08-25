@@ -53,11 +53,6 @@ interface InstrumentGrid {
 
 /**
  * Read side of the recorded market history.
- *
- * Wide ranges are sampled rather than averaged: one stored frame represents each
- * output column. Resting liquidity persists across many frames, so a sampled
- * column shows the same walls an averaged one would, without the cost of reading
- * every depth array in the range.
  */
 export class LiquidityQueryService {
     private readonly postgres: PostgresService;

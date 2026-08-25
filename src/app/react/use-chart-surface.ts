@@ -17,11 +17,6 @@ export interface ChartSurfaceHandles {
 /**
  * Wires the canvases, the renderer, and the gesture controller together.
  *
- * Repainting is driven by an animation frame rather than by React: the depth
- * field changes on every streamed second and on every pointer move, and routing
- * that through the reconciler would re-render the whole shell sixty times a
- * second to change pixels React does not own.
- *
  * @returns Refs to attach to the container and the two stacked canvases.
  */
 export function useChartSurface(): ChartSurfaceHandles {

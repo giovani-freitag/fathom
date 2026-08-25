@@ -10,9 +10,6 @@ import { TradeClusterAccumulator } from '../core/trade-cluster-accumulator.ts';
 
 /**
  * Fires each frame slightly after its grid instant.
- *
- * Timers are allowed to fire marginally early, and an early tick would floor
- * onto the previous instant and duplicate a frame that was already recorded.
  */
 const GRID_SETTLE_MS = 5;
 
@@ -32,10 +29,6 @@ export interface LiquidityRecorderServiceConfig {
 
 /**
  * Turns the live book into recorded history on a fixed grid.
- *
- * Owns the honesty of that history: every instant the book was unusable, and
- * every batch lost to a database that would not take it, is written back as an
- * explicit gap rather than left for the renderer to interpolate across.
  */
 export class LiquidityRecorderService {
     private readonly config: LiquidityRecorderServiceConfig;
@@ -96,9 +89,6 @@ export class LiquidityRecorderService {
 
     /**
      * Stops the frame loop and writes out whatever is still queued.
-     *
-     * Any gap still open is deliberately left open: it ends when a later run
-     * records its first frame, which is the only instant that closes it truthfully.
      */
     async stop(): Promise<void> {
         this.isRunning = false;
@@ -221,12 +211,6 @@ export class LiquidityRecorderService {
 
     /**
      * Files the gap that just ended, and forgets it only once it is queued.
-     *
-     * Queued rather than written here: a gap almost always ends because the
-     * archive came back, and an attempt made at that instant can still fail. The
-     * old code cleared its own memory of the gap before the write and reported a
-     * failure to a log nobody reads, which turned a recorded hole into a silent
-     * one — the single outcome this project exists to avoid.
      */
     private closeOpenGap(endedAtMs: number): void {
         const startedAtMs = this.openGapStartedAtMs;

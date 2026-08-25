@@ -10,15 +10,6 @@ export interface DepthFieldConfig {
 
 /**
  * The depth window rendered once into an offscreen image, in time and bucket space.
- *
- * Painting per screen pixel on every gesture would repaint hundreds of thousands
- * of pixels per frame. Painting once into a grid whose axes are time and price
- * bucket lets pan and zoom become a single scaled `drawImage`, which the browser
- * hands to the compositor.
- *
- * Streamed frames are painted onto the existing image rather than triggering a
- * repaint of the whole window: a live second changes one column, and rebuilding
- * the other two thousand costs tens of milliseconds twice a second for nothing.
  */
 export class DepthField {
     readonly baseTimestampMs: number;
@@ -133,9 +124,6 @@ export class DepthField {
 
     /**
      * Whether arriving frames fit the image's columns and its price band.
-     *
-     * A price that walked out of the band would otherwise leave the live edge
-     * blank, which reads as missing data rather than as a stale field.
      */
     private canHold(arrivals: readonly LiquidityFrame[]): boolean {
         const highestBucketIndex = this.lowestBucketIndex + this.bucketCount - 1;
@@ -156,11 +144,6 @@ export class DepthField {
 
     /**
      * Records a run of frames as painted, whether or not pixels could be written.
-     *
-     * The bookkeeping is deliberately separate from the drawing: tying them
-     * together would leave a field with no drawing context permanently claiming
-     * it has absorbed nothing, and every arriving second would allocate another
-     * field that also cannot draw.
      */
     private paintRange(frames: readonly LiquidityFrame[], alreadyPaintedCount: number): void {
         const lastFrame = frames[frames.length - 1];

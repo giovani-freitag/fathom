@@ -10,10 +10,6 @@ export interface ObservableStoreConfig<TState> {
 
 /**
  * The core's only state primitive: a value plus a subscription list.
- *
- * `read` must return the same reference until the state actually changes. It is
- * fed straight into `useSyncExternalStore`, where a snapshot rebuilt on every
- * read re-renders forever.
  */
 export class ObservableStore<TState> {
     private state: TState;
@@ -34,9 +30,6 @@ export class ObservableStore<TState> {
 
     /**
      * Registers a listener.
-     *
-     * The listener is not called on subscribe: the caller already has the state
-     * from `read`, and an immediate call would make every consumer render twice.
      *
      * @param listener - Called with each published state.
      * @returns The canceller for this listener.

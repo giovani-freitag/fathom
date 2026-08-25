@@ -1,22 +1,15 @@
 import type { PostgresService } from '../postgres/postgres-service.ts';
+import type {
+    RecordedContract,
+    RecordingControl,
+    StorageBudget,
+} from '../../shared/core/recording-control.ts';
 
 export interface RecordingControlServiceConfig {
     readonly postgres: PostgresService;
 }
 
-/** One contract the supervisor may be recording, and the grid it uses. */
-export interface EnabledInstrument {
-    readonly instrumentSymbol: string;
-    readonly priceBucketSize: number;
-    readonly frameIntervalMs: number;
-    readonly isEnabled: boolean;
-}
-
-/** How much of the disk the whole recording may take, and what it takes now. */
-export interface BudgetReading {
-    readonly maximumBytes: number;
-    readonly usedBytes: number;
-}
+export type { RecordedContract as EnabledInstrument, StorageBudget as BudgetReading };
 
 interface InstrumentRow {
     readonly instrument_symbol: string;
@@ -36,12 +29,8 @@ interface OldestChunkRow {
 
 /**
  * What is being recorded, and how much of the disk it may have.
- *
- * Kept out of the environment on purpose: which contracts to follow and how
- * much history to keep are decisions made while watching the chart, and a
- * setting that needs a redeploy to change is one nobody changes.
  */
-export class RecordingControlService {
+export class RecordingControlService implements RecordingControl {
     private readonly postgres: PostgresService;
 
     constructor(config: RecordingControlServiceConfig) {
@@ -54,7 +43,7 @@ export class RecordingControlService {
      * @returns The contracts, ordered by symbol.
      * @throws PostgresQueryError when the read fails.
      */
-    async listInstruments(): Promise<EnabledInstrument[]> {
+    async listContracts(): Promise<RecordedContract[]> {
         const rows = await this.postgres.selectRows<InstrumentRow>(
             `SELECT instrument_symbol, price_bucket_size, frame_interval_ms, is_enabled
              FROM instrument_registry
@@ -75,7 +64,7 @@ export class RecordingControlService {
      * @param instrument - The contract and its grid.
      * @throws PostgresQueryError when the write fails.
      */
-    async upsertInstrument(instrument: EnabledInstrument): Promise<void> {
+    async saveContract(instrument: RecordedContract): Promise<void> {
         await this.postgres.execute(
             `INSERT INTO instrument_registry
                  (instrument_symbol, price_bucket_size, frame_interval_ms, is_enabled)
@@ -96,9 +85,6 @@ export class RecordingControlService {
     /**
      * Turns recording of one contract on or off.
      *
-     * Disabling does not delete anything: what was recorded stays readable, and
-     * the coverage the chart reports simply stops advancing.
-     *
      * @param instrumentSymbol - Which contract.
      * @param isEnabled - Whether a supervisor should be recording it.
      * @throws PostgresQueryError when the write fails.
@@ -116,7 +102,7 @@ export class RecordingControlService {
      * @returns Both figures in bytes.
      * @throws PostgresQueryError when the read fails.
      */
-    async readBudget(): Promise<BudgetReading> {
+    async readBudget(): Promise<StorageBudget> {
         const rows = await this.postgres.selectRows<BudgetRow>(
             `SELECT maximum_bytes::text,
                     (hypertable_size('liquidity_frame')
@@ -128,6 +114,9 @@ export class RecordingControlService {
         return {
             maximumBytes: Number(row?.maximum_bytes ?? 0),
             usedBytes: Number(row?.used_bytes ?? 0),
+            // The database sits on a volume this process cannot measure from
+            // inside a query, so the ceiling is the reader's to judge.
+            availableBytes: null,
         };
     }
 
@@ -146,11 +135,6 @@ export class RecordingControlService {
 
     /**
      * Drops the oldest partitions until the recording fits its budget.
-     *
-     * Whole partitions rather than rows: deleting rows from a columnar chunk
-     * decompresses the whole batch to rewrite it and gives the disk back to
-     * nobody, which is the opposite of what a reader asking for less disk wants.
-     * The cost is granularity — history leaves a chunk at a time.
      *
      * @returns How many partitions were dropped.
      * @throws PostgresQueryError when a drop fails.

@@ -2,11 +2,6 @@ import type { DepthLadder, LiquidityFrame } from '../../shared/core/liquidity-fr
 
 /**
  * How many instants are read and folded into each output column.
- *
- * A single instant per column keeps every quote that happened to exist at that
- * moment, which on a wide window is mostly quotes that lived for less time than
- * the column is wide. Folding a handful of instants fades those in proportion to
- * how long they actually rested, while a wall that never moved keeps its size.
  */
 export const INSTANTS_PER_COLUMN = 4;
 
@@ -78,10 +73,6 @@ function averageFrames(group: readonly LiquidityFrame[], capturedAtMs: number): 
 
 /**
  * Averages ladders that may sit on different stretches of the same grid.
- *
- * Each frame records only the band around its own mid price, so two instants a
- * minute apart start at different buckets. They are aligned by absolute bucket
- * index, and a bucket missing from one instant counts as the zero it was.
  */
 function averageLadders(ladders: readonly DepthLadder[]): DepthLadder {
     let lowestBucketIndex = Number.POSITIVE_INFINITY;

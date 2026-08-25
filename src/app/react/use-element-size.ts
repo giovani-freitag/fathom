@@ -8,10 +8,6 @@ export interface ElementSize {
 /**
  * Tracks an element's rendered size.
  *
- * A canvas has to be told its pixel dimensions, and on a phone those change on
- * every rotation and every time the browser chrome collapses, neither of which
- * fires a window resize.
- *
  * @param elementRef - Ref to the element to observe.
  * @returns The latest content-box size, zero until the first observation.
  */

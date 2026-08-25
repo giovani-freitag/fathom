@@ -9,14 +9,6 @@ export interface TouchLinePainterConfig {
 
 /**
  * Marks the price the book was trading around at the right edge of the view.
- *
- * The right edge, not the newest frame loaded: parked in history those are an
- * hour apart, and drawing today's price across yesterday's depth invites reading
- * it as the price back then. At the live edge the two coincide, so the line
- * still marks the current touch whenever the chart is following.
- *
- * It spans the whole plot because it is the reference every wall on screen is
- * judged against, including the ones far to the left.
  */
 export class TouchLinePainter {
     private readonly axisPainter: AxisPainter;

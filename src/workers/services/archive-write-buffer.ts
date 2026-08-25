@@ -16,11 +16,6 @@ export interface ArchiveWriteBufferConfig {
 
 /**
  * Holds recorded data until the database accepts it.
- *
- * A failed batch is put back rather than discarded, because the venue will never
- * serve those seconds again. The buffer is bounded all the same: past its
- * capacity the oldest frames are dropped and reported, which is a recorded gap
- * instead of an unbounded heap.
  */
 export class ArchiveWriteBuffer {
     private readonly config: ArchiveWriteBufferConfig;
@@ -54,11 +49,6 @@ export class ArchiveWriteBuffer {
     /**
      * Queues a gap for the next flush.
      *
-     * Gaps queue rather than being written where they are noticed, because the
-     * moment a gap exists is usually the moment the archive is unreachable — a
-     * write attempted there fails by construction, and losing it leaves a hole
-     * in the recording that nothing says is a hole.
-     *
      * @param gap - The stretch of time that went unrecorded.
      */
     enqueueGap(gap: RecordingGap): void {
@@ -67,9 +57,6 @@ export class ArchiveWriteBuffer {
 
     /**
      * Writes everything queued, coalescing with any flush already running.
-     *
-     * Never rejects: a write failure is reported through the configured callback
-     * and the data stays queued for the next attempt.
      */
     async flush(): Promise<void> {
         if (this.flushInFlight !== null) {
@@ -100,11 +87,6 @@ export class ArchiveWriteBuffer {
 
     /**
      * Writes queued gaps one at a time, keeping any that fail.
-     *
-     * Never dropped over capacity, unlike frames: a gap record is four columns
-     * describing data that no longer exists, and the whole point of the ledger
-     * is that it outlives what it describes. They are also rare enough that an
-     * unbounded queue cannot grow the way buffered frames can.
      */
     private async writeGaps(): Promise<void> {
         const gaps = this.pendingGaps.splice(0);

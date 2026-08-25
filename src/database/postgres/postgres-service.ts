@@ -3,9 +3,6 @@ import pg from 'pg';
 
 /**
  * Object identifier PostgreSQL uses for `real[]`.
- *
- * Cast because the driver's enum names only scalar types; the array identifiers
- * it accepts at runtime were never added to it.
  */
 const REAL_ARRAY_TYPE_OID = 1_021 as unknown as Parameters<typeof pg.types.setTypeParser>[0];
 
@@ -30,9 +27,6 @@ export class PostgresQueryError extends Error {
 
 /**
  * The only place the PostgreSQL driver is used.
- *
- * Callers receive rows shaped by their own type argument, so no driver type
- * reaches the rest of the codebase and the pool's lifecycle stays in one place.
  */
 export class PostgresService {
     private readonly config: PostgresServiceConfig;

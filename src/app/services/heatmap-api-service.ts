@@ -24,10 +24,6 @@ export class HeatmapApiError extends Error {
 export interface HeatmapApiServiceConfig {
     /**
      * Absolute origin of the gateway.
-     *
-     * Absolute on purpose: a relative path only resolves because a browser
-     * resolves it against `location`, and depending on that would make the core
-     * untestable outside a DOM. The entry point owns the browser and passes it in.
      */
     readonly baseUrl: string;
 }
@@ -52,9 +48,6 @@ export interface TradeClusterResult {
 
 /**
  * The only place the gateway's HTTP surface is spoken.
- *
- * Depth arrives as a binary window and is decoded here, so the rest of the app
- * never sees a wire format.
  */
 export class HeatmapApiService implements HeatmapSource {
     private readonly baseUrl: string;
@@ -160,11 +153,11 @@ export class HeatmapApiService implements HeatmapSource {
 }
 
 /**
- * The gateway declares every bound as an integer, and viewport arithmetic
- * produces fractional milliseconds, so the rounding has to happen here rather
- * than being left to a schema rejection.
+ * Renders a window query as the gateway's search parameters.
  */
 function toWindowParameters(query: FrameWindowQuery): URLSearchParams {
+    // Viewport arithmetic produces fractional milliseconds and every bound is
+    // declared as an integer, so rounding here beats a schema rejection.
     return new URLSearchParams({
         symbol: query.symbol,
         fromMs: String(Math.floor(query.fromMs)),

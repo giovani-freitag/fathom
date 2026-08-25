@@ -20,18 +20,11 @@ const MAXIMUM_PIXEL_RATIO = 2;
 
 /**
  * Clear space between time labels, as a multiple of one label's width.
- *
- * Horizontal crowding is a width problem: a label reading `18:52:15` needs far
- * more room than one reading `13/ago`, and the axis has to adapt to whichever
- * the current span produces.
  */
 const TIME_LABEL_SPACING_FACTOR = 1.9;
 
 /**
  * Clear space between price labels, in CSS pixels.
- *
- * Vertical crowding is a line-height problem, not a width one: how many digits a
- * price has says nothing about how close two of them can sit.
  */
 const PRICE_LABEL_SPACING_PX = 56;
 
@@ -44,13 +37,6 @@ export interface HeatmapRendererConfig {
 
 /**
  * Coordinates the layers that make up one view of the chart.
- *
- * Owns the two canvases, the layout, and the cached depth field, and nothing
- * else: each layer decides for itself what it draws, so a change to the profile
- * panel cannot disturb the axes and a new layer costs one line here.
- *
- * The depth layer sits underneath as a single scaled blit and the chrome on top,
- * so a pointer move repaints only the thin overlay.
  */
 export class HeatmapRenderer {
     private readonly depthCanvas: HTMLCanvasElement;

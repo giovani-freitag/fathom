@@ -1,15 +1,18 @@
 import type { CollectorCommand, CollectorEvent, CollectorState } from '../../shared/core/collector-worker-contract.ts';
-import type { CollectorWorkerScope } from './worker-scope.ts';
 import { BROWSER_WRITE_SETTINGS } from '../core/collector-configuration.ts';
-import { CollectorRuntime } from '../collector-runtime.ts';
+import { BrowserRecordingControl } from '../../database/browser/browser-recording-control.ts';
+import { CollectorSupervisor } from '../collector-supervisor.ts';
+import type { CollectorWorkerScope } from './worker-scope.ts';
+import { DEMO_CATALOGUE, readDemoConfiguration, resolveFrameCapacity } from './demo-collector-configuration.ts';
 import { describeError } from '../core/collector-log.ts';
 import { IndexedDbLiquidityArchive } from '../../database/browser/indexed-db-liquidity-archive.ts';
 import { IndexedDbService } from '../../database/browser/indexed-db-service.ts';
 import { openBrowserMarketDataSocket } from './browser-market-data-socket.ts';
-import { readDemoConfiguration, resolveFrameCapacity } from './demo-collector-configuration.ts';
 
-/** How often the archive is trimmed back to the window it may keep. */
-const PRUNE_INTERVAL_MS = 60_000;
+/**
+ * How often the chosen contracts and the ceiling are re-read.
+ */
+const RECONCILE_INTERVAL_MS = 3_000;
 
 const scope = self as unknown as CollectorWorkerScope;
 
@@ -21,21 +24,17 @@ function announce(state: CollectorState, detail?: string): void {
     post(detail === undefined ? { kind: 'state', state } : { kind: 'state', state, detail });
 }
 
-const configuration = readDemoConfiguration(scope.location.search);
+const { instrumentSymbol, priceBucketSize, frameIntervalMs, ...shared } =
+    readDemoConfiguration(scope.location.search);
 const database = new IndexedDbService({ factory: scope.indexedDB ?? null });
 
-let runtime: CollectorRuntime | null = null;
-let pruneTimer: ReturnType<typeof setInterval> | null = null;
+let supervisor: CollectorSupervisor | null = null;
 
 /**
- * Opens the archive and begins recording.
- *
- * Failure here is reported as a state rather than thrown: nothing supervises a
- * Worker the way systemd supervises the collector process, so the page has to
- * be told why it will see no data instead of being left with a silent tab.
+ * Opens the archive and brings up whatever this browser chose to record.
  */
 async function start(): Promise<void> {
-    if (runtime !== null) {
+    if (supervisor !== null) {
         return;
     }
     announce('starting');
@@ -47,45 +46,57 @@ async function start(): Promise<void> {
         return;
     }
 
-    const capacity = await resolveFrameCapacity(scope.navigator);
-    const archive = new IndexedDbLiquidityArchive({ database, frameCapacity: capacity });
-    // The connection is already open above; the runtime never touches it.
-
-    runtime = new CollectorRuntime({
-        configuration,
-        openSocket: openBrowserMarketDataSocket,
+    const archive = new IndexedDbLiquidityArchive({
+        database,
+        frameCapacity: await resolveFrameCapacity(scope.navigator),
+    });
+    const control = new BrowserRecordingControl({
         archive,
-        framesPerFlush: BROWSER_WRITE_SETTINGS.framesPerFlush,
+        database,
+        estimateStorage: () => scope.navigator.storage?.estimate() ?? Promise.resolve({}),
+        // A link may name a contract the catalogue does not, so it is offered too.
+        catalogue: withRequested(instrumentSymbol, priceBucketSize, frameIntervalMs),
+    });
+
+    supervisor = new CollectorSupervisor({
+        control,
+        archive,
+        openSocket: openBrowserMarketDataSocket,
         log: {
             info: (message) => { post({ kind: 'log', level: 'info', message }); },
             warning: (message) => { post({ kind: 'log', level: 'warning', message }); },
         },
+        shared,
+        framesPerFlush: BROWSER_WRITE_SETTINGS.framesPerFlush,
+        reconcileIntervalMs: RECONCILE_INTERVAL_MS,
     });
 
     try {
-        await runtime.start();
+        await supervisor.start();
     } catch (error) {
-        runtime = null;
+        supervisor = null;
         announce('refused', describeError(error));
         return;
     }
-
-    pruneTimer = setInterval(() => {
-        void archive.pruneToCapacity(configuration.instrumentSymbol);
-    }, PRUNE_INTERVAL_MS);
     announce('recording');
 }
 
 async function stop(): Promise<void> {
-    if (pruneTimer !== null) {
-        clearInterval(pruneTimer);
-        pruneTimer = null;
-    }
-    await runtime?.stop();
-    runtime = null;
-    // The worker owns the connection it opened, so it is the one that closes it.
-    database.close();
+    await supervisor?.stop();
+    supervisor = null;
     announce('stopped');
+}
+
+/** The catalogue, with a link-requested contract added if it is not already in it. */
+function withRequested(symbol: string, priceBucketSize: number, frameIntervalMs: number) {
+    const catalogue = DEMO_CATALOGUE.map((contract) => ({
+        ...contract,
+        isEnabled: contract.instrumentSymbol === symbol ? true : contract.isEnabled,
+    }));
+
+    return catalogue.some((contract) => contract.instrumentSymbol === symbol)
+        ? catalogue
+        : [{ instrumentSymbol: symbol, priceBucketSize, frameIntervalMs, isEnabled: true }, ...catalogue];
 }
 
 scope.addEventListener('message', (event: MessageEvent<CollectorCommand>) => {

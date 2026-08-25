@@ -1,10 +1,10 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import type { RecordingControlService } from '../../../database/services/recording-control-service.ts';
+import type { RecordingControl } from '../../../shared/core/recording-control.ts';
 import type { Static } from '@sinclair/typebox';
 import type { BudgetUpdateSchema, InstrumentUpdateSchema } from '../schemas/recording-schema.ts';
 
 export interface RecordingHandlerConfig {
-    readonly control: RecordingControlService;
+    readonly control: RecordingControl;
 }
 
 type InstrumentUpdate = Static<typeof InstrumentUpdateSchema>;
@@ -28,10 +28,6 @@ export function createRecordingHandler(config: RecordingHandlerConfig) {
 /**
  * Builds the handler that turns a contract's recording on or off.
  *
- * The supervisor reconciles on its own schedule, so this only records the
- * decision — the change takes effect within one reconcile interval rather than
- * synchronously, and saying so is better than pretending otherwise.
- *
  * @param config - The control service backing the change.
  * @returns A handler applying the change and returning the new state.
  */
@@ -40,7 +36,7 @@ export function createInstrumentUpdateHandler(config: RecordingHandlerConfig) {
         request: FastifyRequest<{ Body: InstrumentUpdate }>,
         reply: FastifyReply,
     ): Promise<FastifyReply> {
-        await config.control.upsertInstrument(request.body);
+        await config.control.saveContract(request.body);
         return reply.send(await readState(config.control));
     };
 }
@@ -61,9 +57,9 @@ export function createBudgetUpdateHandler(config: RecordingHandlerConfig) {
     };
 }
 
-async function readState(control: RecordingControlService) {
+async function readState(control: RecordingControl) {
     const [instruments, budget] = await Promise.all([
-        control.listInstruments(),
+        control.listContracts(),
         control.readBudget(),
     ]);
     return { instruments, ...budget };

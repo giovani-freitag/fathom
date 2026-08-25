@@ -14,10 +14,6 @@ export interface DemoShellProps {
 
 /**
  * The demo's own chrome: it starts the collector and says what it is doing.
- *
- * The served chart can assume a recording already exists. This one cannot — a
- * visitor arrives at an empty archive and has to be told that the seconds are
- * being captured now, or an empty canvas reads as a broken page.
  */
 export function DemoShell({ factory, storage, build }: DemoShellProps): ReactElement {
     const [state, setState] = useState<CollectorState>('starting');

@@ -1,45 +1,60 @@
 import { type ReactElement, useCallback, useEffect, useState } from 'react';
-import type { RecordingApiService, RecordingState } from '../services/recording-api-service.ts';
+import type { RecordedContract, RecordingControl, StorageBudget } from '../../shared/core/recording-control.ts';
 import { Switch } from 'radix-ui';
 
-/** Ceilings a reader is likely to want, rather than a free-text byte count. */
+/** Ceilings offered when the host will not say how much room it has. */
 const BUDGET_CHOICES_GB = [5, 10, 25, 50, 100] as const;
+
+/** Shares of what a host does offer, which is how a browser is asked. */
+const BUDGET_SHARES = [0.1, 0.25, 0.5, 0.75] as const;
 
 const BYTES_PER_GIGABYTE = 1_073_741_824;
 
 export interface RecordingPanelProps {
-    readonly recording: RecordingApiService;
+    readonly recording: RecordingControl;
+    /** Called after a contract is switched on or off, so the picker keeps up. */
+    readonly onContractsChanged: () => void;
+}
+
+interface PanelState {
+    readonly contracts: readonly RecordedContract[];
+    readonly budget: StorageBudget;
 }
 
 /**
  * What is being recorded, and how much disk it may take.
- *
- * Lives beside the display settings because it is the same kind of decision —
- * made while looking at the chart — but it is the only panel here that changes
- * what gets written rather than how it is drawn, so it says so.
  */
-export function RecordingPanel({ recording }: RecordingPanelProps): ReactElement {
-    const [state, setState] = useState<RecordingState | null>(null);
+export function RecordingPanel({ recording, onContractsChanged }: RecordingPanelProps): ReactElement {
+    const [state, setState] = useState<PanelState | null>(null);
     const [failure, setFailure] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
 
-    const apply = useCallback(async (change: Promise<RecordingState>) => {
+    const read = useCallback(async (): Promise<PanelState> => {
+        const [contracts, budget] = await Promise.all([
+            recording.listContracts(),
+            recording.readBudget(),
+        ]);
+        return { contracts, budget };
+    }, [recording]);
+
+    const apply = useCallback(async (change: Promise<void>) => {
         setIsSaving(true);
         try {
-            setState(await change);
+            await change;
+            setState(await read());
             setFailure(null);
         } catch (error) {
             setFailure(error instanceof Error ? error.message : String(error));
         } finally {
             setIsSaving(false);
         }
-    }, []);
+    }, [read]);
 
     useEffect(() => {
-        const controller = new AbortController();
-        recording.fetchState(controller.signal).then(setState, () => undefined);
-        return () => { controller.abort(); };
-    }, [recording]);
+        let wasCancelled = false;
+        read().then((next) => { if (!wasCancelled) { setState(next); } }, () => undefined);
+        return () => { wasCancelled = true; };
+    }, [read]);
 
     if (state === null) {
         return <p className="text-[11px] text-ink-600">Reading what is being recorded…</p>;
@@ -50,7 +65,7 @@ export function RecordingPanel({ recording }: RecordingPanelProps): ReactElement
             <div className="flex items-baseline justify-between">
                 <span className="text-xs text-ink-300">Recording</span>
                 <span className="numeric text-[11px] text-ink-500">
-                    {formatGigabytes(state.usedBytes)} of {formatGigabytes(state.maximumBytes)}
+                    {formatGigabytes(state.budget.usedBytes)} of {formatGigabytes(state.budget.maximumBytes)}
                 </span>
             </div>
 
@@ -60,7 +75,7 @@ export function RecordingPanel({ recording }: RecordingPanelProps): ReactElement
             </p>
 
             <ul className="space-y-1.5">
-                {state.instruments.map((instrument) => (
+                {state.contracts.map((instrument) => (
                     <li key={instrument.instrumentSymbol} className="flex items-center justify-between gap-3">
                         <span className="numeric text-xs text-ink-200">
                             {instrument.instrumentSymbol}
@@ -72,7 +87,9 @@ export function RecordingPanel({ recording }: RecordingPanelProps): ReactElement
                             checked={instrument.isEnabled}
                             disabled={isSaving}
                             onCheckedChange={(isEnabled) => {
-                                void apply(recording.saveInstrument({ ...instrument, isEnabled }));
+                                void apply(
+                                    recording.saveContract({ ...instrument, isEnabled }),
+                                ).then(onContractsChanged);
                             }}
                             className="relative h-5 w-9 shrink-0 rounded-full bg-abyss-600 outline-none data-[state=checked]:bg-phosphor/70 disabled:opacity-50"
                             aria-label={`Record ${instrument.instrumentSymbol}`}
@@ -84,9 +101,9 @@ export function RecordingPanel({ recording }: RecordingPanelProps): ReactElement
             </ul>
 
             <BudgetChooser
-                maximumBytes={state.maximumBytes}
+                budget={state.budget}
                 isSaving={isSaving}
-                onChoose={(bytes) => { void apply(recording.saveBudget(bytes)); }}
+                onChoose={(bytes) => { void apply(recording.setBudget(bytes)); }}
             />
 
             <p className="text-[11px] leading-snug text-ink-600">
@@ -101,35 +118,51 @@ export function RecordingPanel({ recording }: RecordingPanelProps): ReactElement
     );
 }
 
-function BudgetChooser({ maximumBytes, isSaving, onChoose }: {
-    readonly maximumBytes: number;
+/**
+ * Offers ceilings the host can actually honour.
+ */
+function BudgetChooser({ budget, isSaving, onChoose }: {
+    readonly budget: StorageBudget;
     readonly isSaving: boolean;
     readonly onChoose: (bytes: number) => void;
 }): ReactElement {
-    const chosenGb = Math.round(maximumBytes / BYTES_PER_GIGABYTE);
+    const choices = budget.availableBytes === null
+        ? BUDGET_CHOICES_GB.map((gigabytes) => ({
+            label: `${gigabytes} GB`,
+            bytes: gigabytes * BYTES_PER_GIGABYTE,
+        }))
+        : BUDGET_SHARES.map((share) => ({
+            label: formatGigabytes(budget.availableBytes! * share),
+            bytes: Math.floor(budget.availableBytes! * share),
+        }));
 
     return (
         <div className="space-y-1.5">
-            <span className="text-xs text-ink-300">Disk ceiling</span>
+            <span className="text-xs text-ink-300">Storage ceiling</span>
             <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
-                {BUDGET_CHOICES_GB.map((gigabytes) => (
+                {choices.map((choice) => (
                     <button
-                        key={gigabytes}
+                        key={choice.label}
                         type="button"
                         disabled={isSaving}
-                        onClick={() => { onChoose(gigabytes * BYTES_PER_GIGABYTE); }}
+                        onClick={() => { onChoose(choice.bytes); }}
                         className={`numeric whitespace-nowrap rounded-md border px-2 py-1.5 text-[11px] disabled:opacity-50 ${
-                            gigabytes === chosenGb
+                            isChosen(choice.bytes, budget.maximumBytes)
                                 ? 'border-phosphor/60 bg-phosphor/12 text-phosphor'
                                 : 'border-hairline text-ink-400 hover:border-ink-700'
                         }`}
                     >
-                        {gigabytes} GB
+                        {choice.label}
                     </button>
                 ))}
             </div>
         </div>
     );
+}
+
+/** Within a percent, because a share of a quota never lands on a round number. */
+function isChosen(offered: number, chosen: number): boolean {
+    return Math.abs(offered - chosen) <= chosen * 0.01;
 }
 
 function formatGigabytes(bytes: number): string {

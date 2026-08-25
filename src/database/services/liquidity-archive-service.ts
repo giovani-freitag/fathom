@@ -28,10 +28,6 @@ export interface LiquidityArchiveServiceConfig {
 
 /**
  * Write side of the recorded market history.
- *
- * Every statement is idempotent on its natural key, so a restart that replays
- * the current second, or a retry of a batch whose failure landed after the
- * commit, converges instead of duplicating columns.
  */
 export class LiquidityArchiveService implements LiquidityArchive {
     private readonly postgres: PostgresService;
@@ -42,9 +38,6 @@ export class LiquidityArchiveService implements LiquidityArchive {
 
     /**
      * Connects the pool this archive writes through.
-     *
-     * The pool is shared with whoever else the process wired it into, so both
-     * calls are safe to make more than once.
      */
     async open(): Promise<void> {
         await this.postgres.connect();
@@ -84,9 +77,6 @@ export class LiquidityArchiveService implements LiquidityArchive {
     /**
      * Declares the grid an instrument is being recorded on.
      *
-     * The viewer needs the list of recorded contracts on every load; deriving it
-     * from the frames would mean a distinct scan over the whole hypertable.
-     *
      * @param request - Instrument symbol and the grid the collector will use.
      * @throws PostgresQueryError when the write fails.
      */
@@ -123,9 +113,6 @@ export class LiquidityArchiveService implements LiquidityArchive {
 
     /**
      * Instant of the newest recorded frame for an instrument.
-     *
-     * A collector starting up reads this to learn where its last run stopped,
-     * which is the only way the downtime in between can be recorded as a gap.
      *
      * @param instrumentSymbol - Contract to look up.
      * @returns Unix milliseconds of the newest frame, or null when none exist.

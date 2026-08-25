@@ -4,10 +4,6 @@ import type { PaintContext } from '../render-types.ts';
 
 /**
  * Draws aggressive executions as bubbles over the depth field.
- *
- * Size carries volume on a square-root scale so a print ten times larger reads
- * as roughly three times wider rather than ten, which is what keeps one outsized
- * trade from covering its whole neighbourhood.
  */
 export class TradePainter {
     /**

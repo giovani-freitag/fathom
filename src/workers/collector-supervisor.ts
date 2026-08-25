@@ -2,13 +2,13 @@ import type { CollectorConfiguration } from './core/collector-configuration.ts';
 import type { CollectorLog } from './core/collector-log.ts';
 import { CollectorRuntime } from './collector-runtime.ts';
 import { describeError } from './core/collector-log.ts';
-import type { EnabledInstrument, RecordingControlService } from '../database/services/recording-control-service.ts';
+import type { RecordedContract, RecordingControl } from '../shared/core/recording-control.ts';
 import type { LiquidityArchive } from '../database/services/liquidity-archive.ts';
 import type { MarketDataSocketFactory } from './core/market-data-socket.ts';
 import { releaseTimerFromEventLoop, type TimerHandle } from './core/collector-timers.ts';
 
 export interface CollectorSupervisorConfig {
-    readonly control: RecordingControlService;
+    readonly control: RecordingControl;
     readonly archive: LiquidityArchive;
     readonly openSocket: MarketDataSocketFactory;
     readonly log: CollectorLog;
@@ -21,13 +21,6 @@ export interface CollectorSupervisorConfig {
 
 /**
  * Keeps one collector running per enabled contract, and the disk within budget.
- *
- * A supervisor rather than a process per contract because which contracts to
- * record is a decision made while watching the chart, and a decision that needs
- * a new service unit to take effect is one nobody takes. It reconciles rather
- * than reacts: it compares what is running against what the registry says and
- * closes the difference, so a missed event costs one interval rather than a
- * contract that silently stopped being recorded.
  */
 export class CollectorSupervisor {
     private readonly config: CollectorSupervisorConfig;
@@ -82,9 +75,6 @@ export class CollectorSupervisor {
 
     /**
      * Closes the difference between what is running and what should be.
-     *
-     * Guarded against overlap: a slow start must not have another reconcile
-     * queued behind it, or one unreachable venue turns into a pile of attempts.
      */
     private async reconcile(): Promise<void> {
         if (this.isReconciling || this.wasStopped) {
@@ -93,7 +83,7 @@ export class CollectorSupervisor {
         this.isReconciling = true;
 
         try {
-            const registered = await this.config.control.listInstruments();
+            const registered = await this.config.control.listContracts();
             await this.stopDisabled(registered);
             await this.startEnabled(registered);
             await this.enforceBudget();
@@ -104,7 +94,7 @@ export class CollectorSupervisor {
         }
     }
 
-    private async stopDisabled(registered: readonly EnabledInstrument[]): Promise<void> {
+    private async stopDisabled(registered: readonly RecordedContract[]): Promise<void> {
         const wanted = new Set(
             registered.filter((instrument) => instrument.isEnabled)
                 .map((instrument) => instrument.instrumentSymbol),
@@ -120,7 +110,7 @@ export class CollectorSupervisor {
         }
     }
 
-    private async startEnabled(registered: readonly EnabledInstrument[]): Promise<void> {
+    private async startEnabled(registered: readonly RecordedContract[]): Promise<void> {
         for (const instrument of registered) {
             if (!instrument.isEnabled || this.running.has(instrument.instrumentSymbol)) {
                 continue;

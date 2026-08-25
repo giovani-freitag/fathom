@@ -7,10 +7,6 @@ type SynchronizationState = 'stopped' | 'desynchronized' | 'awaitingSnapshot' | 
 
 /**
  * Why an activation attempt did not produce a usable book.
- *
- * `ladderTooOld` is the one that must not be retried immediately: the venue can
- * serve a ladder older than the buffered updates for as long as it likes, and a
- * caller that refetches on the spot turns that into an unthrottled request loop.
  */
 type ActivationOutcome = 'activated' | 'awaitingUpdates' | 'ladderTooOld';
 
@@ -25,10 +21,6 @@ export interface OrderBookServiceConfig {
 
 /**
  * Keeps a local mirror of the venue's book, and knows when it stopped being one.
- *
- * Every update names the update before it, so a dropped message is detectable
- * rather than silently corrupting depth forever. On any break the local book is
- * abandoned and rebuilt from a fresh ladder; nothing is recorded in between.
  */
 export class OrderBookService {
     private readonly config: OrderBookServiceConfig;
@@ -160,11 +152,6 @@ export class OrderBookService {
 
     /**
      * The single place the synchronisation state moves.
-     *
-     * Assigning the field directly lets the compiler carry the assigned literal
-     * across an await and conclude that the re-checks afterwards are dead code,
-     * which is precisely backwards: those re-checks are what let a teardown or a
-     * dropped connection interrupt a synchronisation already in flight.
      */
     private enterState(nextState: SynchronizationState): void {
         this.synchronizationState = nextState;
@@ -200,12 +187,8 @@ export class OrderBookService {
     /**
      * One pass at rebuilding the book from a fresh ladder.
      *
-     * Split from the retry loop so the state re-read below sits in a scope the
-     * compiler has not already narrowed: a ladder request takes long enough for
-     * a teardown or a reconnect to land while it is in flight.
-     *
      * @returns True when nothing further should be attempted, false to retry
-     *          after the configured wait.
+     * after the configured wait.
      */
     private async attemptSynchronization(): Promise<boolean> {
         let snapshot: DepthSnapshot;

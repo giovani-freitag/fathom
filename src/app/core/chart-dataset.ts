@@ -11,10 +11,6 @@ export const DEFAULT_SATURATION_PERCENTILE = 0.995;
 
 /**
  * Where resting size starts registering at all.
- *
- * Below this the field is the constant churn of quotes placed and pulled by the
- * second, which on a liquid perpetual is most of the book. Painting it spends
- * the ramp on noise and leaves a real wall competing with a lit background.
  */
 export const DEFAULT_FLOOR_PERCENTILE = 0.40;
 
@@ -33,10 +29,6 @@ export const DEPTH_CUT_RANGE = {
 
 /**
  * How far the saturation point must move before it is adopted.
- *
- * Recomputed per window, the percentile drifts a few percent with every pan, and
- * every drift recolours the whole field. Holding it until the change is real is
- * what lets a wall keep its colour while the view moves across it.
  */
 const SATURATION_HYSTERESIS = 0.25;
 
@@ -54,10 +46,6 @@ export interface ChartDataset {
     readonly gaps: readonly RecordingGap[];
     /**
      * Resting size that reaches the hot end of the ramp.
-     *
-     * Held on the dataset rather than recomputed per paint so the renderer and
-     * the legend agree, and so a streamed second cannot shift every colour on
-     * screen by nudging a percentile.
      */
     readonly saturationQuantity: number;
     /** Resting size below which the field reads as empty. */
@@ -160,9 +148,6 @@ function chooseSaturation(measured: number, previous: number | undefined): numbe
 
 /**
  * Reads a bounded, evenly spread sample of the resting sizes in a window.
- *
- * A wide window holds millions of quantities and the percentile only needs a
- * shape, so every nth value is taken rather than sorting the whole field.
  */
 function sampleQuantities(frames: readonly LiquidityFrame[]): number[] {
     const totalQuantities = frames.reduce(
@@ -202,11 +187,6 @@ function collectSide(
 /**
  * Merges newly streamed frames into a dataset.
  *
- * Frames arriving live are already on the stored one-second grid, which is finer
- * than the sampled grid of a wide window. They are kept as they come and let the
- * renderer place them: several landing in one column simply means the last one
- * wins, which is the same rule the server's own sampling applies.
- *
  * @param dataset - The snapshot to extend.
  * @param frames - Newly arrived frames, in capture order.
  * @returns The extended snapshot, or the original when nothing was new.
@@ -235,15 +215,12 @@ export function appendFrames(
 /**
  * Merges newly streamed executions into a dataset.
  *
- * The live tail always bins on the stored price grid, while a wide window is
- * loaded on a coarser one. Arrivals are re-binned onto whatever grid the window
- * is using, otherwise a streamed bubble would be drawn at a price the rest of
- * the window does not use.
- *
  * @param dataset - The snapshot to extend.
  * @param clusters - Newly arrived clusters, on the stored price grid.
  * @returns The extended snapshot, or the original when nothing was new.
  */
+// The live tail bins on the stored price grid while a wide window is loaded on
+// a coarser one, so an arrival has to be re-binned or it lands off the grid.
 export function appendClusters(
     dataset: ChartDataset,
     clusters: readonly TradeCluster[],
@@ -283,9 +260,6 @@ export function newestFrameTimestamp(dataset: ChartDataset): number | null {
 
 /**
  * Recuts an already-loaded window at new percentiles.
- *
- * Used when the reader moves a cut themselves, which is the one case where the
- * hysteresis must not apply: they asked for the change and are watching for it.
  *
  * @param dataset - The window on screen.
  * @param floorPercentile - Fraction below which size reads as empty.

@@ -6,12 +6,7 @@ import type {
 } from './binance-payloads.ts';
 
 /**
- * Reads the payload out of a stream envelope, or null when the frame is not one
- * the collector subscribes to.
- *
- * The parse result is treated as unknown rather than asserted to be the
- * envelope: declaring the venue's wire shape as fact would turn a protocol
- * change into a silent misread instead of a discarded frame.
+ * Reads the payload out of a stream envelope.
  */
 export function parseStreamPayload(frameText: string): BinanceStreamPayload | null {
     let parsed: unknown;

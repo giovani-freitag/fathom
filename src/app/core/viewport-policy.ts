@@ -53,11 +53,6 @@ export function followLiveEdge(viewport: ChartViewport, dataset: ChartDataset): 
 /**
  * Recentres the price axis once the book has left the screen entirely.
  *
- * A chart left running all day watches price walk off the top or bottom and then
- * shows an empty field. Following only after the touch is fully gone, rather
- * than whenever it nears an edge, is what keeps this from fighting a reader who
- * deliberately parked the axis on a wall.
- *
  * @param viewport - The viewport to correct.
  * @param dataset - The window holding the newest touch.
  * @returns The recentred viewport, or the original when the touch is on screen.
@@ -80,9 +75,6 @@ export function followTouchPrice(viewport: ChartViewport, dataset: ChartDataset)
 /**
  * Centres the price axis on the book, for the first window of a session.
  *
- * The initial viewport is built before any price is known, so its price range is
- * a placeholder until a window lands.
- *
  * @param viewport - The viewport to frame.
  * @param dataset - The window holding the newest touch.
  * @returns The framed viewport, or the original when nothing is loaded.
@@ -101,9 +93,6 @@ export function frameOnBook(viewport: ChartViewport, dataset: ChartDataset): Cha
 /**
  * Stored price buckets per returned execution bucket.
  *
- * Bubbles smaller than a few pixels merge into a smear and cost bandwidth for
- * nothing, so the binning coarsens as the price axis widens.
- *
  * @param viewport - The visible price range.
  * @param priceBucketSize - Height of one stored bucket.
  * @returns How many stored buckets each returned bucket should cover.
@@ -121,10 +110,6 @@ export function resolveTradePriceGroupSize(
 
 /**
  * How much history exists for an instrument.
- *
- * Drives which spans a reader is offered: order book history cannot be
- * backfilled, so a window wider than the recording would show empty ground
- * rather than a chart still loading.
  *
  * @param instruments - Everything the archive reports.
  * @param instrumentSymbol - The contract on screen, if one is chosen.

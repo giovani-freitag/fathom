@@ -25,18 +25,11 @@ export interface GapRecordRequest {
     readonly gap: RecordingGap;
 }
 
+// Declared apart from the PostgreSQL implementation on purpose: a browser
+// project that imports that file imports `@types/pg`, which references
+// `@types/node`, and every Node global silently starts typechecking.
 /**
  * Where a collector puts what it recorded, whatever engine is underneath.
- *
- * Declared in its own file rather than beside the PostgreSQL implementation for
- * a reason that is easy to miss: a project that pulls in that implementation
- * pulls in `@types/pg`, which references `@types/node`, which quietly makes
- * every Node global typecheck. A browser build importing this port stays honest
- * about what its platform actually has.
- *
- * Every method must be idempotent on the natural key of what it writes. A
- * collector retries a failed batch, and a restart replays the second it was in
- * the middle of; both have to converge rather than duplicate.
  */
 export interface LiquidityArchive {
     /** Acquires whatever the engine needs before it can accept writes. */
@@ -53,10 +46,6 @@ export interface LiquidityArchive {
 
 /**
  * Raised when the archive will not accept a write.
- *
- * `isStorageExhausted` separates the two cases a caller must treat differently:
- * a transient fault worth retrying, and a full disk or spent quota where
- * retrying forever only buries the reason.
  */
 export class ArchiveUnavailableError extends Error {
     readonly isStorageExhausted: boolean;

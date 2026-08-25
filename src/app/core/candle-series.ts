@@ -25,9 +25,6 @@ export interface CandleSeriesRequest {
 /**
  * Turns recorded frames into candles wide enough to read.
  *
- * The bin is chosen from the surface rather than fixed, so zooming changes how
- * much each candle summarises instead of leaving a row of one-pixel slivers.
- *
  * @param request - The frames in view and the surface they must fit.
  * @returns The candles, oldest first.
  */

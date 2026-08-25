@@ -3,9 +3,6 @@ import type { PaintContext } from '../render-types.ts';
 
 /**
  * Draws the gridlines the axis labels sit on.
- *
- * Reads the same tick functions the axes do, so a line and its label can never
- * disagree about where a round price falls.
  */
 export class GridPainter {
     /**

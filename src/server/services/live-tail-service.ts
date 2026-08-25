@@ -29,10 +29,6 @@ export class TooManySubscribersError extends Error {
 
 /**
  * Streams newly recorded history to connected viewers.
- *
- * Tails the archive rather than the collector, so a viewer sees exactly what was
- * persisted. Live and historical rendering then share one code path, and a frame
- * can never appear on screen without existing in storage.
  */
 export class LiveTailService {
     private readonly config: LiveTailServiceConfig;
@@ -81,10 +77,6 @@ export class LiveTailService {
 
 /**
  * One viewer's tail.
- *
- * Each subscription polls on its own cursor rather than sharing a per-instrument
- * one, so a viewer that connects mid-session resumes exactly where its history
- * request ended instead of skipping whatever landed in between.
  */
 class LiveTailSubscription {
     private readonly request: LiveTailSubscriptionRequest;

@@ -48,9 +48,6 @@ export function panViewport(request: ViewportPanRequest): ChartViewport {
 /**
  * Scales the time span around an anchor.
  *
- * The anchor is what keeps the instant under a cursor or pinch centre pinned in
- * place while the rest of the axis expands away from it.
- *
  * @param request - The viewport, the anchor, and the scale factor.
  * @returns The zoomed viewport.
  */

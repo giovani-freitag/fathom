@@ -3,12 +3,6 @@ const CHANNELS_PER_ENTRY = 4;
 
 /**
  * Contrast of the logarithmic response.
- *
- * Tuned against real depth: on a liquid perpetual the typical bucket holds a few
- * percent of what a wall holds, and the whole point of the chart is that the
- * difference is obvious. A steeper curve lifts that typical bucket into the warm
- * half of the ramp and floods the field, leaving nothing for a wall to stand out
- * against.
  */
 const LOG_CONTRAST = 4;
 
@@ -20,14 +14,8 @@ interface RampStop {
     readonly alpha: number;
 }
 
-/**
- * Sounding palette: the abyss stays transparent, ordinary depth reads as cold
- * water, and only genuine walls climb into the hot end.
- *
- * Most of the ramp is spent on dim blues on purpose. The book is mostly ordinary
- * and a palette that lights it evenly turns the field into texture, which is the
- * exact thing a wall has to be seen against. Warmth begins past four fifths.
- */
+// Sounding palette: the abyss stays transparent, ordinary depth reads as cold
+// water, and only a genuine wall climbs into the hot end.
 const RAMP_STOPS: readonly RampStop[] = [
     { position: 0.000, red: 8, green: 16, blue: 30, alpha: 0 },
     { position: 0.120, red: 12, green: 26, blue: 52, alpha: 56 },
@@ -60,9 +48,6 @@ export interface DepthRange {
 
 /**
  * Turns resting size into a colour.
- *
- * The ramp itself is built once for the process; an instance only carries the
- * normalisation, so changing gain never rebuilds the table.
  */
 export class DepthColourScale {
     private static rampCache: Uint8ClampedArray | null = null;
@@ -113,11 +98,6 @@ export class DepthColourScale {
 
 /**
  * Resting size that should reach the hot end of the ramp for a window.
- *
- * A fixed ceiling is wrong at every zoom level: a one-minute window and a
- * two-week window differ by orders of magnitude in what counts as a wall. Taking
- * a high percentile instead of the maximum keeps one outlier from washing the
- * whole field out.
  *
  * @param quantities - Every non-empty bucket in the window.
  * @param percentile - Fraction from 0 to 1 to saturate at.

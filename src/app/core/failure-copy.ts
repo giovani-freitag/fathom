@@ -3,10 +3,6 @@ import { HeatmapApiError } from '../services/heatmap-api-service.ts';
 /**
  * Turns a load failure into something worth putting on screen.
  *
- * A driver's own message is written for whoever is reading a stack trace, in
- * whatever language the library was written in. What a reader needs is which
- * side broke and whether waiting will help.
- *
  * @param error - Whatever the load rejected with.
  * @returns One sentence, in the interface's language.
  */

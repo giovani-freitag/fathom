@@ -34,10 +34,6 @@ export interface PreferencesServiceConfig {
 
 /**
  * The only place browser storage is touched.
- *
- * Every read falls back to the defaults: storage is unavailable in private
- * windows and can hold anything a previous version wrote, and neither case is
- * worth failing a page load over.
  */
 export class PreferencesService {
     private readonly storage: Storage | null;

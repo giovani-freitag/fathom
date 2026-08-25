@@ -4,10 +4,6 @@ import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
 
 /**
  * A frame as the browser stores it.
- *
- * The ladders are kept as `Float32Array`, which structured clone carries
- * natively. That is this engine's one real advantage over the SQL one: there is
- * no encode on write and no parse on read, where `real[]` costs both.
  */
 export interface FrameRecord {
     readonly instrumentSymbol: string;

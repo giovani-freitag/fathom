@@ -10,9 +10,6 @@ const MINIMUM_BODY_HEIGHT_PX = 1;
 
 /**
  * Draws the price track as candles over the depth field.
- *
- * Liquidity alone says where orders sit but not what price did to them. The
- * candle is what turns a bright line into a wall that held or a wall that broke.
  */
 export class CandlePainter {
     /**
