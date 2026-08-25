@@ -1,9 +1,16 @@
+import {
+    DEFAULT_FLOOR_PERCENTILE,
+    DEFAULT_SATURATION_PERCENTILE,
+} from '../core/chart-dataset.ts';
+
 const STORAGE_KEY = 'fathom.preferences.v1';
 
 export interface ViewerPreferences {
     readonly instrumentSymbol: string;
     readonly visibleSpanMs: number;
     readonly colourGain: number;
+    readonly depthFloorPercentile: number;
+    readonly depthSaturationPercentile: number;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
 }
@@ -12,6 +19,8 @@ export const DEFAULT_PREFERENCES: ViewerPreferences = {
     instrumentSymbol: 'BTCUSDT',
     visibleSpanMs: 15 * 60 * 1_000,
     colourGain: 1,
+    depthFloorPercentile: DEFAULT_FLOOR_PERCENTILE,
+    depthSaturationPercentile: DEFAULT_SATURATION_PERCENTILE,
     isTradeOverlayVisible: true,
     isVolumeProfileVisible: true,
 };

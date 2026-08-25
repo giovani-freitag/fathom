@@ -16,6 +16,7 @@ import {
     type ChartDataset,
     EMPTY_DATASET,
     newestFrameTimestamp,
+    recutDataset,
     replaceDataset,
 } from './chart-dataset.ts';
 import {
@@ -41,6 +42,10 @@ export interface ChartState {
     readonly isFollowingPrice: boolean;
     readonly isLoadingWindow: boolean;
     readonly colourGain: number;
+    /** Fraction of the window below which resting size is painted as empty. */
+    readonly depthFloorPercentile: number;
+    /** Fraction of the window at which resting size reaches the hot end. */
+    readonly depthSaturationPercentile: number;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
 }
@@ -61,7 +66,14 @@ export interface ViewRequest {
 }
 
 export type ChartSettingsPatch = Partial<
-    Pick<ChartState, 'colourGain' | 'isTradeOverlayVisible' | 'isVolumeProfileVisible'>
+    Pick<
+        ChartState,
+        | 'colourGain'
+        | 'depthFloorPercentile'
+        | 'depthSaturationPercentile'
+        | 'isTradeOverlayVisible'
+        | 'isVolumeProfileVisible'
+    >
 >;
 
 /**
@@ -200,7 +212,10 @@ export class ChartController {
      * @param patch - The settings to change; anything absent is left alone.
      */
     updateSettings(patch: ChartSettingsPatch): void {
-        this.store.update((state) => ({ ...state, ...patch }));
+        this.store.update((state) => {
+            const next = { ...state, ...patch };
+            return hasMovedACut(state, next) ? { ...next, dataset: recut(next) } : next;
+        });
         this.persistPreferences();
     }
 
@@ -269,6 +284,8 @@ export class ChartController {
                 previousRevision: current.dataset.revision,
                 previousSaturationQuantity: current.dataset.saturationQuantity,
                 previousFloorQuantity: current.dataset.floorQuantity,
+                floorPercentile: current.depthFloorPercentile,
+                saturationPercentile: current.depthSaturationPercentile,
             });
             return {
                 ...current,
@@ -360,6 +377,8 @@ export class ChartController {
             instrumentSymbol: state.instrumentSymbol ?? 'BTCUSDT',
             visibleSpanMs: state.viewport.toMs - state.viewport.fromMs,
             colourGain: state.colourGain,
+            depthFloorPercentile: state.depthFloorPercentile,
+            depthSaturationPercentile: state.depthSaturationPercentile,
             isTradeOverlayVisible: state.isTradeOverlayVisible,
             isVolumeProfileVisible: state.isVolumeProfileVisible,
         });
@@ -403,6 +422,8 @@ function buildInitialState(preferences: ViewerPreferences): ChartState {
         isFollowingPrice: true,
         isLoadingWindow: false,
         colourGain: preferences.colourGain,
+        depthFloorPercentile: preferences.depthFloorPercentile,
+        depthSaturationPercentile: preferences.depthSaturationPercentile,
         isTradeOverlayVisible: preferences.isTradeOverlayVisible,
         isVolumeProfileVisible: preferences.isVolumeProfileVisible,
     };
@@ -418,4 +439,17 @@ function buildInitialViewport(instrument: InstrumentCoverage, spanMs: number): C
         lowPrice: 0,
         highPrice: 1,
     };
+}
+
+function hasMovedACut(before: ChartState, after: ChartState): boolean {
+    return before.depthFloorPercentile !== after.depthFloorPercentile
+        || before.depthSaturationPercentile !== after.depthSaturationPercentile;
+}
+
+function recut(state: ChartState): ChartDataset {
+    return recutDataset(
+        state.dataset,
+        state.depthFloorPercentile,
+        state.depthSaturationPercentile,
+    );
 }

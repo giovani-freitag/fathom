@@ -1,4 +1,5 @@
 import type { ChartSettingsPatch, ChartState } from '../core/chart-controller.ts';
+import { DEPTH_CUT_RANGE } from '../core/chart-dataset.ts';
 import { formatDuration } from '../core/formatting.ts';
 import { resolveRecordedSpanMs } from '../core/viewport-policy.ts';
 import { SlidersHorizontal, X } from 'lucide-react';
@@ -14,6 +15,21 @@ import { ControlButton } from './control-button.tsx';
  * its travel on two useless pictures.
  */
 const COLOUR_GAIN_RANGE = { minimum: 0.4, maximum: 3, step: 0.05 } as const;
+
+/**
+ * Renders a cut as the percentage of the book it sits at.
+ *
+ * Kept to a tenth when it needs one: the upper cut lives in the last percent,
+ * where rounding to whole numbers would show every useful setting as 100%.
+ */
+function formatCut(percentile: number): string {
+    const percent = percentile * 100;
+    const text = Number.isInteger(percent)
+        ? String(percent)
+        : percent.toFixed(1).replace('.', ',');
+
+    return `${text}%`;
+}
 
 interface DisplaySettingsSheetProps {
     readonly state: ChartState;
@@ -73,6 +89,68 @@ export function DisplaySettingsSheet({ state, onChange }: DisplaySettingsSheetPr
                                 </Slider.Track>
                                 <Slider.Thumb
                                     aria-label="Intensidade das cores"
+                                    className="block size-5 rounded-full border-2 border-phosphor bg-abyss-900 outline-none focus-visible:ring-2 focus-visible:ring-phosphor/50"
+                                />
+                            </Slider.Root>
+                        </label>
+
+                        <label className="block space-y-2">
+                            <span className="flex items-baseline justify-between text-xs text-ink-300">
+                                Corte inferior
+                                <span className="numeric text-ink-500">
+                                    {formatCut(state.depthFloorPercentile)}
+                                </span>
+                            </span>
+                            <span className="block text-[11px] leading-snug text-ink-600">
+                                Abaixo daqui o livro é pintado como vazio. Subir apaga a
+                                agitação de fundo e deixa a parede sozinha.
+                            </span>
+                            <Slider.Root
+                                value={[state.depthFloorPercentile]}
+                                min={DEPTH_CUT_RANGE.floorMinimum}
+                                max={DEPTH_CUT_RANGE.floorMaximum}
+                                step={DEPTH_CUT_RANGE.floorStep}
+                                onValueChange={([percentile]) => {
+                                    onChange({ depthFloorPercentile: percentile ?? 0 });
+                                }}
+                                className="relative flex h-11 w-full touch-none select-none items-center"
+                            >
+                                <Slider.Track className="relative h-1 w-full rounded-full bg-abyss-600">
+                                    <Slider.Range className="absolute h-full rounded-full bg-phosphor" />
+                                </Slider.Track>
+                                <Slider.Thumb
+                                    aria-label="Corte inferior do mapa de cores"
+                                    className="block size-5 rounded-full border-2 border-phosphor bg-abyss-900 outline-none focus-visible:ring-2 focus-visible:ring-phosphor/50"
+                                />
+                            </Slider.Root>
+                        </label>
+
+                        <label className="block space-y-2">
+                            <span className="flex items-baseline justify-between text-xs text-ink-300">
+                                Corte superior
+                                <span className="numeric text-ink-500">
+                                    {formatCut(state.depthSaturationPercentile)}
+                                </span>
+                            </span>
+                            <span className="block text-[11px] leading-snug text-ink-600">
+                                Onde a cor satura. Descer faz mais níveis chegarem ao topo
+                                da rampa; subir reserva o topo para as maiores ordens.
+                            </span>
+                            <Slider.Root
+                                value={[state.depthSaturationPercentile]}
+                                min={DEPTH_CUT_RANGE.saturationMinimum}
+                                max={DEPTH_CUT_RANGE.saturationMaximum}
+                                step={DEPTH_CUT_RANGE.saturationStep}
+                                onValueChange={([percentile]) => {
+                                    onChange({ depthSaturationPercentile: percentile ?? 1 });
+                                }}
+                                className="relative flex h-11 w-full touch-none select-none items-center"
+                            >
+                                <Slider.Track className="relative h-1 w-full rounded-full bg-abyss-600">
+                                    <Slider.Range className="absolute h-full rounded-full bg-phosphor" />
+                                </Slider.Track>
+                                <Slider.Thumb
+                                    aria-label="Corte superior do mapa de cores"
                                     className="block size-5 rounded-full border-2 border-phosphor bg-abyss-900 outline-none focus-visible:ring-2 focus-visible:ring-phosphor/50"
                                 />
                             </Slider.Root>

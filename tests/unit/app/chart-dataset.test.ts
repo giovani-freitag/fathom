@@ -3,8 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
     appendClusters,
     appendFrames,
+    DEFAULT_FLOOR_PERCENTILE,
+    DEFAULT_SATURATION_PERCENTILE,
     EMPTY_DATASET,
     newestFrameTimestamp,
+    recutDataset,
     replaceDataset,
 } from '../../../src/app/core/chart-dataset.ts';
 
@@ -27,6 +30,8 @@ function buildDataset(...capturedAtMs: number[]) {
         clusterIntervalMs: 1_000,
         gaps: [],
         previousRevision: 0,
+        floorPercentile: DEFAULT_FLOOR_PERCENTILE,
+        saturationPercentile: DEFAULT_SATURATION_PERCENTILE,
     });
 }
 
@@ -48,6 +53,8 @@ describe('replaceDataset', () => {
             clusterIntervalMs: 1_000,
             gaps: [],
             previousRevision: 0,
+            floorPercentile: DEFAULT_FLOOR_PERCENTILE,
+            saturationPercentile: DEFAULT_SATURATION_PERCENTILE,
         });
 
         expect(dataset.sampleIntervalMs).toBe(1);
@@ -144,6 +151,8 @@ describe('appendClusters onto a grouped price grid', () => {
             clusterIntervalMs: 60_000,
             gaps: [],
             previousRevision: 0,
+            floorPercentile: DEFAULT_FLOOR_PERCENTILE,
+            saturationPercentile: DEFAULT_SATURATION_PERCENTILE,
         });
     }
 
@@ -200,6 +209,8 @@ describe('replaceDataset saturation stability', () => {
             clusterIntervalMs: 1_000,
             gaps: [],
             previousRevision: 0,
+            floorPercentile: DEFAULT_FLOOR_PERCENTILE,
+            saturationPercentile: DEFAULT_SATURATION_PERCENTILE,
             ...(previousSaturationQuantity === undefined ? {} : { previousSaturationQuantity }),
         });
     }
@@ -218,5 +229,77 @@ describe('replaceDataset saturation stability', () => {
 
     it('adapts away from the empty placeholder', () => {
         expect(buildWith(300, 1).saturationQuantity).toBe(300);
+    });
+});
+
+describe('recutDataset', () => {
+    /** A hundred distinct sizes, so the percentiles have somewhere to move. */
+    function buildSpreadDataset() {
+        const quantities = Float32Array.from({ length: 100 }, (_unused, index) => index + 1);
+        return replaceDataset({
+            instrumentSymbol: 'BTCUSDT',
+            window: {
+                priceBucketSize: 10,
+                sampleIntervalMs: 1_000,
+                frames: [{
+                    capturedAtMs: 1_000,
+                    bestBidPrice: 100,
+                    bestAskPrice: 101,
+                    bids: { lowestBucketIndex: 0, quantities },
+                    asks: { lowestBucketIndex: 100, quantities },
+                }],
+            },
+            clusters: [],
+            clusterPriceBucketSize: 10,
+            clusterIntervalMs: 1_000,
+            gaps: [],
+            previousRevision: 0,
+            floorPercentile: DEFAULT_FLOOR_PERCENTILE,
+            saturationPercentile: DEFAULT_SATURATION_PERCENTILE,
+        });
+    }
+
+    it('raises the floor when the reader asks for a higher cut', () => {
+        const dataset = buildSpreadDataset();
+
+        const recut = recutDataset(dataset, 0.8, DEFAULT_SATURATION_PERCENTILE);
+
+        expect(recut.floorQuantity).toBeGreaterThan(dataset.floorQuantity);
+    });
+
+    it('lowers the hot end when the upper cut comes down', () => {
+        const dataset = buildSpreadDataset();
+
+        const recut = recutDataset(dataset, DEFAULT_FLOOR_PERCENTILE, 0.6);
+
+        expect(recut.saturationQuantity).toBeLessThan(dataset.saturationQuantity);
+    });
+
+    it('ignores the hysteresis, because the reader is watching for the change', () => {
+        const dataset = buildSpreadDataset();
+
+        const recut = recutDataset(dataset, 0.45, DEFAULT_SATURATION_PERCENTILE);
+
+        expect(recut.floorQuantity).not.toBe(dataset.floorQuantity);
+    });
+
+    it('never lets the floor swallow the whole ramp', () => {
+        const dataset = buildSpreadDataset();
+
+        const recut = recutDataset(dataset, 0.9, DEFAULT_SATURATION_PERCENTILE);
+
+        expect(recut.floorQuantity).toBeLessThan(recut.saturationQuantity);
+    });
+
+    it('advances the revision so the field repaints', () => {
+        const dataset = buildSpreadDataset();
+
+        expect(recutDataset(dataset, 0.6, 0.99).revision).toBe(dataset.revision + 1);
+    });
+
+    it('keeps the frames it was handed', () => {
+        const dataset = buildSpreadDataset();
+
+        expect(recutDataset(dataset, 0.6, 0.99).frames).toBe(dataset.frames);
     });
 });
