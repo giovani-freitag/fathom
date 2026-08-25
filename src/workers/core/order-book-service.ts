@@ -1,3 +1,4 @@
+import { releaseTimerFromEventLoop, type TimerHandle } from './collector-timers.ts';
 import { delay } from './delay.ts';
 import type { DepthDiff, DepthSnapshot, OrderBookReading } from './depth-types.ts';
 import { OrderBookState } from './order-book-state.ts';
@@ -38,7 +39,7 @@ export class OrderBookService {
     private pendingSnapshot: DepthSnapshot | null = null;
     private lastAppliedFinalUpdateId = 0;
     private repairBuffer: DepthDiff[] | null = null;
-    private deepRepairTimer: NodeJS.Timeout | null = null;
+    private deepRepairTimer: TimerHandle | null = null;
 
     constructor(config: OrderBookServiceConfig) {
         this.config = config;
@@ -54,7 +55,7 @@ export class OrderBookService {
         }
         this.enterState('desynchronized');
         this.deepRepairTimer = setInterval(this.handleDeepRepairDue, this.config.deepRepairIntervalMs);
-        this.deepRepairTimer.unref();
+        releaseTimerFromEventLoop(this.deepRepairTimer);
         void this.synchronize();
     }
 

@@ -1,3 +1,4 @@
+import { releaseTimerFromEventLoop, type TimerHandle } from '../core/collector-timers.ts';
 import { describeError } from '../core/collector-log.ts';
 import type { DepthDiff, DepthSnapshot, ExecutedTrade } from '../core/depth-types.ts';
 import type { MarketDataSocket, MarketDataSocketFactory } from '../core/market-data-socket.ts';
@@ -45,9 +46,9 @@ export class BinanceDepthFeedService {
     private activeSocket: MarketDataSocket | null = null;
     private consecutiveFailureCount = 0;
     private wasShutdownRequested = false;
-    private silenceWatchdogTimer: NodeJS.Timeout | null = null;
-    private proactiveReconnectTimer: NodeJS.Timeout | null = null;
-    private reconnectTimer: NodeJS.Timeout | null = null;
+    private silenceWatchdogTimer: TimerHandle | null = null;
+    private proactiveReconnectTimer: TimerHandle | null = null;
+    private reconnectTimer: TimerHandle | null = null;
 
     constructor(config: BinanceDepthFeedServiceConfig) {
         this.config = config;
@@ -190,7 +191,7 @@ export class BinanceDepthFeedService {
 
         this.consecutiveFailureCount += 1;
         this.reconnectTimer = setTimeout(this.handleReconnectDue, this.resolveBackoffDelay());
-        this.reconnectTimer.unref();
+        releaseTimerFromEventLoop(this.reconnectTimer);
     }
 
     private resolveBackoffDelay(): number {
@@ -204,7 +205,7 @@ export class BinanceDepthFeedService {
             clearTimeout(this.silenceWatchdogTimer);
         }
         this.silenceWatchdogTimer = setTimeout(this.handleSilenceElapse, this.config.inboundSilenceTimeoutMs);
-        this.silenceWatchdogTimer.unref();
+        releaseTimerFromEventLoop(this.silenceWatchdogTimer);
     }
 
     private scheduleProactiveReconnect(): void {
@@ -215,7 +216,7 @@ export class BinanceDepthFeedService {
             this.handleProactiveReconnectDue,
             this.config.proactiveReconnectIntervalMs,
         );
-        this.proactiveReconnectTimer.unref();
+        releaseTimerFromEventLoop(this.proactiveReconnectTimer);
     }
 
     private clearTimers(): void {

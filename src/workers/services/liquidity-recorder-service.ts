@@ -1,3 +1,4 @@
+import { releaseTimerFromEventLoop, type TimerHandle } from '../core/collector-timers.ts';
 import { type LiquidityFrame } from '../../shared/core/liquidity-frame.ts';
 import { floorToInterval } from '../../shared/core/price-bucket.ts';
 import type { LiquidityArchive } from '../../database/services/liquidity-archive.ts';
@@ -41,8 +42,8 @@ export class LiquidityRecorderService {
     private readonly writeBuffer: ArchiveWriteBuffer;
     private readonly tradeClusters: TradeClusterAccumulator;
 
-    private frameTimer: NodeJS.Timeout | null = null;
-    private flushTimer: NodeJS.Timeout | null = null;
+    private frameTimer: TimerHandle | null = null;
+    private flushTimer: TimerHandle | null = null;
     private isRunning = false;
     private lastFrameAtMs: number | null = null;
     private openGapStartedAtMs: number | null = null;
@@ -89,7 +90,7 @@ export class LiquidityRecorderService {
         await this.reopenGapFromPreviousRun();
 
         this.flushTimer = setInterval(this.handleFlushDue, this.config.flushIntervalMs);
-        this.flushTimer.unref();
+        releaseTimerFromEventLoop(this.flushTimer);
         this.scheduleNextFrame();
     }
 
@@ -176,7 +177,7 @@ export class LiquidityRecorderService {
         const nowMs = Date.now();
         const nextFrameAtMs = floorToInterval(nowMs, this.config.frameIntervalMs) + this.config.frameIntervalMs;
         this.frameTimer = setTimeout(this.handleFrameDue, nextFrameAtMs - nowMs + GRID_SETTLE_MS);
-        this.frameTimer.unref();
+        releaseTimerFromEventLoop(this.frameTimer);
     }
 
     private handleFrameDue(): void {
