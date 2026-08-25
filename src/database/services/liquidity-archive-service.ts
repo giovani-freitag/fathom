@@ -1,8 +1,21 @@
 import type { LiquidityFrame } from '../../shared/core/liquidity-frame.ts';
-import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
 import type { PostgresService } from '../postgres/postgres-service.ts';
 import { buildValuesClause, chunkItems } from '../postgres/multi-row-insert.ts';
+import type {
+    FrameAppendRequest,
+    GapRecordRequest,
+    InstrumentRegistrationRequest,
+    LiquidityArchive,
+    TradeClusterAppendRequest,
+} from './liquidity-archive.ts';
+
+export type {
+    FrameAppendRequest,
+    GapRecordRequest,
+    InstrumentRegistrationRequest,
+    TradeClusterAppendRequest,
+} from './liquidity-archive.ts';
 
 const FRAME_COLUMN_COUNT = 9;
 const TRADE_CLUSTER_COLUMN_COUNT = 8;
@@ -13,29 +26,6 @@ export interface LiquidityArchiveServiceConfig {
     readonly postgres: PostgresService;
 }
 
-export interface FrameAppendRequest {
-    readonly instrumentSymbol: string;
-    readonly priceBucketSize: number;
-    readonly frames: readonly LiquidityFrame[];
-}
-
-export interface TradeClusterAppendRequest {
-    readonly instrumentSymbol: string;
-    readonly priceBucketSize: number;
-    readonly clusters: readonly TradeCluster[];
-}
-
-export interface InstrumentRegistrationRequest {
-    readonly instrumentSymbol: string;
-    readonly priceBucketSize: number;
-    readonly frameIntervalMs: number;
-}
-
-export interface GapRecordRequest {
-    readonly instrumentSymbol: string;
-    readonly gap: RecordingGap;
-}
-
 /**
  * Write side of the recorded market history.
  *
@@ -43,11 +33,28 @@ export interface GapRecordRequest {
  * the current second, or a retry of a batch whose failure landed after the
  * commit, converges instead of duplicating columns.
  */
-export class LiquidityArchiveService {
+export class LiquidityArchiveService implements LiquidityArchive {
     private readonly postgres: PostgresService;
 
     constructor(config: LiquidityArchiveServiceConfig) {
         this.postgres = config.postgres;
+    }
+
+    /**
+     * Connects the pool this archive writes through.
+     *
+     * The pool is shared with whoever else the process wired it into, so both
+     * calls are safe to make more than once.
+     */
+    async open(): Promise<void> {
+        await this.postgres.connect();
+    }
+
+    /**
+     * Releases the pool.
+     */
+    async close(): Promise<void> {
+        await this.postgres.close();
     }
 
     /**

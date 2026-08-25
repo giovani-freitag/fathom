@@ -1,11 +1,11 @@
 import type { LiquidityFrame } from '../../shared/core/liquidity-frame.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
-import type { LiquidityArchiveService } from '../../database/services/liquidity-archive-service.ts';
+import type { LiquidityArchive } from '../../database/services/liquidity-archive.ts';
 import { describeError } from '../core/collector-log.ts';
 
 export interface ArchiveWriteBufferConfig {
-    readonly archive: LiquidityArchiveService;
+    readonly archive: LiquidityArchive;
     readonly instrumentSymbol: string;
     readonly priceBucketSize: number;
     readonly maximumBufferedFrames: number;

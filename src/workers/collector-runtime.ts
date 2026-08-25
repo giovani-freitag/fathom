@@ -1,5 +1,4 @@
-import { LiquidityArchiveService } from '../database/services/liquidity-archive-service.ts';
-import { PostgresService } from '../database/postgres/postgres-service.ts';
+import type { LiquidityArchive } from '../database/services/liquidity-archive.ts';
 import {
     BINANCE_ENDPOINTS,
     type CollectorConfiguration,
@@ -12,9 +11,6 @@ import { BinanceDepthFeedService } from './services/binance-depth-feed-service.t
 import type { DepthDiff, DepthSnapshot, ExecutedTrade } from './core/depth-types.ts';
 import { OrderBookService } from './core/order-book-service.ts';
 import { LiquidityRecorderService } from './services/liquidity-recorder-service.ts';
-
-const DATABASE_POOL_SIZE = 4;
-const DATABASE_STATEMENT_TIMEOUT_MS = 30_000;
 
 /**
  * The collector's object graph and its lifecycle, wired by hand in one place.
@@ -33,11 +29,15 @@ const DATABASE_STATEMENT_TIMEOUT_MS = 30_000;
 export interface CollectorRuntimeConfig {
     readonly configuration: CollectorConfiguration;
     readonly openSocket: MarketDataSocketFactory;
+    /** Where recorded frames go. Postgres on a server, IndexedDB in a page. */
+    readonly archive: LiquidityArchive;
+    /** How many frames queue before a flush; one in a page, a batch on a server. */
+    readonly framesPerFlush: number;
 }
 
 export class CollectorRuntime {
     private readonly configuration: CollectorConfiguration;
-    private readonly postgres: PostgresService;
+    private readonly archive: LiquidityArchive;
     private readonly feed: BinanceDepthFeedService;
     private readonly orderBook: OrderBookService;
     private readonly recorder: LiquidityRecorderService;
@@ -54,13 +54,7 @@ export class CollectorRuntime {
         this.handleRecorderStatus = this.handleRecorderStatus.bind(this);
         this.fetchDepthSnapshot = this.fetchDepthSnapshot.bind(this);
 
-        this.postgres = new PostgresService({
-            connectionString: configuration.databaseUrl,
-            maximumPoolSize: DATABASE_POOL_SIZE,
-            statementTimeoutMs: DATABASE_STATEMENT_TIMEOUT_MS,
-        });
-
-        const archive = new LiquidityArchiveService({ postgres: this.postgres });
+        this.archive = config.archive;
 
         this.feed = new BinanceDepthFeedService({
             instrumentSymbol: configuration.instrumentSymbol,
@@ -91,13 +85,13 @@ export class CollectorRuntime {
 
         this.recorder = new LiquidityRecorderService({
             orderBook: this.orderBook,
-            archive,
+            archive: config.archive,
             instrumentSymbol: configuration.instrumentSymbol,
             priceBucketSize: configuration.priceBucketSize,
             frameIntervalMs: configuration.frameIntervalMs,
             recordedPriceRangeRatio: configuration.recordedPriceRangeRatio,
             flushIntervalMs: WRITE_SETTINGS.flushIntervalMs,
-            framesPerFlush: WRITE_SETTINGS.framesPerFlush,
+            framesPerFlush: config.framesPerFlush,
             maximumBufferedFrames: WRITE_SETTINGS.maximumBufferedFrames,
             maximumBufferedTradeClusters: WRITE_SETTINGS.maximumBufferedTradeClusters,
             onStatusChanged: this.handleRecorderStatus,
@@ -107,10 +101,10 @@ export class CollectorRuntime {
     /**
      * Connects every resource and begins recording.
      *
-     * @throws PostgresQueryError when the archive cannot be reached.
+     * @throws ArchiveUnavailableError when the archive cannot be reached.
      */
     async start(): Promise<void> {
-        await this.postgres.connect();
+        await this.archive.open();
         await this.recorder.start();
         this.orderBook.start();
         this.feed.connect();
@@ -126,7 +120,7 @@ export class CollectorRuntime {
         await this.feed.disconnect();
         this.orderBook.stop();
         await this.recorder.stop();
-        await this.postgres.close();
+        await this.archive.close();
         logInfo('Collector stopped');
     }
 

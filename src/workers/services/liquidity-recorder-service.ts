@@ -1,6 +1,6 @@
 import { type LiquidityFrame } from '../../shared/core/liquidity-frame.ts';
 import { floorToInterval } from '../../shared/core/price-bucket.ts';
-import type { LiquidityArchiveService } from '../../database/services/liquidity-archive-service.ts';
+import type { LiquidityArchive } from '../../database/services/liquidity-archive.ts';
 import type { ExecutedTrade } from '../core/depth-types.ts';
 import type { OrderBookService } from '../core/order-book-service.ts';
 import { ArchiveWriteBuffer } from './archive-write-buffer.ts';
@@ -17,7 +17,7 @@ const GRID_SETTLE_MS = 5;
 
 export interface LiquidityRecorderServiceConfig {
     readonly orderBook: OrderBookService;
-    readonly archive: LiquidityArchiveService;
+    readonly archive: LiquidityArchive;
     readonly instrumentSymbol: string;
     readonly priceBucketSize: number;
     readonly frameIntervalMs: number;
