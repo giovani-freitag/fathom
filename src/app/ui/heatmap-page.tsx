@@ -60,6 +60,7 @@ export function HeatmapPage(): ReactElement {
                     </ControlButton>
                 )}
                 <DisplaySettingsSheet
+                    recording={kernel.recording}
                     state={state}
                     onChange={(patch) => { kernel.chart.updateSettings(patch); }}
                 />

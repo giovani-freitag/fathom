@@ -54,6 +54,7 @@ export function createDemoServiceContainer(
         preferences,
         collector,
         database,
+        recording: null,
         chart: new ChartController({ api, liveFeed, preferences }),
     };
 }

@@ -4,12 +4,18 @@ import type { HeatmapSource } from '../../shared/core/heatmap-source.ts';
 import type { LiveFeed } from '../services/live-feed.ts';
 import { LiveFeedService } from '../services/live-feed-service.ts';
 import { PreferencesService } from '../services/preferences-service.ts';
+import { RecordingApiService } from '../services/recording-api-service.ts';
 
 export interface ServiceContainer {
     readonly api: HeatmapSource;
     readonly liveFeed: LiveFeed;
     readonly preferences: PreferencesService;
     readonly chart: ChartController;
+    /**
+     * Absent when the page is its own collector: there is no supervisor to ask
+     * what it is recording, and nothing it could be told to record instead.
+     */
+    readonly recording: RecordingApiService | null;
 }
 
 export interface ServiceContainerConfig {
@@ -44,6 +50,7 @@ export function createServiceContainer(config: ServiceContainerConfig): ServiceC
         api,
         liveFeed,
         preferences,
+        recording: new RecordingApiService({ baseUrl: config.baseUrl }),
         chart: new ChartController({ api, liveFeed, preferences }),
     };
 }

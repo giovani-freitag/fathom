@@ -6,6 +6,8 @@ import { SlidersHorizontal, X } from 'lucide-react';
 import { Dialog, Slider, Switch } from 'radix-ui';
 import type { ReactElement } from 'react';
 import { ControlButton } from './control-button.tsx';
+import type { RecordingApiService } from '../services/recording-api-service.ts';
+import { RecordingPanel } from './recording-panel.tsx';
 
 /**
  * Travel of the intensity slider.
@@ -34,6 +36,8 @@ function formatCut(percentile: number): string {
 interface DisplaySettingsSheetProps {
     readonly state: ChartState;
     readonly onChange: (patch: ChartSettingsPatch) => void;
+    /** Absent when the page is its own collector and there is nothing to supervise. */
+    readonly recording: RecordingApiService | null;
 }
 
 /**
@@ -43,7 +47,7 @@ interface DisplaySettingsSheetProps {
  * controls reached mid-gesture, and on a phone the top of the screen is the one
  * place a thumb cannot go.
  */
-export function DisplaySettingsSheet({ state, onChange }: DisplaySettingsSheetProps): ReactElement {
+export function DisplaySettingsSheet({ state, onChange, recording }: DisplaySettingsSheetProps): ReactElement {
     return (
         <Dialog.Root>
             <Dialog.Trigger asChild>
@@ -73,7 +77,7 @@ export function DisplaySettingsSheet({ state, onChange }: DisplaySettingsSheetPr
                     <div className="space-y-5 px-4 py-4">
                         <label className="block space-y-2">
                             <span className="flex items-baseline justify-between text-xs text-ink-300">
-                                Intensidade
+                                Intensity
                                 <span className="numeric text-ink-500">{state.colourGain.toFixed(1)}×</span>
                             </span>
                             <Slider.Root
@@ -96,7 +100,7 @@ export function DisplaySettingsSheet({ state, onChange }: DisplaySettingsSheetPr
 
                         <label className="block space-y-2">
                             <span className="flex items-baseline justify-between text-xs text-ink-300">
-                                Corte inferior
+                                Lower cut
                                 <span className="numeric text-ink-500">
                                     {formatCut(state.depthFloorPercentile)}
                                 </span>
@@ -127,7 +131,7 @@ export function DisplaySettingsSheet({ state, onChange }: DisplaySettingsSheetPr
 
                         <label className="block space-y-2">
                             <span className="flex items-baseline justify-between text-xs text-ink-300">
-                                Corte superior
+                                Upper cut
                                 <span className="numeric text-ink-500">
                                     {formatCut(state.depthSaturationPercentile)}
                                 </span>
@@ -184,17 +188,19 @@ export function DisplaySettingsSheet({ state, onChange }: DisplaySettingsSheetPr
                             </dd>
                             <dt className="text-ink-500">Resolution</dt>
                             <dd className="numeric text-right text-ink-300">
-                                {formatDuration(state.dataset.sampleIntervalMs)} por coluna
+                                {formatDuration(state.dataset.sampleIntervalMs)} per column
                             </dd>
                             <dt className="text-ink-500">Price band</dt>
                             <dd className="numeric text-right text-ink-300">
-                                {state.dataset.priceBucketSize} por linha
+                                {state.dataset.priceBucketSize} per row
                             </dd>
-                            <dt className="text-ink-500">Colunas carregadas</dt>
+                            <dt className="text-ink-500">Columns loaded</dt>
                             <dd className="numeric text-right text-ink-300">{state.dataset.frames.length}</dd>
-                            <dt className="text-ink-500">Lacunas na janela</dt>
+                            <dt className="text-ink-500">Gaps in window</dt>
                             <dd className="numeric text-right text-ink-300">{state.dataset.gaps.length}</dd>
                         </dl>
+
+                        {recording === null ? null : <RecordingPanel recording={recording} />}
 
                         <p className="text-[11px] leading-relaxed text-ink-500">
                             Windows wider than the recording are disabled. Book history cannot
