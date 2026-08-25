@@ -2,6 +2,7 @@ import type { InstrumentCoverage, TradeClusterQuery, WindowQuery } from '../../s
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeClusterWindow } from '../../shared/core/trade-cluster.ts';
+import { foldFramesIntoColumns, INSTANTS_PER_COLUMN } from '../core/frame-aggregation.ts';
 import type { PostgresService } from '../core/postgres-service.ts';
 import {
     type InstrumentRow,
@@ -109,9 +110,16 @@ export class LiquidityQueryService {
         // there are stored frames leaves empty buckets between the real ones, and
         // a renderer laying frames onto that grid draws a comb of blank columns.
         const sampleIntervalMs = Math.max(resolveSampleInterval(query), grid.frameIntervalMs);
+        // Probed finer than the grid the caller gets, so each column is folded
+        // from several instants rather than standing on whichever one happened
+        // to be first. Never finer than the recording itself.
+        const probeIntervalMs = Math.max(
+            grid.frameIntervalMs,
+            Math.floor(sampleIntervalMs / INSTANTS_PER_COLUMN),
+        );
 
-        // One index probe per output column, rather than a scan that would read
-        // every depth array in the range only to discard almost all of them.
+        // One index probe per instant, rather than a scan that would read every
+        // depth array in the range only to discard almost all of them.
         const rows = await this.postgres.selectRows<LiquidityFrameRow>(
             `SELECT ${FRAME_COLUMNS}
              FROM generate_series(
@@ -132,14 +140,14 @@ export class LiquidityQueryService {
                 query.symbol,
                 new Date(query.fromMs),
                 new Date(query.toMs),
-                sampleIntervalMs / MILLISECONDS_PER_SECOND,
+                probeIntervalMs / MILLISECONDS_PER_SECOND,
             ],
         );
 
         return {
             priceBucketSize: grid.priceBucketSize,
             sampleIntervalMs,
-            frames: rows.map(toLiquidityFrame),
+            frames: foldFramesIntoColumns(rows.map(toLiquidityFrame), sampleIntervalMs),
         };
     }
 
