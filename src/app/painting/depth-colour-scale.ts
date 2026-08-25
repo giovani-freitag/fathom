@@ -39,10 +39,18 @@ const RAMP_STOPS: readonly RampStop[] = [
 ];
 
 export interface DepthColourScaleConfig {
+    /** Resting size below which the ramp stays at its cold, empty end. */
+    readonly floorQuantity: number;
     /** Resting size that reaches the hot end of the ramp. */
     readonly saturationQuantity: number;
     /** Viewer multiplier applied before normalisation; above 1 brightens. */
     readonly gain: number;
+}
+
+/** The two cuts that decide which part of the distribution the ramp spends itself on. */
+export interface DepthRange {
+    readonly floorQuantity: number;
+    readonly saturationQuantity: number;
 }
 
 /**
@@ -54,12 +62,17 @@ export interface DepthColourScaleConfig {
 export class DepthColourScale {
     private static rampCache: Uint8ClampedArray | null = null;
 
-    private readonly saturationQuantity: number;
+    private readonly floorQuantity: number;
+    private readonly spanQuantity: number;
     private readonly gain: number;
     private readonly logDenominator: number;
 
     constructor(config: DepthColourScaleConfig) {
-        this.saturationQuantity = Math.max(Number.EPSILON, config.saturationQuantity);
+        this.floorQuantity = Math.max(0, config.floorQuantity);
+        this.spanQuantity = Math.max(
+            Number.EPSILON,
+            config.saturationQuantity - this.floorQuantity,
+        );
         this.gain = Math.max(Number.EPSILON, config.gain);
         this.logDenominator = Math.log1p(LOG_CONTRAST);
     }
@@ -71,10 +84,13 @@ export class DepthColourScale {
      * @returns An index from 0 to 255.
      */
     toRampIndex(quantity: number): number {
-        if (quantity <= 0) {
+        // Everything under the floor is the market's background hum: quotes
+        // placed and pulled by the second. Spending ramp on it lights the whole
+        // field and leaves a real wall nothing to stand out against.
+        if (quantity <= this.floorQuantity) {
             return 0;
         }
-        const normalised = (quantity * this.gain) / this.saturationQuantity;
+        const normalised = ((quantity - this.floorQuantity) / this.spanQuantity) * this.gain;
         const compressed = Math.log1p(Math.min(normalised, 1) * LOG_CONTRAST) / this.logDenominator;
         return Math.min(RAMP_ENTRY_COUNT - 1, Math.round(compressed * (RAMP_ENTRY_COUNT - 1)));
     }
@@ -110,6 +126,36 @@ export function resolveSaturationQuantity(
         return 1;
     }
     const sorted = Float64Array.from(quantities).sort();
+    return readPercentile(sorted, percentile);
+}
+
+/**
+ * Both ends of the ramp for a window, from one sort.
+ *
+ * @param quantities - Every non-empty bucket in the window.
+ * @param floorPercentile - Fraction below which size reads as empty.
+ * @param saturationPercentile - Fraction at which size reaches the hot end.
+ * @returns The two cuts, with the floor held below the saturation.
+ */
+export function resolveDepthRange(
+    quantities: readonly number[],
+    floorPercentile: number,
+    saturationPercentile: number,
+): DepthRange {
+    if (quantities.length === 0) {
+        return { floorQuantity: 0, saturationQuantity: 1 };
+    }
+
+    const sorted = Float64Array.from(quantities).sort();
+    const saturationQuantity = readPercentile(sorted, saturationPercentile);
+
+    return {
+        floorQuantity: Math.min(readPercentile(sorted, floorPercentile), saturationQuantity / 2),
+        saturationQuantity,
+    };
+}
+
+function readPercentile(sorted: Float64Array, percentile: number): number {
     const index = Math.min(sorted.length - 1, Math.floor(sorted.length * percentile));
     return Math.max(Number.EPSILON, sorted[index]!);
 }

@@ -1,13 +1,22 @@
 import type { LiquidityFrame, LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
-import { resolveSaturationQuantity } from '../painting/depth-colour-scale.ts';
+import { resolveDepthRange } from '../painting/depth-colour-scale.ts';
 
 /** Quantities inspected when picking the saturation point, at most. */
 const SATURATION_SAMPLE_LIMIT = 40_000;
 
 /** Where resting size stops brightening; above this the whole field washes out. */
 const SATURATION_PERCENTILE = 0.995;
+
+/**
+ * Where resting size starts registering at all.
+ *
+ * Below this the field is the constant churn of quotes placed and pulled by the
+ * second, which on a liquid perpetual is most of the book. Painting it spends
+ * the ramp on noise and leaves a real wall competing with a lit background.
+ */
+const FLOOR_PERCENTILE = 0.40;
 
 /**
  * How far the saturation point must move before it is adopted.
@@ -38,6 +47,8 @@ export interface ChartDataset {
      * screen by nudging a percentile.
      */
     readonly saturationQuantity: number;
+    /** Resting size below which the field reads as empty. */
+    readonly floorQuantity: number;
     /** Increments on every change, so a renderer can cache against it. */
     readonly revision: number;
 }
@@ -52,6 +63,7 @@ export const EMPTY_DATASET: ChartDataset = {
     clusters: [],
     gaps: [],
     saturationQuantity: 1,
+    floorQuantity: 0,
     revision: 0,
 };
 
@@ -64,6 +76,8 @@ export interface DatasetReplaceRequest {
     readonly clusterIntervalMs: number;
     readonly gaps: readonly RecordingGap[];
     readonly previousRevision: number;
+    /** Floor the previous window was drawn with, held to stop a pan recolouring the field. */
+    readonly previousFloorQuantity?: number;
     /** Saturation already on screen, kept when the new window barely differs. */
     readonly previousSaturationQuantity?: number;
 }
@@ -84,11 +98,33 @@ export function replaceDataset(request: DatasetReplaceRequest): ChartDataset {
         frames: request.window.frames,
         clusters: request.clusters,
         gaps: request.gaps,
+        ...resolveStableDepthRange(request),
+        revision: request.previousRevision + 1,
+    };
+}
+
+/**
+ * The two ramp cuts for this window, each held steady against small drift.
+ *
+ * @param request - The window being adopted, carrying what was on screen before.
+ * @returns The floor and saturation to draw with.
+ */
+function resolveStableDepthRange(request: DatasetReplaceRequest): {
+    floorQuantity: number;
+    saturationQuantity: number;
+} {
+    const measured = resolveDepthRange(
+        sampleQuantities(request.window.frames),
+        FLOOR_PERCENTILE,
+        SATURATION_PERCENTILE,
+    );
+
+    return {
+        floorQuantity: chooseSaturation(measured.floorQuantity, request.previousFloorQuantity),
         saturationQuantity: chooseSaturation(
-            resolveSaturationQuantity(sampleQuantities(request.window.frames), SATURATION_PERCENTILE),
+            measured.saturationQuantity,
             request.previousSaturationQuantity,
         ),
-        revision: request.previousRevision + 1,
     };
 }
 

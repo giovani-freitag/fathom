@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { DepthColourScale, resolveSaturationQuantity } from '../../../../src/app/painting/depth-colour-scale.ts';
+import {
+    DepthColourScale,
+    resolveDepthRange,
+    resolveSaturationQuantity,
+} from '../../../../src/app/painting/depth-colour-scale.ts';
 
 function buildScale(gain = 1): DepthColourScale {
-    return new DepthColourScale({ saturationQuantity: 100, gain });
+    return new DepthColourScale({ saturationQuantity: 100, floorQuantity: 0, gain });
 }
 
 describe('DepthColourScale', () => {
@@ -76,21 +80,23 @@ describe('resolveSaturationQuantity', () => {
 });
 
 /**
- * Percentiles measured over 186k depth buckets of BTCUSDT, so a change to the
+ * Percentiles measured over 194,882 depth buckets of BTCUSDT, so a change to the
  * response curve is judged against the book it has to draw rather than against
  * taste.
  */
 const MEASURED_DEPTH = {
-    tenthPercentile: 4.35,
-    median: 17.6,
-    ninetiethPercentile: 55.4,
-    ninetyNinthPercentile: 239,
-    saturation: 327,
+    tenthPercentile: 7.4,
+    floor: 16.09,
+    median: 19.52,
+    ninetiethPercentile: 53.82,
+    ninetyNinthPercentile: 154.06,
+    saturation: 235.1,
 } as const;
 
 describe('DepthColourScale against a real book', () => {
     const scale = new DepthColourScale({
         saturationQuantity: MEASURED_DEPTH.saturation,
+        floorQuantity: MEASURED_DEPTH.floor,
         gain: 1,
     });
     const share = (quantity: number) => scale.toRampIndex(quantity) / 255;
@@ -99,8 +105,12 @@ describe('DepthColourScale against a real book', () => {
         expect(share(MEASURED_DEPTH.median)).toBeLessThan(0.25);
     });
 
-    it('keeps thin levels visible rather than black', () => {
-        expect(share(MEASURED_DEPTH.tenthPercentile)).toBeGreaterThan(0.02);
+    it('drops the churn below the floor out of the picture entirely', () => {
+        expect(share(MEASURED_DEPTH.tenthPercentile)).toBe(0);
+    });
+
+    it('costs the reader the difference between a thin level and an empty one', () => {
+        expect([share(MEASURED_DEPTH.tenthPercentile), share(0)]).toEqual([0, 0]);
     });
 
     it('spends most of the ramp on the decile where walls live', () => {
@@ -110,15 +120,58 @@ describe('DepthColourScale against a real book', () => {
         expect(wallBand).toBeGreaterThan(0.4);
     });
 
+    it('lifts a wall further clear of the median than an uncut ramp would', () => {
+        const uncut = new DepthColourScale({
+            saturationQuantity: MEASURED_DEPTH.saturation,
+            floorQuantity: 0,
+            gain: 1,
+        });
+        const gap = (candidate: DepthColourScale) =>
+            (candidate.toRampIndex(MEASURED_DEPTH.ninetyNinthPercentile)
+                - candidate.toRampIndex(MEASURED_DEPTH.median)) / 255;
+
+        expect(gap(scale)).toBeGreaterThan(gap(uncut));
+    });
+
     it('puts a genuine wall in the hot end', () => {
         expect(share(MEASURED_DEPTH.ninetyNinthPercentile)).toBeGreaterThan(0.75);
     });
 
     it('still separates the top decile into distinguishable steps', () => {
         const steps = new Set(
-            [60, 90, 130, 180, 240, 300].map((quantity) => scale.toRampIndex(quantity)),
+            [60, 90, 125, 160, 195, 230].map((quantity) => scale.toRampIndex(quantity)),
         );
 
         expect(steps.size).toBe(6);
+    });
+});
+
+describe('resolveDepthRange', () => {
+    const quantities = Array.from({ length: 100 }, (_unused, index) => index + 1);
+
+    it('reads both cuts from the same window', () => {
+        expect(resolveDepthRange(quantities, 0.4, 0.99)).toEqual({
+            floorQuantity: 41,
+            saturationQuantity: 100,
+        });
+    });
+
+    it('falls back to a drawable range for an empty window', () => {
+        expect(resolveDepthRange([], 0.4, 0.99)).toEqual({
+            floorQuantity: 0,
+            saturationQuantity: 1,
+        });
+    });
+
+    it('never lets the floor climb past half the saturation', () => {
+        const flat = Array.from({ length: 100 }, () => 50);
+
+        expect(resolveDepthRange(flat, 0.9, 0.99).floorQuantity).toBe(25);
+    });
+
+    it('leaves the hot end where the upper cut asked for it', () => {
+        const withOutlier = [...Array.from({ length: 99 }, () => 1), 10_000];
+
+        expect(resolveDepthRange(withOutlier, 0.4, 0.9).saturationQuantity).toBe(1);
     });
 });

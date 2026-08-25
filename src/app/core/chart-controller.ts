@@ -268,6 +268,7 @@ export class ChartController {
                 gaps: loaded.gaps,
                 previousRevision: current.dataset.revision,
                 previousSaturationQuantity: current.dataset.saturationQuantity,
+                previousFloorQuantity: current.dataset.floorQuantity,
             });
             return {
                 ...current,

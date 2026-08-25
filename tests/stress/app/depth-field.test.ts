@@ -29,6 +29,7 @@ function buildDataset(frames: LiquidityFrame[]): ChartDataset {
         clusters: [],
         gaps: [],
         saturationQuantity: 300,
+        floorQuantity: 0,
         revision: frames.length,
     };
 }

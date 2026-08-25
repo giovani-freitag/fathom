@@ -3,8 +3,13 @@ import { formatQuantity } from '../../core/formatting.ts';
 import { RENDER_PALETTE } from '../render-palette.ts';
 import type { PaintContext } from '../render-types.ts';
 
-/** Row height below which a number cannot be read, so only the bar is drawn. */
-const LEGIBLE_ROW_HEIGHT_PX = 11;
+/**
+ * Row height below which a number is not worth drawing.
+ *
+ * Set above the bare height of the glyphs: rows packed to the exact font size
+ * are legible one at a time and a wall of noise forty at a time.
+ */
+const LEGIBLE_ROW_HEIGHT_PX = 15;
 
 /** Panel width below which only one of the two columns fits. */
 const TWO_COLUMN_WIDTH_PX = 70;

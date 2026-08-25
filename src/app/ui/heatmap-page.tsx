@@ -71,6 +71,7 @@ export function HeatmapPage(): ReactElement {
                 <div className="pointer-events-none absolute left-3 top-3">
                     <DepthLegend
                         saturationQuantity={state.dataset.saturationQuantity}
+                        floorQuantity={state.dataset.floorQuantity}
                         colourGain={state.colourGain}
                         instrumentSymbol={state.instrumentSymbol}
                     />

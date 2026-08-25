@@ -3,18 +3,23 @@ import { formatQuantity, resolveBaseAsset } from '../core/formatting.ts';
 import { type ReactElement, useEffect, useRef } from 'react';
 
 interface DepthLegendProps {
+    readonly floorQuantity: number;
     readonly saturationQuantity: number;
     readonly colourGain: number;
     readonly instrumentSymbol: string | null;
 }
 
 /**
- * The colour ramp, with the size it saturates at.
+ * The colour ramp, with the sizes at each of its ends.
  *
  * Intensity is relative to the loaded window rather than absolute, so without
- * the number beside it the ramp says nothing about how large a wall actually is.
+ * the numbers beside it the ramp says nothing about how large a wall actually
+ * is. Both ends are named because the cold end is not zero: everything below the
+ * floor is painted as empty, and a reader who assumes otherwise misreads the
+ * blank half of the field.
  */
 export function DepthLegend({
+    floorQuantity,
     saturationQuantity,
     colourGain,
     instrumentSymbol,
@@ -47,6 +52,9 @@ export function DepthLegend({
         <div className="pointer-events-none flex select-none items-center gap-2 rounded-md border border-hairline bg-abyss-900/80 px-2 py-1.5 backdrop-blur-sm">
             <span className="text-[10px] font-semibold uppercase tracking-widest text-ink-500">
                 livro
+            </span>
+            <span className="numeric text-[10px] text-ink-500">
+                {formatQuantity(floorQuantity)}
             </span>
             <canvas ref={canvasRef} width={72} height={6} className="rounded-sm" />
             <span className="numeric text-[10px] text-ink-300">

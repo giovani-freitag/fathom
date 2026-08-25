@@ -28,6 +28,7 @@ export class DepthField {
     readonly bucketCount: number;
     readonly priceBucketSize: number;
     readonly saturationQuantity: number;
+    readonly floorQuantity: number;
     readonly canvas: HTMLCanvasElement;
 
     private readonly context: CanvasRenderingContext2D | null;
@@ -53,8 +54,10 @@ export class DepthField {
         this.lowestBucketIndex = extent.lowestBucketIndex;
         this.bucketCount = extent.bucketCount;
         this.saturationQuantity = dataset.saturationQuantity;
+        this.floorQuantity = dataset.floorQuantity;
         this.colourScale = new DepthColourScale({
             saturationQuantity: dataset.saturationQuantity,
+            floorQuantity: dataset.floorQuantity,
             gain: config.colourGain,
         });
 
@@ -124,6 +127,7 @@ export class DepthField {
             && dataset.priceBucketSize === this.priceBucketSize
             && dataset.sampleIntervalMs === this.sampleIntervalMs
             && dataset.saturationQuantity === this.saturationQuantity
+            && dataset.floorQuantity === this.floorQuantity
             && colourGain === this.colourGain;
     }
 

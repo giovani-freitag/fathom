@@ -27,6 +27,7 @@ function buildDataset(frames: LiquidityFrame[], overrides: Partial<ChartDataset>
         clusters: [],
         gaps: [],
         saturationQuantity: 10,
+        floorQuantity: 0,
         revision: 1,
         ...overrides,
     };
