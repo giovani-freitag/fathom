@@ -23,19 +23,24 @@ interface RampStop {
 /**
  * Sounding palette: the abyss stays transparent, ordinary depth reads as cold
  * water, and only genuine walls climb into the hot end.
+ *
+ * Most of the ramp is spent on dim blues on purpose. The book is mostly ordinary
+ * and a palette that lights it evenly turns the field into texture, which is the
+ * exact thing a wall has to be seen against. Warmth begins past four fifths.
  */
 const RAMP_STOPS: readonly RampStop[] = [
-    { position: 0.00, red: 8, green: 16, blue: 30, alpha: 0 },
-    { position: 0.06, red: 12, green: 28, blue: 56, alpha: 64 },
-    { position: 0.18, red: 16, green: 60, blue: 104, alpha: 148 },
-    { position: 0.34, red: 20, green: 104, blue: 132, alpha: 198 },
-    { position: 0.50, red: 30, green: 158, blue: 150, alpha: 224 },
-    { position: 0.62, red: 60, green: 200, blue: 140, alpha: 238 },
-    { position: 0.72, red: 150, green: 215, blue: 85, alpha: 245 },
-    { position: 0.82, red: 255, green: 205, blue: 75, alpha: 250 },
-    { position: 0.90, red: 255, green: 140, blue: 60, alpha: 252 },
-    { position: 0.96, red: 255, green: 66, blue: 62, alpha: 254 },
-    { position: 1.00, red: 255, green: 238, blue: 232, alpha: 255 },
+    { position: 0.000, red: 8, green: 16, blue: 30, alpha: 0 },
+    { position: 0.120, red: 12, green: 26, blue: 52, alpha: 56 },
+    { position: 0.320, red: 14, green: 44, blue: 80, alpha: 110 },
+    { position: 0.520, red: 17, green: 66, blue: 110, alpha: 155 },
+    { position: 0.680, red: 22, green: 100, blue: 138, alpha: 190 },
+    { position: 0.790, red: 30, green: 145, blue: 155, alpha: 215 },
+    { position: 0.860, red: 60, green: 190, blue: 140, alpha: 232 },
+    { position: 0.910, red: 160, green: 212, blue: 95, alpha: 242 },
+    { position: 0.950, red: 255, green: 200, blue: 80, alpha: 248 },
+    { position: 0.975, red: 255, green: 135, blue: 58, alpha: 251 },
+    { position: 0.990, red: 255, green: 62, blue: 58, alpha: 253 },
+    { position: 1.000, red: 255, green: 238, blue: 230, alpha: 255 },
 ];
 
 export interface DepthColourScaleConfig {
