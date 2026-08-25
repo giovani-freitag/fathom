@@ -17,13 +17,13 @@ import {
 
 const MILLISECONDS_PER_SECOND = 1_000;
 const FRAME_COLUMNS = `
-    frame.captured_at,
-    frame.best_bid_price,
-    frame.best_ask_price,
-    frame.bid_lowest_bucket_index,
-    frame.bid_quantities,
-    frame.ask_lowest_bucket_index,
-    frame.ask_quantities`;
+    captured_at,
+    best_bid_price,
+    best_ask_price,
+    bid_lowest_bucket_index,
+    bid_quantities,
+    ask_lowest_bucket_index,
+    ask_quantities`;
 
 // Rolling up executions on demand means grouping tens of millions of rows on a
 // wide range, so each request reads the coarsest pre-materialised grid that is
@@ -118,23 +118,19 @@ export class LiquidityQueryService {
             Math.floor(sampleIntervalMs / INSTANTS_PER_COLUMN),
         );
 
-        // One index probe per instant, rather than a scan that would read every
-        // depth array in the range only to discard almost all of them.
+        // One range scan that keeps the first frame of each probe bucket. The
+        // shape matters more than it looks: a lateral probe per bucket costs
+        // 0.018 ms on a row chunk but has to decompress a whole batch to answer
+        // on a columnstore one, which turned an hour of two-day-old history into
+        // a seven-second read. Scanning once is 47 ms on either kind.
         const rows = await this.postgres.selectRows<LiquidityFrameRow>(
-            `SELECT ${FRAME_COLUMNS}
-             FROM generate_series(
-                 $2::timestamptz,
-                 $3::timestamptz - make_interval(secs => $4),
-                 make_interval(secs => $4)
-             ) AS column_start
-             CROSS JOIN LATERAL (
-                 SELECT * FROM liquidity_frame
-                 WHERE instrument_symbol = $1
-                   AND captured_at >= column_start
-                   AND captured_at < column_start + make_interval(secs => $4)
-                 ORDER BY captured_at ASC
-                 LIMIT 1
-             ) frame`,
+            `SELECT DISTINCT ON (time_bucket(make_interval(secs => $4), captured_at))
+                 ${FRAME_COLUMNS}
+             FROM liquidity_frame
+             WHERE instrument_symbol = $1
+               AND captured_at >= $2::timestamptz
+               AND captured_at < $3::timestamptz
+             ORDER BY time_bucket(make_interval(secs => $4), captured_at), captured_at`,
             [
                 query.symbol,
                 new Date(query.fromMs),
@@ -167,9 +163,9 @@ export class LiquidityQueryService {
     async fetchFramesAfter(query: FrameTailQuery): Promise<LiquidityFrameWindow> {
         const rows = await this.postgres.selectRows<LiquidityFrameRow>(
             `SELECT ${FRAME_COLUMNS}
-             FROM liquidity_frame frame
-             WHERE frame.instrument_symbol = $1 AND frame.captured_at > $2
-             ORDER BY frame.captured_at ASC
+             FROM liquidity_frame
+             WHERE instrument_symbol = $1 AND captured_at > $2
+             ORDER BY captured_at ASC
              LIMIT $3`,
             [query.symbol, new Date(query.afterMs), query.maxFrames],
         );
