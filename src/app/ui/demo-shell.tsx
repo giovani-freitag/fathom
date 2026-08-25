@@ -23,7 +23,7 @@ export function DemoShell({ factory, storage, build }: DemoShellProps): ReactEle
     const [state, setState] = useState<CollectorState>('starting');
     const [detail, setDetail] = useState<string | null>(null);
     const [wasHidden, setWasHidden] = useState(false);
-    const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+    const [hasFirstFrame, setHasFirstFrame] = useState(false);
     // Built once, lazily, so the collector's handle survives a re-render and
     // React never sees construction happen during one.
     const [container] = useState<DemoServiceContainer>(() => build({
@@ -48,7 +48,6 @@ export function DemoShell({ factory, storage, build }: DemoShellProps): ReactEle
                 if (wasCancelled) {
                     return;
                 }
-                setIsArchiveOpen(true);
                 container.collector.start();
             },
             (error: unknown) => {
@@ -67,6 +66,24 @@ export function DemoShell({ factory, storage, build }: DemoShellProps): ReactEle
         };
     }, [container]);
 
+    // The chart decides there is nothing to show the first time it looks, and a
+    // page that starts its own recording is always empty at that moment. It is
+    // only mounted once a second exists for it to draw.
+    useEffect(() => {
+        if (hasFirstFrame) {
+            return;
+        }
+        const timer = setInterval(() => {
+            void container.api.fetchInstruments().then((instruments) => {
+                if (instruments.some((instrument) => instrument.lastFrameAtMs !== null)) {
+                    setHasFirstFrame(true);
+                }
+            }, () => undefined);
+        }, 1_000);
+
+        return () => { clearInterval(timer); };
+    }, [container, hasFirstFrame]);
+
     // Browsers slow a hidden page's timers to about one wake a minute, so the
     // seconds it misses are recorded as gaps. That is correct, and it looks
     // like a fault unless the page says why.
@@ -83,8 +100,8 @@ export function DemoShell({ factory, storage, build }: DemoShellProps): ReactEle
     if (state === 'refused') {
         return <RefusalNotice detail={detail} />;
     }
-    if (!isArchiveOpen) {
-        return <OpeningNotice />;
+    if (!hasFirstFrame) {
+        return <PreRollNotice />;
     }
 
     return (
@@ -95,10 +112,19 @@ export function DemoShell({ factory, storage, build }: DemoShellProps): ReactEle
     );
 }
 
-function OpeningNotice(): ReactElement {
+function PreRollNotice(): ReactElement {
     return (
-        <div className="flex size-full items-center justify-center bg-abyss-950">
-            <p className="text-xs text-ink-500">Opening the local archive…</p>
+        <div className="flex size-full items-center justify-center bg-abyss-950 p-8">
+            <div className="max-w-sm space-y-3 text-center">
+                <h1 className="text-sm font-semibold tracking-wide text-ink-100">
+                    Recording starts now
+                </h1>
+                <p className="text-xs leading-relaxed text-ink-400">
+                    This page is its own collector. It is mirroring the order book and will
+                    draw the first column in a moment — there is no history to load, because
+                    an order book cannot be fetched after the fact.
+                </p>
+            </div>
         </div>
     );
 }
