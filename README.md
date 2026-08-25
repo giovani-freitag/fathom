@@ -68,7 +68,12 @@ Abra `http://<ip-do-pc>:8787` no celular na mesma rede. A interface é desenhada
 para o toque primeiro: um dedo arrasta, dois dedos dão zoom nos dois eixos ao
 mesmo tempo, e os controles ficam na base da tela.
 
-Não há autenticação. Mantenha em rede confiável.
+Sem `FATHOM_ACCESS_TOKEN` no `.env` não há autenticação nenhuma — o que serve na
+LAN de casa e não serve em mais lugar nenhum. Com o token definido, o gateway
+recusa qualquer requisição sem ele, incluindo o WebSocket, e o link de acesso
+carrega o segredo uma vez para trocá-lo por um cookie. Isso é o que torna
+possível abrir um túnel e mandar o link para alguém — o passo a passo está em
+[docs/operations.md](docs/operations.md#mostrar-para-outra-pessoa).
 
 ## Configuração
 
@@ -81,6 +86,8 @@ Não há autenticação. Mantenha em rede confiável.
 | `RETAINED_PRICE_RANGE_RATIO` | `0.10` | Além disso o livro local é podado, limitando a memória |
 | `DEEP_REPAIR_INTERVAL_MS` | `300000` | De quanto em quanto tempo o topo do livro é reparado por REST |
 | `GATEWAY_PORT` / `GATEWAY_HOST` | `8787` / `0.0.0.0` | Onde a API e a interface escutam |
+| `FATHOM_ACCESS_TOKEN` | vazio | Segredo do link compartilhado; vazio deixa tudo aberto |
+| `FATHOM_TUNNELLED` | `false` | Marca o cookie de acesso como `Secure`, para servir por https |
 
 Com os padrões, cada coluna tem ~320 faixas de preço e o consumo fica em torno de
 150 MB/dia antes da compressão colunar, que reduz isso por mais de uma ordem de
