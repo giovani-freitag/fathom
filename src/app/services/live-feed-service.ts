@@ -1,11 +1,10 @@
+import type { LiveFeed, LiveFeedSubscription } from './live-feed.ts';
+export type { LiveFeedStatus, LiveFeedSubscription } from './live-feed.ts';
 import { API_ROUTES, type LiveTextMessage } from '../../shared/core/api-contract.ts';
 import { decodeLiquidityFrameWindow } from '../../shared/codec/heatmap-codec.ts';
-import { type LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 
 const INITIAL_RECONNECT_DELAY_MS = 1_000;
 const MAXIMUM_RECONNECT_DELAY_MS = 15_000;
-
-export type LiveFeedStatus = 'idle' | 'connecting' | 'streaming' | 'reconnecting' | 'refused';
 
 /**
  * Close codes that mean retrying will not help.
@@ -27,15 +26,6 @@ export interface LiveFeedServiceConfig {
  * the consumer can be built after it: a controller needs the feed, and the feed
  * needs the controller's handlers.
  */
-export interface LiveFeedSubscription {
-    readonly instrumentSymbol: string;
-    /** Newest frame already held; the tail resumes strictly after it. */
-    readonly afterMs: number;
-    readonly onFrames: (window: LiquidityFrameWindow) => void;
-    readonly onText: (message: LiveTextMessage) => void;
-    readonly onStatusChanged: (status: LiveFeedStatus) => void;
-}
-
 /**
  * The only place the live socket is spoken.
  *
@@ -43,7 +33,7 @@ export interface LiveFeedSubscription {
  * delivered rather than from the original request, so a dropped connection
  * costs latency instead of a hole in the chart.
  */
-export class LiveFeedService {
+export class LiveFeedService implements LiveFeed {
     private readonly config: LiveFeedServiceConfig;
 
     private socket: WebSocket | null = null;

@@ -2,7 +2,7 @@ import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts'
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
 import type { ChartViewport } from './chart-viewport.ts';
-import type { HeatmapApiService } from '../services/heatmap-api-service.ts';
+import type { HeatmapSource } from '../../shared/core/heatmap-source.ts';
 
 /** Loaded window is this much wider than the view, so a short pan needs no refetch. */
 const OVERSCAN_RATIO = 0.6;
@@ -33,7 +33,7 @@ export interface WindowLoadRequest {
 }
 
 export interface WindowLoaderConfig {
-    readonly api: HeatmapApiService;
+    readonly api: HeatmapSource;
     readonly onLoaded: (loaded: LoadedWindow) => void;
     readonly onFailed: (error: unknown) => void;
     readonly onLoadingChanged: (isLoading: boolean) => void;

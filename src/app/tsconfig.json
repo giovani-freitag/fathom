@@ -2,9 +2,27 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2024",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "jsx": "react-jsx",
-    "types": ["vite/client"]
+    "types": [
+      "vite/client"
+    ]
   },
-  "include": ["**/*.ts", "**/*.tsx", "../shared/**/*.ts"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "../shared/**/*.ts",
+    "../database/browser/**/*.ts",
+    "../database/services/liquidity-archive.ts",
+    "../workers/core/**/*.ts",
+    "../workers/services/**/*.ts",
+    "../workers/browser/**/*.ts",
+    "../workers/browser/browser-market-data-socket.ts",
+    "../workers/collector-runtime.ts",
+    "../database/core/**/*.ts"
+  ]
 }

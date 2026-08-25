@@ -1,11 +1,13 @@
 import { ChartController } from './chart-controller.ts';
 import { HeatmapApiService } from '../services/heatmap-api-service.ts';
+import type { HeatmapSource } from '../../shared/core/heatmap-source.ts';
+import type { LiveFeed } from '../services/live-feed.ts';
 import { LiveFeedService } from '../services/live-feed-service.ts';
 import { PreferencesService } from '../services/preferences-service.ts';
 
 export interface ServiceContainer {
-    readonly api: HeatmapApiService;
-    readonly liveFeed: LiveFeedService;
+    readonly api: HeatmapSource;
+    readonly liveFeed: LiveFeed;
     readonly preferences: PreferencesService;
     readonly chart: ChartController;
 }

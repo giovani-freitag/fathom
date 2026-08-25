@@ -7,8 +7,8 @@ import {
 } from './chart-viewport.ts';
 import { describeLoadFailure } from './failure-copy.ts';
 import { ObservableStore } from './observable-store.ts';
-import type { HeatmapApiService } from '../services/heatmap-api-service.ts';
-import type { LiveFeedService, LiveFeedStatus } from '../services/live-feed-service.ts';
+import type { HeatmapSource } from '../../shared/core/heatmap-source.ts';
+import type { LiveFeed, LiveFeedStatus } from '../services/live-feed.ts';
 import type { PreferencesService, ViewerPreferences } from '../services/preferences-service.ts';
 import {
     appendClusters,
@@ -52,8 +52,8 @@ export interface ChartState {
 }
 
 export interface ChartControllerConfig {
-    readonly api: HeatmapApiService;
-    readonly liveFeed: LiveFeedService;
+    readonly api: HeatmapSource;
+    readonly liveFeed: LiveFeed;
     readonly preferences: PreferencesService;
 }
 

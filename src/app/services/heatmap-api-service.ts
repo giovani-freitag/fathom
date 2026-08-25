@@ -1,3 +1,4 @@
+import type { HeatmapSource } from '../../shared/core/heatmap-source.ts';
 import {
     API_ROUTES,
     type InstrumentCoverage,
@@ -55,7 +56,7 @@ export interface TradeClusterResult {
  * Depth arrives as a binary window and is decoded here, so the rest of the app
  * never sees a wire format.
  */
-export class HeatmapApiService {
+export class HeatmapApiService implements HeatmapSource {
     private readonly baseUrl: string;
 
     constructor(config: HeatmapApiServiceConfig) {

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": [
+      "ES2024",
+      "DOM"
+    ],
+    "noEmit": true,
+    "types": []
+  },
+  "include": [
+    "**/*.ts",
+    "../core/**/*.ts",
+    "../services/**/*.ts",
+    "../browser/browser-market-data-socket.ts",
+    "../collector-runtime.ts",
+    "../../shared/**/*.ts",
+    "../../database/browser/**/*.ts",
+    "../../database/core/**/*.ts",
+    "../../database/services/liquidity-archive.ts"
+  ]
+}

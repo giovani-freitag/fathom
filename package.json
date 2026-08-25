@@ -25,7 +25,9 @@
     "database:up": "docker compose up -d",
     "database:down": "docker compose down",
     "database:logs": "docker compose logs -f timescaledb",
-    "migrate": "bash scripts/migrate.sh"
+    "migrate": "bash scripts/migrate.sh",
+    "build:demo": "vite build --config vite.demo.config.ts",
+    "dev:demo": "vite --config vite.demo.config.ts"
   },
   "dependencies": {
     "@fastify/compress": "^9.2.0",

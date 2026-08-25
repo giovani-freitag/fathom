@@ -1,6 +1,13 @@
 @import 'tailwindcss';
 
 /*
+ * Scanned explicitly because the demo builds from its own root, and Tailwind
+ * looks beside the root by default — which would find the entry document and
+ * none of the components it renders.
+ */
+@source '../../app';
+
+/*
  * Sounding-instrument palette: an abyssal ground so the depth field is the only
  * bright thing on screen, with phosphor accents for the chrome that has to be
  * readable over it.

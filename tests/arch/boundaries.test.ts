@@ -20,7 +20,17 @@ const REACHABLE: Record<string, readonly string[]> = {
     // The browser archive is persistence like any other, so the app reaches it
     // the way the server reaches Postgres. The engines are kept apart below,
     // which is what stops a driver meant for one from reaching the other.
-    'src/app': ['src/app', 'src/database/browser', 'src/shared'],
+    // The demo registers the same collector the server does, as a Web Worker.
+    // It reaches the unit's own folders to build the runtime, and the browser
+    // archive because that is the engine the page records into.
+    'src/app': [
+        'src/app',
+        'src/database/browser',
+        'src/database/core',
+        'src/database/services/liquidity-archive.ts',
+        'src/workers',
+        'src/shared',
+    ],
 };
 
 /**
@@ -33,6 +43,9 @@ const REACHABLE: Record<string, readonly string[]> = {
 const CONFINED_PACKAGES: Record<string, string> = {
     pg: 'src/database/postgres',
     ws: 'src/workers/transport/node-market-data-socket.ts',
+    // Only the demo's own registration may construct a Worker; the collector
+    // is reached by URL, never imported into the page's bundle.
+
     fastify: 'src/server',
     react: 'src/app',
     'react-dom': 'src/app',
@@ -114,6 +127,20 @@ describe('package confinement', () => {
             expect(strays).toEqual([]);
         });
     }
+
+    it('constructs a Worker only from the service that registers one', () => {
+        const constructors = sourceFiles.filter((path) => /new Worker\(/.test(read(path)));
+
+        expect(constructors).toEqual(['src/app/services/collector-worker-service.ts']);
+    });
+
+    it('speaks IndexedDB only from the browser archive', () => {
+        const speakers = sourceFiles.filter((path) => /\bindexedDB\b|IDBKeyRange|IDBObjectStore/.test(read(path)));
+
+        expect(speakers.every((path) => path.startsWith('src/database/browser/')
+            || path.startsWith('src/workers/browser/')
+            || path.startsWith('src/app/'))).toBe(true);
+    });
 
     it('reaches the venue over the network only from the workers', () => {
         const callers = sourceFiles.filter((path) => /binance\.com/.test(read(path)));

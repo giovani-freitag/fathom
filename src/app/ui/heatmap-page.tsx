@@ -119,7 +119,7 @@ function SurfaceNotice({ message, tone = 'neutral', onRetry }: SurfaceNoticeProp
                 {onRetry !== undefined && (
                     <ControlButton onClick={onRetry} className="mx-auto">
                         <RefreshCw className="size-4" />
-                        Tentar de novo
+                        Try again
                     </ControlButton>
                 )}
             </div>

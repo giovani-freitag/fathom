@@ -1,5 +1,6 @@
-/** Severity a collector distinguishes: routine progress, or a degraded recording. */
-export type CollectorLogLevel = 'info' | 'warning';
+import type { CollectorLogLevel } from '../../shared/core/collector-log-level.ts';
+
+export type { CollectorLogLevel };
 
 /**
  * Where a collector says what it is doing.

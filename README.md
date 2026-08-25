@@ -20,7 +20,12 @@
   ·
   <img alt="TimescaleDB" src="https://img.shields.io/badge/TimescaleDB-hypertable-fdb515">
   ·
-  <img alt="Tests" src="https://img.shields.io/badge/tests-486-2bd4a8">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-490-2bd4a8">
+</p>
+
+<p align="center">
+  <a href="https://giovani-freitag.github.io/fathom/"><strong>Open the live demo →</strong></a><br>
+  <sub>Your browser becomes the collector. No backend, no signup.</sub>
 </p>
 
 <p align="center">
@@ -42,6 +47,7 @@ not recorded is gone. Fathom exists to be running before you need the data.
 - 📱 **Touch first** — one finger pans, two pinch both axes, the axes are scale handles
 - ⚡ **Live tail** — a WebSocket appends each new second without refetching the window
 - 🔌 **Venue-neutral core** — the exchange lives behind a driver; Binance USD-M is the first
+- 🌐 **Runs with no backend** — the same collector registers as a Web Worker and records into IndexedDB
 
 ## 🚀 Run it locally
 
@@ -67,6 +73,7 @@ The chart only covers time the collector was running. Leave it up.
 - [Data model](docs/data-model.md) — schema, grids, and what each column means
 - [Operations](docs/operations.md) — running it as a service, disk, sharing it
 - [Decisions](docs/adr/) — why the design is what it is, with the measurements behind it
+- [Demo](demo/) — the browser-only build, published from `main` to GitHub Pages
 
 ## License
 
