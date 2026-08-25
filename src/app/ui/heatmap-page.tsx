@@ -7,7 +7,7 @@ import { ControlButton } from './control-button.tsx';
 import { ChartSurface } from './chart-surface.tsx';
 import { CoverageStrip } from './coverage-strip.tsx';
 import { DepthLegend } from './depth-legend.tsx';
-import { DisplaySettingsSheet } from './display-settings-sheet.tsx';
+import { SettingsDrawer } from './settings-drawer.tsx';
 import { InstrumentPicker } from './instrument-picker.tsx';
 import { SpanPresets } from './span-presets.tsx';
 
@@ -59,7 +59,7 @@ export function HeatmapPage(): ReactElement {
                         <Radar className="size-4" />
                     </ControlButton>
                 )}
-                <DisplaySettingsSheet
+                <SettingsDrawer
                     recording={kernel.recording}
                     state={state}
                     onChange={(patch) => { kernel.chart.updateSettings(patch); }}

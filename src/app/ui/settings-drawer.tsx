@@ -33,7 +33,7 @@ function formatCut(percentile: number): string {
     return `${text}%`;
 }
 
-interface DisplaySettingsSheetProps {
+interface SettingsDrawerProps {
     readonly state: ChartState;
     readonly onChange: (patch: ChartSettingsPatch) => void;
     /** Absent when the page is its own collector and there is nothing to supervise. */
@@ -41,17 +41,17 @@ interface DisplaySettingsSheetProps {
 }
 
 /**
- * Display controls, as a sheet anchored to the bottom of the screen.
+ * Everything a reader can change, in one drawer.
  *
  * Bottom-anchored on every size rather than centred on desktop: these are the
  * controls reached mid-gesture, and on a phone the top of the screen is the one
  * place a thumb cannot go.
  */
-export function DisplaySettingsSheet({ state, onChange, recording }: DisplaySettingsSheetProps): ReactElement {
+export function SettingsDrawer({ state, onChange, recording }: SettingsDrawerProps): ReactElement {
     return (
         <Dialog.Root>
             <Dialog.Trigger asChild>
-                <ControlButton aria-label="Display settings">
+                <ControlButton aria-label="Settings">
                     <SlidersHorizontal className="size-4" />
                 </ControlButton>
             </Dialog.Trigger>
@@ -68,7 +68,7 @@ export function DisplaySettingsSheet({ state, onChange, recording }: DisplaySett
                 <Dialog.Content className="fixed inset-y-0 right-0 z-50 flex w-[26rem] max-w-[calc(100%-2.5rem)] flex-col border-l border-hairline bg-abyss-850 shadow-2xl shadow-black/80 duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right">
                     <div className="flex shrink-0 items-center justify-between border-b border-hairline px-4 py-3">
                         <Dialog.Title className="text-sm font-semibold tracking-wide text-ink-100">
-                            Display
+                            Settings
                         </Dialog.Title>
                         <Dialog.Close asChild>
                             <button
@@ -82,6 +82,7 @@ export function DisplaySettingsSheet({ state, onChange, recording }: DisplaySett
                     </div>
 
                     <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                        <span className="block text-xs text-ink-300">Display</span>
                         <label className="block space-y-2">
                             <span className="flex items-baseline justify-between text-xs text-ink-300">
                                 Intensity
