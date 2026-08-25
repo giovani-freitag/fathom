@@ -88,28 +88,46 @@ grandeza depois de dois dias.
 
 ## Estrutura
 
-Um projeto, três pontos de entrada. As pastas têm o nome do que a coisa é no
-produto, não da camada a que pertence.
+Um projeto. O topo da árvore responde **quem executa isto**, que é a restrição
+mais dura que existe aqui: o navegador não pode tocar o banco, o Node não pode
+tocar o DOM.
 
 ```
 src/
-├── main-collector.ts    entrada: grava
-├── main-gateway.ts      entrada: serve
-├── main-viewer.tsx      entrada: desenha
-│
-├── book/         o livro       espelho, sincronização, frame, faixas de preço
-├── venue/        a Binance     socket, REST, payloads
-├── trades/       agressões     clusters e acumulação
-├── recording/    a gravação    loop, buffer de escrita, lacunas
-├── archive/      o banco       postgres, escrita, leitura
-├── api/          o gateway     servidor, rotas, tail ao vivo
-└── chart/        o gráfico     controller, viewport, pintura, gestos, ui
+├── shared/      o contrato do fio          falado pelos três
+│   ├── core/        tipos, faixas de preço
+│   └── codec/       o formato binário
+├── database/    o banco                    os dois processos de Node
+│   ├── core/        conexão, mapeamento de linhas
+│   └── services/    escrita, leitura
+├── server/      http                       → dist/server/main.js
+│   ├── core/        configuração
+│   ├── services/    tail ao vivo
+│   └── http/        servidor, rotas, schemas
+├── workers/     processos de fundo         → dist/workers/collector.js
+│   ├── core/        espelho do livro, construção do frame
+│   └── services/    corretora, gravador
+└── app/         o navegador                → dist/app/
+    ├── core/        controller, viewport, dataset
+    ├── services/    api http, socket ao vivo, preferências
+    ├── painting/    canvas e suas camadas
+    ├── react/       a ponte com React
+    └── ui/          componentes
 ```
 
-`book/`, `trades/`, `recording/` e `api/` guardam tanto código de servidor quanto
-os tipos e o codec que o navegador também fala — porque o conceito é um só. O que
-**nunca** chega ao navegador é `archive/` e `venue/`, e um teste de arquitetura
-percorre o grafo a partir de `main-viewer.tsx` para garantir isso.
+As setas só apontam para baixo:
+
+```
+server ─┐
+        ├→ database → shared
+workers ┘
+app ──────────────→ shared
+```
+
+Ninguém precisa de disciplina para isso continuar verdade: `tests/arch/` percorre
+os imports e falha em qualquer travessia. Cada lado tem seu próprio `tsconfig`
+com as bibliotecas certas, então usar `document` dentro de `server/` é erro na
+hora, no editor.
 
 Detalhes em [docs/architecture.md](docs/architecture.md) e
 [docs/data-model.md](docs/data-model.md).

@@ -6,20 +6,20 @@ export default defineConfig({
         projects: [
             {
                 test: {
-                    // Everything that touches a DOM: the chart and its layers.
-                    name: 'chart',
+                    // The browser half, which needs a DOM to draw into.
+                    name: 'app',
                     environment: 'jsdom',
                     setupFiles: ['./tests/setup.ts'],
-                    include: ['tests/**/chart/**/*.test.ts'],
+                    include: ['tests/**/app/**/*.test.ts'],
                 },
             },
             {
                 test: {
-                    // The recording side, which never sees a browser.
-                    name: 'server',
+                    // Everything that runs on Node, plus the shared contract.
+                    name: 'node',
                     environment: 'node',
                     include: ['tests/**/*.test.ts'],
-                    exclude: ['tests/**/chart/**'],
+                    exclude: ['tests/**/app/**'],
                 },
             },
         ],
@@ -27,7 +27,7 @@ export default defineConfig({
             provider: 'v8',
             reporter: ['text', 'html'],
             include: ['src/**'],
-            exclude: ['src/main-*.ts', 'src/main-*.tsx', '**/*.d.ts'],
+            exclude: ['src/**/main.ts', 'src/**/main.tsx', 'src/workers/collector.ts', '**/*.d.ts'],
         },
     },
 });

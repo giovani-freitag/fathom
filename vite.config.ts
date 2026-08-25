@@ -17,7 +17,7 @@ export default defineConfig({
     build: {
         // Beside the compiled server rather than over it: `tsc` owns dist/server
         // and emptying a shared folder would delete whichever was built first.
-        outDir: 'dist/viewer',
+        outDir: 'dist/app',
         emptyOutDir: true,
         target: 'es2022',
         sourcemap: true,

@@ -43,7 +43,7 @@ export default tseslint.config(
     },
 
     {
-        files: ['src/chart/**/*.{ts,tsx}'],
+        files: ['src/app/**/*.{ts,tsx}'],
         extends: [reactHooks.configs.flat['recommended-latest']],
         plugins: { 'react-refresh': reactRefresh },
         rules: {

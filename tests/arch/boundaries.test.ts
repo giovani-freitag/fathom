@@ -1,18 +1,34 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
-/** Folders the browser bundle is allowed to reach. */
-const BROWSER_REACHABLE = ['src/chart/', 'src/book/', 'src/trades/', 'src/recording/', 'src/api/'];
+/**
+ * What each runtime is allowed to reach.
+ *
+ * The top of the tree answers "who executes this", so a forbidden import is a
+ * folder crossing rather than a package that happens to be installed. These
+ * lists are the whole architecture: everything else is detail.
+ */
+const REACHABLE: Record<string, readonly string[]> = {
+    'src/shared': ['src/shared'],
+    'src/database': ['src/database', 'src/shared'],
+    'src/server': ['src/server', 'src/database', 'src/shared'],
+    'src/workers': ['src/workers', 'src/database', 'src/shared'],
+    'src/app': ['src/app', 'src/shared'],
+};
 
-/** Folders that only ever run in Node. */
-const SERVER_ONLY = ['src/archive/', 'src/venue/'];
-
-/** Packages that must never end up in a browser bundle. */
-const SERVER_PACKAGES = ['pg', 'ws', 'fastify', 'node:fs', 'node:path'];
+/** Packages that belong to exactly one runtime. */
+const CONFINED_PACKAGES: Record<string, string> = {
+    pg: 'src/database',
+    ws: 'src/workers',
+    fastify: 'src/server',
+    react: 'src/app',
+    'react-dom': 'src/app',
+    'radix-ui': 'src/app',
+};
 
 function listFiles(directory: string): string[] {
     const found: string[] = [];
@@ -33,111 +49,76 @@ function read(path: string): string {
     return readFileSync(join(ROOT, path), 'utf8');
 }
 
-function importsOf(path: string): string[] {
+function specifiersOf(path: string): string[] {
     return [...read(path).matchAll(/from '([^']+)'/g)].map((match) => match[1]!);
 }
 
-/** Everything the browser entry can reach, followed transitively. */
-function collectBrowserReachable(): Set<string> {
-    const reached = new Set<string>();
-    const queue = ['src/main-viewer.tsx'];
-
-    while (queue.length > 0) {
-        const current = queue.pop()!;
-        if (reached.has(current)) {
-            continue;
-        }
-        reached.add(current);
-
-        for (const specifier of importsOf(current)) {
-            if (!specifier.startsWith('.')) {
-                continue;
-            }
-            const resolved = relative(ROOT, join(ROOT, current, '..', specifier)).replaceAll('\\', '/');
-            if (/\.tsx?$/.test(resolved)) {
-                queue.push(resolved);
-            }
+/** Where a relative specifier lands, as a repository path. */
+function resolveWithin(path: string, specifier: string): string {
+    const parts = path.split('/').slice(0, -1);
+    for (const step of specifier.split('/')) {
+        if (step === '..') {
+            parts.pop();
+        } else if (step !== '.') {
+            parts.push(step);
         }
     }
-    return reached;
+    return parts.join('/');
 }
 
-const browserReachable = collectBrowserReachable();
+function runtimeOf(path: string): string | undefined {
+    return Object.keys(REACHABLE).find((runtime) => path.startsWith(`${runtime}/`));
+}
 
-describe('the browser half', () => {
-    it('reaches a meaningful part of the tree, so the check is exercised', () => {
-        expect(browserReachable.size).toBeGreaterThan(20);
+describe('runtime boundaries', () => {
+    it('covers every source file, so nothing escapes the rules', () => {
+        const unclaimed = sourceFiles.filter((path) => runtimeOf(path) === undefined);
+
+        expect(unclaimed).toEqual([]);
     });
 
-    it('never pulls in a server-only package', () => {
-        const offenders = [...browserReachable].filter(
-            (path) => importsOf(path).some((specifier) => SERVER_PACKAGES.includes(specifier)),
-        );
+    for (const [runtime, allowed] of Object.entries(REACHABLE)) {
+        it(`${runtime} reaches only ${allowed.join(', ')}`, () => {
+            const crossings = sourceFiles
+                .filter((path) => path.startsWith(`${runtime}/`))
+                .flatMap((path) => specifiersOf(path)
+                    .filter((specifier) => specifier.startsWith('.'))
+                    .map((specifier) => resolveWithin(path, specifier))
+                    .filter((target) => target.startsWith('src/'))
+                    .filter((target) => !allowed.some((folder) => target.startsWith(`${folder}/`)))
+                    .map((target) => `${path} → ${target}`));
 
-        expect(offenders).toEqual([]);
-    });
-
-    it('never reaches a server-only folder', () => {
-        const offenders = [...browserReachable].filter(
-            (path) => SERVER_ONLY.some((folder) => path.startsWith(folder)),
-        );
-
-        expect(offenders).toEqual([]);
-    });
-
-    it('stays inside the folders it is allowed to share', () => {
-        const strays = [...browserReachable]
-            .filter((path) => path.startsWith('src/'))
-            .filter((path) => !BROWSER_REACHABLE.some((folder) => path.startsWith(folder)))
-            .filter((path) => !['src/main-viewer.tsx', 'src/app.tsx'].includes(path));
-
-        expect(strays).toEqual([]);
-    });
+            expect(crossings).toEqual([]);
+        });
+    }
 });
 
-describe('the server half', () => {
-    it('keeps React out of everything it runs', () => {
-        const offenders = sourceFiles
-            .filter((path) => SERVER_ONLY.some((folder) => path.startsWith(folder)))
-            .filter((path) => importsOf(path).some((specifier) => specifier.startsWith('react')));
+describe('package confinement', () => {
+    for (const [packageName, runtime] of Object.entries(CONFINED_PACKAGES)) {
+        it(`imports ${packageName} only from ${runtime}`, () => {
+            const strays = sourceFiles
+                .filter((path) => specifiersOf(path).some(
+                    (specifier) => specifier === packageName || specifier.startsWith(`${packageName}/`),
+                ))
+                .filter((path) => !path.startsWith(`${runtime}/`));
 
-        expect(offenders).toEqual([]);
-    });
+            expect(strays).toEqual([]);
+        });
+    }
 
-    it('imports the PostgreSQL driver only from the archive', () => {
-        const strays = sourceFiles
-            .filter((path) => importsOf(path).includes('pg'))
-            .filter((path) => !path.startsWith('src/archive/'));
-
-        expect(strays).toEqual([]);
-    });
-
-    it('imports the websocket client only from the venue and the api', () => {
-        const strays = sourceFiles
-            .filter((path) => importsOf(path).includes('ws'))
-            .filter((path) => !path.startsWith('src/venue/') && !path.startsWith('src/api/'));
-
-        expect(strays).toEqual([]);
-    });
-
-    it('reaches the venue over the network only from the venue folder', () => {
+    it('reaches the venue over the network only from the workers', () => {
         const callers = sourceFiles.filter((path) => /binance\.com/.test(read(path)));
 
-        expect(callers.every((path) => path.startsWith('src/venue/') || path.startsWith('src/recording/')))
-            .toBe(true);
+        expect(callers.every((path) => path.startsWith('src/workers/'))).toBe(true);
     });
 });
 
 describe('type safety', () => {
     it('never falls back to the any type', () => {
-        const offenders = sourceFiles.filter((path) => /:\s*any\b|<any>|as any\b/.test(read(path)));
-
-        expect(offenders).toEqual([]);
+        expect(sourceFiles.filter((path) => /:\s*any\b|<any>|as any\b/.test(read(path)))).toEqual([]);
     });
 
     it('never leaves a bare TODO behind', () => {
-        const offenders = sourceFiles.filter((path) => /TODO(?!\()/.test(read(path)));
-
-        expect(offenders).toEqual([]);
+        expect(sourceFiles.filter((path) => /TODO(?!\()/.test(read(path)))).toEqual([]);
     });
 });

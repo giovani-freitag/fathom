@@ -1,9 +1,9 @@
-import type { InstrumentCoverage } from '../../src/api/api-contract.ts';
-import type { LiquidityFrame, LiquidityFrameWindow } from '../../src/book/liquidity-frame.ts';
-import type { HeatmapApiService } from '../../src/chart/heatmap-api-service.ts';
-import type { LiveFeedService, LiveFeedSubscription } from '../../src/chart/live-feed-service.ts';
-import type { PreferencesService, ViewerPreferences } from '../../src/chart/preferences-service.ts';
-import { DEFAULT_PREFERENCES } from '../../src/chart/preferences-service.ts';
+import type { InstrumentCoverage } from '../../src/shared/core/api-contract.ts';
+import type { LiquidityFrame, LiquidityFrameWindow } from '../../src/shared/core/liquidity-frame.ts';
+import type { HeatmapApiService } from '../../src/app/services/heatmap-api-service.ts';
+import type { LiveFeedService, LiveFeedSubscription } from '../../src/app/services/live-feed-service.ts';
+import type { PreferencesService, ViewerPreferences } from '../../src/app/services/preferences-service.ts';
+import { DEFAULT_PREFERENCES } from '../../src/app/services/preferences-service.ts';
 import { vi } from 'vitest';
 
 export const INSTRUMENT: InstrumentCoverage = {

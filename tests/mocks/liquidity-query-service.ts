@@ -1,4 +1,4 @@
-import type { LiquidityQueryService } from '../../src/archive/liquidity-query-service.ts';
+import type { LiquidityQueryService } from '../../src/database/services/liquidity-query-service.ts';
 import { vi } from 'vitest';
 
 export interface LiquidityQueryServiceMock {

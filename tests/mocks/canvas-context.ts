@@ -1,10 +1,10 @@
-import type { ChartViewport } from '../../src/chart/chart-viewport.ts';
-import { choosePriceTicks, chooseTimeTicks } from '../../src/chart/painting/axis-ticks.ts';
-import { ViewportProjector } from '../../src/chart/viewport-projector.ts';
-import type { ChartDataset } from '../../src/chart/chart-dataset.ts';
-import { EMPTY_DATASET } from '../../src/chart/chart-dataset.ts';
-import { resolveChartLayout } from '../../src/chart/painting/chart-layout.ts';
-import type { PaintContext, RenderRequest } from '../../src/chart/painting/render-types.ts';
+import type { ChartViewport } from '../../src/app/core/chart-viewport.ts';
+import { choosePriceTicks, chooseTimeTicks } from '../../src/app/painting/axis-ticks.ts';
+import { ViewportProjector } from '../../src/app/core/viewport-projector.ts';
+import type { ChartDataset } from '../../src/app/core/chart-dataset.ts';
+import { EMPTY_DATASET } from '../../src/app/core/chart-dataset.ts';
+import { resolveChartLayout } from '../../src/app/painting/chart-layout.ts';
+import type { PaintContext, RenderRequest } from '../../src/app/painting/render-types.ts';
 
 export interface RecordedCall {
     readonly method: string;

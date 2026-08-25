@@ -164,16 +164,28 @@ agressões, linha de preço, eixos, crosshair. Os ticks são resolvidos uma vez 
 compartilhados, porque uma linha de grade e seu rótulo discordarem por um pixel é
 o tipo de defeito que ninguém consegue explicar depois.
 
-## Camadas do viewer
+## Como a árvore está organizada
 
-O padrão é o mesmo de outros projetos da casa:
+O topo divide por **quem executa**, não por camada. É a divisão que mais
+restringe: o navegador não pode importar o driver do PostgreSQL, e o Node não tem
+DOM. Com essa pergunta no topo, a fronteira vira estrutura em vez de disciplina.
 
-- `core/` — TypeScript sem framework. Serviços, controladores e domínio. Testável
-  fora de um DOM.
-- `react/` — a ponte, e nada mais. `useStore` liga um `ObservableStore` ao
-  `useSyncExternalStore`; `useKernel` entrega o contêiner de serviços.
-- `ui/` e `features/` — componentes.
+| Pasta | Executa em | Contém |
+| --- | --- | --- |
+| `shared/` | os três | tipos do fio, codec binário, matemática de faixas |
+| `database/` | Node | conexão, escrita, leitura |
+| `server/` | processo do gateway | rotas, schemas, tail ao vivo |
+| `workers/` | processo do coletor | espelho do livro, corretora, gravação |
+| `app/` | navegador | controller, canvas, React |
 
-Estado vive em `ObservableStore` dentro do core, não em `useState`. O
-`ChartController` decide tudo: o que carregar, quando recarregar, o que a janela
-mostra. React apenas lê.
+Dentro de cada um, duas pastas onde a divisão é real: `core/` para lógica sem
+dependência externa — testável sem subir banco nem DOM — e `services/` para o
+que fala com o mundo. `app/` acrescenta `painting/`, `react/` e `ui/`.
+
+Estado no `app/` vive em `ObservableStore` dentro de `core/`, não em `useState`.
+O `ChartController` decide tudo: o que carregar, quando recarregar, o que a
+janela mostra. React apenas lê, através de `react/use-store.ts`.
+
+O coletor e o gateway são pares: nenhum importa do outro. O que os dois usam —
+o banco — é um vizinho dos dois, não uma pasta dentro de um deles. Assim as setas
+só apontam para baixo e não é preciso nenhuma regra para mantê-las assim.

@@ -1,5 +1,5 @@
-import type { ChartViewport } from '../../src/chart/chart-viewport.ts';
-import type { ViewRequest } from '../../src/chart/chart-controller.ts';
+import type { ChartViewport } from '../../src/app/core/chart-viewport.ts';
+import type { ViewRequest } from '../../src/app/core/chart-controller.ts';
 import { vi } from 'vitest';
 
 export interface GestureSurfaceMock {

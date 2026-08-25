@@ -3,20 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Order book depth sounding — records and renders resting liquidity as a Bookmap-style heatmap.",
+  "description": "Order book depth sounding \u2014 records and renders resting liquidity as a Bookmap-style heatmap.",
   "engines": {
     "node": ">=22.12.0"
   },
   "packageManager": "pnpm@11.0.9",
   "scripts": {
-    "collector": "node --env-file-if-exists=.env dist/server/main-collector.js",
-    "gateway": "node --env-file-if-exists=.env dist/server/main-gateway.js",
+    "collector": "node --env-file-if-exists=.env dist/workers/collector.js",
+    "gateway": "node --env-file-if-exists=.env dist/server/main.js",
     "dev": "vite",
-    "build": "tsc --build tsconfig.server.json && vite build",
+    "build": "tsc --build && vite build",
     "build:server": "tsc --build tsconfig.server.json",
     "build:viewer": "vite build",
-    "clean": "tsc --build tsconfig.server.json --clean && rm -rf dist coverage",
-    "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.viewer.json --noEmit",
+    "clean": "tsc --build --clean && rm -rf dist coverage",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p src/app/tsconfig.json --noEmit && tsc -p tests/tsconfig.json --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
@@ -25,7 +25,9 @@
     "database:up": "docker compose up -d",
     "database:down": "docker compose down",
     "database:logs": "docker compose logs -f timescaledb",
-    "verify": "pnpm run lint && pnpm run typecheck && pnpm run test"
+    "verify": "pnpm run lint && pnpm run typecheck && pnpm run test",
+    "build:node": "tsc --build",
+    "build:app": "vite build"
   },
   "dependencies": {
     "@fastify/compress": "^9.2.0",

@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { DepthDiff, DepthSnapshot } from '../../src/book/depth-types.ts';
+import type { DepthDiff, DepthSnapshot } from '../../src/workers/core/depth-types.ts';
 
 /**
  * A ladder whose span covers 99 to 101, so a merge test can tell "inside the
