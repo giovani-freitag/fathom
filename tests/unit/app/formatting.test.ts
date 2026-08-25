@@ -9,6 +9,7 @@ import {
     resolveBaseAsset,
 } from '../../../src/app/core/formatting.ts';
 import { afterEach, describe, expect, it } from 'vitest';
+import { buildTranslate } from '../../../src/app/i18n/translator.ts';
 
 const ONE_HOUR_MS = 60 * 60 * 1_000;
 const ONE_DAY_MS = 24 * ONE_HOUR_MS;
@@ -69,20 +70,26 @@ describe('formatPrice', () => {
 });
 
 describe('formatDuration', () => {
+    const translate = buildTranslate('en');
+
     it('reads a sub-minute span in seconds', () => {
-        expect(formatDuration(2_000)).toBe('2s');
+        expect(formatDuration(2_000, translate)).toBe('2s');
     });
 
     it('reads a multi-minute span in minutes', () => {
-        expect(formatDuration(300_000)).toBe('5min');
+        expect(formatDuration(300_000, translate)).toBe('5min');
     });
 
     it('reads a multi-hour span in hours', () => {
-        expect(formatDuration(4 * ONE_HOUR_MS)).toBe('4h');
+        expect(formatDuration(4 * ONE_HOUR_MS, translate)).toBe('4h');
     });
 
     it('reads a multi-day span in days', () => {
-        expect(formatDuration(3 * ONE_DAY_MS)).toBe('3d');
+        expect(formatDuration(3 * ONE_DAY_MS, translate)).toBe('3d');
+    });
+
+    it('abbreviates the unit the way the reader s language does', () => {
+        expect(formatDuration(3 * ONE_DAY_MS, buildTranslate('pt-BR'))).toBe('3d');
     });
 });
 

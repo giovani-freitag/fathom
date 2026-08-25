@@ -45,7 +45,7 @@ export function CoverageStrip({ state }: CoverageStripProps): ReactElement {
             </span>
 
             <span className="numeric" title={translate('coverage.columnWidth')}>
-                {formatDuration(state.dataset.sampleIntervalMs)}{translate('coverage.perColumn')}
+                {formatDuration(state.dataset.sampleIntervalMs, translate)}{translate('coverage.perColumn')}
             </span>
 
             {visibleGapCount > 0 && (

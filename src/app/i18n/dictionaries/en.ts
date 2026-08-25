@@ -31,6 +31,20 @@ export const EN_DICTIONARY = {
     'readout.traded': 'traded {sides}',
     'readout.tradeCount': '{count}x · largest {size}',
 
+    'unit.seconds': '{value}s',
+    'unit.minutes': '{value}min',
+    'unit.hours': '{value}h',
+    'unit.days': '{value}d',
+
+    'span.1m': '1m',
+    'span.5m': '5m',
+    'span.15m': '15m',
+    'span.1h': '1h',
+    'span.4h': '4h',
+    'span.1d': '1d',
+    'span.3d': '3d',
+    'span.1w': '1w',
+
     'span.label': 'Time window',
     'span.beyondCoverage': 'Not enough recorded yet',
 

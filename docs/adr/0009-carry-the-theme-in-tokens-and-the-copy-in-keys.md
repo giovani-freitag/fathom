@@ -41,6 +41,14 @@ pinned to twenty-four hours in every language instead: a market chart reads its
 times against each other, and the axis truncates the clock by character count,
 which a trailing meridiem would carry into the label.
 
+Everything that varies by language is a key, including the parts that look like
+notation: the abbreviation of a duration, and the labels on the window presets.
+An architecture test refuses a phrase written anywhere else — a spoken attribute
+holding a literal, a line of prose typed into JSX, or prose assembled from a
+template in the painting layer, which no rule about JSX would ever see. Adding a
+third language is then a matter of writing one file, not searching for what the
+last two missed.
+
 Nothing a driver wrote reaches the screen. A caught failure is named — a saved
 setting that would not save says so in the reader's language, and the driver's
 own sentence goes to the console, where whoever can act on it is looking.

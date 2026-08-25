@@ -198,11 +198,11 @@ export function SettingsDrawer({ state, onChange, recording, onContractsChanged 
                         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-hairline pt-4 text-[11px]">
                             <dt className="text-ink-500">{translate('settings.recordedSoFar')}</dt>
                             <dd className="numeric text-right text-ink-100">
-                                {formatDuration(resolveRecordedSpanMs(state.instruments, state.instrumentSymbol))}
+                                {formatDuration(resolveRecordedSpanMs(state.instruments, state.instrumentSymbol), translate)}
                             </dd>
                             <dt className="text-ink-500">{translate('settings.resolution')}</dt>
                             <dd className="numeric text-right text-ink-300">
-                                {translate('settings.perColumn', { value: formatDuration(state.dataset.sampleIntervalMs) })}
+                                {translate('settings.perColumn', { value: formatDuration(state.dataset.sampleIntervalMs, translate) })}
                             </dd>
                             <dt className="text-ink-500">{translate('settings.priceBand')}</dt>
                             <dd className="numeric text-right text-ink-300">

@@ -25,14 +25,14 @@ export function SpanPresets({ activeSpanMs, recordedSpanMs, onSelect }: SpanPres
                 const isBeyondCoverage = preset.spanMs > recordedSpanMs * 1.2;
                 return (
                     <ControlButton
-                        key={preset.label}
+                        key={preset.labelKey}
                         isActive={Math.abs(activeSpanMs - preset.spanMs) < preset.spanMs * 0.12}
                         disabled={isBeyondCoverage}
                         title={isBeyondCoverage ? translate('span.beyondCoverage') : undefined}
                         onClick={() => { onSelect(preset.spanMs); }}
                         className="shrink-0 px-3.5"
                     >
-                        {preset.label}
+                        {translate(preset.labelKey)}
                     </ControlButton>
                 );
             })}

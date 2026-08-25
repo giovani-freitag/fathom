@@ -1,4 +1,5 @@
 import type { Locale } from '../i18n/locale.ts';
+import type { Translate } from '../i18n/translator.ts';
 
 /** The tag each supported language formats numbers and dates under. */
 const FORMATTING_TAGS: Record<Locale, string> = {
@@ -161,22 +162,25 @@ export function formatClockTime(timestampMs: number): string {
 }
 
 /**
- * Renders a duration as a human-readable span.
+ * Renders a duration in the largest unit that fits it.
  *
  * @param durationMs - Length in milliseconds.
- * @returns The formatted duration, in the largest unit that fits.
+ * @param translate - Renders the unit, which every language abbreviates its own way.
+ * @returns The formatted duration.
  */
-export function formatDuration(durationMs: number): string {
+export function formatDuration(durationMs: number, translate: Translate): string {
     const seconds = Math.round(durationMs / 1_000);
     if (seconds < 60) {
-        return `${seconds}s`;
+        return translate('unit.seconds', { value: seconds });
     }
     const minutes = Math.round(seconds / 60);
     if (minutes < 60) {
-        return `${minutes}min`;
+        return translate('unit.minutes', { value: minutes });
     }
     const hours = Math.round(minutes / 60);
-    return hours < 48 ? `${hours}h` : `${Math.round(hours / 24)}d`;
+    return hours < 48
+        ? translate('unit.hours', { value: hours })
+        : translate('unit.days', { value: Math.round(hours / 24) });
 }
 
 /**
