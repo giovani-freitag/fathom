@@ -127,8 +127,27 @@ export class LiquidityRecorderService {
      */
     noteInterruption(reason: string): void {
         if (this.openGapStartedAtMs === null) {
-            this.openGapStartedAtMs = this.lastFrameAtMs ?? Date.now();
+            // One interval past the last frame, because that frame was recorded.
+            // Starting at it would claim a second that exists is missing, and
+            // would disagree with how a gap left by a previous run is reopened.
+            this.openGapStartedAtMs = this.lastFrameAtMs === null
+                ? Date.now()
+                : this.lastFrameAtMs + this.config.frameIntervalMs;
             this.openGapReason = reason;
+        }
+    }
+
+    /**
+     * Opens a gap when the recording clock missed one or more grid instants.
+     *
+     * @param capturedAtMs - The instant this capture is filing under.
+     */
+    private noteSkippedInstants(capturedAtMs: number): void {
+        if (this.lastFrameAtMs === null) {
+            return;
+        }
+        if (capturedAtMs > this.lastFrameAtMs + this.config.frameIntervalMs) {
+            this.noteInterruption('the recording clock did not fire on time');
         }
     }
 
@@ -170,6 +189,13 @@ export class LiquidityRecorderService {
         if (this.lastFrameAtMs !== null && capturedAtMs <= this.lastFrameAtMs) {
             return;
         }
+
+        // A grid instant that never came round is unrecorded time, and nothing
+        // downstream can tell it from time that was recorded as empty. The clock
+        // skips whenever the host stops running us on schedule: a long collection
+        // pause, a suspended machine, a tab the browser throttled to one wake a
+        // minute. Noticing here is what turns silence into a drawn hole.
+        this.noteSkippedInstants(capturedAtMs);
 
         const reading = this.config.orderBook.readBook();
         if (reading === null) {

@@ -168,6 +168,43 @@ describe('recording pipeline', () => {
         expect(pipeline.spy.appendFrames).not.toHaveBeenCalled();
     });
 
+    it('files a gap when the recording clock skips grid instants', async () => {
+        const pipeline = buildPipeline();
+        await pipeline.recorder.start();
+        await synchronize(pipeline);
+        await vi.advanceTimersByTimeAsync(2_500);
+
+        // The host stops running us on schedule — a throttled tab, a slept
+        // machine — while the socket keeps the book perfectly synchronized.
+        vi.setSystemTime(Date.now() + 30_000);
+        await vi.advanceTimersByTimeAsync(2_500);
+        await pipeline.recorder.stop();
+
+        expect(pipeline.spy.recordGap).toHaveBeenCalledWith(
+            expect.objectContaining({
+                gap: expect.objectContaining({ gapReason: 'the recording clock did not fire on time' }),
+            }),
+        );
+    });
+
+    it('starts a gap after the last recorded second, not on it', async () => {
+        const pipeline = buildPipeline();
+        await pipeline.recorder.start();
+        await synchronize(pipeline);
+        await vi.advanceTimersByTimeAsync(2_500);
+
+        pipeline.orderBook.invalidate('socket closed');
+        await vi.advanceTimersByTimeAsync(2_500);
+        pipeline.orderBook.ingestDiff(buildDiff({ firstUpdateId: 95, finalUpdateId: 105 }));
+        await vi.waitFor(() => expect(pipeline.orderBook.isSynchronized).toBe(true));
+        await vi.advanceTimersByTimeAsync(2_500);
+        await pipeline.recorder.stop();
+
+        const calls = pipeline.spy.recordGap.mock.calls as GapRecordCall[];
+        const gap = calls[0]![0].gap;
+        expect(gap.gapStartedAtMs % FRAME_INTERVAL_MS).toBe(0);
+    });
+
     it('keeps a gap whose first write failed, instead of forgetting it', async () => {
         const pipeline = buildPipeline();
         await pipeline.recorder.start();
