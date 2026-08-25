@@ -89,9 +89,9 @@ possível abrir um túnel e mandar o link para alguém — o passo a passo está
 | `FATHOM_ACCESS_TOKEN` | vazio | Segredo do link compartilhado; vazio deixa tudo aberto |
 | `FATHOM_TUNNELLED` | `false` | Marca o cookie de acesso como `Secure`, para servir por https |
 
-Com os padrões, cada coluna tem ~320 faixas de preço e o consumo fica em torno de
-150 MB/dia antes da compressão colunar, que reduz isso por mais de uma ordem de
-grandeza depois de dois dias.
+Com os padrões, cada coluna tem ~325 faixas de preço e o consumo fica em ~141 MB/dia
+antes da compressão colunar, que mede 4,0x depois de dois dias — ou seja, ~35 MB/dia
+em regime, ~12,5 GB/ano.
 
 ## Estrutura
 

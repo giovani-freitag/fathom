@@ -169,8 +169,9 @@ SELECT hypertable_name,
 FROM hypertable_compression_stats('liquidity_frame');"
 ```
 
-A compressão só age em chunks com mais de dois dias. Antes disso a estimativa é
-~150 MB/dia; depois, mais de uma ordem de grandeza menos.
+A compressão só age em chunks com mais de dois dias. Antes disso são ~141 MB/dia
+medidos; depois, 4,0x menos — um chunk de 16 MB fecha em 3,96 MB. Com os padrões
+isso dá ~35 MB/dia em regime, ou ~12,5 GB/ano.
 
 ## Trocar de contrato
 
