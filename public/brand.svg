@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Fathom">
+  <title>Fathom</title>
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffb454" stop-opacity="0.15"/>
+      <stop offset="0.45" stop-color="#ffb454"/>
+      <stop offset="1" stop-color="#ffefe6"/>
+    </linearGradient>
+    <linearGradient id="depth" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0e2c50" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#1a648a"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="128" height="128" rx="26" fill="#05080c"/>
+
+  <!-- ordinary depth: quiet bands, the background of any book -->
+  <g fill="url(#depth)">
+    <rect x="18" y="24" width="74" height="5" rx="2.5" opacity="0.55"/>
+    <rect x="18" y="35" width="52" height="5" rx="2.5" opacity="0.40"/>
+    <rect x="18" y="46" width="86" height="5" rx="2.5" opacity="0.70"/>
+    <rect x="18" y="79" width="64" height="5" rx="2.5" opacity="0.60"/>
+    <rect x="18" y="90" width="44" height="5" rx="2.5" opacity="0.40"/>
+    <rect x="18" y="101" width="78" height="5" rx="2.5" opacity="0.50"/>
+  </g>
+
+  <!-- the wall: one resting level large enough to stop price -->
+  <rect x="18" y="60" width="92" height="8" rx="4" fill="url(#wall)"/>
+
+  <!-- the touch, sounding the depth -->
+  <circle cx="96" cy="64" r="5.5" fill="#35e0c4"/>
+  <circle cx="96" cy="64" r="11" fill="none" stroke="#35e0c4" stroke-opacity="0.35" stroke-width="2"/>
+</svg>

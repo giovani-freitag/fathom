@@ -1,4 +1,3 @@
-import type WebSocket from 'ws';
 import type { DepthDiff, ExecutedTrade } from '../core/depth-types.ts';
 import type {
     BinanceDepthUpdatePayload,
@@ -14,10 +13,10 @@ import type {
  * envelope: declaring the venue's wire shape as fact would turn a protocol
  * change into a silent misread instead of a discarded frame.
  */
-export function parseStreamPayload(rawPayload: WebSocket.RawData): BinanceStreamPayload | null {
+export function parseStreamPayload(frameText: string): BinanceStreamPayload | null {
     let parsed: unknown;
     try {
-        parsed = JSON.parse(decodeFrameText(rawPayload));
+        parsed = JSON.parse(frameText);
     } catch {
         return null;
     }
@@ -36,23 +35,6 @@ export function parseStreamPayload(rawPayload: WebSocket.RawData): BinanceStream
         return payload as BinanceTradePayload;
     }
     return null;
-}
-
-/**
- * Reassembles a frame the client may have delivered in fragments.
- *
- * A fragmented message arrives as an array of buffers, and calling `toString`
- * on that array joins the pieces with commas, producing text that no longer
- * parses — a whole depth update dropped without a trace.
- */
-function decodeFrameText(rawPayload: WebSocket.RawData): string {
-    if (Array.isArray(rawPayload)) {
-        return Buffer.concat(rawPayload).toString('utf8');
-    }
-    if (rawPayload instanceof ArrayBuffer) {
-        return Buffer.from(rawPayload).toString('utf8');
-    }
-    return rawPayload.toString('utf8');
 }
 
 export function toDepthDiff(payload: BinanceDepthUpdatePayload): DepthDiff {

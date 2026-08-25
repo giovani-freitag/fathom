@@ -1,6 +1,6 @@
-import WebSocket from 'ws';
-import { delay } from '../core/delay.ts';
+import { describeError } from '../core/collector-log.ts';
 import type { DepthDiff, DepthSnapshot, ExecutedTrade } from '../core/depth-types.ts';
+import type { MarketDataSocket, MarketDataSocketFactory } from '../core/market-data-socket.ts';
 import type { BinanceDepthLadderPayload } from './binance-payloads.ts';
 import { parseStreamPayload, toDepthDiff, toExecutedTrade } from './binance-payload-reader.ts';
 
@@ -19,6 +19,8 @@ export interface BinanceDepthFeedServiceConfig {
     readonly onExecutedTrade: (trade: ExecutedTrade) => void;
     readonly onConnected: () => void;
     readonly onDisconnected: (reason: string) => void;
+    /** Opens one socket per connection attempt, in whatever runtime this is. */
+    readonly openSocket: MarketDataSocketFactory;
 }
 
 /** Raised when the venue's REST endpoint will not serve a depth ladder. */
@@ -40,7 +42,7 @@ export class BinanceDepthFeedService {
     private readonly config: BinanceDepthFeedServiceConfig;
     private readonly streamUrl: string;
 
-    private activeSocket: WebSocket | null = null;
+    private activeSocket: MarketDataSocket | null = null;
     private consecutiveFailureCount = 0;
     private wasShutdownRequested = false;
     private silenceWatchdogTimer: NodeJS.Timeout | null = null;
@@ -67,7 +69,7 @@ export class BinanceDepthFeedService {
         if (this.wasShutdownRequested) {
             throw new Error('This feed service was disconnected and cannot be reconnected');
         }
-        const socket = new WebSocket(this.streamUrl);
+        const socket = this.config.openSocket(this.streamUrl);
         this.activeSocket = socket;
         this.listen(socket);
     }
@@ -85,12 +87,7 @@ export class BinanceDepthFeedService {
             return;
         }
 
-        this.unlisten(socket);
-        const { promise, resolve } = Promise.withResolvers<void>();
-        socket.once('close', resolve);
-        socket.close();
-        await Promise.race([promise, delay(2_000)]);
-        socket.terminate();
+        await socket.close();
     }
 
     /**
@@ -125,18 +122,11 @@ export class BinanceDepthFeedService {
         };
     }
 
-    private listen(socket: WebSocket): void {
-        socket.on('open', this.handleSocketOpen);
-        socket.on('message', this.handleSocketMessage);
-        socket.on('error', this.handleSocketError);
-        socket.on('close', this.handleSocketClose);
-    }
-
-    private unlisten(socket: WebSocket): void {
-        socket.off('open', this.handleSocketOpen);
-        socket.off('message', this.handleSocketMessage);
-        socket.off('error', this.handleSocketError);
-        socket.off('close', this.handleSocketClose);
+    private listen(socket: MarketDataSocket): void {
+        socket.onOpen(this.handleSocketOpen);
+        socket.onMessage(this.handleSocketMessage);
+        socket.onError(this.handleSocketError);
+        socket.onClose(this.handleSocketClose);
     }
 
     private handleSocketOpen(): void {
@@ -146,10 +136,10 @@ export class BinanceDepthFeedService {
         this.config.onConnected();
     }
 
-    private handleSocketMessage(rawPayload: WebSocket.RawData): void {
+    private handleSocketMessage(frameText: string): void {
         this.restartSilenceWatchdog();
 
-        const payload = parseStreamPayload(rawPayload);
+        const payload = parseStreamPayload(frameText);
         if (payload === null) {
             return;
         }
@@ -160,12 +150,12 @@ export class BinanceDepthFeedService {
         this.config.onExecutedTrade(toExecutedTrade(payload));
     }
 
-    private handleSocketError(error: Error): void {
-        this.recycleConnection(`socket error: ${error.message}`);
+    private handleSocketError(reason: unknown): void {
+        this.recycleConnection(`socket error: ${describeError(reason)}`);
     }
 
-    private handleSocketClose(code: number): void {
-        this.recycleConnection(`socket closed with code ${code}`);
+    private handleSocketClose(): void {
+        this.recycleConnection('socket closed');
     }
 
     private handleSilenceElapse(): void {
@@ -190,9 +180,8 @@ export class BinanceDepthFeedService {
         }
 
         this.clearTimers();
-        this.unlisten(socket);
-        socket.terminate();
         this.activeSocket = null;
+        void socket.close();
 
         this.config.onDisconnected(reason);
         if (this.wasShutdownRequested) {

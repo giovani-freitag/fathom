@@ -1,8 +1,12 @@
 import { CollectorRuntime } from './collector-runtime.ts';
+import { openNodeMarketDataSocket } from './transport/node-market-data-socket.ts';
 import { readCollectorConfiguration } from './core/collector-configuration.ts';
 import { describeError, logWarning } from './core/collector-log.ts';
 
-const runtime = new CollectorRuntime(readCollectorConfiguration());
+const runtime = new CollectorRuntime({
+    configuration: readCollectorConfiguration(),
+    openSocket: openNodeMarketDataSocket,
+});
 
 async function shutDown(signalName: string): Promise<void> {
     logWarning(`Received ${signalName}, flushing before exit`);

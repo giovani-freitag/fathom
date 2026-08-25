@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Order book liquidity heat map — records resting depth every second, because book history cannot be backfilled.",
+  "description": "Order book liquidity heat map \u2014 records resting depth every second, because book history cannot be backfilled.",
   "engines": {
     "node": ">=22.12.0"
   },
@@ -24,7 +24,8 @@
     "verify": "npm run lint && npm run typecheck && npm test",
     "database:up": "docker compose up -d",
     "database:down": "docker compose down",
-    "database:logs": "docker compose logs -f timescaledb"
+    "database:logs": "docker compose logs -f timescaledb",
+    "migrate": "bash scripts/migrate.sh"
   },
   "dependencies": {
     "@fastify/compress": "^9.2.0",

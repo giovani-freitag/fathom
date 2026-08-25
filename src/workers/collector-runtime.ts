@@ -7,6 +7,7 @@ import {
     WRITE_SETTINGS,
 } from './core/collector-configuration.ts';
 import { logInfo, logWarning } from './core/collector-log.ts';
+import type { MarketDataSocketFactory } from './core/market-data-socket.ts';
 import { BinanceDepthFeedService } from './services/binance-depth-feed-service.ts';
 import type { DepthDiff, DepthSnapshot, ExecutedTrade } from './core/depth-types.ts';
 import { OrderBookService } from './core/order-book-service.ts';
@@ -22,6 +23,18 @@ const DATABASE_STATEMENT_TIMEOUT_MS = 30_000;
  * pointing back: the order book asks the feed for ladders, and the feed hands
  * the order book its updates.
  */
+/**
+ * What the runtime needs beyond the settings read from the environment.
+ *
+ * The socket factory is injected rather than chosen here because the same
+ * runtime is registered two ways: as a process by the server, and as a Web
+ * Worker by the browser. Only the caller knows which platform it is on.
+ */
+export interface CollectorRuntimeConfig {
+    readonly configuration: CollectorConfiguration;
+    readonly openSocket: MarketDataSocketFactory;
+}
+
 export class CollectorRuntime {
     private readonly configuration: CollectorConfiguration;
     private readonly postgres: PostgresService;
@@ -29,7 +42,8 @@ export class CollectorRuntime {
     private readonly orderBook: OrderBookService;
     private readonly recorder: LiquidityRecorderService;
 
-    constructor(configuration: CollectorConfiguration) {
+    constructor(config: CollectorRuntimeConfig) {
+        const { configuration } = config;
         this.configuration = configuration;
         this.handleDepthDiff = this.handleDepthDiff.bind(this);
         this.handleExecutedTrade = this.handleExecutedTrade.bind(this);
@@ -63,6 +77,7 @@ export class CollectorRuntime {
             onExecutedTrade: this.handleExecutedTrade,
             onConnected: this.handleFeedConnected,
             onDisconnected: this.handleFeedDisconnected,
+            openSocket: config.openSocket,
         });
 
         this.orderBook = new OrderBookService({
