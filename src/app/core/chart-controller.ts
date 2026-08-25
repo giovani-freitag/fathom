@@ -28,6 +28,9 @@ import {
 } from './viewport-policy.ts';
 import { type LoadedWindow, WindowLoader, type WindowLoadRequest } from './window-loader.ts';
 
+/** How often the instrument listing and its coverage are re-read. */
+const COVERAGE_REFRESH_MS = 5_000;
+
 export type ChartPhase = 'initialising' | 'ready' | 'empty' | 'failed';
 
 export interface ChartState {
@@ -89,6 +92,7 @@ export class ChartController {
     private surfaceWidthPx = 800;
     private needsPriceFraming = true;
     private wasDisposed = false;
+    private coverageTimer: ReturnType<typeof setInterval> | null = null;
 
     constructor(config: ChartControllerConfig) {
         this.config = config;
@@ -149,9 +153,25 @@ export class ChartController {
             }));
             await this.loadWindow();
             this.openLiveTail();
+            this.watchCoverage();
         } catch (error) {
             this.publishFailure(error);
         }
+    }
+
+    /**
+     * Keeps the listing and the coverage it carries current.
+     *
+     * @param intervalMs - How often to re-read.
+     */
+    private watchCoverage(intervalMs = COVERAGE_REFRESH_MS): void {
+        if (this.coverageTimer !== null) {
+            return;
+        }
+        // Read once at startup, the listing freezes: a contract switched on
+        // never appears in the picker, and "recorded so far" keeps reporting
+        // the span the page happened to open with.
+        this.coverageTimer = setInterval(() => { void this.refreshInstruments(); }, intervalMs);
     }
 
     /**
@@ -159,6 +179,10 @@ export class ChartController {
      */
     dispose(): void {
         this.wasDisposed = true;
+        if (this.coverageTimer !== null) {
+            clearInterval(this.coverageTimer);
+            this.coverageTimer = null;
+        }
         this.windowLoader.dispose();
         this.config.liveFeed.disconnect();
     }

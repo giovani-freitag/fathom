@@ -357,3 +357,37 @@ describe('ChartController price following', () => {
         expect(controller.store.read().viewport.lowPrice).toBe(before.lowPrice);
     });
 });
+
+describe('ChartController.refreshInstruments', () => {
+    it('picks up a contract that started recording after the page opened', async () => {
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        const known = controller.store.read().instruments;
+        mocks.fetchInstruments.mockResolvedValue([...known, {
+            instrumentSymbol: 'ETHUSDT',
+            priceBucketSize: 0.5,
+            frameIntervalMs: 1_000,
+            firstFrameAtMs: 1_000,
+            lastFrameAtMs: 2_000,
+        }]);
+
+        await controller.refreshInstruments();
+
+        expect(controller.store.read().instruments.map((i) => i.instrumentSymbol))
+            .toContain('ETHUSDT');
+    });
+
+    it('keeps the contracts it knows when the listing will not answer', async () => {
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        const before = controller.store.read().instruments;
+        mocks.fetchInstruments.mockRejectedValue(new Error('gateway unreachable'));
+
+        await controller.refreshInstruments();
+
+        // A failed refresh must not replace a working screen with an error.
+        expect(controller.store.read().instruments).toBe(before);
+    });
+});
