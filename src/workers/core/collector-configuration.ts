@@ -13,7 +13,6 @@ export interface CollectorConfiguration {
     readonly recordedPriceRangeRatio: number;
     readonly retainedPriceRangeRatio: number;
     readonly deepRepairIntervalMs: number;
-    readonly databaseUrl: string;
 }
 
 /**
@@ -24,28 +23,6 @@ export interface CollectorConfiguration {
  *         one is absent from the positive reals, or the retained price range is
  *         not wider than the recorded one.
  */
-export function readCollectorConfiguration(): CollectorConfiguration {
-    const recordedPriceRangeRatio = readPositiveNumber('RECORDED_PRICE_RANGE_RATIO', 0.02);
-    const retainedPriceRangeRatio = readPositiveNumber('RETAINED_PRICE_RANGE_RATIO', 0.10);
-
-    if (retainedPriceRangeRatio < recordedPriceRangeRatio) {
-        throw new ConfigurationError(
-            'RETAINED_PRICE_RANGE_RATIO must be at least RECORDED_PRICE_RANGE_RATIO, '
-            + 'otherwise the book is pruned inside the range being recorded',
-        );
-    }
-
-    return {
-        instrumentSymbol: (process.env['INSTRUMENT_SYMBOL'] ?? 'BTCUSDT').toUpperCase(),
-        priceBucketSize: readPositiveNumber('PRICE_BUCKET_SIZE', 10),
-        frameIntervalMs: readPositiveNumber('FRAME_INTERVAL_MS', 1_000),
-        recordedPriceRangeRatio,
-        retainedPriceRangeRatio,
-        deepRepairIntervalMs: readPositiveNumber('DEEP_REPAIR_INTERVAL_MS', 300_000),
-        databaseUrl: readRequiredText('DATABASE_URL'),
-    };
-}
-
 export const BINANCE_ENDPOINTS = {
     restApiBaseUrl: 'https://fapi.binance.com',
     webSocketBaseUrl: 'wss://fstream.binance.com',
@@ -78,22 +55,10 @@ export const WRITE_SETTINGS = {
     maximumBufferedTradeClusters: 20_000,
 } as const;
 
-function readRequiredText(variableName: string): string {
-    const rawValue = process.env[variableName];
-    if (rawValue === undefined || rawValue.trim() === '') {
-        throw new ConfigurationError(`Missing required environment variable: ${variableName}`);
-    }
-    return rawValue.trim();
-}
-
-function readPositiveNumber(variableName: string, fallbackValue: number): number {
-    const rawValue = process.env[variableName];
-    if (rawValue === undefined || rawValue.trim() === '') {
-        return fallbackValue;
-    }
-    const parsedValue = Number(rawValue);
-    if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
-        throw new ConfigurationError(`Environment variable ${variableName} must be a positive number`);
-    }
-    return parsedValue;
-}
+/** Write pacing for a server, where a batch per flush amortises the round trip. */
+export const BROWSER_WRITE_SETTINGS = {
+    ...WRITE_SETTINGS,
+    // One frame per flush in a page: the archive is local, a batch buys nothing,
+    // and a visitor watching the chart should see the second they just lived.
+    framesPerFlush: 1,
+} as const;

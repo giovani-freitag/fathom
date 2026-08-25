@@ -3,16 +3,18 @@ import { LiquidityArchiveService } from '../database/services/liquidity-archive-
 import { PostgresService } from '../database/postgres/postgres-service.ts';
 import { WRITE_SETTINGS } from './core/collector-configuration.ts';
 import { openNodeMarketDataSocket } from './transport/node-market-data-socket.ts';
-import { readCollectorConfiguration } from './core/collector-configuration.ts';
-import { describeError, logWarning } from './core/collector-log.ts';
+import { readCollectorConfiguration, readDatabaseUrl } from './collector-environment.ts';
+import { createNodeCollectorLog } from './transport/node-collector-log.ts';
+import { describeError } from './core/collector-log.ts';
 
 /** Connections the collector opens: one writer plus headroom for a retry. */
 const DATABASE_POOL_SIZE = 4;
 const DATABASE_STATEMENT_TIMEOUT_MS = 30_000;
 
+const log = createNodeCollectorLog();
 const configuration = readCollectorConfiguration();
 const postgres = new PostgresService({
-    connectionString: configuration.databaseUrl,
+    connectionString: readDatabaseUrl(),
     maximumPoolSize: DATABASE_POOL_SIZE,
     statementTimeoutMs: DATABASE_STATEMENT_TIMEOUT_MS,
 });
@@ -22,10 +24,11 @@ const runtime = new CollectorRuntime({
     openSocket: openNodeMarketDataSocket,
     archive: new LiquidityArchiveService({ postgres }),
     framesPerFlush: WRITE_SETTINGS.framesPerFlush,
+    log,
 });
 
 async function shutDown(signalName: string): Promise<void> {
-    logWarning(`Received ${signalName}, flushing before exit`);
+    log.warning(`Received ${signalName}, flushing before exit`);
     await runtime.stop();
     process.exit(0);
 }
@@ -39,6 +42,6 @@ process.on('SIGTERM', () => void shutDown('SIGTERM'));
 try {
     await runtime.start();
 } catch (error) {
-    logWarning(`Could not start: ${describeError(error)}`);
+    log.warning(`Could not start: ${describeError(error)}`);
     process.exit(1);
 }

@@ -5,7 +5,7 @@ import {
     RESILIENCE_SETTINGS,
     WRITE_SETTINGS,
 } from './core/collector-configuration.ts';
-import { logInfo, logWarning } from './core/collector-log.ts';
+import type { CollectorLog } from './core/collector-log.ts';
 import type { MarketDataSocketFactory } from './core/market-data-socket.ts';
 import { BinanceDepthFeedService } from './services/binance-depth-feed-service.ts';
 import type { DepthDiff, DepthSnapshot, ExecutedTrade } from './core/depth-types.ts';
@@ -33,11 +33,14 @@ export interface CollectorRuntimeConfig {
     readonly archive: LiquidityArchive;
     /** How many frames queue before a flush; one in a page, a batch on a server. */
     readonly framesPerFlush: number;
+    /** Where the runtime narrates itself; streams on a server, messages in a page. */
+    readonly log: CollectorLog;
 }
 
 export class CollectorRuntime {
     private readonly configuration: CollectorConfiguration;
     private readonly archive: LiquidityArchive;
+    private readonly log: CollectorLog;
     private readonly feed: BinanceDepthFeedService;
     private readonly orderBook: OrderBookService;
     private readonly recorder: LiquidityRecorderService;
@@ -55,6 +58,7 @@ export class CollectorRuntime {
         this.fetchDepthSnapshot = this.fetchDepthSnapshot.bind(this);
 
         this.archive = config.archive;
+        this.log = config.log;
 
         this.feed = new BinanceDepthFeedService({
             instrumentSymbol: configuration.instrumentSymbol,
@@ -110,7 +114,7 @@ export class CollectorRuntime {
         this.feed.connect();
 
         const { instrumentSymbol, priceBucketSize, frameIntervalMs } = this.configuration;
-        logInfo(`Recording ${instrumentSymbol} at ${frameIntervalMs}ms x ${priceBucketSize} quote units`);
+        this.log.info(`Recording ${instrumentSymbol} at ${frameIntervalMs}ms x ${priceBucketSize} quote units`);
     }
 
     /**
@@ -121,7 +125,7 @@ export class CollectorRuntime {
         this.orderBook.stop();
         await this.recorder.stop();
         await this.archive.close();
-        logInfo('Collector stopped');
+        this.log.info('Collector stopped');
     }
 
     private fetchDepthSnapshot(): Promise<DepthSnapshot> {
@@ -137,24 +141,24 @@ export class CollectorRuntime {
     }
 
     private handleFeedConnected(): void {
-        logInfo('Market data stream connected');
+        this.log.info('Market data stream connected');
     }
 
     private handleFeedDisconnected(reason: string): void {
-        logWarning(`Market data stream lost: ${reason}`);
+        this.log.warning(`Market data stream lost: ${reason}`);
         this.orderBook.invalidate(reason);
     }
 
     private handleBookDesynchronized(reason: string): void {
-        logWarning(`Order book desynchronized: ${reason}`);
+        this.log.warning(`Order book desynchronized: ${reason}`);
         this.recorder.noteInterruption(reason);
     }
 
     private handleBookSynchronized(): void {
-        logInfo(`Order book synchronized with ${this.orderBook.levelCount} resting levels`);
+        this.log.info(`Order book synchronized with ${this.orderBook.levelCount} resting levels`);
     }
 
     private handleRecorderStatus(status: string): void {
-        logWarning(status);
+        this.log.warning(status);
     }
 }

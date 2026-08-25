@@ -1,19 +1,16 @@
-/**
- * Writes an operational line to standard output.
- *
- * @param message - What happened, in one line.
- */
-export function logInfo(message: string): void {
-    process.stdout.write(`${new Date().toISOString()} INFO  ${message}\n`);
-}
+/** Severity a collector distinguishes: routine progress, or a degraded recording. */
+export type CollectorLogLevel = 'info' | 'warning';
 
 /**
- * Writes a line about something that degraded the recording.
+ * Where a collector says what it is doing.
  *
- * @param message - What went wrong, in one line.
+ * A port rather than a pair of functions because the destination is a property
+ * of the registration, not of the collector: a process writes to its own
+ * standard streams, and a Web Worker has none and must post to the page.
  */
-export function logWarning(message: string): void {
-    process.stderr.write(`${new Date().toISOString()} WARN  ${message}\n`);
+export interface CollectorLog {
+    info(message: string): void;
+    warning(message: string): void;
 }
 
 /**
@@ -24,4 +21,16 @@ export function logWarning(message: string): void {
  */
 export function describeError(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Formats one log line, so both registrations read the same in a transcript.
+ *
+ * @param level - Which stream the line belongs to.
+ * @param message - What happened, in one line.
+ * @returns The line, without a trailing newline.
+ */
+export function formatLogLine(level: CollectorLogLevel, message: string): string {
+    const label = level === 'info' ? 'INFO ' : 'WARN ';
+    return `${new Date().toISOString()} ${label} ${message}`;
 }
