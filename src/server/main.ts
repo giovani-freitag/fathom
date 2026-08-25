@@ -1,5 +1,5 @@
 import { LiquidityQueryService } from '../database/services/liquidity-query-service.ts';
-import { PostgresService } from '../database/core/postgres-service.ts';
+import { PostgresService } from '../database/postgres/postgres-service.ts';
 import {
     LIVE_TAIL_SETTINGS,
     readGatewayConfiguration,

@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { PostgresService } from '../../src/database/core/postgres-service.ts';
+import type { PostgresService } from '../../src/database/postgres/postgres-service.ts';
 
 export interface PostgresServiceMock {
     readonly service: PostgresService;

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     buildValuesClause,
     chunkItems,
-} from '../../../src/database/core/multi-row-insert.ts';
+} from '../../../src/database/postgres/multi-row-insert.ts';
 
 describe('buildValuesClause', () => {
     it('numbers placeholders continuously across rows', () => {

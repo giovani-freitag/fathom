@@ -9,7 +9,7 @@ import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import websocket from '@fastify/websocket';
 import { API_ROUTES } from '../../shared/core/api-contract.ts';
 import type { LiquidityQueryService } from '../../database/services/liquidity-query-service.ts';
-import type { PostgresService } from '../../database/core/postgres-service.ts';
+import type { PostgresService } from '../../database/postgres/postgres-service.ts';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';

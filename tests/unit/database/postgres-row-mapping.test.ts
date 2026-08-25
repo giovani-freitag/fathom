@@ -3,7 +3,7 @@ import {
     parseQuantityLiteral,
     toDepthLadder,
     toQuantityArray,
-} from '../../../src/database/core/postgres-row-mapping.ts';
+} from '../../../src/database/postgres/postgres-row-mapping.ts';
 
 describe('toQuantityArray', () => {
     it('converts a parsed numeric array', () => {

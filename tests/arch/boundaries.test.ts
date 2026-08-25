@@ -17,13 +17,22 @@ const REACHABLE: Record<string, readonly string[]> = {
     'src/database': ['src/database', 'src/shared'],
     'src/server': ['src/server', 'src/database', 'src/shared'],
     'src/workers': ['src/workers', 'src/database', 'src/shared'],
-    'src/app': ['src/app', 'src/shared'],
+    // The browser archive is persistence like any other, so the app reaches it
+    // the way the server reaches Postgres. The engines are kept apart below,
+    // which is what stops a driver meant for one from reaching the other.
+    'src/app': ['src/app', 'src/database/browser', 'src/shared'],
 };
 
-/** Packages that belong to exactly one runtime. */
+/**
+ * Packages that belong to exactly one place.
+ *
+ * Narrower than the runtime that uses them where a bundle is at stake: `pg`
+ * confined to the Postgres subtree and `ws` to one adapter is what lets the
+ * collector be registered as a Web Worker without dragging Node into the page.
+ */
 const CONFINED_PACKAGES: Record<string, string> = {
-    pg: 'src/database',
-    ws: 'src/workers',
+    pg: 'src/database/postgres',
+    ws: 'src/workers/transport/node-market-data-socket.ts',
     fastify: 'src/server',
     react: 'src/app',
     'react-dom': 'src/app',
@@ -100,7 +109,7 @@ describe('package confinement', () => {
                 .filter((path) => specifiersOf(path).some(
                     (specifier) => specifier === packageName || specifier.startsWith(`${packageName}/`),
                 ))
-                .filter((path) => !path.startsWith(`${runtime}/`));
+                .filter((path) => path !== runtime && !path.startsWith(`${runtime}/`));
 
             expect(strays).toEqual([]);
         });

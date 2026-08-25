@@ -1,8 +1,8 @@
 import type { LiquidityFrame } from '../../shared/core/liquidity-frame.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
-import type { PostgresService } from '../core/postgres-service.ts';
-import { buildValuesClause, chunkItems } from '../core/multi-row-insert.ts';
+import type { PostgresService } from '../postgres/postgres-service.ts';
+import { buildValuesClause, chunkItems } from '../postgres/multi-row-insert.ts';
 
 const FRAME_COLUMN_COUNT = 9;
 const TRADE_CLUSTER_COLUMN_COUNT = 8;

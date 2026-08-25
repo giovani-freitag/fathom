@@ -1,5 +1,5 @@
 import { LiquidityArchiveService } from '../database/services/liquidity-archive-service.ts';
-import { PostgresService } from '../database/core/postgres-service.ts';
+import { PostgresService } from '../database/postgres/postgres-service.ts';
 import {
     BINANCE_ENDPOINTS,
     type CollectorConfiguration,

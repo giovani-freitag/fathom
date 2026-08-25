@@ -2,8 +2,8 @@ import type { InstrumentCoverage, TradeClusterQuery, WindowQuery } from '../../s
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeClusterWindow } from '../../shared/core/trade-cluster.ts';
-import { foldFramesIntoColumns, INSTANTS_PER_COLUMN } from '../core/frame-aggregation.ts';
-import type { PostgresService } from '../core/postgres-service.ts';
+import { foldFramesIntoColumns, INSTANTS_PER_COLUMN } from '../postgres/frame-aggregation.ts';
+import type { PostgresService } from '../postgres/postgres-service.ts';
 import {
     type InstrumentRow,
     type LiquidityFrameRow,
@@ -13,7 +13,7 @@ import {
     toRecordingGap,
     toTradeCluster,
     type TradeClusterRow,
-} from '../core/postgres-row-mapping.ts';
+} from '../postgres/postgres-row-mapping.ts';
 
 const MILLISECONDS_PER_SECOND = 1_000;
 const FRAME_COLUMNS = `

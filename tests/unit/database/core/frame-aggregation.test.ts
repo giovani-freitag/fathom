@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { foldFramesIntoColumns } from '../../../../src/database/core/frame-aggregation.ts';
+import { foldFramesIntoColumns } from '../../../../src/database/postgres/frame-aggregation.ts';
 import type { LiquidityFrame } from '../../../../src/shared/core/liquidity-frame.ts';
 
 function buildFrame(

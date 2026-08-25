@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import type { PostgresService } from '../../../database/core/postgres-service.ts';
+import type { PostgresService } from '../../../database/postgres/postgres-service.ts';
 
 export interface HealthHandlerConfig {
     readonly postgres: PostgresService;
