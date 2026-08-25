@@ -8,25 +8,23 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "dev": "vite",
     "collector": "node --env-file-if-exists=.env dist/workers/collector.js",
     "gateway": "node --env-file-if-exists=.env dist/server/main.js",
-    "dev": "vite",
     "build": "tsc --build && vite build",
-    "build:server": "tsc --build tsconfig.server.json",
-    "build:viewer": "vite build",
+    "build:node": "tsc --build",
+    "build:app": "vite build",
     "clean": "tsc --build --clean && rm -rf dist coverage",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p src/app/tsconfig.json --noEmit && tsc -p tests/tsconfig.json --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p src/app/tsconfig.json --noEmit && tsc -p tests/tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "verify": "npm run lint && npm run typecheck && npm test",
     "database:up": "docker compose up -d",
     "database:down": "docker compose down",
-    "database:logs": "docker compose logs -f timescaledb",
-    "verify": "npm run lint && npm run typecheck && npm test",
-    "build:node": "tsc --build",
-    "build:app": "vite build"
+    "database:logs": "docker compose logs -f timescaledb"
   },
   "dependencies": {
     "@fastify/compress": "^9.2.0",
