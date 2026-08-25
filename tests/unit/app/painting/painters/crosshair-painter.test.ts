@@ -104,7 +104,7 @@ describe('CrosshairPainter', () => {
         buildPainter().paint(aimAt(paint, MID_PRICE + 5, 1_500_400));
 
         const expected = new Intl.DateTimeFormat('en-US', {
-            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
         }).format(new Date(1_500_000));
         expect(readLabels(recording).some((label) => label.endsWith(expected))).toBe(true);
     });

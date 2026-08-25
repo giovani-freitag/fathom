@@ -1,6 +1,7 @@
 import type { ChartViewport } from '../core/chart-viewport.ts';
 import type { ViewportProjector } from '../core/viewport-projector.ts';
 import type { ChartDataset } from '../core/chart-dataset.ts';
+import type { Translate } from '../i18n/translator.ts';
 
 export interface PointerReadout {
     readonly x: number;
@@ -16,6 +17,8 @@ export interface RenderRequest {
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
     readonly pointer: PointerReadout | null;
+    /** The crosshair readout is the one place the canvas writes prose. */
+    readonly translate: Translate;
 }
 
 /**

@@ -34,6 +34,17 @@ decides what language a reader speaks. The English dictionary is the source of
 the key type, which makes a missing Portuguese phrase a compile error rather
 than a blank line on screen.
 
+Numbers and clocks follow the same switch. A thousands separator is read
+against the phrase beside it, so a price grouped by one language next to a size
+grouped by another reads as a decimal point in the wrong place. The clock is
+pinned to twenty-four hours in every language instead: a market chart reads its
+times against each other, and the axis truncates the clock by character count,
+which a trailing meridiem would carry into the label.
+
+Nothing a driver wrote reaches the screen. A caught failure is named — a saved
+setting that would not save says so in the reader's language, and the driver's
+own sentence goes to the console, where whoever can act on it is looking.
+
 ## Consequences
 
 Adding a language is one file and no component changes. Adding a colour to the

@@ -1,3 +1,4 @@
+import { buildTranslate } from '../../src/app/i18n/translator.ts';
 import type { ChartViewport } from '../../src/app/core/chart-viewport.ts';
 import { choosePriceTicks, chooseTimeTicks } from '../../src/app/painting/axis-ticks.ts';
 import { ViewportProjector } from '../../src/app/core/viewport-projector.ts';
@@ -130,6 +131,7 @@ export function buildPaintContext(
             isTradeOverlayVisible: true,
             isVolumeProfileVisible: options.isVolumeProfileVisible ?? false,
             pointer: options.pointer ?? null,
+            translate: buildTranslate('en'),
         },
         crosshairY: options.crosshairY ?? options.pointer?.y ?? null,
     };

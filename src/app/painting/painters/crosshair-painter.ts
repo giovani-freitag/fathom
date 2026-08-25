@@ -105,7 +105,7 @@ export class CrosshairPainter {
         ];
 
         if (!paint.layout.isCompact) {
-            lines.push(this.describeDistance(frame, bucketPrice));
+            lines.push(this.describeDistance(paint, frame, bucketPrice));
         }
         lines.push(...this.describeTrades(paint, price, timestampMs));
 
@@ -125,30 +125,40 @@ export class CrosshairPainter {
         const askQuantity = frame.asks.quantities[bucketIndex - frame.asks.lowestBucketIndex] ?? 0;
         const asset = resolveBaseAsset(paint.request.dataset.instrumentSymbol);
 
+        const translate = paint.request.translate;
+        const price = formatPrice(bucketPrice);
+
         if (bidQuantity > 0) {
             return {
-                label: `BID ${formatQuantity(bidQuantity)} ${asset} at ${formatPrice(bucketPrice)}`,
+                label: translate('readout.bid', { size: formatQuantity(bidQuantity), asset, price }),
                 colour: RENDER_PALETTE.bid,
             };
         }
         if (askQuantity > 0) {
             return {
-                label: `ASK ${formatQuantity(askQuantity)} ${asset} at ${formatPrice(bucketPrice)}`,
+                label: translate('readout.ask', { size: formatQuantity(askQuantity), asset, price }),
                 colour: RENDER_PALETTE.ask,
             };
         }
-        return { label: `nothing resting at ${formatPrice(bucketPrice)}`, colour: RENDER_PALETTE.inkMuted };
+        return { label: translate('readout.empty', { price }), colour: RENDER_PALETTE.inkMuted };
     }
 
     /**
      * How far the bucket sat from the middle of the book at that moment.
      */
-    private describeDistance(frame: LiquidityFrame, bucketPrice: number): ReadoutLine {
+    private describeDistance(
+        paint: PaintContext,
+        frame: LiquidityFrame,
+        bucketPrice: number,
+    ): ReadoutLine {
         const midPrice = (frame.bestBidPrice + frame.bestAskPrice) / 2;
         const delta = bucketPrice - midPrice;
 
         return {
-            label: `${formatSignedPrice(delta)} · ${formatSignedPercent(delta / midPrice)} from mid`,
+            label: paint.request.translate('readout.fromMid', {
+                delta: formatSignedPrice(delta),
+                percent: formatSignedPercent(delta / midPrice),
+            }),
             colour: RENDER_PALETTE.inkMuted,
         };
     }
@@ -166,16 +176,17 @@ export class CrosshairPainter {
             return [];
         }
 
+        const translate = paint.request.translate;
         const sides: string[] = [];
         if (cluster.buyQuantity > 0) {
-            sides.push(`buy ${formatQuantity(cluster.buyQuantity)}`);
+            sides.push(translate('readout.buy', { size: formatQuantity(cluster.buyQuantity) }));
         }
         if (cluster.sellQuantity > 0) {
-            sides.push(`sell ${formatQuantity(cluster.sellQuantity)}`);
+            sides.push(translate('readout.sell', { size: formatQuantity(cluster.sellQuantity) }));
         }
 
         const lines: ReadoutLine[] = [{
-            label: `traded ${sides.join(' · ')}`,
+            label: translate('readout.traded', { sides: sides.join(' · ') }),
             colour: cluster.buyQuantity >= cluster.sellQuantity
                 ? RENDER_PALETTE.bid
                 : RENDER_PALETTE.ask,
@@ -183,7 +194,10 @@ export class CrosshairPainter {
 
         if (!paint.layout.isCompact) {
             lines.push({
-                label: `${cluster.tradeCount}x · largest ${formatQuantity(cluster.largestTradeQuantity)}`,
+                label: translate('readout.tradeCount', {
+                    count: cluster.tradeCount,
+                    size: formatQuantity(cluster.largestTradeQuantity),
+                }),
                 colour: RENDER_PALETTE.inkMuted,
             });
         }

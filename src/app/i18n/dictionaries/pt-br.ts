@@ -24,6 +24,15 @@ export const PT_BR_DICTIONARY: Dictionary = {
 
     'legend.book': 'livro',
 
+    'readout.bid': 'COMPRA {size} {asset} em {price}',
+    'readout.ask': 'VENDA {size} {asset} em {price}',
+    'readout.empty': 'nada parado em {price}',
+    'readout.fromMid': '{delta} · {percent} do meio',
+    'readout.buy': 'compra {size}',
+    'readout.sell': 'venda {size}',
+    'readout.traded': 'negociado {sides}',
+    'readout.tradeCount': '{count}x · maior {size}',
+
     'span.label': 'Janela de tempo',
     'span.beyondCoverage': 'Ainda não há gravação suficiente',
 
@@ -74,6 +83,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'recording.usage': '{used} de {total}',
     'recording.contractsHelp': 'Desligar um contrato interrompe a gravação dele. Tudo o que ele já capturou permanece.',
     'recording.toggle': 'Gravar {symbol}',
+    'recording.saveFailed': 'Não foi possível salvar essa alteração.',
     'recording.ceiling': 'Teto de armazenamento',
     'recording.ceilingHelp': 'Ao atingir o teto, os dias mais antigos são descartados para abrir espaço para os mais novos.',
 

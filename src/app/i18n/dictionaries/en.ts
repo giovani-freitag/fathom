@@ -22,6 +22,15 @@ export const EN_DICTIONARY = {
 
     'legend.book': 'book',
 
+    'readout.bid': 'BID {size} {asset} at {price}',
+    'readout.ask': 'ASK {size} {asset} at {price}',
+    'readout.empty': 'nothing resting at {price}',
+    'readout.fromMid': '{delta} · {percent} from mid',
+    'readout.buy': 'buy {size}',
+    'readout.sell': 'sell {size}',
+    'readout.traded': 'traded {sides}',
+    'readout.tradeCount': '{count}x · largest {size}',
+
     'span.label': 'Time window',
     'span.beyondCoverage': 'Not enough recorded yet',
 
@@ -72,6 +81,7 @@ export const EN_DICTIONARY = {
     'recording.usage': '{used} of {total}',
     'recording.contractsHelp': 'Turning a contract off stops recording it. Everything it already captured stays.',
     'recording.toggle': 'Record {symbol}',
+    'recording.saveFailed': 'That change could not be saved.',
     'recording.ceiling': 'Storage ceiling',
     'recording.ceilingHelp': 'Once the ceiling is reached, the oldest days are dropped to make room for the newest.',
 

@@ -2,6 +2,7 @@ import { ChartGestureController } from '../core/chart-gesture-controller.ts';
 import { resolveChartLayout } from '../painting/chart-layout.ts';
 import { HeatmapRenderer, type PointerReadout } from '../painting/heatmap-renderer.ts';
 import { type RefObject, useCallback, useEffect, useRef } from 'react';
+import { buildTranslate } from '../i18n/translator.ts';
 import { useKernel } from './kernel-context.ts';
 import { useElementSize } from './use-element-size.ts';
 
@@ -45,6 +46,7 @@ export function useChartSurface(): ChartSurfaceHandles {
             isTradeOverlayVisible: state.isTradeOverlayVisible,
             isVolumeProfileVisible: state.isVolumeProfileVisible,
             pointer: pointerRef.current,
+            translate: buildTranslate(kernel.appearance.store.read().locale),
         });
     }, [kernel]);
 

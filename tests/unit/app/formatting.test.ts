@@ -1,11 +1,14 @@
 import {
+    applyFormattingLocale,
     formatAxisTime,
+    formatClockTime,
     formatDuration,
+    formatFixed,
     formatPrice,
     formatQuantity,
     resolveBaseAsset,
 } from '../../../src/app/core/formatting.ts';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 const ONE_HOUR_MS = 60 * 60 * 1_000;
 const ONE_DAY_MS = 24 * ONE_HOUR_MS;
@@ -94,5 +97,51 @@ describe('resolveBaseAsset', () => {
 
     it('leaves an unrecognised symbol alone', () => {
         expect(resolveBaseAsset('XBTZ26')).toBe('XBTZ26');
+    });
+});
+
+describe('applyFormattingLocale', () => {
+    afterEach(() => { applyFormattingLocale('en'); });
+
+    it('separates thousands the way the reader s language does', () => {
+        applyFormattingLocale('pt-BR');
+
+        expect(formatPrice(79_150.5)).toBe('79.150,5');
+    });
+
+    it('keeps sizes on the same separators as the prices beside them', () => {
+        applyFormattingLocale('pt-BR');
+
+        expect(formatQuantity(9.435)).toBe('9,435');
+    });
+
+    it('reads the clock in twenty-four hours in every language', () => {
+        const afternoon = Date.UTC(2026, 0, 1, 15, 4, 5);
+
+        applyFormattingLocale('en');
+        const english = formatClockTime(afternoon);
+        applyFormattingLocale('pt-BR');
+        const portuguese = formatClockTime(afternoon);
+
+        expect(english).not.toMatch(/[AP]M/i);
+        expect(english).toBe(portuguese);
+    });
+});
+
+describe('formatFixed', () => {
+    afterEach(() => { applyFormattingLocale('en'); });
+
+    it('pads to the digits asked for', () => {
+        expect(formatFixed(1, 1)).toBe('1.0');
+    });
+
+    it('follows the language, so a slider never disagrees with the chart', () => {
+        applyFormattingLocale('pt-BR');
+
+        expect(formatFixed(99.5, 1)).toBe('99,5');
+    });
+
+    it('groups thousands in a count', () => {
+        expect(formatFixed(1_483, 0)).toBe('1,483');
     });
 });

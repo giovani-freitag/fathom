@@ -22,7 +22,6 @@ export interface DemoShellProps {
  */
 export function DemoShell({ factory, storage, appearanceHost, build }: DemoShellProps): ReactElement {
     const [state, setState] = useState<CollectorState>('starting');
-    const [detail, setDetail] = useState<string | null>(null);
     const [wasHidden, setWasHidden] = useState(false);
     const [hasFirstFrame, setHasFirstFrame] = useState(false);
     // Built once, lazily, so the collector's handle survives a re-render and
@@ -36,7 +35,6 @@ export function DemoShell({ factory, storage, appearanceHost, build }: DemoShell
                 return;
             }
             setState(event.state);
-            setDetail(event.detail ?? null);
         },
     }));
 
@@ -63,7 +61,9 @@ export function DemoShell({ factory, storage, appearanceHost, build }: DemoShell
                     return;
                 }
                 setState('refused');
-                setDetail(error instanceof Error ? error.message : String(error));
+                // Kept off the screen: whoever can act on the wording of a
+                // storage fault is reading a console, not a chart.
+                console.error(error);
             },
         );
 
@@ -107,7 +107,7 @@ export function DemoShell({ factory, storage, appearanceHost, build }: DemoShell
     }, []);
 
     if (state === 'refused') {
-        return <RefusalNotice detail={detail} translate={translate} />;
+        return <RefusalNotice translate={translate} />;
     }
     if (!hasFirstFrame) {
         return <PreRollNotice translate={translate} />;
@@ -172,10 +172,7 @@ function resolveBannerMessage(
     return null;
 }
 
-function RefusalNotice({ detail, translate }: {
-    readonly detail: string | null;
-    readonly translate: Translate;
-}): ReactElement {
+function RefusalNotice({ translate }: { readonly translate: Translate }): ReactElement {
     return (
         <div className="flex size-full items-center justify-center bg-abyss-950 p-8">
             <div className="max-w-md space-y-3 text-center">
@@ -185,9 +182,6 @@ function RefusalNotice({ detail, translate }: {
                 <p className="text-xs leading-relaxed text-ink-400">
                     {translate('demo.refusedBody')}
                 </p>
-                {detail === null ? null : (
-                    <p className="numeric text-[11px] text-ink-600">{detail}</p>
-                )}
             </div>
         </div>
     );

@@ -1,56 +1,87 @@
-const priceFormatter = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-});
+import type { Locale } from '../i18n/locale.ts';
 
-const compactFormatter = new Intl.NumberFormat('en-US', {
-    notation: 'compact',
-    maximumFractionDigits: 1,
-});
+/** The tag each supported language formats numbers and dates under. */
+const FORMATTING_TAGS: Record<Locale, string> = {
+    'en': 'en-US',
+    'pt-BR': 'pt-BR',
+};
 
-const quantityFormatter = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-});
+interface Formatters {
+    readonly price: Intl.NumberFormat;
+    readonly compact: Intl.NumberFormat;
+    readonly quantity: Intl.NumberFormat;
+    readonly preciseQuantity: Intl.NumberFormat;
+    readonly axisTag: Intl.NumberFormat;
+    readonly clock: Intl.DateTimeFormat;
+    readonly day: Intl.DateTimeFormat;
+    readonly calendar: Intl.DateTimeFormat;
+    readonly signedPrice: Intl.NumberFormat;
+    readonly signedPercent: Intl.NumberFormat;
+}
 
-const preciseQuantityFormatter = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 3,
-    maximumFractionDigits: 3,
-});
+function buildFormatters(tag: string): Formatters {
+    return {
+        price: new Intl.NumberFormat(tag, { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
+        compact: new Intl.NumberFormat(tag, { notation: 'compact', maximumFractionDigits: 1 }),
+        quantity: new Intl.NumberFormat(tag, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+        preciseQuantity: new Intl.NumberFormat(tag, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
+        axisTag: new Intl.NumberFormat(tag, { minimumFractionDigits: 0, maximumFractionDigits: 1 }),
+        // Pinned to twenty-four hours in every language: a market chart reads
+        // times against each other, and the axis truncates the clock by
+        // character count, which a trailing AM would carry into the label.
+        clock: new Intl.DateTimeFormat(tag, {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+        }),
+        day: new Intl.DateTimeFormat(tag, { day: '2-digit', month: 'short' }),
+        calendar: new Intl.DateTimeFormat(tag, { day: '2-digit', month: 'short', year: 'numeric' }),
+        signedPrice: new Intl.NumberFormat(tag, { signDisplay: 'exceptZero', maximumFractionDigits: 0 }),
+        signedPercent: new Intl.NumberFormat(tag, {
+            style: 'percent',
+            signDisplay: 'exceptZero',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }),
+    };
+}
 
-const axisTagFormatter = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 1,
-});
+let formatters = buildFormatters(FORMATTING_TAGS.en);
 
-const clockFormatter = new Intl.DateTimeFormat('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-});
+/** Built on demand, because the digit counts callers ask for are open-ended. */
+const fixedFormatters = new Map<number, Intl.NumberFormat>();
+let formattingTag = FORMATTING_TAGS.en;
 
-const dayFormatter = new Intl.DateTimeFormat('en-US', {
-    day: '2-digit',
-    month: 'short',
-});
+/**
+ * Re-points every number and date on screen at a language.
+ *
+ * @param locale - The language the interface is being read in.
+ */
+export function applyFormattingLocale(locale: Locale): void {
+    formattingTag = FORMATTING_TAGS[locale];
+    formatters = buildFormatters(formattingTag);
+    fixedFormatters.clear();
+}
 
-const calendarFormatter = new Intl.DateTimeFormat('en-US', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-});
-
-const signedPriceFormatter = new Intl.NumberFormat('en-US', {
-    signDisplay: 'exceptZero',
-    maximumFractionDigits: 0,
-});
-
-const signedPercentFormatter = new Intl.NumberFormat('en-US', {
-    style: 'percent',
-    signDisplay: 'exceptZero',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-});
+/**
+ * Renders a number to a fixed number of decimals, in the reader's language.
+ *
+ * @param value - The number to render.
+ * @param fractionDigits - How many decimals to show, padded when short.
+ * @returns The formatted number.
+ */
+export function formatFixed(value: number, fractionDigits: number): string {
+    let formatter = fixedFormatters.get(fractionDigits);
+    if (formatter === undefined) {
+        formatter = new Intl.NumberFormat(formattingTag, {
+            minimumFractionDigits: fractionDigits,
+            maximumFractionDigits: fractionDigits,
+        });
+        fixedFormatters.set(fractionDigits, formatter);
+    }
+    return formatter.format(value);
+}
 
 /**
  * Renders a price for an axis label or readout.
@@ -59,7 +90,7 @@ const signedPercentFormatter = new Intl.NumberFormat('en-US', {
  * @returns The formatted price.
  */
 export function formatPrice(price: number): string {
-    return priceFormatter.format(price);
+    return formatters.price.format(price);
 }
 
 /**
@@ -71,7 +102,7 @@ export function formatPrice(price: number): string {
 export function formatAxisTagPrice(price: number): string {
     // One decimal, not two: the axis is only as wide as its widest label, and a
     // tag that overflows it is unreadable exactly when it matters most.
-    return axisTagFormatter.format(price);
+    return formatters.axisTag.format(price);
 }
 
 /**
@@ -84,11 +115,11 @@ export function formatQuantity(quantity: number): string {
     // Localised rather than fixed to a dot: the prices beside it separate
     // thousands with one, and `9.435` next to `80,750` reads as nine thousand.
     if (quantity >= 1_000) {
-        return compactFormatter.format(quantity);
+        return formatters.compact.format(quantity);
     }
     return quantity >= 10
-        ? quantityFormatter.format(quantity)
-        : preciseQuantityFormatter.format(quantity);
+        ? formatters.quantity.format(quantity)
+        : formatters.preciseQuantity.format(quantity);
 }
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1_000;
@@ -105,14 +136,14 @@ const ONE_HOUR_MS = 60 * 60 * 1_000;
 export function formatAxisTime(timestampMs: number, spanMs: number): string {
     const moment = new Date(timestampMs);
     if (spanMs > THREE_DAYS_MS) {
-        return dayFormatter.format(moment);
+        return formatters.day.format(moment);
     }
     // Across a window wide enough to cross midnight, a row of clock times gives
     // no way to tell which side of the wrap a wall was on.
     if (spanMs > SIX_HOURS_MS && isStartOfDay(moment)) {
-        return dayFormatter.format(moment);
+        return formatters.day.format(moment);
     }
-    return clockFormatter.format(moment).slice(0, spanMs > ONE_HOUR_MS ? 5 : 8);
+    return formatters.clock.format(moment).slice(0, spanMs > ONE_HOUR_MS ? 5 : 8);
 }
 
 function isStartOfDay(moment: Date): boolean {
@@ -126,7 +157,7 @@ function isStartOfDay(moment: Date): boolean {
  * @returns The formatted time of day.
  */
 export function formatClockTime(timestampMs: number): string {
-    return clockFormatter.format(new Date(timestampMs));
+    return formatters.clock.format(new Date(timestampMs));
 }
 
 /**
@@ -174,13 +205,13 @@ export function formatReadoutMoment(timestampMs: number): string {
     const moment = new Date(timestampMs);
     // Assembled from parts because the long form spells out separators that
     // cost half the width of the readout box.
-    const calendar = calendarFormatter
+    const calendar = formatters.calendar
         .formatToParts(moment)
         .filter((part) => part.type === 'day' || part.type === 'month' || part.type === 'year')
         .map((part) => part.value.replace('.', ''))
         .join(' ');
 
-    return `${calendar} · ${clockFormatter.format(moment)}`;
+    return `${calendar} · ${formatters.clock.format(moment)}`;
 }
 
 /**
@@ -190,7 +221,7 @@ export function formatReadoutMoment(timestampMs: number): string {
  * @returns The formatted difference, always carrying a sign.
  */
 export function formatSignedPrice(deltaPrice: number): string {
-    return signedPriceFormatter.format(deltaPrice);
+    return formatters.signedPrice.format(deltaPrice);
 }
 
 /**
@@ -200,5 +231,5 @@ export function formatSignedPrice(deltaPrice: number): string {
  * @returns The formatted percentage, always carrying a sign.
  */
 export function formatSignedPercent(ratio: number): string {
-    return signedPercentFormatter.format(ratio);
+    return formatters.signedPercent.format(ratio);
 }

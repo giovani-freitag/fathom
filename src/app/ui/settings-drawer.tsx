@@ -1,6 +1,6 @@
 import type { ChartSettingsPatch, ChartState } from '../core/chart-controller.ts';
 import { DEPTH_CUT_RANGE } from '../core/chart-dataset.ts';
-import { formatDuration } from '../core/formatting.ts';
+import { formatDuration, formatFixed } from '../core/formatting.ts';
 import { resolveRecordedSpanMs } from '../core/viewport-policy.ts';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { Dialog, Slider, Switch } from 'radix-ui';
@@ -22,11 +22,8 @@ const COLOUR_GAIN_RANGE = { minimum: 0.4, maximum: 3, step: 0.05 } as const;
  */
 function formatCut(percentile: number): string {
     const percent = percentile * 100;
-    const text = Number.isInteger(percent)
-        ? String(percent)
-        : percent.toFixed(1);
 
-    return `${text}%`;
+    return `${formatFixed(percent, Number.isInteger(percent) ? 0 : 1)}%`;
 }
 
 interface SettingsDrawerProps {
@@ -97,7 +94,7 @@ export function SettingsDrawer({ state, onChange, recording, onContractsChanged 
                         <label className="block space-y-2">
                             <span className="flex items-baseline justify-between text-xs text-ink-300">
                                 {translate('settings.intensity')}
-                                <span className="numeric text-ink-500">{state.colourGain.toFixed(1)}×</span>
+                                <span className="numeric text-ink-500">{formatFixed(state.colourGain, 1)}×</span>
                             </span>
                             <Slider.Root
                                 value={[state.colourGain]}
@@ -212,9 +209,9 @@ export function SettingsDrawer({ state, onChange, recording, onContractsChanged 
                                 {translate('settings.perRow', { value: state.dataset.priceBucketSize })}
                             </dd>
                             <dt className="text-ink-500">{translate('settings.columnsLoaded')}</dt>
-                            <dd className="numeric text-right text-ink-300">{state.dataset.frames.length}</dd>
+                            <dd className="numeric text-right text-ink-300">{formatFixed(state.dataset.frames.length, 0)}</dd>
                             <dt className="text-ink-500">{translate('settings.gapsInWindow')}</dt>
-                            <dd className="numeric text-right text-ink-300">{state.dataset.gaps.length}</dd>
+                            <dd className="numeric text-right text-ink-300">{formatFixed(state.dataset.gaps.length, 0)}</dd>
                         </dl>
 
                         {recording === null ? null : (

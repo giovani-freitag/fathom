@@ -1,6 +1,7 @@
 import { type ReactElement, useCallback, useEffect, useState } from 'react';
 import type { RecordedContract, RecordingControl, StorageBudget } from '../../shared/core/recording-control.ts';
 import { Switch } from 'radix-ui';
+import { formatFixed } from '../core/formatting.ts';
 import type { Translate } from '../i18n/translator.ts';
 
 /** Ceilings offered when the host will not say how much room it has. */
@@ -28,7 +29,7 @@ interface PanelState {
  */
 export function RecordingPanel({ recording, onContractsChanged, translate }: RecordingPanelProps): ReactElement {
     const [state, setState] = useState<PanelState | null>(null);
-    const [failure, setFailure] = useState<string | null>(null);
+    const [hasFailed, setHasFailed] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
     const read = useCallback(async (): Promise<PanelState> => {
@@ -44,9 +45,11 @@ export function RecordingPanel({ recording, onContractsChanged, translate }: Rec
         try {
             await change;
             setState(await read());
-            setFailure(null);
-        } catch (error) {
-            setFailure(error instanceof Error ? error.message : String(error));
+            setHasFailed(false);
+        } catch {
+            // Quoting the driver would put a sentence written for whoever
+            // wrote it on a screen belonging to whoever is reading it.
+            setHasFailed(true);
         } finally {
             setIsSaving(false);
         }
@@ -115,8 +118,8 @@ export function RecordingPanel({ recording, onContractsChanged, translate }: Rec
                 {translate('recording.ceilingHelp')}
             </p>
 
-            {failure === null ? null : (
-                <p className="text-[11px] text-ask">{failure}</p>
+            {hasFailed && (
+                <p className="text-[11px] text-ask">{translate('recording.saveFailed')}</p>
             )}
         </div>
     );
@@ -172,5 +175,7 @@ function isChosen(offered: number, chosen: number): boolean {
 
 function formatGigabytes(bytes: number): string {
     const gigabytes = bytes / BYTES_PER_GIGABYTE;
-    return gigabytes < 0.1 ? `${Math.round(bytes / 1_048_576)} MB` : `${gigabytes.toFixed(1)} GB`;
+    return gigabytes < 0.1
+        ? `${formatFixed(bytes / 1_048_576, 0)} MB`
+        : `${formatFixed(gigabytes, 1)} GB`;
 }
