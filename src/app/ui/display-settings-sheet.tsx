@@ -58,8 +58,15 @@ export function DisplaySettingsSheet({ state, onChange, recording }: DisplaySett
 
             <Dialog.Portal>
                 <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px]" />
-                <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-lg rounded-t-2xl border border-hairline bg-abyss-850 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl shadow-black/80">
-                    <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
+                {/*
+                    A drawer against the right edge, on every size. It is capped
+                    to the viewport and scrolls inside: grown past it, the panel
+                    would carry its own title and close button off the screen. A
+                    strip of the chart stays visible beside it so the reader can
+                    see what the controls are changing.
+                */}
+                <Dialog.Content className="fixed inset-y-0 right-0 z-50 flex w-[26rem] max-w-[calc(100%-2.5rem)] flex-col border-l border-hairline bg-abyss-850 shadow-2xl shadow-black/80 duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right">
+                    <div className="flex shrink-0 items-center justify-between border-b border-hairline px-4 py-3">
                         <Dialog.Title className="text-sm font-semibold tracking-wide text-ink-100">
                             Display
                         </Dialog.Title>
@@ -74,7 +81,7 @@ export function DisplaySettingsSheet({ state, onChange, recording }: DisplaySett
                         </Dialog.Close>
                     </div>
 
-                    <div className="space-y-5 px-4 py-4">
+                    <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
                         <label className="block space-y-2">
                             <span className="flex items-baseline justify-between text-xs text-ink-300">
                                 Intensity

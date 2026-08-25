@@ -111,14 +111,14 @@ function BudgetChooser({ maximumBytes, isSaving, onChoose }: {
     return (
         <div className="space-y-1.5">
             <span className="text-xs text-ink-300">Disk ceiling</span>
-            <div className="flex gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
                 {BUDGET_CHOICES_GB.map((gigabytes) => (
                     <button
                         key={gigabytes}
                         type="button"
                         disabled={isSaving}
                         onClick={() => { onChoose(gigabytes * BYTES_PER_GIGABYTE); }}
-                        className={`numeric flex-1 rounded-md border px-2 py-1.5 text-[11px] disabled:opacity-50 ${
+                        className={`numeric whitespace-nowrap rounded-md border px-2 py-1.5 text-[11px] disabled:opacity-50 ${
                             gigabytes === chosenGb
                                 ? 'border-phosphor/60 bg-phosphor/12 text-phosphor'
                                 : 'border-hairline text-ink-400 hover:border-ink-700'
