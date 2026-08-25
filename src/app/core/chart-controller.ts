@@ -46,6 +46,7 @@ export interface ChartState {
     readonly depthFloorPercentile: number;
     /** Fraction of the window at which resting size reaches the hot end. */
     readonly depthSaturationPercentile: number;
+    readonly isCandleOverlayVisible: boolean;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
 }
@@ -71,6 +72,7 @@ export type ChartSettingsPatch = Partial<
         | 'colourGain'
         | 'depthFloorPercentile'
         | 'depthSaturationPercentile'
+        | 'isCandleOverlayVisible'
         | 'isTradeOverlayVisible'
         | 'isVolumeProfileVisible'
     >
@@ -379,6 +381,7 @@ export class ChartController {
             colourGain: state.colourGain,
             depthFloorPercentile: state.depthFloorPercentile,
             depthSaturationPercentile: state.depthSaturationPercentile,
+            isCandleOverlayVisible: state.isCandleOverlayVisible,
             isTradeOverlayVisible: state.isTradeOverlayVisible,
             isVolumeProfileVisible: state.isVolumeProfileVisible,
         });
@@ -424,6 +427,7 @@ function buildInitialState(preferences: ViewerPreferences): ChartState {
         colourGain: preferences.colourGain,
         depthFloorPercentile: preferences.depthFloorPercentile,
         depthSaturationPercentile: preferences.depthSaturationPercentile,
+        isCandleOverlayVisible: preferences.isCandleOverlayVisible,
         isTradeOverlayVisible: preferences.isTradeOverlayVisible,
         isVolumeProfileVisible: preferences.isVolumeProfileVisible,
     };

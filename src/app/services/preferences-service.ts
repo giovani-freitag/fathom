@@ -11,6 +11,7 @@ export interface ViewerPreferences {
     readonly colourGain: number;
     readonly depthFloorPercentile: number;
     readonly depthSaturationPercentile: number;
+    readonly isCandleOverlayVisible: boolean;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
 }
@@ -21,6 +22,7 @@ export const DEFAULT_PREFERENCES: ViewerPreferences = {
     colourGain: 1,
     depthFloorPercentile: DEFAULT_FLOOR_PERCENTILE,
     depthSaturationPercentile: DEFAULT_SATURATION_PERCENTILE,
+    isCandleOverlayVisible: true,
     isTradeOverlayVisible: true,
     isVolumeProfileVisible: true,
 };

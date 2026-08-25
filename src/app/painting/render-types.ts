@@ -12,6 +12,7 @@ export interface RenderRequest {
     readonly viewport: ChartViewport;
     readonly dataset: ChartDataset;
     readonly colourGain: number;
+    readonly isCandleOverlayVisible: boolean;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
     readonly pointer: PointerReadout | null;

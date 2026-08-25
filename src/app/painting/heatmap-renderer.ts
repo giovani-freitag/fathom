@@ -1,6 +1,7 @@
 import { choosePriceTicks, chooseTimeTicks } from './axis-ticks.ts';
 import { formatAxisTime } from '../core/formatting.ts';
 import { ViewportProjector } from '../core/viewport-projector.ts';
+import { CandlePainter } from './painters/candle-painter.ts';
 import { EMPTY_LAYOUT, resolveChartLayout } from './chart-layout.ts';
 import { DepthField } from './depth-field.ts';
 import { AxisPainter } from './painters/axis-painter.ts';
@@ -61,6 +62,7 @@ export class HeatmapRenderer {
     private readonly gapPainter = new GapPainter();
     private readonly gridPainter = new GridPainter();
     private readonly volumeProfilePainter = new VolumeProfilePainter();
+    private readonly candlePainter = new CandlePainter();
     private readonly tradePainter = new TradePainter();
     private readonly axisPainter = new AxisPainter();
     private readonly touchLinePainter: TouchLinePainter;
@@ -179,6 +181,9 @@ export class HeatmapRenderer {
         this.gridPainter.paint(paint);
         if (request.isVolumeProfileVisible) {
             this.volumeProfilePainter.paint(paint);
+        }
+        if (request.isCandleOverlayVisible) {
+            this.candlePainter.paint(paint);
         }
         if (request.isTradeOverlayVisible) {
             this.tradePainter.paint(paint);

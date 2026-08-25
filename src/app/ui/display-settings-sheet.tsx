@@ -157,6 +157,13 @@ export function DisplaySettingsSheet({ state, onChange }: DisplaySettingsSheetPr
                         </label>
 
                         <SettingToggle
+                            label="Candles"
+                            description="Abertura, máxima, mínima e fechamento do preço médio"
+                            isOn={state.isCandleOverlayVisible}
+                            onToggle={(isCandleOverlayVisible) => { onChange({ isCandleOverlayVisible }); }}
+                        />
+
+                        <SettingToggle
                             label="Agressões"
                             description="Bolhas de ordens executadas a mercado"
                             isOn={state.isTradeOverlayVisible}
