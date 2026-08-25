@@ -20,20 +20,20 @@ serviço do sistema: cada hora desligada vira um buraco permanente na base.
 
 ## Instalação
 
-Requer Node 22.12+, Docker e pnpm.
+Requer Node 22.12+ e Docker.
 
 ```bash
 cp .env.example .env          # defina POSTGRES_PASSWORD e o DATABASE_URL correspondente
-pnpm install
-pnpm database:up              # sobe o TimescaleDB e aplica o schema
-pnpm build                    # compila o servidor e empacota a interface
+npm install
+npm run database:up      # sobe o TimescaleDB e aplica o schema
+npm run build            # compila o servidor e empacota a interface
 ```
 
 Depois disso:
 
 ```bash
-pnpm collector                # começa a gravar
-pnpm gateway                  # serve a API e a interface em http://localhost:8787
+npm run collector        # começa a gravar
+npm run gateway          # serve a API e a interface em http://localhost:8787
 ```
 
 Para deixar rodando de verdade, veja [docs/operations.md](docs/operations.md) — há
@@ -135,9 +135,9 @@ Detalhes em [docs/architecture.md](docs/architecture.md) e
 ## Desenvolvimento
 
 ```bash
-pnpm verify        # lint + typecheck + testes
-pnpm test:watch
-pnpm dev           # dev server do Vite, com proxy para o gateway
+npm run verify       # lint + typecheck + testes
+npm run test:watch
+npm run dev          # dev server do Vite, com proxy para o gateway
 ```
 
 ## O que o sinal não mostra
