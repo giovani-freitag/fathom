@@ -134,8 +134,7 @@ export class LiquidityQueryService {
                    AND captured_at < column_start + make_interval(secs => $4)
                  ORDER BY captured_at ASC
                  LIMIT 1
-             ) frame
-             ORDER BY frame.captured_at ASC`,
+             ) frame`,
             [
                 query.symbol,
                 new Date(query.fromMs),
@@ -144,10 +143,17 @@ export class LiquidityQueryService {
             ],
         );
 
+        // Ordered here rather than in SQL: sorting there means an external merge
+        // over rows carrying two depth arrays each, which spills to disk long
+        // before the probes themselves cost anything.
+        const frames = rows
+            .map(toLiquidityFrame)
+            .sort((left, right) => left.capturedAtMs - right.capturedAtMs);
+
         return {
             priceBucketSize: grid.priceBucketSize,
             sampleIntervalMs,
-            frames: foldFramesIntoColumns(rows.map(toLiquidityFrame), sampleIntervalMs),
+            frames: foldFramesIntoColumns(frames, sampleIntervalMs),
         };
     }
 

@@ -1,4 +1,18 @@
+import { parseQuantityLiteral } from './postgres-row-mapping.ts';
 import pg from 'pg';
+
+/**
+ * Object identifier PostgreSQL uses for `real[]`.
+ *
+ * Cast because the driver's enum names only scalar types; the array identifiers
+ * it accepts at runtime were never added to it.
+ */
+const REAL_ARRAY_TYPE_OID = 1_021 as unknown as Parameters<typeof pg.types.setTypeParser>[0];
+
+// Registered once for the process: the driver's own array parser is the single
+// largest cost of reading a wide window, and every `real[]` this project selects
+// is a depth ladder that is about to become a typed array anyway.
+pg.types.setTypeParser(REAL_ARRAY_TYPE_OID, parseQuantityLiteral);
 
 export interface PostgresServiceConfig {
     readonly connectionString: string;
