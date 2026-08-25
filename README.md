@@ -20,7 +20,7 @@
   ·
   <img alt="TimescaleDB" src="https://img.shields.io/badge/TimescaleDB-hypertable-fdb515">
   ·
-  <img alt="Tests" src="https://img.shields.io/badge/tests-490-2bd4a8">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-500-2bd4a8">
 </p>
 
 <p align="center">
@@ -46,6 +46,7 @@ not recorded is gone. Fathom exists to be running before you need the data.
 - 🕳️ **Honest gaps** — stretches that were not recorded are drawn as holes, never smoothed
 - 📱 **Touch first** — one finger pans, two pinch both axes, the axes are scale handles
 - ⚡ **Live tail** — a WebSocket appends each new second without refetching the window
+- 🎛️ **Recording control** — pick which contracts record and cap the disk, from the chart itself
 - 🔌 **Venue-neutral core** — the exchange lives behind a driver; Binance USD-M is the first
 - 🌐 **Runs with no backend** — the same collector registers as a Web Worker and records into IndexedDB
 
