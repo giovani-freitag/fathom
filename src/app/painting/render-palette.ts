@@ -9,6 +9,9 @@ export const RENDER_PALETTE = {
     hairline: 'rgba(42, 61, 80, 0.55)',
     hairlineFaint: 'rgba(42, 61, 80, 0.28)',
     axisBackdrop: 'rgba(5, 8, 12, 0.82)',
+    /** Denser than the axis gutter: this one floats over lit depth. */
+    readoutBackdrop: 'rgba(6, 10, 15, 0.95)',
+    readoutShadow: 'rgba(0, 0, 0, 0.5)',
     inkPrimary: '#dce7f1',
     inkMuted: '#62778b',
     phosphor: '#35e0c4',
@@ -28,7 +31,7 @@ export const RENDER_METRICS = {
     priceAxisWidth: 72,
     priceAxisWidthCompact: 58,
     timeAxisHeight: 22,
-    profileWidth: 78,
+    profileWidth: 104,
     profileWidthCompact: 52,
     minimumBubbleRadius: 1.4,
     maximumBubbleRadius: 17,

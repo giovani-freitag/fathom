@@ -262,7 +262,36 @@ describe('CrosshairPainter', () => {
 
         buildPainter().paint({ ...aimed, request: { ...aimed.request, pointer } });
 
-        expect(Number(recording.callsTo('fillRect').at(-1)?.args[0])).toBeLessThan(pointer.x);
+        expect(Number(recording.callsTo('roundRect').at(-1)?.args[0])).toBeLessThan(pointer.x);
+    });
+
+    it('rounds the readout corners rather than cutting them square', () => {
+        const recording = createRecordingContext();
+        const paint = buildPaintContext(recording, {
+            dataset: { frames: [buildFrame()] },
+            pointer: { x: 300, y: 200 },
+        });
+
+        buildPainter().paint(aimAt(paint, MID_PRICE + 15, 1_500_000));
+
+        expect(recording.callsTo('roundRect').at(-1)?.args[4]).toBeGreaterThan(0);
+    });
+
+    it('keeps the text clear of the border on every side', () => {
+        const recording = createRecordingContext();
+        const paint = buildPaintContext(recording, {
+            dataset: { frames: [buildFrame()] },
+            pointer: { x: 300, y: 200 },
+        });
+
+        buildPainter().paint(aimAt(paint, MID_PRICE + 15, 1_500_000));
+
+        const box = recording.callsTo('roundRect').at(-1)!.args;
+        const firstLineY = Number(recording.callsTo('fillText').at(0)?.args[2]);
+        expect([
+            Number(recording.callsTo('fillText').at(0)?.args[1]) - Number(box[0]),
+            firstLineY - Number(box[1]),
+        ].every((gap) => gap >= 8)).toBe(true);
     });
 
     it('says so plainly where nothing is resting', () => {

@@ -12,7 +12,16 @@ import type { LiquidityFrame } from '../../../shared/core/liquidity-frame.ts';
 import type { PaintContext, PointerReadout } from '../render-types.ts';
 import type { AxisPainter } from './axis-painter.ts';
 
-const READOUT_LINE_HEIGHT = 15;
+const READOUT_LINE_HEIGHT = 17;
+
+/** Space between the text and the box edge, on each side. */
+const READOUT_PADDING_X = 11;
+const READOUT_PADDING_Y = 9;
+
+const READOUT_CORNER_RADIUS = 7;
+
+/** Gap between the cursor and the nearest corner of the box. */
+const READOUT_CURSOR_GAP = 14;
 
 interface ReadoutLine {
     readonly label: string;
@@ -203,22 +212,43 @@ export class CrosshairPainter {
 
         const { context, layout } = paint;
         const widest = Math.max(...lines.map((line) => context.measureText(line.label).width));
-        const boxWidth = widest + 12;
-        const boxHeight = lines.length * READOUT_LINE_HEIGHT + 6;
-        const preferredX = pointer.x + 12;
-        const boxX = preferredX + boxWidth > layout.plotWidth ? pointer.x - 12 - boxWidth : preferredX;
-        const boxY = Math.max(0, Math.min(pointer.y - boxHeight - 8, layout.plotHeight - boxHeight));
+        const boxWidth = widest + READOUT_PADDING_X * 2;
+        const boxHeight = lines.length * READOUT_LINE_HEIGHT + READOUT_PADDING_Y * 2;
+        const preferredX = pointer.x + READOUT_CURSOR_GAP;
+        const boxX = preferredX + boxWidth > layout.plotWidth
+            ? pointer.x - READOUT_CURSOR_GAP - boxWidth
+            : preferredX;
+        const boxY = Math.max(
+            0,
+            Math.min(pointer.y - boxHeight - READOUT_CURSOR_GAP, layout.plotHeight - boxHeight),
+        );
 
-        context.fillStyle = RENDER_PALETTE.axisBackdrop;
-        context.fillRect(boxX, boxY, boxWidth, boxHeight);
+        context.beginPath();
+        context.roundRect(boxX, boxY, boxWidth, boxHeight, READOUT_CORNER_RADIUS);
+
+        // The shadow lifts the box off the field; stroking under it would ring
+        // the border in a halo, so the outline goes on after the state is back.
+        context.save();
+        context.shadowColor = RENDER_PALETTE.readoutShadow;
+        context.shadowBlur = 14;
+        context.shadowOffsetY = 3;
+        context.fillStyle = RENDER_PALETTE.readoutBackdrop;
+        context.fill();
+        context.restore();
+
         context.strokeStyle = RENDER_PALETTE.hairline;
-        context.strokeRect(boxX + 0.5, boxY + 0.5, boxWidth - 1, boxHeight - 1);
+        context.lineWidth = 1;
+        context.stroke();
 
         context.textAlign = 'left';
         context.textBaseline = 'middle';
         for (const [index, line] of lines.entries()) {
             context.fillStyle = line.colour;
-            context.fillText(line.label, boxX + 6, boxY + 3 + READOUT_LINE_HEIGHT * (index + 0.5));
+            context.fillText(
+                line.label,
+                boxX + READOUT_PADDING_X,
+                boxY + READOUT_PADDING_Y + READOUT_LINE_HEIGHT * (index + 0.5),
+            );
         }
     }
 }

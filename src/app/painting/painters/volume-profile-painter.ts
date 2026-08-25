@@ -9,7 +9,33 @@ const LEGIBLE_ROW_HEIGHT_PX = 11;
 /** Panel width below which only one of the two columns fits. */
 const TWO_COLUMN_WIDTH_PX = 70;
 
+/** Share of the panel given to the resting column when both fit. */
+const RESTING_COLUMN_SHARE = 0.44;
+
+const HEADER_HEIGHT_PX = 16;
+
+/** Breathing room between a number and the panel edge. */
+const EDGE_PADDING_PX = 8;
+
+/** Breathing room between the two columns, which is what separates them. */
+const COLUMN_GAP_PX = 10;
+
 const ROW_FONT = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
+const HEADER_FONT = '9px ui-monospace, SFMono-Regular, Menlo, monospace';
+
+/**
+ * How the panel is divided for the current zoom.
+ *
+ * The panel earns a second column only once its rows can hold a digit, so this
+ * is recomputed per paint rather than fixed at layout time.
+ */
+interface ProfileColumns {
+    readonly hasNumbers: boolean;
+    readonly hasRestingColumn: boolean;
+    /** Where the resting column ends and the traded column begins. */
+    readonly splitX: number;
+    readonly rightEdge: number;
+}
 
 interface ProfileRow {
     readonly y: number;
@@ -54,9 +80,37 @@ export class VolumeProfilePainter {
         context.stroke();
 
         const profile = buildVolumeProfile(paint);
-        this.paintBars(paint, profile);
-        this.paintRowNumbers(paint, profile);
+        const columns = resolveProfileColumns(paint);
+        this.paintBars(paint, profile, columns);
+        this.paintRowNumbers(paint, profile, columns);
         this.paintPointOfControl(paint, profile);
+        this.paintHeader(paint, columns);
+    }
+
+    /**
+     * Names the columns once, quietly, at the top.
+     *
+     * Two bare numbers side by side are a riddle and two labelled ones are a
+     * reading. Set small and muted so it answers the first glance and then gets
+     * out of the way.
+     */
+    private paintHeader(paint: PaintContext, columns: ProfileColumns): void {
+        if (!columns.hasNumbers) {
+            return;
+        }
+
+        const { context } = paint;
+        const previousFont = context.font;
+        context.font = HEADER_FONT;
+        context.textBaseline = 'middle';
+        context.textAlign = 'right';
+        context.fillStyle = RENDER_PALETTE.inkMuted;
+
+        if (columns.hasRestingColumn) {
+            context.fillText('LIVRO', columns.splitX - COLUMN_GAP_PX, HEADER_HEIGHT_PX / 2);
+        }
+        context.fillText('NEGOC.', columns.rightEdge - EDGE_PADDING_PX, HEADER_HEIGHT_PX / 2);
+        context.font = previousFont;
     }
 
     /**
@@ -66,40 +120,51 @@ export class VolumeProfilePainter {
      * pass would stack overlapping numbers into a grey smear that hides the
      * bars underneath, so below that height the bars speak alone.
      */
-    private paintRowNumbers(paint: PaintContext, profile: VolumeProfile): void {
-        const { context, layout, projector, request } = paint;
-        const rowHeight = projector.bucketHeight(request.dataset.clusterPriceBucketSize);
-        if (rowHeight < LEGIBLE_ROW_HEIGHT_PX) {
+    private paintRowNumbers(
+        paint: PaintContext,
+        profile: VolumeProfile,
+        columns: ProfileColumns,
+    ): void {
+        if (!columns.hasNumbers) {
             return;
         }
 
-        const hasRoomForBoth = layout.profileWidth >= TWO_COLUMN_WIDTH_PX;
+        const { context } = paint;
         const previousFont = context.font;
         context.font = ROW_FONT;
         context.textBaseline = 'middle';
+        context.textAlign = 'right';
 
         for (const row of profile.rows) {
-            this.paintTradedNumber(paint, row);
-            if (hasRoomForBoth && row.restingQuantity > 0) {
-                context.textAlign = 'left';
+            if (row.y < HEADER_HEIGHT_PX) {
+                continue;
+            }
+            this.paintTradedNumber(paint, row, columns);
+            if (columns.hasRestingColumn && row.restingQuantity > 0) {
                 context.fillStyle = RENDER_PALETTE.inkMuted;
-                context.fillText(formatQuantity(row.restingQuantity), layout.profileX + 4, row.y);
+                context.fillText(
+                    formatQuantity(row.restingQuantity),
+                    columns.splitX - COLUMN_GAP_PX,
+                    row.y,
+                );
             }
         }
 
         context.font = previousFont;
     }
 
-    private paintTradedNumber(paint: PaintContext, row: ProfileRow): void {
-        const { context, layout } = paint;
+    private paintTradedNumber(
+        paint: PaintContext,
+        row: ProfileRow,
+        columns: ProfileColumns,
+    ): void {
         const traded = row.buyQuantity + row.sellQuantity;
         if (traded <= 0) {
             return;
         }
 
-        context.textAlign = 'right';
-        context.fillStyle = RENDER_PALETTE.inkPrimary;
-        context.fillText(formatQuantity(traded), layout.profileX + layout.profileWidth - 4, row.y);
+        paint.context.fillStyle = RENDER_PALETTE.inkPrimary;
+        paint.context.fillText(formatQuantity(traded), columns.rightEdge - EDGE_PADDING_PX, row.y);
     }
 
     /**
@@ -126,14 +191,22 @@ export class VolumeProfilePainter {
         context.stroke();
     }
 
-    private paintBars(paint: PaintContext, profile: VolumeProfile): void {
+    private paintBars(
+        paint: PaintContext,
+        profile: VolumeProfile,
+        columns: ProfileColumns,
+    ): void {
         if (profile.maximumVolume <= 0) {
             return;
         }
 
         const { context, layout, projector, request } = paint;
-        const maximumWidth = layout.profileWidth - 2;
-        const rightEdge = layout.profileX + layout.profileWidth;
+        const rightEdge = columns.rightEdge;
+        // Once the resting column exists the bars are confined to their own, so
+        // a long bar cannot run underneath a number that belongs to the other.
+        const maximumWidth = columns.hasRestingColumn
+            ? rightEdge - columns.splitX - EDGE_PADDING_PX
+            : layout.profileWidth - 2;
         const barHeight = Math.max(
             1,
             projector.bucketHeight(request.dataset.clusterPriceBucketSize) - 0.5,
@@ -216,4 +289,24 @@ function readRestingQuantity(paint: PaintContext, price: number): number {
     const bucketIndex = toPriceBucketIndex(price, dataset.priceBucketSize);
     return (frame.bids.quantities[bucketIndex - frame.bids.lowestBucketIndex] ?? 0)
         + (frame.asks.quantities[bucketIndex - frame.asks.lowestBucketIndex] ?? 0);
+}
+
+/**
+ * Decides how much of a table the panel can be at this zoom.
+ *
+ * @param paint - The shared paint context.
+ * @returns Where the columns sit and which of them are drawn.
+ */
+function resolveProfileColumns(paint: PaintContext): ProfileColumns {
+    const { layout, projector, request } = paint;
+    const rowHeight = projector.bucketHeight(request.dataset.clusterPriceBucketSize);
+    const hasNumbers = rowHeight >= LEGIBLE_ROW_HEIGHT_PX;
+    const hasRestingColumn = hasNumbers && layout.profileWidth >= TWO_COLUMN_WIDTH_PX;
+
+    return {
+        hasNumbers,
+        hasRestingColumn,
+        splitX: layout.profileX + Math.round(layout.profileWidth * RESTING_COLUMN_SHARE),
+        rightEdge: layout.profileX + layout.profileWidth,
+    };
 }

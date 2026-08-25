@@ -23,7 +23,7 @@ export interface RecordingContext {
 const RECORDED_METHODS = [
     'clearRect', 'fillRect', 'strokeRect', 'beginPath', 'moveTo', 'lineTo',
     'stroke', 'arc', 'fill', 'setLineDash', 'fillText', 'drawImage',
-    'putImageData', 'save', 'restore', 'closePath',
+    'putImageData', 'save', 'restore', 'closePath', 'roundRect',
 ] as const;
 
 /**
