@@ -11,6 +11,10 @@ export interface GatewayConfiguration {
     readonly port: number;
     readonly databaseUrl: string;
     readonly viewerDistPath: string;
+    /** Secret a shared link must carry; empty leaves every route open. */
+    readonly accessToken: string;
+    /** True when the gateway is reached through a public tunnel. */
+    readonly isTunnelled: boolean;
 }
 
 export const LIVE_TAIL_SETTINGS = {
@@ -41,6 +45,19 @@ export const QUERY_LIMITS = {
 } as const;
 
 /**
+ * Ceiling on how hard the archive can be asked to work.
+ *
+ * The collector writes to the same database, one row a second, and that row is
+ * the only thing here that cannot be rebuilt. A visitor hammering the widest
+ * depth query competes with it for the disk, so the cap protects the recording
+ * rather than the reader.
+ */
+export const REQUEST_BUDGET = {
+    maximumRequestsPerMinute: 240,
+    windowMs: 60_000,
+} as const;
+
+/**
  * Reads the gateway's configuration from the process environment.
  *
  * @returns A validated configuration.
@@ -62,5 +79,7 @@ export function readGatewayConfiguration(): GatewayConfiguration {
         port,
         databaseUrl: databaseUrl.trim(),
         viewerDistPath: process.env['VIEWER_DIST_PATH'] ?? 'dist/app',
+        accessToken: (process.env['FATHOM_ACCESS_TOKEN'] ?? '').trim(),
+        isTunnelled: process.env['FATHOM_TUNNELLED'] === 'true',
     };
 }

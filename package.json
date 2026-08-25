@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Order book depth sounding \u2014 records and renders resting liquidity as a Bookmap-style heatmap.",
+  "description": "Order book depth sounding — records and renders resting liquidity as a Bookmap-style heatmap.",
   "engines": {
     "node": ">=22.12.0"
   },
@@ -28,7 +28,9 @@
   },
   "dependencies": {
     "@fastify/compress": "^9.2.0",
+    "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.1.0",
+    "@fastify/rate-limit": "^11.2.0",
     "@fastify/static": "^10.1.3",
     "@fastify/swagger": "^9.8.1",
     "@fastify/swagger-ui": "^6.1.1",

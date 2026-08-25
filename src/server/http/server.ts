@@ -1,5 +1,7 @@
 import compress from '@fastify/compress';
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
@@ -11,6 +13,8 @@ import type { PostgresService } from '../../database/core/postgres-service.ts';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { AccessGuard } from '../services/access-guard.ts';
+import { REQUEST_BUDGET } from '../core/gateway-configuration.ts';
 import type { LiveTailService } from '../services/live-tail-service.ts';
 import { createGapsHandler } from './actions/gaps-action.ts';
 import { createHealthHandler } from './actions/health-action.ts';
@@ -32,6 +36,8 @@ export interface ServerConfig {
     readonly host: string;
     readonly port: number;
     readonly viewerDistPath: string;
+    readonly accessToken: string;
+    readonly isTunnelled: boolean;
     readonly postgres: PostgresService;
     readonly query: LiquidityQueryService;
     readonly liveTail: LiveTailService;
@@ -46,10 +52,15 @@ export interface ServerConfig {
  */
 export class Server {
     private readonly config: ServerConfig;
+    private readonly accessGuard: AccessGuard;
     private readonly app: FastifyInstance;
 
     constructor(config: ServerConfig) {
         this.config = config;
+        this.accessGuard = new AccessGuard({
+            accessToken: config.accessToken,
+            isTunnelled: config.isTunnelled,
+        });
         this.registerApiRoutes = this.registerApiRoutes.bind(this);
         this.app = this.setupServer();
         this.setupRoutes();
@@ -74,6 +85,15 @@ export class Server {
     }
 
     /**
+     * Whether a shared link is required to reach anything.
+     *
+     * @returns True when an access token is configured.
+     */
+    get isGuarded(): boolean {
+        return this.accessGuard.isEnabled;
+    }
+
+    /**
      * Closes the listening socket and every live tail.
      */
     async stop(): Promise<void> {
@@ -84,6 +104,12 @@ export class Server {
     private setupServer(): FastifyInstance {
         const app = Fastify({ logger: { level: 'warn' } }).withTypeProvider<TypeBoxTypeProvider>();
 
+        void app.register(cookie);
+        void app.register(rateLimit, {
+            global: true,
+            max: REQUEST_BUDGET.maximumRequestsPerMinute,
+            timeWindow: REQUEST_BUDGET.windowMs,
+        });
         void app.register(cors, { origin: true });
         // The frame window is served as octet-stream, which mime-db marks as
         // incompressible; without this the largest response on the API is the one
@@ -99,6 +125,10 @@ export class Server {
             },
         });
         void app.register(swaggerUi, { routePrefix: '/api/docs' });
+
+        // Registered on the root instance so it also covers the static assets
+        // and the websocket upgrade, not only the routes declared below.
+        app.addHook('onRequest', this.accessGuard.protect);
 
         this.registerViewerAssets(app);
         return app;
