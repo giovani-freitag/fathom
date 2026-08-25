@@ -16,11 +16,11 @@ const LIVE_TONES: Record<ChartState['liveStatus'], StatusTone> = {
 };
 
 const LIVE_LABELS: Record<ChartState['liveStatus'], string> = {
-    streaming: 'ao vivo',
-    connecting: 'conectando',
-    reconnecting: 'reconectando',
-    refused: 'recusado',
-    idle: 'parado',
+    streaming: 'live',
+    connecting: 'connecting',
+    reconnecting: 'reconnecting',
+    refused: 'refused',
+    idle: 'idle',
 };
 
 /**
@@ -38,17 +38,17 @@ export function CoverageStrip({ state }: CoverageStripProps): ReactElement {
             <span className="inline-flex items-center gap-1.5">
                 <StatusDot tone={state.isFollowingLive ? LIVE_TONES[state.liveStatus] : 'idle'} />
                 <span className={state.liveStatus === 'streaming' && state.isFollowingLive ? 'text-phosphor' : ''}>
-                    {state.isFollowingLive ? LIVE_LABELS[state.liveStatus] : 'histórico'}
+                    {state.isFollowingLive ? LIVE_LABELS[state.liveStatus] : 'history'}
                 </span>
             </span>
 
-            <span className="numeric" title="Largura de cada coluna do gráfico">
+            <span className="numeric" title="Width of each chart column">
                 {formatDuration(state.dataset.sampleIntervalMs)}/col
             </span>
 
             {visibleGapCount > 0 && (
-                <span className="numeric text-amber" title="Períodos sem gravação nesta janela">
-                    {visibleGapCount} {visibleGapCount === 1 ? 'lacuna' : 'lacunas'}
+                <span className="numeric text-amber" title="Stretches with no recording in this window">
+                    {visibleGapCount} {visibleGapCount === 1 ? 'gap' : 'gaps'}
                 </span>
             )}
 

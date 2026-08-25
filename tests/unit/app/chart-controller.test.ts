@@ -83,7 +83,7 @@ describe('ChartController.initialize', () => {
 
         await controller.initialize();
 
-        expect(controller.store.read().errorMessage).toBe('Não foi possível carregar a janela.');
+        expect(controller.store.read().errorMessage).toBe('Could not load the window.');
     });
 });
 

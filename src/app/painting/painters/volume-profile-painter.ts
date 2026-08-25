@@ -112,9 +112,9 @@ export class VolumeProfilePainter {
         context.fillStyle = RENDER_PALETTE.inkMuted;
 
         if (columns.hasRestingColumn) {
-            context.fillText('LIVRO', columns.splitX - COLUMN_GAP_PX, HEADER_HEIGHT_PX / 2);
+            context.fillText('BOOK', columns.splitX - COLUMN_GAP_PX, HEADER_HEIGHT_PX / 2);
         }
-        context.fillText('NEGOC.', columns.rightEdge - EDGE_PADDING_PX, HEADER_HEIGHT_PX / 2);
+        context.fillText('TRADED', columns.rightEdge - EDGE_PADDING_PX, HEADER_HEIGHT_PX / 2);
         context.font = previousFont;
     }
 

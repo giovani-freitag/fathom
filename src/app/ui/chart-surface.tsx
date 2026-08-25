@@ -15,7 +15,7 @@ export function ChartSurface(): ReactElement {
             ref={containerRef}
             className="chart-surface abyss-grain relative size-full cursor-crosshair overflow-hidden bg-abyss-950"
             role="img"
-            aria-label="Mapa de calor de liquidez do livro de ofertas"
+            aria-label="Order book liquidity heat map"
         >
             <canvas ref={depthCanvasRef} className="absolute inset-0" />
             <canvas ref={overlayCanvasRef} className="absolute inset-0" />

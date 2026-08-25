@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 describe('describeLoadFailure', () => {
     it('names the gateway when nothing answered at all', () => {
         expect(describeLoadFailure(new HeatmapApiError('Gateway unreachable', 0)))
-            .toContain('não respondeu');
+            .toContain('did not answer');
     });
 
     it('separates a gateway fault from a rejected query', () => {
@@ -17,7 +17,7 @@ describe('describeLoadFailure', () => {
 
     it('falls back to a general sentence for anything else', () => {
         expect(describeLoadFailure(new TypeError('undefined is not a function')))
-            .toBe('Não foi possível carregar a janela.');
+            .toBe('Could not load the window.');
     });
 
     it('never leaks the underlying message', () => {

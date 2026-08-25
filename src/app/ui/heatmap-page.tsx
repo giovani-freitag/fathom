@@ -80,13 +80,13 @@ export function HeatmapPage(): ReactElement {
                 {state.phase === 'initialising' && <SurfaceNotice message="Sondando o arquivo…" />}
                 {state.phase === 'empty' && (
                     <SurfaceNotice
-                        message="Nada gravado ainda. O coletor precisa estar rodando — o histórico do livro não é recuperável depois."
+                        message="Nothing recorded yet. The collector has to be running — book history cannot be backfilled."
                         tone="warning"
                     />
                 )}
                 {state.phase === 'failed' && (
                     <SurfaceNotice
-                        message={state.errorMessage ?? 'O gateway não respondeu.'}
+                        message={state.errorMessage ?? 'The gateway did not answer.'}
                         tone="warning"
                         onRetry={() => { void kernel.chart.initialize(); }}
                     />

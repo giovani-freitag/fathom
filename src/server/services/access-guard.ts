@@ -115,7 +115,7 @@ function readOfferedToken(request: FastifyRequest): string | null {
 }
 
 const REFUSAL_PAGE = `<!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -133,9 +133,9 @@ const REFUSAL_PAGE = `<!doctype html>
 <body>
 <main>
   <h1>Fathom</h1>
-  <p>Este gráfico precisa do link completo de acesso.</p>
+  <p>This chart needs the full access link.</p>
   <p><code>…/?token=…</code></p>
-  <p>Peça o link a quem te enviou.</p>
+  <p>Ask whoever sent it for the link.</p>
 </main>
 </body>
 </html>`;

@@ -51,7 +51,7 @@ export function DepthLegend({
     return (
         <div className="pointer-events-none flex select-none items-center gap-2 rounded-md border border-hairline bg-abyss-900/80 px-2 py-1.5 backdrop-blur-sm">
             <span className="text-[10px] font-semibold uppercase tracking-widest text-ink-500">
-                livro
+                book
             </span>
             <span className="numeric text-[10px] text-ink-500">
                 {formatQuantity(floorQuantity)}

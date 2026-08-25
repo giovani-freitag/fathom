@@ -26,7 +26,7 @@ function formatCut(percentile: number): string {
     const percent = percentile * 100;
     const text = Number.isInteger(percent)
         ? String(percent)
-        : percent.toFixed(1).replace('.', ',');
+        : percent.toFixed(1);
 
     return `${text}%`;
 }
@@ -47,7 +47,7 @@ export function DisplaySettingsSheet({ state, onChange }: DisplaySettingsSheetPr
     return (
         <Dialog.Root>
             <Dialog.Trigger asChild>
-                <ControlButton aria-label="Ajustes de exibição">
+                <ControlButton aria-label="Display settings">
                     <SlidersHorizontal className="size-4" />
                 </ControlButton>
             </Dialog.Trigger>
@@ -57,12 +57,12 @@ export function DisplaySettingsSheet({ state, onChange }: DisplaySettingsSheetPr
                 <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-lg rounded-t-2xl border border-hairline bg-abyss-850 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl shadow-black/80">
                     <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
                         <Dialog.Title className="text-sm font-semibold tracking-wide text-ink-100">
-                            Exibição
+                            Display
                         </Dialog.Title>
                         <Dialog.Close asChild>
                             <button
                                 type="button"
-                                aria-label="Fechar"
+                                aria-label="Close"
                                 className="inline-flex size-9 items-center justify-center rounded-md text-ink-500 hover:bg-abyss-700 hover:text-ink-100"
                             >
                                 <X className="size-4" />
@@ -88,7 +88,7 @@ export function DisplaySettingsSheet({ state, onChange }: DisplaySettingsSheetPr
                                     <Slider.Range className="absolute h-full rounded-full bg-phosphor" />
                                 </Slider.Track>
                                 <Slider.Thumb
-                                    aria-label="Intensidade das cores"
+                                    aria-label="Colour intensity"
                                     className="block size-5 rounded-full border-2 border-phosphor bg-abyss-900 outline-none focus-visible:ring-2 focus-visible:ring-phosphor/50"
                                 />
                             </Slider.Root>
@@ -102,8 +102,8 @@ export function DisplaySettingsSheet({ state, onChange }: DisplaySettingsSheetPr
                                 </span>
                             </span>
                             <span className="block text-[11px] leading-snug text-ink-600">
-                                Abaixo daqui o livro é pintado como vazio. Subir apaga a
-                                agitação de fundo e deixa a parede sozinha.
+                                Below this the book is painted as empty. Raising it mutes
+                                the background churn and leaves the wall alone.
                             </span>
                             <Slider.Root
                                 value={[state.depthFloorPercentile]}
@@ -119,7 +119,7 @@ export function DisplaySettingsSheet({ state, onChange }: DisplaySettingsSheetPr
                                     <Slider.Range className="absolute h-full rounded-full bg-phosphor" />
                                 </Slider.Track>
                                 <Slider.Thumb
-                                    aria-label="Corte inferior do mapa de cores"
+                                    aria-label="Colour map lower cut"
                                     className="block size-5 rounded-full border-2 border-phosphor bg-abyss-900 outline-none focus-visible:ring-2 focus-visible:ring-phosphor/50"
                                 />
                             </Slider.Root>
@@ -133,8 +133,8 @@ export function DisplaySettingsSheet({ state, onChange }: DisplaySettingsSheetPr
                                 </span>
                             </span>
                             <span className="block text-[11px] leading-snug text-ink-600">
-                                Onde a cor satura. Descer faz mais níveis chegarem ao topo
-                                da rampa; subir reserva o topo para as maiores ordens.
+                                Where colour saturates. Lowering it sends more levels to the
+                                hot end; raising it reserves that end for the largest orders.
                             </span>
                             <Slider.Root
                                 value={[state.depthSaturationPercentile]}
@@ -150,7 +150,7 @@ export function DisplaySettingsSheet({ state, onChange }: DisplaySettingsSheetPr
                                     <Slider.Range className="absolute h-full rounded-full bg-phosphor" />
                                 </Slider.Track>
                                 <Slider.Thumb
-                                    aria-label="Corte superior do mapa de cores"
+                                    aria-label="Colour map upper cut"
                                     className="block size-5 rounded-full border-2 border-phosphor bg-abyss-900 outline-none focus-visible:ring-2 focus-visible:ring-phosphor/50"
                                 />
                             </Slider.Root>
@@ -158,35 +158,35 @@ export function DisplaySettingsSheet({ state, onChange }: DisplaySettingsSheetPr
 
                         <SettingToggle
                             label="Candles"
-                            description="Abertura, máxima, mínima e fechamento do preço médio"
+                            description="Open, high, low and close of the mid price"
                             isOn={state.isCandleOverlayVisible}
                             onToggle={(isCandleOverlayVisible) => { onChange({ isCandleOverlayVisible }); }}
                         />
 
                         <SettingToggle
-                            label="Agressões"
-                            description="Bolhas de ordens executadas a mercado"
+                            label="Aggressors"
+                            description="Bubbles for orders that crossed the spread"
                             isOn={state.isTradeOverlayVisible}
                             onToggle={(isTradeOverlayVisible) => { onChange({ isTradeOverlayVisible }); }}
                         />
 
                         <SettingToggle
-                            label="Perfil de volume"
-                            description="Volume negociado por faixa de preço"
+                            label="Volume profile"
+                            description="Traded volume per price band"
                             isOn={state.isVolumeProfileVisible}
                             onToggle={(isVolumeProfileVisible) => { onChange({ isVolumeProfileVisible }); }}
                         />
 
                         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-hairline pt-4 text-[11px]">
-                            <dt className="text-ink-500">Gravado até agora</dt>
+                            <dt className="text-ink-500">Recorded so far</dt>
                             <dd className="numeric text-right text-ink-100">
                                 {formatDuration(resolveRecordedSpanMs(state.instruments, state.instrumentSymbol))}
                             </dd>
-                            <dt className="text-ink-500">Resolução</dt>
+                            <dt className="text-ink-500">Resolution</dt>
                             <dd className="numeric text-right text-ink-300">
                                 {formatDuration(state.dataset.sampleIntervalMs)} por coluna
                             </dd>
-                            <dt className="text-ink-500">Faixa de preço</dt>
+                            <dt className="text-ink-500">Price band</dt>
                             <dd className="numeric text-right text-ink-300">
                                 {state.dataset.priceBucketSize} por linha
                             </dd>
@@ -197,9 +197,9 @@ export function DisplaySettingsSheet({ state, onChange }: DisplaySettingsSheetPr
                         </dl>
 
                         <p className="text-[11px] leading-relaxed text-ink-500">
-                            Janelas maiores que o gravado ficam desabilitadas. Histórico de livro
-                            não é recuperável: o gráfico só cobre o tempo em que o coletor esteve
-                            rodando.
+                            Windows wider than the recording are disabled. Book history cannot
+                            be backfilled: the chart only covers the time the collector was
+                            running.
                         </p>
                     </div>
                 </Dialog.Content>

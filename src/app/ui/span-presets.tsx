@@ -29,7 +29,7 @@ export function SpanPresets({ activeSpanMs, recordedSpanMs, onSelect }: SpanPres
                         key={preset.label}
                         isActive={Math.abs(activeSpanMs - preset.spanMs) < preset.spanMs * 0.12}
                         disabled={isBeyondCoverage}
-                        title={isBeyondCoverage ? 'Ainda não há gravação suficiente' : undefined}
+                        title={isBeyondCoverage ? 'Not enough recorded yet' : undefined}
                         onClick={() => { onSelect(preset.spanMs); }}
                         className="shrink-0 px-3.5"
                     >

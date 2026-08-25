@@ -103,7 +103,7 @@ describe('CrosshairPainter', () => {
 
         buildPainter().paint(aimAt(paint, MID_PRICE + 5, 1_500_400));
 
-        const expected = new Intl.DateTimeFormat('pt-BR', {
+        const expected = new Intl.DateTimeFormat('en-US', {
             hour: '2-digit', minute: '2-digit', second: '2-digit',
         }).format(new Date(1_500_000));
         expect(readLabels(recording).some((label) => label.endsWith(expected))).toBe(true);
@@ -118,7 +118,7 @@ describe('CrosshairPainter', () => {
 
         buildPainter().paint(aimAt(paint, MID_PRICE + 15, 1_500_000));
 
-        expect(readLabels(recording).some((label) => label.startsWith('VENDA'))).toBe(true);
+        expect(readLabels(recording).some((label) => label.startsWith('ASK'))).toBe(true);
     });
 
     it('calls the other side a bid', () => {
@@ -130,7 +130,7 @@ describe('CrosshairPainter', () => {
 
         buildPainter().paint(aimAt(paint, MID_PRICE - 15, 1_500_000));
 
-        expect(readLabels(recording).some((label) => label.startsWith('COMPRA'))).toBe(true);
+        expect(readLabels(recording).some((label) => label.startsWith('BID'))).toBe(true);
     });
 
     it('spells the price the size is resting at', () => {
@@ -142,7 +142,7 @@ describe('CrosshairPainter', () => {
 
         buildPainter().paint(aimAt(paint, MID_PRICE + 5, 1_500_000));
 
-        expect(readLabels(recording).some((label) => label.includes('em 78.500'))).toBe(true);
+        expect(readLabels(recording).some((label) => label.includes('at 78,500'))).toBe(true);
     });
 
     it('measures how far the level sits from the middle of the book', () => {
@@ -154,7 +154,7 @@ describe('CrosshairPainter', () => {
 
         buildPainter().paint(aimAt(paint, MID_PRICE + 25, 1_500_000));
 
-        expect(readLabels(recording).some((label) => label.includes('do meio'))).toBe(true);
+        expect(readLabels(recording).some((label) => label.includes('from mid'))).toBe(true);
     });
 
     it('signs the distance so the direction is unmistakable', () => {
@@ -183,7 +183,7 @@ describe('CrosshairPainter', () => {
 
         buildPainter().paint(aimAt(paint, MID_PRICE + 5, 1_500_000));
 
-        expect(readLabels(recording).some((label) => label.startsWith('negoc.'))).toBe(true);
+        expect(readLabels(recording).some((label) => label.startsWith('traded'))).toBe(true);
     });
 
     it('splits what traded by which side crossed the spread', () => {
@@ -200,8 +200,8 @@ describe('CrosshairPainter', () => {
 
         buildPainter().paint(aimAt(paint, MID_PRICE + 5, 1_500_000));
 
-        const traded = readLabels(recording).find((label) => label.startsWith('negoc.'));
-        expect(traded).toContain('venda');
+        const traded = readLabels(recording).find((label) => label.startsWith('traded'));
+        expect(traded).toContain('sell');
     });
 
     it('names only the side that actually traded', () => {
@@ -218,8 +218,8 @@ describe('CrosshairPainter', () => {
 
         buildPainter().paint(aimAt(paint, MID_PRICE + 5, 1_500_000));
 
-        const traded = readLabels(recording).find((label) => label.startsWith('negoc.'));
-        expect(traded).not.toContain('venda');
+        const traded = readLabels(recording).find((label) => label.startsWith('traded'));
+        expect(traded).not.toContain('sell');
     });
 
     it('reports the biggest single trade, which a total hides', () => {
@@ -236,7 +236,7 @@ describe('CrosshairPainter', () => {
 
         buildPainter().paint(aimAt(paint, MID_PRICE + 5, 1_500_000));
 
-        expect(readLabels(recording).some((label) => label.includes('maior'))).toBe(true);
+        expect(readLabels(recording).some((label) => label.includes('largest'))).toBe(true);
     });
 
     it('omits the traded line where nothing traded', () => {
@@ -248,7 +248,7 @@ describe('CrosshairPainter', () => {
 
         buildPainter().paint(aimAt(paint, MID_PRICE + 5, 1_500_000));
 
-        expect(readLabels(recording).some((label) => label.startsWith('negoc.'))).toBe(false);
+        expect(readLabels(recording).some((label) => label.startsWith('traded'))).toBe(false);
     });
 
     it('flips the readout to the left of a cursor near the right edge', () => {
@@ -303,6 +303,6 @@ describe('CrosshairPainter', () => {
 
         buildPainter().paint(aimAt(paint, 78_000, 1_500_000));
 
-        expect(readLabels(recording).some((label) => label.startsWith('sem ordem'))).toBe(true);
+        expect(readLabels(recording).some((label) => label.startsWith('nothing resting'))).toBe(true);
     });
 });

@@ -132,17 +132,17 @@ export class CrosshairPainter {
 
         if (bidQuantity > 0) {
             return {
-                label: `COMPRA ${formatQuantity(bidQuantity)} ${asset} em ${formatPrice(bucketPrice)}`,
+                label: `BID ${formatQuantity(bidQuantity)} ${asset} at ${formatPrice(bucketPrice)}`,
                 colour: RENDER_PALETTE.bid,
             };
         }
         if (askQuantity > 0) {
             return {
-                label: `VENDA ${formatQuantity(askQuantity)} ${asset} em ${formatPrice(bucketPrice)}`,
+                label: `ASK ${formatQuantity(askQuantity)} ${asset} at ${formatPrice(bucketPrice)}`,
                 colour: RENDER_PALETTE.ask,
             };
         }
-        return { label: `sem ordem em ${formatPrice(bucketPrice)}`, colour: RENDER_PALETTE.inkMuted };
+        return { label: `nothing resting at ${formatPrice(bucketPrice)}`, colour: RENDER_PALETTE.inkMuted };
     }
 
     /**
@@ -156,7 +156,7 @@ export class CrosshairPainter {
         const delta = bucketPrice - midPrice;
 
         return {
-            label: `${formatSignedPrice(delta)} · ${formatSignedPercent(delta / midPrice)} do meio`,
+            label: `${formatSignedPrice(delta)} · ${formatSignedPercent(delta / midPrice)} from mid`,
             colour: RENDER_PALETTE.inkMuted,
         };
     }
@@ -176,14 +176,14 @@ export class CrosshairPainter {
 
         const sides: string[] = [];
         if (cluster.buyQuantity > 0) {
-            sides.push(`compra ${formatQuantity(cluster.buyQuantity)}`);
+            sides.push(`buy ${formatQuantity(cluster.buyQuantity)}`);
         }
         if (cluster.sellQuantity > 0) {
-            sides.push(`venda ${formatQuantity(cluster.sellQuantity)}`);
+            sides.push(`sell ${formatQuantity(cluster.sellQuantity)}`);
         }
 
         const lines: ReadoutLine[] = [{
-            label: `negoc. ${sides.join(' · ')}`,
+            label: `traded ${sides.join(' · ')}`,
             colour: cluster.buyQuantity >= cluster.sellQuantity
                 ? RENDER_PALETTE.bid
                 : RENDER_PALETTE.ask,
@@ -191,7 +191,7 @@ export class CrosshairPainter {
 
         if (!paint.layout.isCompact) {
             lines.push({
-                label: `${cluster.tradeCount}x · maior ${formatQuantity(cluster.largestTradeQuantity)}`,
+                label: `${cluster.tradeCount}x · largest ${formatQuantity(cluster.largestTradeQuantity)}`,
                 colour: RENDER_PALETTE.inkMuted,
             });
         }

@@ -13,14 +13,14 @@ import { HeatmapApiError } from '../services/heatmap-api-service.ts';
 export function describeLoadFailure(error: unknown): string {
     if (error instanceof HeatmapApiError) {
         if (error.status === 0) {
-            return 'O gateway não respondeu. Verifique se ele está rodando.';
+            return 'The gateway did not answer. Check that it is running.';
         }
         if (error.status >= 500) {
-            return 'O gateway falhou ao responder. O arquivo pode estar indisponível.';
+            return 'The gateway failed to answer. The archive may be unreachable.';
         }
         if (error.status >= 400) {
-            return 'O gateway recusou a consulta.';
+            return 'The gateway refused the query.';
         }
     }
-    return 'Não foi possível carregar a janela.';
+    return 'Could not load the window.';
 }

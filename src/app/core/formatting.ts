@@ -1,51 +1,51 @@
-const priceFormatter = new Intl.NumberFormat('pt-BR', {
+const priceFormatter = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
 });
 
-const compactFormatter = new Intl.NumberFormat('pt-BR', {
+const compactFormatter = new Intl.NumberFormat('en-US', {
     notation: 'compact',
     maximumFractionDigits: 1,
 });
 
-const quantityFormatter = new Intl.NumberFormat('pt-BR', {
+const quantityFormatter = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
 });
 
-const preciseQuantityFormatter = new Intl.NumberFormat('pt-BR', {
+const preciseQuantityFormatter = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 3,
     maximumFractionDigits: 3,
 });
 
-const axisTagFormatter = new Intl.NumberFormat('pt-BR', {
+const axisTagFormatter = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 1,
 });
 
-const clockFormatter = new Intl.DateTimeFormat('pt-BR', {
+const clockFormatter = new Intl.DateTimeFormat('en-US', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
 });
 
-const dayFormatter = new Intl.DateTimeFormat('pt-BR', {
+const dayFormatter = new Intl.DateTimeFormat('en-US', {
     day: '2-digit',
     month: 'short',
 });
 
-const calendarFormatter = new Intl.DateTimeFormat('pt-BR', {
+const calendarFormatter = new Intl.DateTimeFormat('en-US', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
 });
 
-const signedPriceFormatter = new Intl.NumberFormat('pt-BR', {
+const signedPriceFormatter = new Intl.NumberFormat('en-US', {
     signDisplay: 'exceptZero',
     maximumFractionDigits: 0,
 });
 
-const signedPercentFormatter = new Intl.NumberFormat('pt-BR', {
+const signedPercentFormatter = new Intl.NumberFormat('en-US', {
     style: 'percent',
     signDisplay: 'exceptZero',
     minimumFractionDigits: 2,
@@ -187,8 +187,8 @@ export function resolveBaseAsset(instrumentSymbol: string): string {
  */
 export function formatReadoutMoment(timestampMs: number): string {
     const moment = new Date(timestampMs);
-    // Assembled from parts because pt-BR spells the long form as
-    // `24 de ago. de 2026`, which is half the width of the readout box.
+    // Assembled from parts because the long form spells out separators that
+    // cost half the width of the readout box.
     const calendar = calendarFormatter
         .formatToParts(moment)
         .filter((part) => part.type === 'day' || part.type === 'month' || part.type === 'year')
