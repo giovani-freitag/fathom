@@ -16,6 +16,7 @@ interface ArchiveSpy {
     readonly appendTradeClusters: ReturnType<typeof vi.fn>;
     readonly recordGap: ReturnType<typeof vi.fn>;
     readonly findLastFrameTimestamp: ReturnType<typeof vi.fn>;
+    readonly close: ReturnType<typeof vi.fn>;
 }
 
 function createArchiveSpy(lastFrameMs: number | null = null): ArchiveSpy {
@@ -24,6 +25,8 @@ function createArchiveSpy(lastFrameMs: number | null = null): ArchiveSpy {
     const recordGap = vi.fn().mockResolvedValue(undefined);
     const findLastFrameTimestamp = vi.fn().mockResolvedValue(lastFrameMs);
     const registerInstrument = vi.fn().mockResolvedValue(undefined);
+    const open = vi.fn().mockResolvedValue(undefined);
+    const close = vi.fn().mockResolvedValue(undefined);
 
     return {
         archive: {
@@ -32,11 +35,14 @@ function createArchiveSpy(lastFrameMs: number | null = null): ArchiveSpy {
             recordGap,
             findLastFrameTimestamp,
             registerInstrument,
+            open,
+            close,
         } as unknown as LiquidityArchiveService,
         appendFrames,
         appendTradeClusters,
         recordGap,
         findLastFrameTimestamp,
+        close,
     };
 }
 

@@ -1,4 +1,5 @@
 import { LiquidityQueryService } from '../database/services/liquidity-query-service.ts';
+import { RecordingControlService } from '../database/services/recording-control-service.ts';
 import { PostgresService } from '../database/postgres/postgres-service.ts';
 import {
     LIVE_TAIL_SETTINGS,
@@ -18,6 +19,7 @@ const postgres = new PostgresService({
     statementTimeoutMs: DATABASE_STATEMENT_TIMEOUT_MS,
 });
 const query = new LiquidityQueryService({ postgres });
+const control = new RecordingControlService({ postgres });
 const liveTail = new LiveTailService({
     query,
     pollIntervalMs: LIVE_TAIL_SETTINGS.pollIntervalMs,
@@ -34,6 +36,7 @@ const server = new Server({
     postgres,
     query,
     liveTail,
+    control,
 });
 
 async function shutDown(): Promise<void> {

@@ -1,10 +1,14 @@
 import { vi } from 'vitest';
 import type { PostgresService } from '../../src/database/postgres/postgres-service.ts';
 
+/** The two query methods, typed so a test can return rows without a cast. */
+type SelectRowsSpy = ReturnType<typeof vi.fn<(statement: string, parameters?: readonly unknown[]) => Promise<unknown[]>>>;
+type ExecuteSpy = ReturnType<typeof vi.fn<(statement: string, parameters?: readonly unknown[]) => Promise<number>>>;
+
 export interface PostgresServiceMock {
     readonly service: PostgresService;
-    readonly selectRows: ReturnType<typeof vi.fn>;
-    readonly execute: ReturnType<typeof vi.fn>;
+    readonly selectRows: SelectRowsSpy;
+    readonly execute: ExecuteSpy;
 }
 
 /**
@@ -12,8 +16,8 @@ export interface PostgresServiceMock {
  * the bound values, which is where the behaviour worth asserting lives.
  */
 export function createPostgresServiceMock(): PostgresServiceMock {
-    const selectRows = vi.fn().mockResolvedValue([]);
-    const execute = vi.fn().mockResolvedValue(0);
+    const selectRows: SelectRowsSpy = vi.fn(() => Promise.resolve<unknown[]>([]));
+    const execute: ExecuteSpy = vi.fn(() => Promise.resolve(0));
 
     return {
         service: { selectRows, execute } as unknown as PostgresService,

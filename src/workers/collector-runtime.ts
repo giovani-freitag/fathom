@@ -105,10 +105,13 @@ export class CollectorRuntime {
     /**
      * Connects every resource and begins recording.
      *
-     * @throws ArchiveUnavailableError when the archive cannot be reached.
+     * The archive is expected to be open already: several runtimes may share
+     * one, and a runtime that opened or closed it would be reaching past its own
+     * lifetime into everyone else's.
+     *
+     * @throws ArchiveUnavailableError when the archive rejects the first write.
      */
     async start(): Promise<void> {
-        await this.archive.open();
         await this.recorder.start();
         this.orderBook.start();
         this.feed.connect();
@@ -124,7 +127,6 @@ export class CollectorRuntime {
         await this.feed.disconnect();
         this.orderBook.stop();
         await this.recorder.stop();
-        await this.archive.close();
         this.log.info('Collector stopped');
     }
 

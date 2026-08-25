@@ -49,6 +49,7 @@ async function start(): Promise<void> {
 
     const capacity = await resolveFrameCapacity(scope.navigator);
     const archive = new IndexedDbLiquidityArchive({ database, frameCapacity: capacity });
+    // The connection is already open above; the runtime never touches it.
 
     runtime = new CollectorRuntime({
         configuration,
@@ -82,6 +83,8 @@ async function stop(): Promise<void> {
     }
     await runtime?.stop();
     runtime = null;
+    // The worker owns the connection it opened, so it is the one that closes it.
+    database.close();
     announce('stopped');
 }
 

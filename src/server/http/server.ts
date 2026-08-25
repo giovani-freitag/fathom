@@ -1,3 +1,4 @@
+import type { RecordingControlService } from '../../database/services/recording-control-service.ts';
 import compress from '@fastify/compress';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
@@ -20,12 +21,22 @@ import { createGapsHandler } from './actions/gaps-action.ts';
 import { createHealthHandler } from './actions/health-action.ts';
 import { createHeatmapHandler } from './actions/heatmap-action.ts';
 import { createInstrumentsHandler } from './actions/instruments-action.ts';
+import {
+    createBudgetUpdateHandler,
+    createInstrumentUpdateHandler,
+    createRecordingHandler,
+} from './actions/recording-action.ts';
 import { createLiveHandler } from './actions/live-action.ts';
 import { createTradeClustersHandler } from './actions/trade-clusters-action.ts';
 import { GapsRouteSchema } from './schemas/gaps-schema.ts';
 import { HealthRouteSchema } from './schemas/health-schema.ts';
 import { HeatmapRouteSchema } from './schemas/heatmap-schema.ts';
 import { InstrumentsRouteSchema } from './schemas/instruments-schema.ts';
+import {
+    BudgetUpdateRouteSchema,
+    InstrumentUpdateRouteSchema,
+    RecordingRouteSchema,
+} from './schemas/recording-schema.ts';
 import { LiveRouteSchema } from './schemas/live-schema.ts';
 import { TradeClustersRouteSchema } from './schemas/trade-clusters-schema.ts';
 
@@ -41,6 +52,7 @@ export interface ServerConfig {
     readonly postgres: PostgresService;
     readonly query: LiquidityQueryService;
     readonly liveTail: LiveTailService;
+    readonly control: RecordingControlService;
 }
 
 /**
@@ -160,6 +172,7 @@ export class Server {
     private registerApiRoutes(instance: FastifyInstance): void {
         const healthHandler = createHealthHandler({ postgres: this.config.postgres });
         const instrumentsHandler = createInstrumentsHandler({ query: this.config.query });
+        const control = { control: this.config.control };
         const heatmapHandler = createHeatmapHandler({ query: this.config.query });
         const tradeClustersHandler = createTradeClustersHandler({ query: this.config.query });
         const gapsHandler = createGapsHandler({ query: this.config.query });
@@ -170,6 +183,9 @@ export class Server {
 
         instance.get(API_ROUTES.health, { schema: HealthRouteSchema }, healthHandler);
         instance.get(API_ROUTES.instruments, { schema: InstrumentsRouteSchema }, instrumentsHandler);
+        instance.get(API_ROUTES.recording, { schema: RecordingRouteSchema }, createRecordingHandler(control));
+        instance.put(API_ROUTES.recording, { schema: InstrumentUpdateRouteSchema }, createInstrumentUpdateHandler(control));
+        instance.put(API_ROUTES.recordingBudget, { schema: BudgetUpdateRouteSchema }, createBudgetUpdateHandler(control));
         instance.get(API_ROUTES.heatmap, { schema: HeatmapRouteSchema }, heatmapHandler);
         instance.get(API_ROUTES.tradeClusters, { schema: TradeClustersRouteSchema }, tradeClustersHandler);
         instance.get(API_ROUTES.gaps, { schema: GapsRouteSchema }, gapsHandler);

@@ -8,6 +8,8 @@ export const API_ROUTES = {
     tradeClusters: '/api/trade-clusters',
     gaps: '/api/gaps',
     live: '/api/live',
+    recording: '/api/recording',
+    recordingBudget: '/api/recording/budget',
 } as const;
 
 /**
