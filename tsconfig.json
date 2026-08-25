@@ -1,9 +1,10 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./packages/contracts/tsconfig.build.json" },
-    { "path": "./packages/persistence/tsconfig.build.json" },
-    { "path": "./apps/collector/tsconfig.build.json" },
-    { "path": "./apps/gateway/tsconfig.build.json" }
-  ]
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["vite/client", "node"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "*.config.ts", "eslint.config.js"]
 }

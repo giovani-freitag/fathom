@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-    { ignores: ['**/dist/**', '**/coverage/**', '**/node_modules/**'] },
+    { ignores: ['dist/**', 'coverage/**', 'node_modules/**'] },
 
     js.configs.recommended,
     ...tseslint.configs.recommendedTypeChecked,
@@ -43,7 +43,7 @@ export default tseslint.config(
     },
 
     {
-        files: ['apps/viewer/**/*.{ts,tsx}'],
+        files: ['src/chart/**/*.{ts,tsx}'],
         extends: [reactHooks.configs.flat['recommended-latest']],
         plugins: { 'react-refresh': reactRefresh },
         rules: {
@@ -52,16 +52,15 @@ export default tseslint.config(
     },
 
     {
-        files: ['**/tests/**/*.ts', '**/tests/**/*.tsx'],
+        files: ['tests/**/*.ts', 'tests/**/*.tsx'],
         rules: {
             '@typescript-eslint/explicit-module-boundary-types': 'off',
             '@typescript-eslint/no-unsafe-assignment': 'off',
-            '@typescript-eslint/unbound-method': 'off',
         },
     },
 
     {
-        files: ['**/*.config.{js,ts}', 'eslint.config.js'],
+        files: ['*.config.{js,ts}', 'eslint.config.js'],
         languageOptions: { parserOptions: { projectService: false } },
         ...tseslint.configs.disableTypeChecked,
     },

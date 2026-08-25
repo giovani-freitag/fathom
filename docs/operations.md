@@ -16,7 +16,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=%h/Projects/Temp/Fathom/fathom
-ExecStart=/usr/bin/env node --env-file=%h/Projects/Temp/Fathom/fathom/.env %h/Projects/Temp/Fathom/fathom/apps/collector/dist/main.js
+ExecStart=/usr/bin/env node --env-file=%h/Projects/Temp/Fathom/fathom/.env %h/Projects/Temp/Fathom/fathom/dist/server/main-collector.js
 Restart=always
 RestartSec=5
 StandardOutput=append:%h/Projects/Temp/Fathom/fathom/collector.log
@@ -28,8 +28,9 @@ TimeoutStopSec=20
 WantedBy=default.target
 ```
 
-O gateway tem uma unidade equivalente, com `WorkingDirectory` em `apps/gateway`
-para que o caminho relativo do build do viewer resolva.
+O gateway tem uma unidade idêntica apontando para `dist/server/main-gateway.js`.
+As duas usam a raiz do projeto como `WorkingDirectory`, que é de onde o gateway
+resolve `dist/viewer`.
 
 ```bash
 systemctl --user daemon-reload

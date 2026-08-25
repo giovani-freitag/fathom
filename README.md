@@ -26,8 +26,7 @@ Requer Node 22.12+, Docker e pnpm.
 cp .env.example .env          # defina POSTGRES_PASSWORD e o DATABASE_URL correspondente
 pnpm install
 pnpm database:up              # sobe o TimescaleDB e aplica o schema
-pnpm build
-pnpm --filter @fathom/viewer build
+pnpm build                    # compila o servidor e empacota a interface
 ```
 
 Depois disso:
@@ -89,13 +88,28 @@ grandeza depois de dois dias.
 
 ## Estrutura
 
+Um projeto, três pontos de entrada. As pastas têm o nome do que a coisa é no
+produto, não da camada a que pertence.
+
 ```
-packages/contracts     tipos, matemática de buckets e o codec binário do fio
-packages/persistence   único lugar que fala com o PostgreSQL
-apps/collector         processo que grava 24/7
-apps/gateway           API REST + WebSocket, e serve a interface
-apps/viewer            React + canvas, mobile-first
+src/
+├── main-collector.ts    entrada: grava
+├── main-gateway.ts      entrada: serve
+├── main-viewer.tsx      entrada: desenha
+│
+├── book/         o livro       espelho, sincronização, frame, faixas de preço
+├── venue/        a Binance     socket, REST, payloads
+├── trades/       agressões     clusters e acumulação
+├── recording/    a gravação    loop, buffer de escrita, lacunas
+├── archive/      o banco       postgres, escrita, leitura
+├── api/          o gateway     servidor, rotas, tail ao vivo
+└── chart/        o gráfico     controller, viewport, pintura, gestos, ui
 ```
+
+`book/`, `trades/`, `recording/` e `api/` guardam tanto código de servidor quanto
+os tipos e o codec que o navegador também fala — porque o conceito é um só. O que
+**nunca** chega ao navegador é `archive/` e `venue/`, e um teste de arquitetura
+percorre o grafo a partir de `main-viewer.tsx` para garantir isso.
 
 Detalhes em [docs/architecture.md](docs/architecture.md) e
 [docs/data-model.md](docs/data-model.md).
@@ -105,7 +119,7 @@ Detalhes em [docs/architecture.md](docs/architecture.md) e
 ```bash
 pnpm verify        # lint + typecheck + testes
 pnpm test:watch
-pnpm viewer        # dev server do Vite, com proxy para o gateway
+pnpm dev           # dev server do Vite, com proxy para o gateway
 ```
 
 ## O que o sinal não mostra
