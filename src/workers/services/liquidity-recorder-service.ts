@@ -1,7 +1,6 @@
 import { type LiquidityFrame } from '../../shared/core/liquidity-frame.ts';
 import { floorToInterval } from '../../shared/core/price-bucket.ts';
 import type { LiquidityArchiveService } from '../../database/services/liquidity-archive-service.ts';
-import { describeError } from '../core/collector-log.ts';
 import type { ExecutedTrade } from '../core/depth-types.ts';
 import type { OrderBookService } from '../core/order-book-service.ts';
 import { ArchiveWriteBuffer } from './archive-write-buffer.ts';
@@ -193,17 +192,27 @@ export class LiquidityRecorderService {
         }
     }
 
+    /**
+     * Files the gap that just ended, and forgets it only once it is queued.
+     *
+     * Queued rather than written here: a gap almost always ends because the
+     * archive came back, and an attempt made at that instant can still fail. The
+     * old code cleared its own memory of the gap before the write and reported a
+     * failure to a log nobody reads, which turned a recorded hole into a silent
+     * one — the single outcome this project exists to avoid.
+     */
     private closeOpenGap(endedAtMs: number): void {
         const startedAtMs = this.openGapStartedAtMs;
         if (startedAtMs === null) {
             return;
         }
-        this.openGapStartedAtMs = null;
 
-        void this.config.archive.recordGap({
-            instrumentSymbol: this.config.instrumentSymbol,
-            gap: { gapStartedAtMs: startedAtMs, gapEndedAtMs: endedAtMs, gapReason: this.openGapReason },
-        }).catch(this.handleGapWriteFailure.bind(this));
+        this.writeBuffer.enqueueGap({
+            gapStartedAtMs: startedAtMs,
+            gapEndedAtMs: endedAtMs,
+            gapReason: this.openGapReason,
+        });
+        this.openGapStartedAtMs = null;
     }
 
     private handleFlushDue(): void {
@@ -222,17 +231,10 @@ export class LiquidityRecorderService {
         }
 
         this.config.onStatusChanged(`Dropped ${droppedFrames.length} buffered frames the archive would not take`);
-        void this.config.archive.recordGap({
-            instrumentSymbol: this.config.instrumentSymbol,
-            gap: {
-                gapStartedAtMs: firstFrame.capturedAtMs,
-                gapEndedAtMs: lastFrame.capturedAtMs,
-                gapReason: 'archive unavailable, buffered frames dropped',
-            },
-        }).catch(this.handleGapWriteFailure.bind(this));
-    }
-
-    private handleGapWriteFailure(error: unknown): void {
-        this.config.onStatusChanged(`Could not record a gap: ${describeError(error)}`);
+        this.writeBuffer.enqueueGap({
+            gapStartedAtMs: firstFrame.capturedAtMs,
+            gapEndedAtMs: lastFrame.capturedAtMs,
+            gapReason: 'archive unavailable, buffered frames dropped',
+        });
     }
 }

@@ -1,10 +1,14 @@
 import type { LiquidityArchiveService } from '../../../src/database/services/liquidity-archive-service.ts';
+import type { RecordingGap } from '../../../src/shared/core/recording-gap.ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LiquidityRecorderService } from '../../../src/workers/services/liquidity-recorder-service.ts';
 import { OrderBookService } from '../../../src/workers/core/order-book-service.ts';
 import { buildDiff, createSnapshotSource } from '../../mocks/depth-fixtures.ts';
 
 const FRAME_INTERVAL_MS = 1_000;
+
+/** Shape the recorder hands `recordGap`, so a spy call can be read typed. */
+type GapRecordCall = [{ readonly gap: RecordingGap }];
 
 interface ArchiveSpy {
     readonly archive: LiquidityArchiveService;
@@ -162,6 +166,43 @@ describe('recording pipeline', () => {
         await pipeline.recorder.stop();
 
         expect(pipeline.spy.appendFrames).not.toHaveBeenCalled();
+    });
+
+    it('keeps a gap whose first write failed, instead of forgetting it', async () => {
+        const pipeline = buildPipeline();
+        await pipeline.recorder.start();
+        await synchronize(pipeline);
+        await vi.advanceTimersByTimeAsync(2_500);
+        pipeline.orderBook.invalidate('socket closed');
+        await vi.advanceTimersByTimeAsync(2_500);
+        // The archive is unreachable at the exact moment the gap closes, which
+        // is the usual case: the gap existed because the archive was down.
+        pipeline.spy.recordGap.mockRejectedValueOnce(new Error('archive down'));
+
+        pipeline.orderBook.ingestDiff(buildDiff({ firstUpdateId: 95, finalUpdateId: 105 }));
+        await vi.waitFor(() => expect(pipeline.orderBook.isSynchronized).toBe(true));
+        await vi.advanceTimersByTimeAsync(3_000);
+        await pipeline.recorder.stop();
+
+        expect(pipeline.spy.recordGap.mock.calls.length).toBeGreaterThan(1);
+    });
+
+    it('files the retried gap with the same boundaries it first had', async () => {
+        const pipeline = buildPipeline();
+        await pipeline.recorder.start();
+        await synchronize(pipeline);
+        await vi.advanceTimersByTimeAsync(2_500);
+        pipeline.orderBook.invalidate('socket closed');
+        await vi.advanceTimersByTimeAsync(2_500);
+        pipeline.spy.recordGap.mockRejectedValueOnce(new Error('archive down'));
+
+        pipeline.orderBook.ingestDiff(buildDiff({ firstUpdateId: 95, finalUpdateId: 105 }));
+        await vi.waitFor(() => expect(pipeline.orderBook.isSynchronized).toBe(true));
+        await vi.advanceTimersByTimeAsync(3_000);
+        await pipeline.recorder.stop();
+
+        const calls = pipeline.spy.recordGap.mock.calls as GapRecordCall[];
+        expect(calls[1]?.[0].gap).toEqual(calls[0]?.[0].gap);
     });
 
     it('closes the gap left by a previous run once recording resumes', async () => {

@@ -103,7 +103,8 @@ export class LiquidityArchiveService {
     async recordGap(request: GapRecordRequest): Promise<void> {
         await this.postgres.execute(
             `INSERT INTO recording_gap (gap_started_at, gap_ended_at, instrument_symbol, gap_reason)
-             VALUES ($1, $2, $3, $4)`,
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (instrument_symbol, gap_started_at) DO NOTHING`,
             [
                 new Date(request.gap.gapStartedAtMs),
                 new Date(request.gap.gapEndedAtMs),
