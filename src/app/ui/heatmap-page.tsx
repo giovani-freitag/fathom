@@ -3,6 +3,8 @@ import { type ReactElement, useCallback, useEffect } from 'react';
 import { resolveRecordedSpanMs } from '../core/viewport-policy.ts';
 import { useKernel } from '../react/kernel-context.ts';
 import { useChartState } from '../react/use-chart-state.ts';
+import { useTranslate } from '../react/use-appearance.ts';
+import type { Translate } from '../i18n/translator.ts';
 import { ControlButton } from './control-button.tsx';
 import { ChartSurface } from './chart-surface.tsx';
 import { CoverageStrip } from './coverage-strip.tsx';
@@ -17,6 +19,7 @@ import { SpanPresets } from './span-presets.tsx';
 export function HeatmapPage(): ReactElement {
     const kernel = useKernel();
     const state = useChartState();
+    const translate = useTranslate();
 
     useEffect(() => {
         void kernel.chart.initialize();
@@ -55,7 +58,7 @@ export function HeatmapPage(): ReactElement {
                 </div>
 
                 {!state.isFollowingLive && (
-                    <ControlButton onClick={handleReturnToLive} aria-label="Voltar ao tempo real">
+                    <ControlButton onClick={handleReturnToLive} aria-label={translate('page.returnToLive')}>
                         <Radar className="size-4" />
                     </ControlButton>
                 )}
@@ -79,17 +82,19 @@ export function HeatmapPage(): ReactElement {
                     />
                 </div>
 
-                {state.phase === 'initialising' && <SurfaceNotice message="Sondando o arquivo…" />}
+                {state.phase === 'initialising' && <SurfaceNotice message={translate('page.probing')} translate={translate} />}
                 {state.phase === 'empty' && (
                     <SurfaceNotice
-                        message="Nothing recorded yet. The collector has to be running — book history cannot be backfilled."
+                        message={translate('page.empty')}
                         tone="warning"
+                        translate={translate}
                     />
                 )}
                 {state.phase === 'failed' && (
                     <SurfaceNotice
-                        message={state.errorMessage ?? 'The gateway did not answer.'}
+                        message={translate(state.failureKey ?? 'failure.silent')}
                         tone="warning"
+                        translate={translate}
                         onRetry={() => { void kernel.chart.initialize(); }}
                     />
                 )}
@@ -108,11 +113,12 @@ export function HeatmapPage(): ReactElement {
 
 interface SurfaceNoticeProps {
     readonly message: string;
+    readonly translate: Translate;
     readonly tone?: 'neutral' | 'warning';
     readonly onRetry?: () => void;
 }
 
-function SurfaceNotice({ message, tone = 'neutral', onRetry }: SurfaceNoticeProps): ReactElement {
+function SurfaceNotice({ message, translate, tone = 'neutral', onRetry }: SurfaceNoticeProps): ReactElement {
     return (
         <div className="absolute inset-0 grid place-items-center bg-abyss-950/80 px-6 backdrop-blur-sm">
             <div className="max-w-sm space-y-3 text-center">
@@ -121,7 +127,7 @@ function SurfaceNotice({ message, tone = 'neutral', onRetry }: SurfaceNoticeProp
                 {onRetry !== undefined && (
                     <ControlButton onClick={onRetry} className="mx-auto">
                         <RefreshCw className="size-4" />
-                        Try again
+                        {translate('page.retry')}
                     </ControlButton>
                 )}
             </div>

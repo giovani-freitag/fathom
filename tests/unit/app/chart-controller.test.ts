@@ -1,5 +1,6 @@
 import { ChartController } from '../../../src/app/core/chart-controller.ts';
 import { describe, expect, it } from 'vitest';
+import { EN_DICTIONARY } from '../../../src/app/i18n/dictionaries/en.ts';
 import {
     buildFrame,
     buildWindow,
@@ -83,7 +84,7 @@ describe('ChartController.initialize', () => {
 
         await controller.initialize();
 
-        expect(controller.store.read().errorMessage).toBe('Could not load the window.');
+        expect(controller.store.read().failureKey).toBe('failure.generic');
     });
 });
 
@@ -255,17 +256,18 @@ describe('ChartController failures', () => {
         });
         await new Promise((resolve) => setTimeout(resolve, 400));
 
-        expect(controller.store.read().errorMessage).not.toBeNull();
+        expect(controller.store.read().failureKey).not.toBeNull();
     });
 
-    it('answers in the interface language rather than the driver s', async () => {
+    it('names a phrase the interface can translate rather than the driver s message', async () => {
         const mocks = createChartServiceMocks();
         mocks.fetchInstruments.mockRejectedValue(new Error('fetch failed'));
         const controller = buildController(mocks);
 
         await controller.initialize();
 
-        expect(controller.store.read().errorMessage).not.toContain('fetch failed');
+        const failureKey = controller.store.read().failureKey!;
+        expect(EN_DICTIONARY[failureKey]).not.toContain('fetch failed');
     });
 
     it('clears the failure once a load succeeds again', async () => {
@@ -285,7 +287,7 @@ describe('ChartController failures', () => {
         });
         await new Promise((resolve) => setTimeout(resolve, 400));
 
-        expect(controller.store.read().errorMessage).toBeNull();
+        expect(controller.store.read().failureKey).toBeNull();
     });
 });
 

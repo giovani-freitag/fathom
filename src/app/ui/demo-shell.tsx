@@ -1,3 +1,4 @@
+import type { AppearanceHost } from '../core/appearance-controller.ts';
 import type { CollectorEvent, CollectorState } from '../../shared/core/collector-worker-contract.ts';
 import {
     type DemoServiceContainer,
@@ -5,17 +6,21 @@ import {
 } from '../core/demo-service-container.ts';
 import { type ReactElement, useEffect, useState } from 'react';
 import { App } from '../app.tsx';
+import { buildTranslate, type Translate } from '../i18n/translator.ts';
+import { useStore } from '../react/use-store.ts';
+import { useMemo } from 'react';
 
 export interface DemoShellProps {
     readonly factory: IDBFactory | null;
     readonly storage: Storage | null;
+    readonly appearanceHost: AppearanceHost | null;
     readonly build: (config: DemoServiceContainerConfig) => DemoServiceContainer;
 }
 
 /**
  * The demo's own chrome: it starts the collector and says what it is doing.
  */
-export function DemoShell({ factory, storage, build }: DemoShellProps): ReactElement {
+export function DemoShell({ factory, storage, appearanceHost, build }: DemoShellProps): ReactElement {
     const [state, setState] = useState<CollectorState>('starting');
     const [detail, setDetail] = useState<string | null>(null);
     const [wasHidden, setWasHidden] = useState(false);
@@ -25,6 +30,7 @@ export function DemoShell({ factory, storage, build }: DemoShellProps): ReactEle
     const [container] = useState<DemoServiceContainer>(() => build({
         factory,
         storage,
+        appearanceHost,
         onCollectorEvent: (event: CollectorEvent) => {
             if (event.kind !== 'state') {
                 return;
@@ -34,11 +40,17 @@ export function DemoShell({ factory, storage, build }: DemoShellProps): ReactEle
         },
     }));
 
+    // The notices below are drawn before the chart exists, so they cannot reach
+    // the language through the kernel the way the rest of the tree does.
+    const { locale } = useStore(container.appearance.store);
+    const translate = useMemo(() => buildTranslate(locale), [locale]);
+
     // The page reads through its own connection, so it has to open one before
     // the chart asks for a window. The collector is started only once that
     // succeeded: a page that cannot read has nothing to show it either.
     useEffect(() => {
         let wasCancelled = false;
+        container.appearance.start();
         container.database.open().then(
             () => {
                 if (wasCancelled) {
@@ -59,6 +71,7 @@ export function DemoShell({ factory, storage, build }: DemoShellProps): ReactEle
             wasCancelled = true;
             container.collector.stop();
             container.database.close();
+            container.appearance.dispose();
         };
     }, [container]);
 
@@ -94,42 +107,41 @@ export function DemoShell({ factory, storage, build }: DemoShellProps): ReactEle
     }, []);
 
     if (state === 'refused') {
-        return <RefusalNotice detail={detail} />;
+        return <RefusalNotice detail={detail} translate={translate} />;
     }
     if (!hasFirstFrame) {
-        return <PreRollNotice />;
+        return <PreRollNotice translate={translate} />;
     }
 
     return (
         <div className="relative size-full">
             <App container={container} />
-            <DemoBanner state={state} wasHidden={wasHidden} />
+            <DemoBanner state={state} wasHidden={wasHidden} translate={translate} />
         </div>
     );
 }
 
-function PreRollNotice(): ReactElement {
+function PreRollNotice({ translate }: { readonly translate: Translate }): ReactElement {
     return (
         <div className="flex size-full items-center justify-center bg-abyss-950 p-8">
             <div className="max-w-sm space-y-3 text-center">
                 <h1 className="text-sm font-semibold tracking-wide text-ink-100">
-                    Recording starts now
+                    {translate('demo.preRollTitle')}
                 </h1>
                 <p className="text-xs leading-relaxed text-ink-400">
-                    This page is its own collector. It is mirroring the order book and will
-                    draw the first column in a moment — there is no history to load, because
-                    an order book cannot be fetched after the fact.
+                    {translate('demo.preRollBody')}
                 </p>
             </div>
         </div>
     );
 }
 
-function DemoBanner({ state, wasHidden }: {
+function DemoBanner({ state, wasHidden, translate }: {
     readonly state: CollectorState;
     readonly wasHidden: boolean;
+    readonly translate: Translate;
 }): ReactElement | null {
-    const message = resolveBannerMessage(state, wasHidden);
+    const message = resolveBannerMessage(state, wasHidden, translate);
     if (message === null) {
         return null;
     }
@@ -143,30 +155,35 @@ function DemoBanner({ state, wasHidden }: {
     );
 }
 
-function resolveBannerMessage(state: CollectorState, wasHidden: boolean): string | null {
+function resolveBannerMessage(
+    state: CollectorState,
+    wasHidden: boolean,
+    translate: Translate,
+): string | null {
     if (state === 'starting') {
-        return 'Connecting to the venue and mirroring the book. The first columns appear within seconds.';
+        return translate('demo.connecting');
     }
     if (state === 'stopped') {
-        return 'Recording stopped. Reload to start again.';
+        return translate('demo.stopped');
     }
     if (wasHidden) {
-        return 'This tab was in the background. Browsers slow timers there, so those seconds are recorded as gaps rather than invented.';
+        return translate('demo.wasHidden');
     }
     return null;
 }
 
-function RefusalNotice({ detail }: { readonly detail: string | null }): ReactElement {
+function RefusalNotice({ detail, translate }: {
+    readonly detail: string | null;
+    readonly translate: Translate;
+}): ReactElement {
     return (
         <div className="flex size-full items-center justify-center bg-abyss-950 p-8">
             <div className="max-w-md space-y-3 text-center">
                 <h1 className="text-sm font-semibold tracking-wide text-ink-100">
-                    This browser will not let the demo record
+                    {translate('demo.refusedTitle')}
                 </h1>
                 <p className="text-xs leading-relaxed text-ink-400">
-                    The page stores what it captures in the browser&rsquo;s own database. Private
-                    windows and some privacy settings block it, and there is nowhere else to put a
-                    recording that only exists while you watch.
+                    {translate('demo.refusedBody')}
                 </p>
                 {detail === null ? null : (
                     <p className="numeric text-[11px] text-ink-600">{detail}</p>

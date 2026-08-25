@@ -1,11 +1,12 @@
 import type { InstrumentCoverage, LiveTextMessage } from '../../shared/core/api-contract.ts';
+import type { TranslationKey } from '../i18n/dictionaries/en.ts';
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import {
     type ChartViewport,
     clampViewport,
     type ViewportBounds,
 } from './chart-viewport.ts';
-import { describeLoadFailure } from './failure-copy.ts';
+import { resolveFailureKey } from './failure-copy.ts';
 import { ObservableStore } from './observable-store.ts';
 import type { HeatmapSource } from '../../shared/core/heatmap-source.ts';
 import type { LiveFeed, LiveFeedStatus } from '../services/live-feed.ts';
@@ -35,7 +36,8 @@ export type ChartPhase = 'initialising' | 'ready' | 'empty' | 'failed';
 
 export interface ChartState {
     readonly phase: ChartPhase;
-    readonly errorMessage: string | null;
+    /** Named rather than written out, so the reader's language decides the words. */
+    readonly failureKey: TranslationKey | null;
     readonly instruments: readonly InstrumentCoverage[];
     readonly instrumentSymbol: string | null;
     readonly viewport: ChartViewport;
@@ -325,7 +327,7 @@ export class ChartController {
                 ...current,
                 isLoadingWindow: false,
                 phase: dataset.frames.length === 0 ? 'empty' : 'ready',
-                errorMessage: null,
+                failureKey: null,
                 dataset,
                 viewport: this.framePriceRange(current.viewport, dataset),
             };
@@ -416,12 +418,12 @@ export class ChartController {
      * Records a load failure without throwing away what is already on screen.
      */
     private publishFailure(error: unknown): void {
-        const errorMessage = describeLoadFailure(error);
+        const failureKey = resolveFailureKey(error);
         this.store.update((state) => ({
             ...state,
             phase: state.dataset.frames.length > 0 ? state.phase : 'failed',
             isLoadingWindow: false,
-            errorMessage,
+            failureKey,
         }));
     }
 }
@@ -430,7 +432,7 @@ function buildInitialState(preferences: ViewerPreferences): ChartState {
     const nowMs = Date.now();
     return {
         phase: 'initialising',
-        errorMessage: null,
+        failureKey: null,
         instruments: [],
         instrumentSymbol: null,
         viewport: {

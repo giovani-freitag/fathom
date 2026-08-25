@@ -19,6 +19,11 @@ createRoot(rootElement).render(
         <DemoShell
             factory={window.indexedDB}
             storage={window.localStorage}
+            appearanceHost={{
+                rootElement: document.documentElement,
+                darkQuery: window.matchMedia('(prefers-color-scheme: dark)'),
+                languages: navigator.languages,
+            }}
             build={createDemoServiceContainer}
         />
     </StrictMode>,

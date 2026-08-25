@@ -14,6 +14,11 @@ if (rootElement === null) {
 const container = createServiceContainer({
     baseUrl: window.location.origin,
     storage: window.localStorage,
+    appearanceHost: {
+        rootElement: document.documentElement,
+        darkQuery: window.matchMedia('(prefers-color-scheme: dark)'),
+        languages: navigator.languages,
+    },
 });
 
 createRoot(rootElement).render(

@@ -2,6 +2,7 @@ import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
 import { ChevronDown, Check } from 'lucide-react';
 import { Select } from 'radix-ui';
 import type { ReactElement } from 'react';
+import { useTranslate } from '../react/use-appearance.ts';
 
 interface InstrumentPickerProps {
     readonly instruments: readonly InstrumentCoverage[];
@@ -17,6 +18,7 @@ export function InstrumentPicker({
     selectedSymbol,
     onSelect,
 }: InstrumentPickerProps): ReactElement {
+    const translate = useTranslate();
     // Two shapes rather than a conditional spread: under exactOptionalPropertyTypes
     // a spread turns `value` into optional-and-possibly-undefined, which is not
     // what a controlled Select accepts.
@@ -25,7 +27,7 @@ export function InstrumentPicker({
     return (
         <Select.Root {...selectionProps} onValueChange={onSelect}>
             <Select.Trigger
-                aria-label="Contrato"
+                aria-label={translate('instrument.label')}
                 className="inline-flex min-h-11 items-center gap-2 rounded-md border border-hairline bg-abyss-800/80 px-3 text-sm font-semibold text-ink-100 transition-colors hover:border-hairline-bright data-[state=open]:border-phosphor/60"
             >
                 <Select.Value placeholder="—" />

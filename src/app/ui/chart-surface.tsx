@@ -1,4 +1,5 @@
 import { useChartSurface } from '../react/use-chart-surface.ts';
+import { useTranslate } from '../react/use-appearance.ts';
 import type { ReactElement } from 'react';
 
 /**
@@ -6,13 +7,14 @@ import type { ReactElement } from 'react';
  */
 export function ChartSurface(): ReactElement {
     const { containerRef, depthCanvasRef, overlayCanvasRef } = useChartSurface();
+    const translate = useTranslate();
 
     return (
         <div
             ref={containerRef}
             className="chart-surface abyss-grain relative size-full cursor-crosshair overflow-hidden bg-abyss-950"
             role="img"
-            aria-label="Order book liquidity heat map"
+            aria-label={translate('chart.surface')}
         >
             <canvas ref={depthCanvasRef} className="absolute inset-0" />
             <canvas ref={overlayCanvasRef} className="absolute inset-0" />

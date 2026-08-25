@@ -27,8 +27,11 @@
     --color-hairline-bright: #2a3d50;
 
     --color-ink-100: #dce7f1;
+    --color-ink-200: #c3d2e0;
     --color-ink-300: #9db0c2;
+    --color-ink-400: #7d92a6;
     --color-ink-500: #62778b;
+    --color-ink-600: #4e6072;
     --color-ink-700: #3d4d5e;
 
     --color-phosphor: #35e0c4;
@@ -38,8 +41,44 @@
     --color-amber: #ffb454;
 }
 
-:root {
+:root,
+[data-theme='dark'] {
     color-scheme: dark;
+}
+
+/*
+ * The same scale, re-pointed rather than renamed: every utility in the tree
+ * still reads `abyss` for ground and `ink` for contrast, so a component never
+ * has to know which theme it is being painted in.
+ */
+[data-theme='light'] {
+    color-scheme: light;
+
+    --color-abyss-950: #dbe3ec;
+    --color-abyss-900: #f2f6fa;
+    --color-abyss-850: #ffffff;
+    --color-abyss-800: #ffffff;
+    --color-abyss-700: #e9eff6;
+    --color-abyss-600: #d3dde8;
+
+    --color-hairline: #d2dbe5;
+    --color-hairline-bright: #adbccc;
+
+    --color-ink-100: #0b1620;
+    --color-ink-200: #22323f;
+    --color-ink-300: #3a4c5e;
+    --color-ink-400: #4f6376;
+    --color-ink-500: #64788c;
+    --color-ink-600: #8195a8;
+    --color-ink-700: #9dafbf;
+
+    /* Darkened until each one carries text on white at the same weight it
+       carries it on the abyss; the raw neons drop below 3:1 there. */
+    --color-phosphor: #0a9683;
+    --color-phosphor-dim: #74cfbf;
+    --color-bid: #0d9670;
+    --color-ask: #d32741;
+    --color-amber: #a86a00;
 }
 
 html,
@@ -74,6 +113,10 @@ body {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
+}
+
+[data-theme='light'] .abyss-grain::before {
+    opacity: 0.06;
 }
 
 /* A faint scan texture keeps the empty abyss from reading as a dead element. */

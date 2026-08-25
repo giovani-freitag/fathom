@@ -5,9 +5,12 @@ import { resolveRecordedSpanMs } from '../core/viewport-policy.ts';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { Dialog, Slider, Switch } from 'radix-ui';
 import type { ReactElement } from 'react';
+import { AppearanceControls } from './appearance-controls.tsx';
 import { ControlButton } from './control-button.tsx';
 import type { RecordingControl } from '../../shared/core/recording-control.ts';
 import { RecordingPanel } from './recording-panel.tsx';
+import { useAppearance, useTranslate } from '../react/use-appearance.ts';
+import { useKernel } from '../react/kernel-context.ts';
 
 /**
  * Travel of the intensity slider.
@@ -38,10 +41,14 @@ interface SettingsDrawerProps {
  * Everything a reader can change, in one drawer.
  */
 export function SettingsDrawer({ state, onChange, recording, onContractsChanged }: SettingsDrawerProps): ReactElement {
+    const kernel = useKernel();
+    const translate = useTranslate();
+    const appearance = useAppearance();
+
     return (
         <Dialog.Root>
             <Dialog.Trigger asChild>
-                <ControlButton aria-label="Settings">
+                <ControlButton aria-label={translate('settings.open')}>
                     <SlidersHorizontal className="size-4" />
                 </ControlButton>
             </Dialog.Trigger>
@@ -58,12 +65,12 @@ export function SettingsDrawer({ state, onChange, recording, onContractsChanged 
                 <Dialog.Content className="fixed inset-y-0 right-0 z-50 flex w-[26rem] max-w-[calc(100%-2.5rem)] flex-col border-l border-hairline bg-abyss-850 shadow-2xl shadow-black/80 duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right">
                     <div className="flex shrink-0 items-center justify-between border-b border-hairline px-4 py-3">
                         <Dialog.Title className="text-sm font-semibold tracking-wide text-ink-100">
-                            Settings
+                            {translate('settings.title')}
                         </Dialog.Title>
                         <Dialog.Close asChild>
                             <button
                                 type="button"
-                                aria-label="Close"
+                                aria-label={translate('settings.close')}
                                 className="inline-flex size-9 items-center justify-center rounded-md text-ink-500 hover:bg-abyss-700 hover:text-ink-100"
                             >
                                 <X className="size-4" />
@@ -72,10 +79,24 @@ export function SettingsDrawer({ state, onChange, recording, onContractsChanged 
                     </div>
 
                     <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-                        <span className="block text-xs text-ink-300">Display</span>
+                        <span className="block text-xs text-ink-300">
+                            {translate('settings.appearance')}
+                        </span>
+                        <AppearanceControls
+                            locale={appearance.locale}
+                            themeChoice={appearance.themeChoice}
+                            resolvedTheme={appearance.resolvedTheme}
+                            translate={translate}
+                            onSelectLocale={(locale) => { kernel.appearance.selectLocale(locale); }}
+                            onSelectTheme={(themeChoice) => { kernel.appearance.selectTheme(themeChoice); }}
+                        />
+
+                        <span className="block border-t border-hairline pt-5 text-xs text-ink-300">
+                            {translate('settings.display')}
+                        </span>
                         <label className="block space-y-2">
                             <span className="flex items-baseline justify-between text-xs text-ink-300">
-                                Intensity
+                                {translate('settings.intensity')}
                                 <span className="numeric text-ink-500">{state.colourGain.toFixed(1)}×</span>
                             </span>
                             <Slider.Root
@@ -90,7 +111,7 @@ export function SettingsDrawer({ state, onChange, recording, onContractsChanged 
                                     <Slider.Range className="absolute h-full rounded-full bg-phosphor" />
                                 </Slider.Track>
                                 <Slider.Thumb
-                                    aria-label="Colour intensity"
+                                    aria-label={translate('settings.intensityHandle')}
                                     className="block size-5 rounded-full border-2 border-phosphor bg-abyss-900 outline-none focus-visible:ring-2 focus-visible:ring-phosphor/50"
                                 />
                             </Slider.Root>
@@ -98,14 +119,13 @@ export function SettingsDrawer({ state, onChange, recording, onContractsChanged 
 
                         <label className="block space-y-2">
                             <span className="flex items-baseline justify-between text-xs text-ink-300">
-                                Lower cut
+                                {translate('settings.lowerCut')}
                                 <span className="numeric text-ink-500">
                                     {formatCut(state.depthFloorPercentile)}
                                 </span>
                             </span>
                             <span className="block text-[11px] leading-snug text-ink-600">
-                                Below this the book is painted as empty. Raising it mutes
-                                the background churn and leaves the wall alone.
+                                {translate('settings.lowerCutHelp')}
                             </span>
                             <Slider.Root
                                 value={[state.depthFloorPercentile]}
@@ -121,7 +141,7 @@ export function SettingsDrawer({ state, onChange, recording, onContractsChanged 
                                     <Slider.Range className="absolute h-full rounded-full bg-phosphor" />
                                 </Slider.Track>
                                 <Slider.Thumb
-                                    aria-label="Colour map lower cut"
+                                    aria-label={translate('settings.lowerCutHandle')}
                                     className="block size-5 rounded-full border-2 border-phosphor bg-abyss-900 outline-none focus-visible:ring-2 focus-visible:ring-phosphor/50"
                                 />
                             </Slider.Root>
@@ -129,14 +149,13 @@ export function SettingsDrawer({ state, onChange, recording, onContractsChanged 
 
                         <label className="block space-y-2">
                             <span className="flex items-baseline justify-between text-xs text-ink-300">
-                                Upper cut
+                                {translate('settings.upperCut')}
                                 <span className="numeric text-ink-500">
                                     {formatCut(state.depthSaturationPercentile)}
                                 </span>
                             </span>
                             <span className="block text-[11px] leading-snug text-ink-600">
-                                Where colour saturates. Lowering it sends more levels to the
-                                hot end; raising it reserves that end for the largest orders.
+                                {translate('settings.upperCutHelp')}
                             </span>
                             <Slider.Root
                                 value={[state.depthSaturationPercentile]}
@@ -152,60 +171,62 @@ export function SettingsDrawer({ state, onChange, recording, onContractsChanged 
                                     <Slider.Range className="absolute h-full rounded-full bg-phosphor" />
                                 </Slider.Track>
                                 <Slider.Thumb
-                                    aria-label="Colour map upper cut"
+                                    aria-label={translate('settings.upperCutHandle')}
                                     className="block size-5 rounded-full border-2 border-phosphor bg-abyss-900 outline-none focus-visible:ring-2 focus-visible:ring-phosphor/50"
                                 />
                             </Slider.Root>
                         </label>
 
                         <SettingToggle
-                            label="Candles"
-                            description="Open, high, low and close of the mid price"
+                            label={translate('settings.candles')}
+                            description={translate('settings.candlesHelp')}
                             isOn={state.isCandleOverlayVisible}
                             onToggle={(isCandleOverlayVisible) => { onChange({ isCandleOverlayVisible }); }}
                         />
 
                         <SettingToggle
-                            label="Aggressors"
-                            description="Bubbles for orders that crossed the spread"
+                            label={translate('settings.aggressors')}
+                            description={translate('settings.aggressorsHelp')}
                             isOn={state.isTradeOverlayVisible}
                             onToggle={(isTradeOverlayVisible) => { onChange({ isTradeOverlayVisible }); }}
                         />
 
                         <SettingToggle
-                            label="Volume profile"
-                            description="Traded volume per price band"
+                            label={translate('settings.volumeProfile')}
+                            description={translate('settings.volumeProfileHelp')}
                             isOn={state.isVolumeProfileVisible}
                             onToggle={(isVolumeProfileVisible) => { onChange({ isVolumeProfileVisible }); }}
                         />
 
                         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-hairline pt-4 text-[11px]">
-                            <dt className="text-ink-500">Recorded so far</dt>
+                            <dt className="text-ink-500">{translate('settings.recordedSoFar')}</dt>
                             <dd className="numeric text-right text-ink-100">
                                 {formatDuration(resolveRecordedSpanMs(state.instruments, state.instrumentSymbol))}
                             </dd>
-                            <dt className="text-ink-500">Resolution</dt>
+                            <dt className="text-ink-500">{translate('settings.resolution')}</dt>
                             <dd className="numeric text-right text-ink-300">
-                                {formatDuration(state.dataset.sampleIntervalMs)} per column
+                                {translate('settings.perColumn', { value: formatDuration(state.dataset.sampleIntervalMs) })}
                             </dd>
-                            <dt className="text-ink-500">Price band</dt>
+                            <dt className="text-ink-500">{translate('settings.priceBand')}</dt>
                             <dd className="numeric text-right text-ink-300">
-                                {state.dataset.priceBucketSize} per row
+                                {translate('settings.perRow', { value: state.dataset.priceBucketSize })}
                             </dd>
-                            <dt className="text-ink-500">Columns loaded</dt>
+                            <dt className="text-ink-500">{translate('settings.columnsLoaded')}</dt>
                             <dd className="numeric text-right text-ink-300">{state.dataset.frames.length}</dd>
-                            <dt className="text-ink-500">Gaps in window</dt>
+                            <dt className="text-ink-500">{translate('settings.gapsInWindow')}</dt>
                             <dd className="numeric text-right text-ink-300">{state.dataset.gaps.length}</dd>
                         </dl>
 
                         {recording === null ? null : (
-                            <RecordingPanel recording={recording} onContractsChanged={onContractsChanged} />
+                            <RecordingPanel
+                                recording={recording}
+                                onContractsChanged={onContractsChanged}
+                                translate={translate}
+                            />
                         )}
 
                         <p className="text-[11px] leading-relaxed text-ink-500">
-                            Windows wider than the recording are disabled. Book history cannot
-                            be backfilled: the chart only covers the time the collector was
-                            running.
+                            {translate('settings.backfillNote')}
                         </p>
                     </div>
                 </Dialog.Content>

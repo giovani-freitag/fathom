@@ -1,3 +1,5 @@
+import type { ResolvedTheme } from '../core/theme.ts';
+
 const RAMP_ENTRY_COUNT = 256;
 const CHANNELS_PER_ENTRY = 4;
 
@@ -16,7 +18,7 @@ interface RampStop {
 
 // Sounding palette: the abyss stays transparent, ordinary depth reads as cold
 // water, and only a genuine wall climbs into the hot end.
-const RAMP_STOPS: readonly RampStop[] = [
+const DARK_RAMP_STOPS: readonly RampStop[] = [
     { position: 0.000, red: 8, green: 16, blue: 30, alpha: 0 },
     { position: 0.120, red: 12, green: 26, blue: 52, alpha: 56 },
     { position: 0.320, red: 14, green: 44, blue: 80, alpha: 110 },
@@ -30,6 +32,28 @@ const RAMP_STOPS: readonly RampStop[] = [
     { position: 0.990, red: 255, green: 62, blue: 58, alpha: 253 },
     { position: 1.000, red: 255, green: 238, blue: 230, alpha: 255 },
 ];
+
+// The same climb read against paper: the cold end has to darken instead of
+// lighten, because on a pale ground a lighter colour reads as less depth.
+const LIGHT_RAMP_STOPS: readonly RampStop[] = [
+    { position: 0.000, red: 196, green: 216, blue: 236, alpha: 0 },
+    { position: 0.120, red: 150, green: 185, blue: 225, alpha: 26 },
+    { position: 0.320, red: 96, green: 150, blue: 210, alpha: 58 },
+    { position: 0.520, red: 46, green: 116, blue: 190, alpha: 96 },
+    { position: 0.680, red: 20, green: 104, blue: 172, alpha: 136 },
+    { position: 0.790, red: 12, green: 132, blue: 150, alpha: 176 },
+    { position: 0.860, red: 20, green: 152, blue: 104, alpha: 206 },
+    { position: 0.910, red: 112, green: 168, blue: 44, alpha: 228 },
+    { position: 0.950, red: 222, green: 148, blue: 16, alpha: 242 },
+    { position: 0.975, red: 226, green: 94, blue: 20, alpha: 250 },
+    { position: 0.990, red: 206, green: 28, blue: 40, alpha: 254 },
+    { position: 1.000, red: 122, green: 8, blue: 28, alpha: 255 },
+];
+
+const RAMP_STOPS_BY_THEME: Record<ResolvedTheme, readonly RampStop[]> = {
+    dark: DARK_RAMP_STOPS,
+    light: LIGHT_RAMP_STOPS,
+};
 
 export interface DepthColourScaleConfig {
     /** Resting size below which the ramp stays at its cold, empty end. */
@@ -51,6 +75,7 @@ export interface DepthRange {
  */
 export class DepthColourScale {
     private static rampCache: Uint8ClampedArray | null = null;
+    private static rampTheme: ResolvedTheme = 'dark';
 
     private readonly floorQuantity: number;
     private readonly spanQuantity: number;
@@ -91,8 +116,21 @@ export class DepthColourScale {
      * @returns 256 entries of RGBA, four bytes each.
      */
     static ramp(): Uint8ClampedArray {
-        DepthColourScale.rampCache ??= buildRamp();
+        DepthColourScale.rampCache ??= buildRamp(DepthColourScale.rampTheme);
         return DepthColourScale.rampCache;
+    }
+
+    /**
+     * Points the shared table at a theme, rebuilt on the next paint.
+     *
+     * @param theme - The theme to build the ramp for.
+     */
+    static applyTheme(theme: ResolvedTheme): void {
+        if (theme === DepthColourScale.rampTheme) {
+            return;
+        }
+        DepthColourScale.rampTheme = theme;
+        DepthColourScale.rampCache = null;
     }
 }
 
@@ -145,12 +183,13 @@ function readPercentile(sorted: Float64Array, percentile: number): number {
     return Math.max(Number.EPSILON, sorted[index]!);
 }
 
-function buildRamp(): Uint8ClampedArray {
+function buildRamp(theme: ResolvedTheme): Uint8ClampedArray {
+    const stops = RAMP_STOPS_BY_THEME[theme];
     const ramp = new Uint8ClampedArray(RAMP_ENTRY_COUNT * CHANNELS_PER_ENTRY);
 
     for (let entry = 0; entry < RAMP_ENTRY_COUNT; entry += 1) {
         const position = entry / (RAMP_ENTRY_COUNT - 1);
-        const { lower, upper } = locateStops(position);
+        const { lower, upper } = locateStops(stops, position);
         const stopSpan = upper.position - lower.position;
         const blend = stopSpan === 0 ? 0 : (position - lower.position) / stopSpan;
         const offset = entry * CHANNELS_PER_ENTRY;
@@ -164,13 +203,16 @@ function buildRamp(): Uint8ClampedArray {
     return ramp;
 }
 
-function locateStops(position: number): { lower: RampStop; upper: RampStop } {
-    let lower = RAMP_STOPS[0]!;
-    let upper = RAMP_STOPS[RAMP_STOPS.length - 1]!;
+function locateStops(
+    stops: readonly RampStop[],
+    position: number,
+): { lower: RampStop; upper: RampStop } {
+    let lower = stops[0]!;
+    let upper = stops[stops.length - 1]!;
 
-    for (let index = 0; index < RAMP_STOPS.length - 1; index += 1) {
-        const candidate = RAMP_STOPS[index]!;
-        const next = RAMP_STOPS[index + 1]!;
+    for (let index = 0; index < stops.length - 1; index += 1) {
+        const candidate = stops[index]!;
+        const next = stops[index + 1]!;
         if (position >= candidate.position && position <= next.position) {
             lower = candidate;
             upper = next;

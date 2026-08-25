@@ -1,22 +1,23 @@
 import { HeatmapApiError } from '../services/heatmap-api-service.ts';
+import type { TranslationKey } from '../i18n/dictionaries/en.ts';
 
 /**
- * Turns a load failure into something worth putting on screen.
+ * Names a load failure in terms the interface can put on screen.
  *
  * @param error - Whatever the load rejected with.
- * @returns One sentence, in the interface's language.
+ * @returns The phrase to render, never the underlying message.
  */
-export function describeLoadFailure(error: unknown): string {
+export function resolveFailureKey(error: unknown): TranslationKey {
     if (error instanceof HeatmapApiError) {
         if (error.status === 0) {
-            return 'The gateway did not answer. Check that it is running.';
+            return 'failure.silent';
         }
         if (error.status >= 500) {
-            return 'The gateway failed to answer. The archive may be unreachable.';
+            return 'failure.server';
         }
         if (error.status >= 400) {
-            return 'The gateway refused the query.';
+            return 'failure.refused';
         }
     }
-    return 'Could not load the window.';
+    return 'failure.generic';
 }

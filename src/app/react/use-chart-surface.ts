@@ -83,10 +83,14 @@ export function useChartSurface(): ChartSurfaceHandles {
         });
         gestures.attach();
 
-        const unsubscribe = kernel.chart.store.subscribe(schedulePaint);
+        const unsubscribeChart = kernel.chart.store.subscribe(schedulePaint);
+        // The canvas cannot inherit a theme the way the cascade does, so a switch
+        // reaches it as one more reason to paint.
+        const unsubscribeAppearance = kernel.appearance.store.subscribe(schedulePaint);
 
         return () => {
-            unsubscribe();
+            unsubscribeChart();
+            unsubscribeAppearance();
             gestures.detach();
             renderer.dispose();
             rendererRef.current = null;

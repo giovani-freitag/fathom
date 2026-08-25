@@ -2,6 +2,8 @@ import {
     DEFAULT_FLOOR_PERCENTILE,
     DEFAULT_SATURATION_PERCENTILE,
 } from '../core/chart-dataset.ts';
+import type { Locale } from '../i18n/locale.ts';
+import type { ThemeChoice } from '../core/theme.ts';
 
 const STORAGE_KEY = 'fathom.preferences.v1';
 
@@ -14,6 +16,9 @@ export interface ViewerPreferences {
     readonly isCandleOverlayVisible: boolean;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
+    /** Null until the reader picks one, which is how the host's own choice wins. */
+    readonly locale: Locale | null;
+    readonly themeChoice: ThemeChoice;
 }
 
 export const DEFAULT_PREFERENCES: ViewerPreferences = {
@@ -25,6 +30,8 @@ export const DEFAULT_PREFERENCES: ViewerPreferences = {
     isCandleOverlayVisible: true,
     isTradeOverlayVisible: true,
     isVolumeProfileVisible: true,
+    locale: null,
+    themeChoice: 'system',
 };
 
 export interface PreferencesServiceConfig {
@@ -65,13 +72,17 @@ export class PreferencesService {
     }
 
     /**
-     * Persists the preferences, ignoring a storage that refuses the write.
+     * Merges preferences over what is stored, ignoring a storage that refuses.
      *
-     * @param preferences - The complete set to store.
+     * @param preferences - Only the entries that changed.
      */
-    write(preferences: ViewerPreferences): void {
+    write(preferences: Partial<ViewerPreferences>): void {
         try {
-            this.storage?.setItem(STORAGE_KEY, JSON.stringify(preferences));
+            // Merged rather than replaced: the chart and the appearance controls
+            // own different entries of one record, and a full write from either
+            // would drop whatever the other had just set.
+            const merged = { ...this.read(), ...preferences };
+            this.storage?.setItem(STORAGE_KEY, JSON.stringify(merged));
         } catch {
             // A full or blocked storage must not break the chart.
         }

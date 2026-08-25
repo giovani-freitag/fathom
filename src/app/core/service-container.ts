@@ -1,3 +1,4 @@
+import { type AppearanceHost, AppearanceController } from './appearance-controller.ts';
 import { ChartController } from './chart-controller.ts';
 import { HeatmapApiService } from '../services/heatmap-api-service.ts';
 import type { HeatmapSource } from '../../shared/core/heatmap-source.ts';
@@ -12,6 +13,7 @@ export interface ServiceContainer {
     readonly liveFeed: LiveFeed;
     readonly preferences: PreferencesService;
     readonly chart: ChartController;
+    readonly appearance: AppearanceController;
     /** Absent when the page is its own collector and there is no supervisor. */
     readonly recording: RecordingControl | null;
 }
@@ -23,6 +25,8 @@ export interface ServiceContainerConfig {
     readonly baseUrl: string;
     /** Absent in a test that runs outside a DOM. */
     readonly storage: Storage | null;
+    /** Absent in a test that runs outside a DOM. */
+    readonly appearanceHost: AppearanceHost | null;
 }
 
 /**
@@ -42,5 +46,6 @@ export function createServiceContainer(config: ServiceContainerConfig): ServiceC
         preferences,
         recording: new RecordingApiService({ baseUrl: config.baseUrl }),
         chart: new ChartController({ api, liveFeed, preferences }),
+        appearance: new AppearanceController({ preferences, host: config.appearanceHost }),
     };
 }

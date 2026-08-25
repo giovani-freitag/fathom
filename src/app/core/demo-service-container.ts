@@ -1,4 +1,5 @@
 import { ArchiveLiveFeedService } from '../services/archive-live-feed-service.ts';
+import { type AppearanceHost, AppearanceController } from './appearance-controller.ts';
 import { ChartController } from './chart-controller.ts';
 import type { CollectorEvent } from '../../shared/core/collector-worker-contract.ts';
 import { CollectorWorkerService } from '../services/collector-worker-service.ts';
@@ -17,6 +18,8 @@ export interface DemoServiceContainerConfig {
     /** Absent outside a browser, which is how a test builds this. */
     readonly factory: IDBFactory | null;
     readonly storage: Storage | null;
+    /** Absent in a test that runs outside a DOM. */
+    readonly appearanceHost: AppearanceHost | null;
     readonly onCollectorEvent: (event: CollectorEvent) => void;
 }
 
@@ -61,6 +64,7 @@ export function createDemoServiceContainer(
         database,
         recording,
         chart: new ChartController({ api, liveFeed, preferences }),
+        appearance: new AppearanceController({ preferences, host: config.appearanceHost }),
     };
 }
 

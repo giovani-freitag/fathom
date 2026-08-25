@@ -1,6 +1,7 @@
 import { type ReactElement, useCallback, useEffect, useState } from 'react';
 import type { RecordedContract, RecordingControl, StorageBudget } from '../../shared/core/recording-control.ts';
 import { Switch } from 'radix-ui';
+import type { Translate } from '../i18n/translator.ts';
 
 /** Ceilings offered when the host will not say how much room it has. */
 const BUDGET_CHOICES_GB = [5, 10, 25, 50, 100] as const;
@@ -14,6 +15,7 @@ export interface RecordingPanelProps {
     readonly recording: RecordingControl;
     /** Called after a contract is switched on or off, so the picker keeps up. */
     readonly onContractsChanged: () => void;
+    readonly translate: Translate;
 }
 
 interface PanelState {
@@ -24,7 +26,7 @@ interface PanelState {
 /**
  * What is being recorded, and how much disk it may take.
  */
-export function RecordingPanel({ recording, onContractsChanged }: RecordingPanelProps): ReactElement {
+export function RecordingPanel({ recording, onContractsChanged, translate }: RecordingPanelProps): ReactElement {
     const [state, setState] = useState<PanelState | null>(null);
     const [failure, setFailure] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
@@ -57,21 +59,23 @@ export function RecordingPanel({ recording, onContractsChanged }: RecordingPanel
     }, [read]);
 
     if (state === null) {
-        return <p className="text-[11px] text-ink-600">Reading what is being recorded…</p>;
+        return <p className="text-[11px] text-ink-600">{translate('recording.reading')}</p>;
     }
 
     return (
         <div className="space-y-3 border-t border-hairline pt-4">
             <div className="flex items-baseline justify-between">
-                <span className="text-xs text-ink-300">Recording</span>
+                <span className="text-xs text-ink-300">{translate('recording.title')}</span>
                 <span className="numeric text-[11px] text-ink-500">
-                    {formatGigabytes(state.budget.usedBytes)} of {formatGigabytes(state.budget.maximumBytes)}
+                    {translate('recording.usage', {
+                        used: formatGigabytes(state.budget.usedBytes),
+                        total: formatGigabytes(state.budget.maximumBytes),
+                    })}
                 </span>
             </div>
 
             <p className="text-[11px] leading-snug text-ink-600">
-                Turning a contract off stops new frames. What it already recorded stays, and
-                is never deleted to make room before older history is.
+                {translate('recording.contractsHelp')}
             </p>
 
             <ul className="space-y-1.5">
@@ -80,7 +84,7 @@ export function RecordingPanel({ recording, onContractsChanged }: RecordingPanel
                         <span className="numeric text-xs text-ink-200">
                             {instrument.instrumentSymbol}
                             <span className="ml-2 text-[10px] text-ink-600">
-                                {instrument.priceBucketSize} per row
+                                {translate('settings.perRow', { value: instrument.priceBucketSize })}
                             </span>
                         </span>
                         <Switch.Root
@@ -92,7 +96,7 @@ export function RecordingPanel({ recording, onContractsChanged }: RecordingPanel
                                 ).then(onContractsChanged);
                             }}
                             className="relative h-5 w-9 shrink-0 rounded-full bg-abyss-600 outline-none data-[state=checked]:bg-phosphor/70 disabled:opacity-50"
-                            aria-label={`Record ${instrument.instrumentSymbol}`}
+                            aria-label={translate('recording.toggle', { symbol: instrument.instrumentSymbol })}
                         >
                             <Switch.Thumb className="block size-4 translate-x-0.5 rounded-full bg-abyss-950 transition-transform data-[state=checked]:translate-x-[18px]" />
                         </Switch.Root>
@@ -104,11 +108,11 @@ export function RecordingPanel({ recording, onContractsChanged }: RecordingPanel
                 budget={state.budget}
                 isSaving={isSaving}
                 onChoose={(bytes) => { void apply(recording.setBudget(bytes)); }}
+                translate={translate}
             />
 
             <p className="text-[11px] leading-snug text-ink-600">
-                Past the ceiling the oldest day is dropped, a whole partition at a time —
-                deleting single rows from compressed history costs more disk than it frees.
+                {translate('recording.ceilingHelp')}
             </p>
 
             {failure === null ? null : (
@@ -121,10 +125,11 @@ export function RecordingPanel({ recording, onContractsChanged }: RecordingPanel
 /**
  * Offers ceilings the host can actually honour.
  */
-function BudgetChooser({ budget, isSaving, onChoose }: {
+function BudgetChooser({ budget, isSaving, onChoose, translate }: {
     readonly budget: StorageBudget;
     readonly isSaving: boolean;
     readonly onChoose: (bytes: number) => void;
+    readonly translate: Translate;
 }): ReactElement {
     const choices = budget.availableBytes === null
         ? BUDGET_CHOICES_GB.map((gigabytes) => ({
@@ -138,7 +143,7 @@ function BudgetChooser({ budget, isSaving, onChoose }: {
 
     return (
         <div className="space-y-1.5">
-            <span className="text-xs text-ink-300">Storage ceiling</span>
+            <span className="text-xs text-ink-300">{translate('recording.ceiling')}</span>
             <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
                 {choices.map((choice) => (
                     <button
