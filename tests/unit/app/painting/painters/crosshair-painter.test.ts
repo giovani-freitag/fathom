@@ -70,7 +70,7 @@ describe('CrosshairPainter', () => {
         expect(readLabels(recording).length).toBeGreaterThanOrEqual(1);
     });
 
-    it('leaves the clock reading to the time axis, which can clear its own labels', () => {
+    it('names the moment under the cursor to the second', () => {
         const recording = createRecordingContext();
         const paint = buildPaintContext(recording, {
             dataset: { frames: [buildFrame()] },
@@ -79,10 +79,61 @@ describe('CrosshairPainter', () => {
 
         buildPainter().paint(paint);
 
-        expect(readLabels(recording).some((label) => label.includes(':'))).toBe(false);
+        expect(readLabels(recording).some((label) => /\d{2}:\d{2}:\d{2}/.test(label))).toBe(true);
     });
 
-    it('reports the size resting under the cursor', () => {
+    it('carries the calendar date, which the time axis never shows', () => {
+        const recording = createRecordingContext();
+        const paint = buildPaintContext(recording, {
+            dataset: { frames: [buildFrame()] },
+            pointer: { x: 300, y: 200 },
+        });
+
+        buildPainter().paint(paint);
+
+        expect(readLabels(recording).some((label) => /\d{4} ·/.test(label))).toBe(true);
+    });
+
+    it('reports the moment of the frame, not of the pixel between frames', () => {
+        const recording = createRecordingContext();
+        const paint = buildPaintContext(recording, {
+            dataset: { frames: [buildFrame()] },
+            pointer: { x: 300, y: 200 },
+        });
+
+        buildPainter().paint(aimAt(paint, MID_PRICE + 5, 1_500_400));
+
+        const expected = new Intl.DateTimeFormat('pt-BR', {
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+        }).format(new Date(1_500_000));
+        expect(readLabels(recording).some((label) => label.endsWith(expected))).toBe(true);
+    });
+
+    it('names the side resting under the cursor, not just the size', () => {
+        const recording = createRecordingContext();
+        const paint = buildPaintContext(recording, {
+            dataset: { frames: [buildFrame()] },
+            pointer: { x: 300, y: 200 },
+        });
+
+        buildPainter().paint(aimAt(paint, MID_PRICE + 15, 1_500_000));
+
+        expect(readLabels(recording).some((label) => label.startsWith('VENDA'))).toBe(true);
+    });
+
+    it('calls the other side a bid', () => {
+        const recording = createRecordingContext();
+        const paint = buildPaintContext(recording, {
+            dataset: { frames: [buildFrame()] },
+            pointer: { x: 300, y: 200 },
+        });
+
+        buildPainter().paint(aimAt(paint, MID_PRICE - 15, 1_500_000));
+
+        expect(readLabels(recording).some((label) => label.startsWith('COMPRA'))).toBe(true);
+    });
+
+    it('spells the price the size is resting at', () => {
         const recording = createRecordingContext();
         const paint = buildPaintContext(recording, {
             dataset: { frames: [buildFrame()] },
@@ -91,7 +142,31 @@ describe('CrosshairPainter', () => {
 
         buildPainter().paint(aimAt(paint, MID_PRICE + 5, 1_500_000));
 
-        expect(readLabels(recording).some((label) => label.startsWith('livro'))).toBe(true);
+        expect(readLabels(recording).some((label) => label.includes('em 78.500'))).toBe(true);
+    });
+
+    it('measures how far the level sits from the middle of the book', () => {
+        const recording = createRecordingContext();
+        const paint = buildPaintContext(recording, {
+            dataset: { frames: [buildFrame()] },
+            pointer: { x: 300, y: 200 },
+        });
+
+        buildPainter().paint(aimAt(paint, MID_PRICE + 25, 1_500_000));
+
+        expect(readLabels(recording).some((label) => label.includes('do meio'))).toBe(true);
+    });
+
+    it('signs the distance so the direction is unmistakable', () => {
+        const recording = createRecordingContext();
+        const paint = buildPaintContext(recording, {
+            dataset: { frames: [buildFrame()] },
+            pointer: { x: 300, y: 200 },
+        });
+
+        buildPainter().paint(aimAt(paint, MID_PRICE - 25, 1_500_000));
+
+        expect(readLabels(recording).some((label) => label.startsWith('-'))).toBe(true);
     });
 
     it('reports what traded there as well', () => {
@@ -109,6 +184,59 @@ describe('CrosshairPainter', () => {
         buildPainter().paint(aimAt(paint, MID_PRICE + 5, 1_500_000));
 
         expect(readLabels(recording).some((label) => label.startsWith('negoc.'))).toBe(true);
+    });
+
+    it('splits what traded by which side crossed the spread', () => {
+        const recording = createRecordingContext();
+        const paint = buildPaintContext(recording, {
+            dataset: {
+                frames: [buildFrame()],
+                clusters: [buildCluster()],
+                clusterPriceBucketSize: 10,
+                clusterIntervalMs: 5_000,
+            },
+            pointer: { x: 300, y: 200 },
+        });
+
+        buildPainter().paint(aimAt(paint, MID_PRICE + 5, 1_500_000));
+
+        const traded = readLabels(recording).find((label) => label.startsWith('negoc.'));
+        expect(traded).toContain('venda');
+    });
+
+    it('names only the side that actually traded', () => {
+        const recording = createRecordingContext();
+        const paint = buildPaintContext(recording, {
+            dataset: {
+                frames: [buildFrame()],
+                clusters: [buildCluster({ sellQuantity: 0 })],
+                clusterPriceBucketSize: 10,
+                clusterIntervalMs: 5_000,
+            },
+            pointer: { x: 300, y: 200 },
+        });
+
+        buildPainter().paint(aimAt(paint, MID_PRICE + 5, 1_500_000));
+
+        const traded = readLabels(recording).find((label) => label.startsWith('negoc.'));
+        expect(traded).not.toContain('venda');
+    });
+
+    it('reports the biggest single trade, which a total hides', () => {
+        const recording = createRecordingContext();
+        const paint = buildPaintContext(recording, {
+            dataset: {
+                frames: [buildFrame()],
+                clusters: [buildCluster()],
+                clusterPriceBucketSize: 10,
+                clusterIntervalMs: 5_000,
+            },
+            pointer: { x: 300, y: 200 },
+        });
+
+        buildPainter().paint(aimAt(paint, MID_PRICE + 5, 1_500_000));
+
+        expect(readLabels(recording).some((label) => label.includes('maior'))).toBe(true);
     });
 
     it('omits the traded line where nothing traded', () => {
@@ -137,7 +265,7 @@ describe('CrosshairPainter', () => {
         expect(Number(recording.callsTo('fillRect').at(-1)?.args[0])).toBeLessThan(pointer.x);
     });
 
-    it('draws no readout where the book is empty', () => {
+    it('says so plainly where nothing is resting', () => {
         const recording = createRecordingContext();
         const paint = buildPaintContext(recording, {
             dataset: { frames: [buildFrame()] },
@@ -146,6 +274,6 @@ describe('CrosshairPainter', () => {
 
         buildPainter().paint(aimAt(paint, 78_000, 1_500_000));
 
-        expect(readLabels(recording).some((label) => label.startsWith('livro'))).toBe(false);
+        expect(readLabels(recording).some((label) => label.startsWith('sem ordem'))).toBe(true);
     });
 });

@@ -8,6 +8,16 @@ const compactFormatter = new Intl.NumberFormat('pt-BR', {
     maximumFractionDigits: 1,
 });
 
+const quantityFormatter = new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+});
+
+const preciseQuantityFormatter = new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+});
+
 const axisTagFormatter = new Intl.NumberFormat('pt-BR', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 1,
@@ -22,6 +32,24 @@ const clockFormatter = new Intl.DateTimeFormat('pt-BR', {
 const dayFormatter = new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
     month: 'short',
+});
+
+const calendarFormatter = new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+});
+
+const signedPriceFormatter = new Intl.NumberFormat('pt-BR', {
+    signDisplay: 'exceptZero',
+    maximumFractionDigits: 0,
+});
+
+const signedPercentFormatter = new Intl.NumberFormat('pt-BR', {
+    style: 'percent',
+    signDisplay: 'exceptZero',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
 });
 
 /**
@@ -50,6 +78,9 @@ export function formatAxisTagPrice(price: number): string {
 /**
  * Renders a resting or traded size compactly.
  *
+ * Localised rather than fixed to a dot, because the prices beside it separate
+ * thousands with one: `9.435` next to `80.750` reads as nine thousand.
+ *
  * @param quantity - Size in base currency.
  * @returns The formatted size, abbreviated above a thousand.
  */
@@ -57,7 +88,9 @@ export function formatQuantity(quantity: number): string {
     if (quantity >= 1_000) {
         return compactFormatter.format(quantity);
     }
-    return quantity.toFixed(quantity >= 10 ? 1 : 3);
+    return quantity >= 10
+        ? quantityFormatter.format(quantity)
+        : preciseQuantityFormatter.format(quantity);
 }
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1_000;
@@ -141,4 +174,46 @@ const QUOTE_SUFFIXES = ['USDT', 'USDC', 'BUSD', 'USD'];
 export function resolveBaseAsset(instrumentSymbol: string): string {
     const suffix = QUOTE_SUFFIXES.find((candidate) => instrumentSymbol.endsWith(candidate));
     return suffix === undefined ? instrumentSymbol : instrumentSymbol.slice(0, -suffix.length);
+}
+
+/**
+ * Renders an instant as a full calendar date and wall clock reading.
+ *
+ * The year is spelled out because a heatmap is read weeks after the fact as
+ * often as live, and `24 ago` alone cannot say which year's flash crash this is.
+ *
+ * @param timestampMs - Unix milliseconds.
+ * @returns The formatted moment.
+ */
+export function formatReadoutMoment(timestampMs: number): string {
+    const moment = new Date(timestampMs);
+    // Assembled from parts because pt-BR spells the long form as
+    // `24 de ago. de 2026`, which is half the width of the readout box.
+    const calendar = calendarFormatter
+        .formatToParts(moment)
+        .filter((part) => part.type === 'day' || part.type === 'month' || part.type === 'year')
+        .map((part) => part.value.replace('.', ''))
+        .join(' ');
+
+    return `${calendar} · ${clockFormatter.format(moment)}`;
+}
+
+/**
+ * Renders a price difference with its direction attached.
+ *
+ * @param deltaPrice - Difference in quote currency, signed.
+ * @returns The formatted difference, always carrying a sign.
+ */
+export function formatSignedPrice(deltaPrice: number): string {
+    return signedPriceFormatter.format(deltaPrice);
+}
+
+/**
+ * Renders a proportion of a price as a signed percentage.
+ *
+ * @param ratio - Difference expressed as a fraction of the reference price.
+ * @returns The formatted percentage, always carrying a sign.
+ */
+export function formatSignedPercent(ratio: number): string {
+    return signedPercentFormatter.format(ratio);
 }

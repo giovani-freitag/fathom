@@ -43,15 +43,23 @@ describe('formatAxisTime', () => {
 
 describe('formatQuantity', () => {
     it('keeps three decimals on a size below ten', () => {
-        expect(formatQuantity(4.5)).toBe('4.500');
+        expect(formatQuantity(4.5)).toBe('4,500');
     });
 
     it('drops to one decimal once the size reaches ten', () => {
-        expect(formatQuantity(55.44)).toBe('55.4');
+        expect(formatQuantity(55.44)).toBe('55,4');
     });
 
     it('abbreviates a size in the thousands', () => {
         expect(formatQuantity(1_590)).toContain('mil');
+    });
+
+    it('never separates decimals the way prices separate thousands', () => {
+        expect(formatQuantity(9.435)).not.toBe('9.435');
+    });
+
+    it('agrees with the price beside it on what a comma means', () => {
+        expect([formatQuantity(9.435), formatPrice(9_435)]).toEqual(['9,435', '9.435']);
     });
 });
 

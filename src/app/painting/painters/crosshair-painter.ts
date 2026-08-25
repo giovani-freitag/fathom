@@ -1,6 +1,14 @@
 import { findClusterAt, findFrameNearest } from '../../core/dataset-lookup.ts';
-import { formatQuantity } from '../../core/formatting.ts';
+import {
+    formatPrice,
+    formatQuantity,
+    formatReadoutMoment,
+    formatSignedPercent,
+    formatSignedPrice,
+    resolveBaseAsset,
+} from '../../core/formatting.ts';
 import { RENDER_PALETTE } from '../render-palette.ts';
+import type { LiquidityFrame } from '../../../shared/core/liquidity-frame.ts';
 import type { PaintContext, PointerReadout } from '../render-types.ts';
 import type { AxisPainter } from './axis-painter.ts';
 
@@ -85,30 +93,100 @@ export class CrosshairPainter {
             return;
         }
 
-        const lines: ReadoutLine[] = [];
         const bucketIndex = Math.floor(price / dataset.priceBucketSize);
-        const bidQuantity = frame.bids.quantities[bucketIndex - frame.bids.lowestBucketIndex] ?? 0;
-        const askQuantity = frame.asks.quantities[bucketIndex - frame.asks.lowestBucketIndex] ?? 0;
-        const restingQuantity = bidQuantity > 0 ? bidQuantity : askQuantity;
+        const bucketPrice = bucketIndex * dataset.priceBucketSize;
+        const lines: ReadoutLine[] = [
+            { label: formatReadoutMoment(frame.capturedAtMs), colour: RENDER_PALETTE.inkMuted },
+            this.describeResting(paint, frame, bucketIndex, bucketPrice),
+        ];
 
-        if (restingQuantity > 0) {
-            lines.push({
-                label: `livro ${formatQuantity(restingQuantity)}`,
-                colour: bidQuantity > 0 ? RENDER_PALETTE.bid : RENDER_PALETTE.ask,
-            });
+        if (!paint.layout.isCompact) {
+            lines.push(this.describeDistance(frame, bucketPrice));
         }
-
-        const cluster = findClusterAt(dataset, price, timestampMs);
-        if (cluster !== null) {
-            lines.push({
-                label: `negoc. ${formatQuantity(cluster.buyQuantity + cluster.sellQuantity)} · ${cluster.tradeCount}x`,
-                colour: cluster.buyQuantity >= cluster.sellQuantity
-                    ? RENDER_PALETTE.bid
-                    : RENDER_PALETTE.ask,
-            });
-        }
+        lines.push(...this.describeTrades(paint, price, timestampMs));
 
         this.paintReadoutBox(paint, lines, pointer);
+    }
+
+    /**
+     * The side and size resting in the bucket under the cursor.
+     */
+    private describeResting(
+        paint: PaintContext,
+        frame: LiquidityFrame,
+        bucketIndex: number,
+        bucketPrice: number,
+    ): ReadoutLine {
+        const bidQuantity = frame.bids.quantities[bucketIndex - frame.bids.lowestBucketIndex] ?? 0;
+        const askQuantity = frame.asks.quantities[bucketIndex - frame.asks.lowestBucketIndex] ?? 0;
+        const asset = resolveBaseAsset(paint.request.dataset.instrumentSymbol);
+
+        if (bidQuantity > 0) {
+            return {
+                label: `COMPRA ${formatQuantity(bidQuantity)} ${asset} em ${formatPrice(bucketPrice)}`,
+                colour: RENDER_PALETTE.bid,
+            };
+        }
+        if (askQuantity > 0) {
+            return {
+                label: `VENDA ${formatQuantity(askQuantity)} ${asset} em ${formatPrice(bucketPrice)}`,
+                colour: RENDER_PALETTE.ask,
+            };
+        }
+        return { label: `sem ordem em ${formatPrice(bucketPrice)}`, colour: RENDER_PALETTE.inkMuted };
+    }
+
+    /**
+     * How far the bucket sat from the middle of the book at that moment.
+     *
+     * Measured against the frame under the cursor rather than the live price, so
+     * the answer stays true when the reader is looking at an hour ago.
+     */
+    private describeDistance(frame: LiquidityFrame, bucketPrice: number): ReadoutLine {
+        const midPrice = (frame.bestBidPrice + frame.bestAskPrice) / 2;
+        const delta = bucketPrice - midPrice;
+
+        return {
+            label: `${formatSignedPrice(delta)} · ${formatSignedPercent(delta / midPrice)} do meio`,
+            colour: RENDER_PALETTE.inkMuted,
+        };
+    }
+
+    /**
+     * What actually traded in the bucket, split by which side was the aggressor.
+     */
+    private describeTrades(
+        paint: PaintContext,
+        price: number,
+        timestampMs: number,
+    ): readonly ReadoutLine[] {
+        const cluster = findClusterAt(paint.request.dataset, price, timestampMs);
+        if (cluster === null) {
+            return [];
+        }
+
+        const sides: string[] = [];
+        if (cluster.buyQuantity > 0) {
+            sides.push(`compra ${formatQuantity(cluster.buyQuantity)}`);
+        }
+        if (cluster.sellQuantity > 0) {
+            sides.push(`venda ${formatQuantity(cluster.sellQuantity)}`);
+        }
+
+        const lines: ReadoutLine[] = [{
+            label: `negoc. ${sides.join(' · ')}`,
+            colour: cluster.buyQuantity >= cluster.sellQuantity
+                ? RENDER_PALETTE.bid
+                : RENDER_PALETTE.ask,
+        }];
+
+        if (!paint.layout.isCompact) {
+            lines.push({
+                label: `${cluster.tradeCount}x · maior ${formatQuantity(cluster.largestTradeQuantity)}`,
+                colour: RENDER_PALETTE.inkMuted,
+            });
+        }
+        return lines;
     }
 
     /**

@@ -1,11 +1,22 @@
-import { toBucketCentrePrice } from '../../../shared/core/price-bucket.ts';
+import { toBucketCentrePrice, toPriceBucketIndex } from '../../../shared/core/price-bucket.ts';
+import { formatQuantity } from '../../core/formatting.ts';
 import { RENDER_PALETTE } from '../render-palette.ts';
 import type { PaintContext } from '../render-types.ts';
+
+/** Row height below which a number cannot be read, so only the bar is drawn. */
+const LEGIBLE_ROW_HEIGHT_PX = 11;
+
+/** Panel width below which only one of the two columns fits. */
+const TWO_COLUMN_WIDTH_PX = 70;
+
+const ROW_FONT = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
 
 interface ProfileRow {
     readonly y: number;
     readonly buyQuantity: number;
     readonly sellQuantity: number;
+    /** What was resting at this level in the newest frame on screen. */
+    readonly restingQuantity: number;
 }
 
 interface VolumeProfile {
@@ -44,7 +55,51 @@ export class VolumeProfilePainter {
 
         const profile = buildVolumeProfile(paint);
         this.paintBars(paint, profile);
+        this.paintRowNumbers(paint, profile);
         this.paintPointOfControl(paint, profile);
+    }
+
+    /**
+     * Writes the resting and traded size on each row.
+     *
+     * Only once the rows are tall enough to hold a digit. Zoomed out the same
+     * pass would stack overlapping numbers into a grey smear that hides the
+     * bars underneath, so below that height the bars speak alone.
+     */
+    private paintRowNumbers(paint: PaintContext, profile: VolumeProfile): void {
+        const { context, layout, projector, request } = paint;
+        const rowHeight = projector.bucketHeight(request.dataset.clusterPriceBucketSize);
+        if (rowHeight < LEGIBLE_ROW_HEIGHT_PX) {
+            return;
+        }
+
+        const hasRoomForBoth = layout.profileWidth >= TWO_COLUMN_WIDTH_PX;
+        const previousFont = context.font;
+        context.font = ROW_FONT;
+        context.textBaseline = 'middle';
+
+        for (const row of profile.rows) {
+            this.paintTradedNumber(paint, row);
+            if (hasRoomForBoth && row.restingQuantity > 0) {
+                context.textAlign = 'left';
+                context.fillStyle = RENDER_PALETTE.inkMuted;
+                context.fillText(formatQuantity(row.restingQuantity), layout.profileX + 4, row.y);
+            }
+        }
+
+        context.font = previousFont;
+    }
+
+    private paintTradedNumber(paint: PaintContext, row: ProfileRow): void {
+        const { context, layout } = paint;
+        const traded = row.buyQuantity + row.sellQuantity;
+        if (traded <= 0) {
+            return;
+        }
+
+        context.textAlign = 'right';
+        context.fillStyle = RENDER_PALETTE.inkPrimary;
+        context.fillText(formatQuantity(traded), layout.profileX + layout.profileWidth - 4, row.y);
     }
 
     /**
@@ -128,7 +183,12 @@ function buildVolumeProfile(paint: PaintContext): VolumeProfile {
             continue;
         }
 
-        const row = { y, buyQuantity: volume.buyQuantity, sellQuantity: volume.sellQuantity };
+        const row = {
+            y,
+            buyQuantity: volume.buyQuantity,
+            sellQuantity: volume.sellQuantity,
+            restingQuantity: readRestingQuantity(paint, price),
+        };
         const total = volume.buyQuantity + volume.sellQuantity;
         if (total > maximumVolume) {
             maximumVolume = total;
@@ -138,4 +198,22 @@ function buildVolumeProfile(paint: PaintContext): VolumeProfile {
     }
 
     return { rows, maximumVolume, busiestRow };
+}
+
+/**
+ * What is resting at a price in the newest frame on screen.
+ *
+ * The newest rather than a sum over the window: resting size is a level, not a
+ * flow, and adding a wall to itself once per second measures nothing.
+ */
+function readRestingQuantity(paint: PaintContext, price: number): number {
+    const { dataset } = paint.request;
+    const frame = dataset.frames[dataset.frames.length - 1];
+    if (frame === undefined) {
+        return 0;
+    }
+
+    const bucketIndex = toPriceBucketIndex(price, dataset.priceBucketSize);
+    return (frame.bids.quantities[bucketIndex - frame.bids.lowestBucketIndex] ?? 0)
+        + (frame.asks.quantities[bucketIndex - frame.asks.lowestBucketIndex] ?? 0);
 }
