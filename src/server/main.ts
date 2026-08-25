@@ -43,6 +43,15 @@ async function shutDown(): Promise<void> {
 process.on('SIGINT', () => void shutDown());
 process.on('SIGTERM', () => void shutDown());
 
-await postgres.connect();
-await server.start();
-process.stdout.write(`Fathom gateway listening on http://${configuration.host}:${configuration.port}\n`);
+// A supervisor restarts this process, so a failure to start is a retry rather
+// than a crash. Saying so in one line beats a stack trace the log will repeat
+// every five seconds until the database answers.
+try {
+    await postgres.connect();
+    await server.start();
+    process.stdout.write(`Fathom gateway listening on http://${configuration.host}:${configuration.port}\n`);
+} catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`${new Date().toISOString()} WARN  Could not start: ${reason}\n`);
+    process.exit(1);
+}
