@@ -23,7 +23,7 @@ const RECONCILE_INTERVAL_MS = 15_000;
  */
 const STALL_TIMEOUT_MS = 120_000;
 
-const { log, flush: flushLog } = await openNodeCollectorLog({ filePath: readLogFilePath() });
+const { log, close: closeLog } = await openNodeCollectorLog({ filePath: readLogFilePath() });
 const { instrumentSymbol, priceBucketSize, frameIntervalMs, ...shared } = readCollectorConfiguration();
 
 const postgres = new PostgresService({
@@ -48,7 +48,7 @@ const supervisor = new CollectorSupervisor({
 async function shutDown(signalName: string): Promise<void> {
     log.warning('Received a stop signal, flushing before exit', { signalName });
     await supervisor.stop();
-    await flushLog();
+    await closeLog();
     process.exit(0);
 }
 
@@ -76,6 +76,6 @@ try {
     log.info('Supervising the enabled contracts', { contracts: supervisor.recording.length });
 } catch (error) {
     log.warning('The collector could not start', { reason: describeError(error) });
-    await flushLog();
+    await closeLog();
     process.exit(1);
 }

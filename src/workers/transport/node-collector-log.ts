@@ -19,12 +19,13 @@ export interface NodeCollectorLogConfig {
 export interface OpenedCollectorLog {
     readonly log: CollectorLog;
     /**
-     * Waits for everything written so far to reach the disk.
+     * Drains everything written so far to the disk and closes the file.
      *
-     * Lines are buffered, so a process that exits without this loses whatever
-     * it said on its way out — which is the part worth reading.
+     * Nothing may be logged afterwards. Lines are buffered on their way out, so
+     * a process that exits without this loses whatever it said last — which is
+     * the part worth reading.
      */
-    flush(): Promise<void>;
+    close(): Promise<void>;
 }
 
 /**
@@ -57,7 +58,17 @@ export async function openNodeCollectorLog(
 
     return {
         log: wrap(logger),
-        flush: () => new Promise<void>((resolve) => { logger.flush(() => { resolve(); }); }),
+        // Closed rather than flushed: the stream reports a flush the moment it
+        // has handed the bytes on, which is before they have reached the disk,
+        // and `flushSync` refuses until the file has finished opening. Waiting
+        // for the close is the only point at which the last line is safe.
+        close: async () => {
+            await new Promise<void>((resolve) => { logger.flush(() => { resolve(); }); });
+            await new Promise<void>((resolve) => {
+                destination.once('close', resolve);
+                destination.end();
+            });
+        },
     };
 }
 
