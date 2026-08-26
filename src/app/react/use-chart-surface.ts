@@ -80,6 +80,7 @@ export function useChartSurface(): ChartSurfaceHandles {
             viewport: state.viewport,
             dataset: state.dataset,
             colourGain: state.colourGain,
+            isDepthVisible: state.isDepthVisible,
             isCandleOverlayVisible: state.isCandleOverlayVisible,
             isTradeOverlayVisible: state.isTradeOverlayVisible,
             isVolumeProfileVisible: state.isVolumeProfileVisible,

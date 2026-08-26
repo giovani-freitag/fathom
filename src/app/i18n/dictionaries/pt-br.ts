@@ -6,6 +6,19 @@ import type { Dictionary } from './en.ts';
 export const PT_BR_DICTIONARY: Dictionary = {
     'chart.surface': 'Mapa de calor da liquidez do livro',
 
+    'layer.depth': 'Livro',
+    'layer.depth.help': 'Tamanho em repouso em cada preço, como mudou ao longo do tempo',
+    'layer.candles': 'Candles',
+    'layer.candles.help': 'Onde o preço abriu, chegou e fechou em cada barra',
+    'layer.executions': 'Agressores',
+    'layer.executions.help': 'O que de fato negociou, e qual lado cruzou o spread',
+    'layer.profile': 'Perfil de volume',
+    'layer.profile.help': 'Quanto negociou em cada preço ao longo da janela',
+    'parameter.colourGain': 'Intensidade',
+    'parameter.floorPercentile': 'Corte inferior',
+    'parameter.saturationPercentile': 'Corte superior',
+    'indicators.theChart': 'O gráfico',
+
     'indicator.sma': 'MMS',
     'indicator.sma.help': 'Média simples do fechamento da barra',
     'indicator.ema': 'MME',

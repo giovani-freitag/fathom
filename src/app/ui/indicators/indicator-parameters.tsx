@@ -1,4 +1,4 @@
-import type { ChoiceParameter, Indicator, NumericParameter } from '../../../shared/core/draw-plan.ts';
+import type { ChoiceParameter, IndicatorParameter, NumericParameter } from '../../../shared/core/draw-plan.ts';
 import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts';
 import { INSTANCE_TONES, readChoice, readSetting } from '../../../shared/core/draw-plan.ts';
 import type { PlotTone } from '../../../shared/core/draw-plan.ts';
@@ -8,7 +8,9 @@ import { useTranslate } from '../../react/use-appearance.ts';
 import { translateLabel } from '../../i18n/translator.ts';
 
 interface IndicatorParametersProps {
-    readonly indicator: Indicator;
+    readonly indicator: { readonly parameters: readonly IndicatorParameter[] };
+    /** False for a layer the host draws in colours that already mean something. */
+    readonly hasTone?: boolean;
     readonly added: AddedIndicator;
     readonly onRetune: (name: string, value: number | string) => void;
     readonly onRecolour: (tone: PlotTone) => void;
@@ -22,6 +24,7 @@ export function IndicatorParameters({
     added,
     onRetune,
     onRecolour,
+    hasTone = true,
 }: IndicatorParametersProps): ReactElement {
     const translate = useTranslate();
 
@@ -45,25 +48,27 @@ export function IndicatorParameters({
                 )))}
             </div>
 
-            <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">
-                    {translate('indicators.colour')}
-                </span>
-                <div className="flex gap-1.5">
-                    {INSTANCE_TONES.map((tone) => (
-                        <button
-                            key={tone}
-                            type="button"
-                            aria-label={tone}
-                            aria-pressed={tone === added.tone}
-                            onClick={() => { onRecolour(tone); }}
-                            className={`grid size-7 place-items-center rounded border ${tone === added.tone ? 'border-ink-100' : 'border-transparent hover:border-hairline-bright'}`}
-                        >
-                            <ToneSwatch tone={tone} className="size-3.5" />
-                        </button>
-                    ))}
+            {hasTone && (
+                <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+                        {translate('indicators.colour')}
+                    </span>
+                    <div className="flex gap-1.5">
+                        {INSTANCE_TONES.map((tone) => (
+                            <button
+                                key={tone}
+                                type="button"
+                                aria-label={tone}
+                                aria-pressed={tone === added.tone}
+                                onClick={() => { onRecolour(tone); }}
+                                className={`grid size-7 place-items-center rounded border ${tone === added.tone ? 'border-ink-100' : 'border-transparent hover:border-hairline-bright'}`}
+                            >
+                                <ToneSwatch tone={tone} className="size-3.5" />
+                            </button>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

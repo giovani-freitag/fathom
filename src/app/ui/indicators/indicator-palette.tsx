@@ -1,6 +1,10 @@
 import { type ReactElement, useMemo, useState } from 'react';
 import type { Indicator } from '../../../shared/core/draw-plan.ts';
-import { INDICATOR_CATALOGUE } from '../../indicators/indicator-catalogue.ts';
+import type { FieldLayer } from '../../indicators/field-layers.ts';
+
+type Offered = Indicator | FieldLayer;
+import { CHART_LAYERS } from '../../indicators/indicator-catalogue.ts';
+import { findFieldLayer } from '../../indicators/field-layers.ts';
 import { needsOwnBand } from '../../painting/pane-projector.ts';
 import { Search } from 'lucide-react';
 import { useTranslate } from '../../react/use-appearance.ts';
@@ -24,8 +28,11 @@ export function IndicatorPalette({ onAdd, isFull, addedCounts, hasAutoFocus = fa
     const [query, setQuery] = useState('');
     const matches = useMemo(() => findMatches(query, translate), [query, translate]);
 
-    const overPrice = matches.filter((indicator) => !needsOwnBand(indicator.scale));
-    const ownPane = matches.filter((indicator) => needsOwnBand(indicator.scale));
+    const theChart = matches.filter((entry) => findFieldLayer(entry.id) !== null);
+    const overPrice = matches.filter((entry) => findFieldLayer(entry.id) === null
+        && !needsOwnBand((entry as Indicator).scale));
+    const ownPane = matches.filter((entry) => findFieldLayer(entry.id) === null
+        && needsOwnBand((entry as Indicator).scale));
 
     return (
         <div className="flex w-72 flex-col gap-2">
@@ -51,6 +58,13 @@ export function IndicatorPalette({ onAdd, isFull, addedCounts, hasAutoFocus = fa
                     <p className="px-1 py-3 text-xs text-ink-500">{translate('indicators.noMatch')}</p>
                 )}
                 <IndicatorGroup
+                    titleKey="indicators.theChart"
+                    indicators={theChart}
+                    isFull={isFull}
+                    addedCounts={addedCounts}
+                    onAdd={onAdd}
+                />
+                <IndicatorGroup
                     titleKey="indicators.overPrice"
                     indicators={overPrice}
                     isFull={isFull}
@@ -70,8 +84,8 @@ export function IndicatorPalette({ onAdd, isFull, addedCounts, hasAutoFocus = fa
 }
 
 interface IndicatorGroupProps {
-    readonly titleKey: 'indicators.overPrice' | 'indicators.ownPane';
-    readonly indicators: readonly Indicator[];
+    readonly titleKey: 'indicators.theChart' | 'indicators.overPrice' | 'indicators.ownPane';
+    readonly indicators: readonly Offered[];
     readonly isFull: boolean;
     readonly addedCounts: ReadonlyMap<string, number>;
     readonly onAdd: (indicatorId: string) => void;
@@ -118,7 +132,7 @@ function IndicatorGroup({ titleKey, indicators, isFull, addedCounts, onAdd }: In
  */
 function addFirstMatch(
     event: { key: string; preventDefault: () => void },
-    matches: readonly Indicator[],
+    matches: readonly Offered[],
     isFull: boolean,
     onAdd: (indicatorId: string) => void,
 ): void {
@@ -133,13 +147,13 @@ function addFirstMatch(
 /**
  * The indicators whose name or description answers what was typed.
  */
-function findMatches(query: string, translate: Translate): readonly Indicator[] {
+function findMatches(query: string, translate: Translate): readonly Offered[] {
     const wanted = query.trim().toLowerCase();
     if (wanted === '') {
-        return INDICATOR_CATALOGUE;
+        return CHART_LAYERS;
     }
 
-    return INDICATOR_CATALOGUE.filter((indicator) => {
+    return CHART_LAYERS.filter((indicator) => {
         const name = translateLabel(translate, indicator.labelKey).toLowerCase();
         const help = translateLabel(translate, `${indicator.labelKey}.help`).toLowerCase();
         // The id as well as the rendered name, so a reader who knows the term in

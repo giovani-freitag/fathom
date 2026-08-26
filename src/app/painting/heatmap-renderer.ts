@@ -151,7 +151,7 @@ export class HeatmapRenderer {
         const context = this.depthContext!;
         context.clearRect(0, 0, this.cssWidth, this.cssHeight);
 
-        const field = this.resolveField(request);
+        const field = request.isDepthVisible ? this.resolveField(request) : null;
         if (field === null) {
             return;
         }
@@ -304,6 +304,7 @@ function describeOverlayState(request: RenderRequest, layout: ChartLayout): stri
         request.isCandleOverlayVisible,
         request.isTradeOverlayVisible,
         request.isVolumeProfileVisible,
+        request.isDepthVisible,
         // A plan appearing, leaving or being retuned does not move the dataset,
         // so what the plans are has to be in the key itself.
         request.plans.map(describePlan).join(','),

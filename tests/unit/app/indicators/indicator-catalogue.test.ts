@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { INDICATOR_CATALOGUE, readDefaultSettings } from '../../../../src/app/indicators/indicator-catalogue.ts';
+import {
+    CHART_LAYERS,
+    findChartLayer,
+    INDICATOR_CATALOGUE,
+    readDefaultSettings,
+} from '../../../../src/app/indicators/indicator-catalogue.ts';
+import { resolveFieldSettings } from '../../../../src/app/indicators/field-layers.ts';
 import { isPlanWithinBudget } from '../../../../src/shared/core/draw-plan.ts';
 import type { Indicator } from '../../../../src/shared/core/draw-plan.ts';
 import { BAR_INTERVAL_MS, buildRun, buildWindow } from '../../../mocks/price-bars.ts';
@@ -96,5 +102,54 @@ describe('every shipped indicator', () => {
         const plan = computeOver(INDICATOR_CATALOGUE[0]!, bars);
 
         expect(plan.series[0]?.atMs[0]).toBe(bars[0]!.openedAtMs + BAR_INTERVAL_MS);
+    });
+});
+
+describe('what a reader can put on the chart', () => {
+    it('offers the host layers beside the indicators, in one list', () => {
+        // Choosing what to look at is one decision. The two halves differ in how
+        // they are drawn, which is the host's problem rather than the reader's.
+        const offered = CHART_LAYERS.map((layer) => layer.id);
+
+        expect(offered.slice(0, 4)).toEqual(['depth', 'candles', 'executions', 'profile']);
+        expect(offered).toContain('rsi');
+    });
+
+    it('finds either half under the id a stored selection names', () => {
+        expect(findChartLayer('depth')?.id).toBe('depth');
+        expect(findChartLayer('rsi')?.id).toBe('rsi');
+        expect(findChartLayer('nothing-like-that')).toBeNull();
+    });
+
+    it('leaves a plain price chart when the book is taken off', () => {
+        const settings = resolveFieldSettings([
+            { instanceId: 'candles-1', indicatorId: 'candles', settings: {}, tone: 'ink' },
+        ]);
+
+        expect(settings.isDepthVisible).toBe(false);
+        expect(settings.isCandleOverlayVisible).toBe(true);
+    });
+
+    it('stops drawing a layer that is hidden, and keeps how it was tuned', () => {
+        const settings = resolveFieldSettings([
+            { instanceId: 'depth-1', indicatorId: 'depth', settings: { colourGain: 2.5 }, tone: 'ink', isHidden: true },
+        ]);
+
+        expect(settings.isDepthVisible).toBe(false);
+    });
+
+    it('takes the depth cuts from the layer that owns them, clamped to what it declared', () => {
+        const settings = resolveFieldSettings([
+            { instanceId: 'depth-1', indicatorId: 'depth', settings: { colourGain: 99 }, tone: 'ink' },
+        ]);
+
+        expect(settings.colourGain).toBe(3);
+    });
+
+    it('falls back to the declared cuts when no book is on the chart', () => {
+        const settings = resolveFieldSettings([]);
+
+        expect(Number.isFinite(settings.colourGain)).toBe(true);
+        expect(Number.isFinite(settings.depthFloorPercentile)).toBe(true);
     });
 });

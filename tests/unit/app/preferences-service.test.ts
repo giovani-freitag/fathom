@@ -37,31 +37,41 @@ describe('PreferencesService.read', () => {
             storage: buildStorage(JSON.stringify({ instrumentSymbol: 'ETHUSDT' })),
         });
 
-        expect(service.read().colourGain).toBe(DEFAULT_PREFERENCES.colourGain);
+        expect(service.read().addedIndicators).toEqual(DEFAULT_PREFERENCES.addedIndicators);
     });
 
-    it('pulls a gain saved by a wider slider back into range', () => {
+    it('carries a reader who had turned a layer off', () => {
+        // A document written before the host layers joined the list. Turning the
+        // profile off was a decision, and seeding the defaults would hand it
+        // back every time the page opened.
         const service = new PreferencesService({
-            storage: buildStorage(JSON.stringify({ colourGain: 6 })),
+            storage: buildStorage(JSON.stringify({ isVolumeProfileVisible: false })),
         });
 
-        expect(service.read().colourGain).toBe(3);
+        const added = service.read().addedIndicators.map((entry) => entry.indicatorId);
+        expect(added).toContain('depth');
+        expect(added).not.toContain('profile');
     });
 
-    it('pulls a gain below the current floor up to it', () => {
+    it('carries the cuts a reader had moved', () => {
         const service = new PreferencesService({
-            storage: buildStorage(JSON.stringify({ colourGain: 0.05 })),
+            storage: buildStorage(JSON.stringify({ colourGain: 2.5, depthFloorPercentile: 0.2 })),
         });
 
-        expect(service.read().colourGain).toBe(0.4);
+        const depth = service.read().addedIndicators.find((entry) => entry.indicatorId === 'depth');
+        expect(depth?.settings).toMatchObject({ colourGain: 2.5, floorPercentile: 0.2 });
     });
 
-    it('repairs a corrupted numeric value', () => {
-        const service = new PreferencesService({
-            storage: buildStorage(JSON.stringify({ colourGain: 'bright' })),
-        });
+    it('migrates once, and leaves a later removal alone', () => {
+        const migrated = new PreferencesService({
+            storage: buildStorage(JSON.stringify({ isVolumeProfileVisible: false })),
+        }).read();
 
-        expect(service.read().colourGain).toBe(0.4);
+        const reread = new PreferencesService({
+            storage: buildStorage(JSON.stringify({ ...migrated, addedIndicators: [] })),
+        }).read();
+
+        expect(reread.addedIndicators).toEqual([]);
     });
 
     it('bounds a stored span to something the archive could hold', () => {
@@ -78,9 +88,9 @@ describe('PreferencesService.write', () => {
         const storage = buildStorage(null);
         const service = new PreferencesService({ storage });
 
-        service.write({ ...DEFAULT_PREFERENCES, colourGain: 2 });
+        service.write({ ...DEFAULT_PREFERENCES, visibleSpanMs: 120_000 });
 
-        expect(storage.setItem).toHaveBeenCalledWith(STORAGE_KEY, expect.stringContaining('"colourGain":2'));
+        expect(storage.setItem).toHaveBeenCalledWith(STORAGE_KEY, expect.stringContaining('"visibleSpanMs":120000'));
     });
 
     it('survives a storage that refuses the write', () => {

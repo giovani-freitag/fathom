@@ -156,6 +156,30 @@ derivable from the execution grid to within a hundredth of a percent, so this is
 a choice: the mid is what the recording is of, and it is defined in every second
 the collector saw, including the ones nothing traded in.
 
+## One list of what is on the chart
+
+The depth map, the candles, the executions and the volume profile used to be
+flags in a settings drawer, while an average was something you added to a list.
+They are the same decision written twice, and the flags were the worse half: they
+could not be tuned beside what they drew, hidden for a moment, or reasoned about
+as a set.
+
+They are now members of the same list. Taking the book off leaves a plain candle
+chart, which is a thing somebody might genuinely want, and the depth map's own
+knobs — its intensity and its two cuts — live in the same panel as an average's
+period rather than in a drawer that covers the chart while you turn them.
+
+What they do not share is how they are drawn. An indicator is arithmetic over
+bars and returns vertices; the depth map is a picture of hundreds of thousands
+of cells built from the book, painted on a layer of its own so that dragging the
+chart is a blit rather than a repaint. So the catalogue holds two kinds, and only
+one of them produces a plan. The host knows the difference; the reader does not
+have to.
+
+Nothing is stored twice: what the chart draws is read out of the list rather
+than kept beside it, so there is one answer to what is on screen and it is the
+list itself.
+
 ## Indicators
 
 An indicator is a pure function from bars to vertices **in data space**. It never
@@ -249,6 +273,12 @@ A band answers to what is on screen rather than to what was loaded. A window is
 fetched wider than it is shown, and a spike an hour off the left edge would
 otherwise flatten every bar the reader can actually see. A declared range is the
 exception, because for a bounded reading the bounds are the reading.
+
+There is no limit on how many. Bands thin out as they are added and the price
+keeps a floor, so what is too many is something a reader can see and decide
+about — and two readings put in one band cost one band rather than two. The one
+figure that remains is a guard on a stored document that arrives corrupt, set far
+above any chart somebody would build.
 
 Each reading that needs a band gets one of its own, and any of them can be moved
 into another's. That move is the whole reason for having two copies of one

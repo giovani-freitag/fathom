@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_PREFERENCES, PreferencesService } from '../../../../src/app/services/preferences-service.ts';
-import { MAXIMUM_ADDED_INDICATORS } from '../../../../src/shared/core/indicator-selection.ts';
+import { MAXIMUM_STORED_INDICATORS } from '../../../../src/shared/core/indicator-selection.ts';
 
 const STORAGE_KEY = 'fathom.preferences.v1';
 
@@ -15,8 +15,10 @@ function buildStorage(stored: unknown): Storage {
     } as unknown as Storage;
 }
 
-function readIndicators(stored: unknown): ReturnType<PreferencesService['read']>['addedIndicators'] {
-    return new PreferencesService({ storage: buildStorage(stored) }).read().addedIndicators;
+function readIndicators(stored: Record<string, unknown>): ReturnType<PreferencesService['read']>['addedIndicators'] {
+    return new PreferencesService({
+        storage: buildStorage({ schemaVersion: 2, ...stored }),
+    }).read().addedIndicators;
 }
 
 function readAppearance(stored: Record<string, unknown>): ReturnType<PreferencesService['read']> {
@@ -79,12 +81,12 @@ describe('PreferencesService indicators', () => {
         expect(added.every((entry) => typeof entry.tone === 'string')).toBe(true);
     });
 
-    it('keeps a stored set to what the chart can actually draw', () => {
-        const tooMany = Array.from({ length: 40 }, (_, index) => ({
+    it('bounds a document that arrives corrupt, without limiting a real chart', () => {
+        const tooMany = Array.from({ length: MAXIMUM_STORED_INDICATORS * 3 }, (_, index) => ({
             instanceId: `ema-${index}`, indicatorId: 'ema', settings: {}, tone: 'amber',
         }));
 
-        expect(readIndicators({ addedIndicators: tooMany })).toHaveLength(MAXIMUM_ADDED_INDICATORS);
+        expect(readIndicators({ addedIndicators: tooMany })).toHaveLength(MAXIMUM_STORED_INDICATORS);
     });
 
     it('drops a repeated instance, which two rows could not be told apart by', () => {
@@ -98,8 +100,14 @@ describe('PreferencesService indicators', () => {
         expect(added).toHaveLength(1);
     });
 
-    it('falls back to the defaults when nothing was ever stored', () => {
-        expect(readIndicators(undefined)).toEqual(DEFAULT_PREFERENCES.addedIndicators);
+    it('opens a new chart on everything it can draw', () => {
+        // Nothing stored at all. The chart a reader has never touched shows the
+        // book, the candles, what traded and where it traded.
+        const service = new PreferencesService({ storage: buildStorage(undefined) });
+
+        expect(service.read().addedIndicators).toEqual(DEFAULT_PREFERENCES.addedIndicators);
+        expect(DEFAULT_PREFERENCES.addedIndicators.map((entry) => entry.indicatorId))
+            .toEqual(['depth', 'candles', 'executions', 'profile']);
     });
 
     it('survives storage holding something that is not JSON', () => {

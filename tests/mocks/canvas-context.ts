@@ -134,6 +134,7 @@ export function buildPaintContext(
             viewport,
             dataset: { ...EMPTY_DATASET, priceBucketSize: 10, ...options.dataset },
             colourGain: 1,
+            isDepthVisible: true,
             isCandleOverlayVisible: true,
             isTradeOverlayVisible: true,
             isVolumeProfileVisible: options.isVolumeProfileVisible ?? false,

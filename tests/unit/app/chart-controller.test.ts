@@ -192,25 +192,59 @@ describe('ChartController live tail', () => {
     });
 });
 
-describe('ChartController settings', () => {
-    it('applies a display change immediately', async () => {
+describe('ChartController layers', () => {
+    it('reads what the chart draws out of what was added, not from a flag beside it', async () => {
         const controller = buildController();
         await controller.initialize();
 
-        controller.updateSettings({ colourGain: 3 });
+        controller.updateIndicators(
+            (current) => current.filter((entry) => entry.indicatorId !== 'profile'),
+        );
 
-        expect(controller.store.read().colourGain).toBe(3);
+        expect(controller.store.read().isVolumeProfileVisible).toBe(false);
     });
 
-    it('remembers a display change', async () => {
+    it('takes the depth cuts from the layer that owns them', async () => {
+        const controller = buildController();
+        await controller.initialize();
+
+        controller.updateIndicators((current) => current.map((entry) => (
+            entry.indicatorId === 'depth'
+                ? { ...entry, settings: { ...entry.settings, colourGain: 2.5 } }
+                : entry
+        )));
+
+        expect(controller.store.read().colourGain).toBe(2.5);
+    });
+
+    it('stops drawing a layer that is hidden rather than removed', async () => {
+        const controller = buildController();
+        await controller.initialize();
+
+        controller.updateIndicators((current) => current.map((entry) => (
+            entry.indicatorId === 'candles' ? { ...entry, isHidden: true } : entry
+        )));
+
+        const state = controller.store.read();
+        expect(state.isCandleOverlayVisible).toBe(false);
+        expect(state.addedIndicators.some((entry) => entry.indicatorId === 'candles')).toBe(true);
+    });
+
+    it('remembers the layers it was left with', async () => {
         const mocks = createChartServiceMocks();
         const controller = buildController(mocks);
         await controller.initialize();
 
-        controller.updateSettings({ isVolumeProfileVisible: false });
+        controller.updateIndicators(
+            (current) => current.filter((entry) => entry.indicatorId !== 'profile'),
+        );
 
         expect(mocks.writePreferences).toHaveBeenCalledWith(
-            expect.objectContaining({ isVolumeProfileVisible: false }),
+            expect.objectContaining({
+                addedIndicators: expect.not.arrayContaining([
+                    expect.objectContaining({ indicatorId: 'profile' }),
+                ]),
+            }),
         );
     });
 

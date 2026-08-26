@@ -35,6 +35,7 @@ import {
     findIndicator,
     resolveRequiredWarmupBars,
 } from '../indicators/indicator-catalogue.ts';
+import { resolveFieldSettings } from '../indicators/field-layers.ts';
 import { type AddedIndicator, resolveBandKey } from '../../shared/core/indicator-selection.ts';
 import { isPlanWithinBudget, recolourPlan } from '../../shared/core/draw-plan.ts';
 
@@ -60,6 +61,8 @@ export interface ChartState {
     readonly depthFloorPercentile: number;
     /** Fraction of the window at which resting size reaches the hot end. */
     readonly depthSaturationPercentile: number;
+    /** False leaves a plain price chart, with no book behind it. */
+    readonly isDepthVisible: boolean;
     readonly isCandleOverlayVisible: boolean;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
@@ -254,20 +257,6 @@ export class ChartController {
     }
 
     /**
-     * Changes a display setting and remembers it.
-     *
-     * @param patch - The settings to change; anything absent is left alone.
-     */
-    updateSettings(patch: ChartSettingsPatch): void {
-        this.store.update((state) => {
-            const next = { ...state, ...patch };
-            const recutState = hasMovedACut(state, next) ? { ...next, dataset: recut(next) } : next;
-            return { ...recutState, plans: this.computePlans(recutState) };
-        });
-        this.persistPreferences();
-    }
-
-    /**
      * Runs the indicators over the window on screen.
      *
      * Inline and synchronous because these are ours: moving a first-party
@@ -317,8 +306,12 @@ export class ChartController {
     ): void {
         const before = resolveRequiredWarmupBars(this.store.read().addedIndicators);
         this.store.update((state) => {
-            const next = { ...state, addedIndicators: revise(state.addedIndicators) };
-            return { ...next, plans: this.computePlans(next) };
+            const addedIndicators = revise(state.addedIndicators);
+            const next = { ...state, addedIndicators, ...resolveFieldSettings(addedIndicators) };
+            // The cuts decide what the depth map is built from, so moving one is
+            // a reason to rebuild it rather than only to repaint.
+            const recutState = hasMovedACut(state, next) ? { ...next, dataset: recut(next) } : next;
+            return { ...recutState, plans: this.computePlans(recutState) };
         });
         this.persistPreferences();
 
@@ -504,12 +497,6 @@ export class ChartController {
         this.config.preferences.write({
             instrumentSymbol: state.instrumentSymbol ?? 'BTCUSDT',
             visibleSpanMs: state.viewport.toMs - state.viewport.fromMs,
-            colourGain: state.colourGain,
-            depthFloorPercentile: state.depthFloorPercentile,
-            depthSaturationPercentile: state.depthSaturationPercentile,
-            isCandleOverlayVisible: state.isCandleOverlayVisible,
-            isTradeOverlayVisible: state.isTradeOverlayVisible,
-            isVolumeProfileVisible: state.isVolumeProfileVisible,
             addedIndicators: state.addedIndicators,
         });
     }
@@ -546,12 +533,7 @@ function buildInitialState(preferences: ViewerPreferences): ChartState {
         isFollowingLive: true,
         isFollowingPrice: true,
         isLoadingWindow: false,
-        colourGain: preferences.colourGain,
-        depthFloorPercentile: preferences.depthFloorPercentile,
-        depthSaturationPercentile: preferences.depthSaturationPercentile,
-        isCandleOverlayVisible: preferences.isCandleOverlayVisible,
-        isTradeOverlayVisible: preferences.isTradeOverlayVisible,
-        isVolumeProfileVisible: preferences.isVolumeProfileVisible,
+        ...resolveFieldSettings(preferences.addedIndicators),
         addedIndicators: preferences.addedIndicators,
         plans: [],
     };

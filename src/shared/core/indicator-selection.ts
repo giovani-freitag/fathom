@@ -37,8 +37,16 @@ export interface AddedIndicator {
     readonly bandKey?: string;
 }
 
-/** How many an added set may hold, so a stored preference cannot stall a session. */
-export const MAXIMUM_ADDED_INDICATORS = 8;
+/**
+ * How many a stored document may hold.
+ *
+ * Not a product limit. Bands thin out as they are added and the price keeps a
+ * floor, so what is too many is something a reader can see and decide about —
+ * and two readings put in one band cost one band, not two. This figure is a
+ * guard on a document that arrives corrupt or hand-edited, set far above any
+ * chart somebody would actually build.
+ */
+export const MAXIMUM_STORED_INDICATORS = 64;
 
 /**
  * Mints an id for a newly added indicator.
@@ -76,7 +84,7 @@ export function withIndicatorAdded(
     indicatorId: string,
     settings: IndicatorSettings,
 ): readonly AddedIndicator[] {
-    if (added.length >= MAXIMUM_ADDED_INDICATORS) {
+    if (added.length >= MAXIMUM_STORED_INDICATORS) {
         return added;
     }
     return [...added, {
@@ -170,7 +178,7 @@ export function withIndicatorRestored(
     entry: AddedIndicator,
     index: number,
 ): readonly AddedIndicator[] {
-    if (added.length >= MAXIMUM_ADDED_INDICATORS
+    if (added.length >= MAXIMUM_STORED_INDICATORS
         || added.some((existing) => existing.instanceId === entry.instanceId)) {
         return added;
     }

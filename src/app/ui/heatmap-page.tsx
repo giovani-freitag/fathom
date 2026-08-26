@@ -75,7 +75,6 @@ export function HeatmapPage(): ReactElement {
                     recording={kernel.recording}
                     onContractsChanged={() => { void kernel.chart.refreshInstruments(); }}
                     state={state}
-                    onChange={(patch) => { kernel.chart.updateSettings(patch); }}
                 />
             </header>
 
@@ -83,12 +82,12 @@ export function HeatmapPage(): ReactElement {
                 <ChartSurface />
 
                 <div className="pointer-events-none absolute left-3 top-3">
-                    <DepthLegend
+                    {state.isDepthVisible && <DepthLegend
                         saturationQuantity={state.dataset.saturationQuantity}
                         floorQuantity={state.dataset.floorQuantity}
                         colourGain={state.colourGain}
                         instrumentSymbol={state.instrumentSymbol}
-                    />
+                    />}
                 </div>
 
                 <IndicatorOverlay controls={indicators} layout={surfaceLayout} />

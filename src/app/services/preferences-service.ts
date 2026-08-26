@@ -1,27 +1,31 @@
-import {
-    DEFAULT_FLOOR_PERCENTILE,
-    DEFAULT_SATURATION_PERCENTILE,
-} from '../core/chart-dataset.ts';
+import { FIELD_LAYERS } from '../indicators/field-layers.ts';
+import { readLayerDefaults } from '../indicators/indicator-catalogue.ts';
 import { INSTANCE_TONES } from '../../shared/core/draw-plan.ts';
 import {
     type AddedIndicator,
     chooseInstanceTone,
-    MAXIMUM_ADDED_INDICATORS,
+    MAXIMUM_STORED_INDICATORS,
+    withIndicatorAdded,
 } from '../../shared/core/indicator-selection.ts';
 import { type Locale, resolveLocale } from '../i18n/locale.ts';
 import { THEME_CHOICES, type ThemeChoice } from '../core/theme.ts';
 
 const STORAGE_KEY = 'fathom.preferences.v1';
 
+/** Bumped when a stored document has to be read differently than it was written. */
+const SCHEMA_VERSION = 2;
+
 export interface ViewerPreferences {
+    readonly schemaVersion: number;
     readonly instrumentSymbol: string;
     readonly visibleSpanMs: number;
-    readonly colourGain: number;
-    readonly depthFloorPercentile: number;
-    readonly depthSaturationPercentile: number;
-    readonly isCandleOverlayVisible: boolean;
-    readonly isTradeOverlayVisible: boolean;
-    readonly isVolumeProfileVisible: boolean;
+    /**
+     * Everything on the chart, host layers and indicators alike.
+     *
+     * The depth map and the candles used to be flags of their own beside this
+     * list. They were the same decision written twice, and the one that could
+     * not be tuned, hidden or reordered was the wrong one.
+     */
     readonly addedIndicators: readonly AddedIndicator[];
     /** Null until the reader picks one, which is how the host's own choice wins. */
     readonly locale: Locale | null;
@@ -29,15 +33,10 @@ export interface ViewerPreferences {
 }
 
 export const DEFAULT_PREFERENCES: ViewerPreferences = {
+    schemaVersion: SCHEMA_VERSION,
     instrumentSymbol: 'BTCUSDT',
     visibleSpanMs: 15 * 60 * 1_000,
-    colourGain: 1,
-    depthFloorPercentile: DEFAULT_FLOOR_PERCENTILE,
-    depthSaturationPercentile: DEFAULT_SATURATION_PERCENTILE,
-    isCandleOverlayVisible: true,
-    isTradeOverlayVisible: true,
-    isVolumeProfileVisible: true,
-    addedIndicators: [],
+    addedIndicators: buildDefaultLayers(),
     locale: null,
     themeChoice: 'system',
 };
@@ -69,14 +68,16 @@ export class PreferencesService {
         }
 
         const merged = { ...DEFAULT_PREFERENCES, ...raw };
+        const carried = migrateLayers(merged, raw);
         return {
             ...merged,
-            // Stored values outlive the control that produced them: a gain saved
-            // by an earlier, wider slider would otherwise reopen the chart on a
-            // picture the current control cannot undo.
-            colourGain: clampToRange(merged.colourGain, 0.4, 3),
+            // Stored values outlive the control that produced them: a span saved
+            // by an earlier, wider control would otherwise reopen the chart on a
+            // view the current one cannot undo. A layer's own knobs are clamped
+            // where they are read, against the range the layer declares.
             visibleSpanMs: clampToRange(merged.visibleSpanMs, 30_000, 90 * 24 * 60 * 60 * 1_000),
-            addedIndicators: keepUsableIndicators(merged.addedIndicators),
+            schemaVersion: SCHEMA_VERSION,
+            addedIndicators: keepUsableIndicators(carried),
             // A tag from storage reaches the dictionary before anything has
             // looked at it, and one that names no dictionary takes the whole
             // interface down on the first phrase it tries to render.
@@ -117,6 +118,75 @@ export class PreferencesService {
 }
 
 /**
+ * What a chart shows before anybody has chosen anything.
+ */
+function buildDefaultLayers(): readonly AddedIndicator[] {
+    let added: readonly AddedIndicator[] = [];
+    for (const layer of FIELD_LAYERS) {
+        added = withIndicatorAdded(added, layer.id, readLayerDefaults(layer));
+    }
+    return added;
+}
+
+/**
+ * Carries a document written before the host layers joined the list.
+ *
+ * A reader who had turned the candles off meant it, and a version that simply
+ * seeded the defaults would hand them back every time the page opened.
+ *
+ * @param merged - The stored document over the defaults.
+ * @param raw - What was actually stored, for the flags this version dropped.
+ * @returns The set to keep.
+ */
+function migrateLayers(
+    merged: ViewerPreferences,
+    raw: Partial<ViewerPreferences>,
+): readonly AddedIndicator[] {
+    // The stored version, not the merged one: merging over the defaults hands
+    // every document the current version and the migration never runs.
+    if ((raw.schemaVersion ?? 0) >= SCHEMA_VERSION) {
+        return merged.addedIndicators;
+    }
+
+    const legacy = raw as Record<string, unknown>;
+    const wanted = FIELD_LAYERS.filter((layer) => legacy[LEGACY_FLAGS[layer.id] ?? ''] !== false);
+
+    let carried: readonly AddedIndicator[] = [];
+    for (const layer of wanted) {
+        carried = withIndicatorAdded(carried, layer.id, {
+            ...readLayerDefaults(layer),
+            ...(layer.id === 'depth' ? readLegacyDepth(legacy) : {}),
+        });
+    }
+    // The document's own list, not the merged one: merging over the defaults
+    // hands an old document the very layers this is deciding about.
+    return [...carried, ...(raw.addedIndicators ?? [])];
+}
+
+/** The flag each host layer used to be, before it was a member of the list. */
+const LEGACY_FLAGS: Record<string, string> = {
+    depth: 'isDepthVisible',
+    candles: 'isCandleOverlayVisible',
+    executions: 'isTradeOverlayVisible',
+    profile: 'isVolumeProfileVisible',
+};
+
+function readLegacyDepth(legacy: Record<string, unknown>): Record<string, number> {
+    const carried: Record<string, number> = {};
+    const pairs: readonly (readonly [string, string])[] = [
+        ['colourGain', 'colourGain'],
+        ['floorPercentile', 'depthFloorPercentile'],
+        ['saturationPercentile', 'depthSaturationPercentile'],
+    ];
+    for (const [name, stored] of pairs) {
+        if (typeof legacy[stored] === 'number') {
+            carried[name] = legacy[stored];
+        }
+    }
+    return carried;
+}
+
+/**
  * Keeps the stored indicator set to what the chart can actually draw.
  *
  * Everything here crossed a trust boundary: it is JSON the reader could have
@@ -150,7 +220,7 @@ function keepUsableIndicators(stored: unknown): readonly AddedIndicator[] {
                 ? { bandKey: entry.bandKey }
                 : {}),
         });
-        if (kept.length === MAXIMUM_ADDED_INDICATORS) {
+        if (kept.length === MAXIMUM_STORED_INDICATORS) {
             break;
         }
     }

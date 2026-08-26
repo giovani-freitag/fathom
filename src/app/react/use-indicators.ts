@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
-    MAXIMUM_ADDED_INDICATORS,
+    MAXIMUM_STORED_INDICATORS,
     withIndicatorAdded,
     withIndicatorBanded,
     withIndicatorRemoved,
@@ -11,7 +11,7 @@ import {
 } from '../../shared/core/indicator-selection.ts';
 import type { PlotTone } from '../../shared/core/draw-plan.ts';
 import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
-import { findIndicator, readDefaultSettings } from '../indicators/indicator-catalogue.ts';
+import { findChartLayer, readLayerDefaults } from '../indicators/indicator-catalogue.ts';
 import { useChartState } from './use-chart-state.ts';
 import { useKernel } from './kernel-context.ts';
 
@@ -42,9 +42,9 @@ export function useIndicators(): IndicatorControls {
     const added = useChartState().addedIndicators;
 
     const add = useCallback((indicatorId: string) => {
-        const indicator = findIndicator(indicatorId);
-        if (indicator !== null) {
-            const settings = readDefaultSettings(indicator);
+        const layer = findChartLayer(indicatorId);
+        if (layer !== null) {
+            const settings = readLayerDefaults(layer);
             kernel.chart.updateIndicators(
                 (current) => withIndicatorAdded(current, indicatorId, settings),
             );
@@ -110,7 +110,9 @@ export function useIndicators(): IndicatorControls {
     return useMemo(() => ({
         added,
         addedCounts,
-        isFull: added.length >= MAXIMUM_ADDED_INDICATORS,
+        // Only a document guard, never a product limit: what is too many is
+        // something the reader can see on the chart and decide about.
+        isFull: added.length >= MAXIMUM_STORED_INDICATORS,
         add,
         remove,
         retune,

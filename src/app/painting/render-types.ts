@@ -17,6 +17,8 @@ export interface RenderRequest {
     readonly viewport: ChartViewport;
     readonly dataset: ChartDataset;
     readonly colourGain: number;
+    /** False leaves a plain price chart, with no book behind it. */
+    readonly isDepthVisible: boolean;
     readonly isCandleOverlayVisible: boolean;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;

@@ -3,10 +3,14 @@ import { Combine, Eye, EyeOff, Settings2, Split, X } from 'lucide-react';
 import type { ReactElement } from 'react';
 import type { DrawPlan, PlotTone } from '../../../shared/core/draw-plan.ts';
 import { readChoice, readSetting, readValueAt } from '../../../shared/core/draw-plan.ts';
-import type { Indicator } from '../../../shared/core/draw-plan.ts';
+import type { IndicatorParameter } from '../../../shared/core/draw-plan.ts';
+
+/** Anything with knobs a reader can turn. */
+type Tunable = { readonly parameters: readonly IndicatorParameter[] };
 import { formatFixed } from '../../core/formatting.ts';
 import { useCursorInstant } from '../../react/use-cursor-instant.ts';
-import { findIndicator } from '../../indicators/indicator-catalogue.ts';
+import { findChartLayer } from '../../indicators/indicator-catalogue.ts';
+import { findFieldLayer } from '../../indicators/field-layers.ts';
 import { groupPanedPlans, needsOwnBand } from '../../painting/pane-projector.ts';
 import type { ChartLayout } from '../../painting/render-types.ts';
 import { IndicatorParameters } from './indicator-parameters.tsx';
@@ -188,10 +192,14 @@ interface LegendRowProps {
 
 function LegendRow({ added, plan, controls, banding }: LegendRowProps): ReactElement | null {
     const translate = useTranslate();
-    const indicator = findIndicator(added.indicatorId);
-    if (indicator === null) {
+    const layer = findChartLayer(added.indicatorId);
+    if (layer === null) {
         return null;
     }
+
+    // The depth map has a ramp of its own, and the candles have two colours
+    // that mean something. Neither takes an identity colour.
+    const isTinted = findFieldLayer(added.indicatorId) === null;
 
     const isHidden = added.isHidden === true;
     const hasSettled = plan === null || plan.hasConverged;
@@ -202,14 +210,19 @@ function LegendRow({ added, plan, controls, banding }: LegendRowProps): ReactEle
             title={unsettled}
             className="group pointer-events-auto flex items-center gap-2 rounded border border-transparent bg-abyss-900/70 px-2 py-1 backdrop-blur-sm transition-colors hover:border-hairline"
         >
-            <ToneSwatch tone={added.tone} className={`size-2 ${isHidden ? 'opacity-30' : ''}`} />
+            {isTinted && <ToneSwatch tone={added.tone} className={`size-2 ${isHidden ? 'opacity-30' : ''}`} />}
             <span className={resolveNameClasses(isHidden, hasSettled)}>
-                {translateLabel(translate, indicator.labelKey)}
+                {translateLabel(translate, layer.labelKey)}
             </span>
+            {/*
+                A host layer's knobs are about how it looks, not what it says.
+                A reading's parameters change what it claims, so they belong
+                beside its name; an intensity does not.
+            */}
             <span className="text-xs tabular-nums text-ink-500">
-                {plan?.parameterSummary ?? summariseSettings(indicator, added)}
+                {plan?.parameterSummary ?? (isTinted ? summariseSettings(layer, added) : '')}
             </span>
-            {describeChosenSource(indicator, added, translate)}
+            {describeChosenSource(layer, added, translate)}
             {plan !== null && <CursorValues plan={plan} />}
 
             {/*
@@ -262,7 +275,8 @@ function LegendRow({ added, plan, controls, banding }: LegendRowProps): ReactEle
                             className="z-50 w-56 rounded-lg border border-hairline bg-abyss-800 p-3 shadow-2xl shadow-black/60"
                         >
                             <IndicatorParameters
-                                indicator={indicator}
+                                indicator={layer}
+                                hasTone={isTinted}
                                 added={added}
                                 onRetune={(name, value) => { controls.retune(added.instanceId, name, value); }}
                                 onRecolour={(tone) => { controls.recolour(added.instanceId, tone); }}
@@ -297,8 +311,8 @@ function resolveNameClasses(isHidden: boolean, hasSettled: boolean): string {
 /**
  * The parameters of an indicator that is not currently drawing a plan to read them from.
  */
-function summariseSettings(indicator: Indicator, added: AddedIndicator): string {
-    return indicator.parameters
+function summariseSettings(layer: Tunable, added: AddedIndicator): string {
+    return layer.parameters
         .filter((parameter) => parameter.kind !== 'choice')
         .map((parameter) => String(readSetting(added.settings, parameter)))
         .join(' · ');
@@ -311,11 +325,11 @@ function summariseSettings(indicator: Indicator, added: AddedIndicator): string 
  * off the close. The one row that is not is worth a word.
  */
 function describeChosenSource(
-    indicator: Indicator,
+    layer: Tunable,
     added: AddedIndicator,
     translate: Translate,
 ): ReactElement | null {
-    for (const parameter of indicator.parameters) {
+    for (const parameter of layer.parameters) {
         const chosen = parameter.kind === 'choice' ? readChoice(added.settings, parameter) : null;
         if (chosen !== null && chosen !== parameter.defaultValue) {
             return (

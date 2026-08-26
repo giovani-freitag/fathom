@@ -1,6 +1,7 @@
 import type { Indicator, IndicatorSettings } from '../../shared/core/draw-plan.ts';
 import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
 import { AVERAGE_CONVERGENCE } from './average-convergence.ts';
+import { type FieldLayer, FIELD_LAYERS } from './field-layers.ts';
 import { AVERAGE_TRUE_RANGE } from './average-true-range.ts';
 import { BOLLINGER_BANDS } from './bollinger-bands.ts';
 import { DONCHIAN_CHANNELS } from './donchian-channels.ts';
@@ -30,6 +31,42 @@ export const INDICATOR_CATALOGUE: readonly Indicator[] = [
 ];
 
 /**
+ * Everything a reader can put on the chart, indicators and host layers alike.
+ *
+ * One list because choosing what to look at is one decision. The two halves
+ * differ in how they are drawn, which is the host's problem rather than the
+ * reader's.
+ */
+export const CHART_LAYERS: readonly (Indicator | FieldLayer)[] = [
+    ...FIELD_LAYERS,
+    ...INDICATOR_CATALOGUE,
+];
+
+/**
+ * Looks up anything the reader may have added, by id.
+ *
+ * @param layerId - The id to find.
+ * @returns The indicator or layer, or null when the build no longer ships it.
+ */
+export function findChartLayer(layerId: string): Indicator | FieldLayer | null {
+    return CHART_LAYERS.find((layer) => layer.id === layerId) ?? null;
+}
+
+/**
+ * The starting parameters for anything newly added.
+ *
+ * @param layer - What is being added.
+ * @returns Its declared defaults, by parameter name.
+ */
+export function readLayerDefaults(layer: Indicator | FieldLayer): IndicatorSettings {
+    const settings: Record<string, number | string> = {};
+    for (const parameter of layer.parameters) {
+        settings[parameter.name] = parameter.defaultValue;
+    }
+    return settings;
+}
+
+/**
  * Looks an indicator up by the id a stored selection refers to.
  *
  * @param indicatorId - The id to find.
@@ -46,11 +83,7 @@ export function findIndicator(indicatorId: string): Indicator | null {
  * @returns Its declared defaults, by parameter name.
  */
 export function readDefaultSettings(indicator: Indicator): IndicatorSettings {
-    const settings: Record<string, number | string> = {};
-    for (const parameter of indicator.parameters) {
-        settings[parameter.name] = parameter.defaultValue;
-    }
-    return settings;
+    return readLayerDefaults(indicator);
 }
 
 /**

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-    MAXIMUM_ADDED_INDICATORS,
+    MAXIMUM_STORED_INDICATORS,
     mintInstanceId,
     withIndicatorAdded,
     withIndicatorRecoloured,
@@ -36,11 +36,11 @@ describe('indicator revision', () => {
     });
 
     it('stops adding once the chart is holding all it can draw', () => {
-        const full = addTimes(MAXIMUM_ADDED_INDICATORS);
+        const full = addTimes(MAXIMUM_STORED_INDICATORS);
 
         const beyond = withIndicatorAdded(full, 'rsi', SETTINGS);
 
-        expect(beyond).toHaveLength(MAXIMUM_ADDED_INDICATORS);
+        expect(beyond).toHaveLength(MAXIMUM_STORED_INDICATORS);
     });
 
     it('retunes one copy and leaves its twin alone', () => {
@@ -70,7 +70,7 @@ describe('indicator colours', () => {
     });
 
     it('starts reusing colours only once every one is taken', () => {
-        const many = addTimes(MAXIMUM_ADDED_INDICATORS);
+        const many = addTimes(MAXIMUM_STORED_INDICATORS);
 
         expect(new Set(many.map((entry) => entry.tone)).size).toBeGreaterThanOrEqual(6);
     });
@@ -101,10 +101,10 @@ describe('undoing a removal', () => {
     });
 
     it('refuses to restore into a chart that has since filled up', () => {
-        const full = addTimes(MAXIMUM_ADDED_INDICATORS);
+        const full = addTimes(MAXIMUM_STORED_INDICATORS);
         const stray = { instanceId: 'rsi-9', indicatorId: 'rsi', settings: SETTINGS, tone: 'cyan' } as const;
 
-        expect(withIndicatorRestored(full, stray, 0)).toHaveLength(MAXIMUM_ADDED_INDICATORS);
+        expect(withIndicatorRestored(full, stray, 0)).toHaveLength(MAXIMUM_STORED_INDICATORS);
     });
 });
 

@@ -4,6 +4,19 @@
 export const EN_DICTIONARY = {
     'chart.surface': 'Order book liquidity heat map',
 
+    'layer.depth': 'Book',
+    'layer.depth.help': 'Resting size at every price, as it changed through time',
+    'layer.candles': 'Candles',
+    'layer.candles.help': 'Where price opened, reached and closed in each bar',
+    'layer.executions': 'Aggressors',
+    'layer.executions.help': 'What actually traded, and which side crossed the spread',
+    'layer.profile': 'Volume profile',
+    'layer.profile.help': 'How much traded at each price across the window',
+    'parameter.colourGain': 'Intensity',
+    'parameter.floorPercentile': 'Lower cut',
+    'parameter.saturationPercentile': 'Upper cut',
+    'indicators.theChart': 'The chart',
+
     'indicator.sma': 'SMA',
     'indicator.sma.help': 'Unweighted mean of the bar close',
     'indicator.ema': 'EMA',
