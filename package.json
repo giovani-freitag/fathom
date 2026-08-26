@@ -1,9 +1,9 @@
 {
   "name": "fathom",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Order book liquidity heat map \u2014 records resting depth every second, because book history cannot be backfilled.",
+  "description": "Order book liquidity heat map — records resting depth every second, because book history cannot be backfilled.",
   "engines": {
     "node": ">=22.12.0"
   },
