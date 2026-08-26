@@ -165,15 +165,57 @@ the indicator for a new one. That is what keeps whoever wrote it off the gesture
 path entirely, and it is the property that will make it safe to run one nobody
 here wrote.
 
-The data layers are painted inside a clip, and the clip is the containment: a
-plan whose vertices run to the edges of the world still cannot reach the axis
-gutters. Enforcing it in the renderer rather than trusting each painter is what
-makes the guarantee worth anything.
+A plan carries more than lines. It can shade a region between two of its own
+series, mark a constant value, and draw a histogram that changes colour where it
+crosses a baseline. Those are not conveniences: a channel with no fill reads as
+two unrelated lines, and a threshold nobody can name is a decoration.
 
-A plan says whether it converged. An average asks for warm-up bars ahead of the
+A plan says whether it converged. An indicator asks for warm-up bars ahead of the
 window, the archive answers with what it could supply, and a series seeded from
 less than it wanted is drawn dashed — because a seeded average looks exactly
-like a settled one.
+like a settled one. Adding an indicator that reaches further back than the loaded
+window does is a reason to fetch again, not a reason to seed from what is there.
+
+Every indicator restarts at a break in the recording rather than carrying state
+across it. Smoothing through unrecorded time invents a trend, and once it is a
+line on a screen it is indistinguishable from a real one. The rule is testable
+without knowing any of the formulas: what is drawn after a gap must be exactly
+what would be drawn if the bars before it had never existed.
+
+### Panes
+
+A quantity that is not a price cannot share an axis with one. An oscillator
+bounded to nought and a hundred, plotted against a price axis, is a flat line at
+the bottom of the screen. So a plan declares its scale, and anything that is not
+a price is given a band of its own below the chart, with its own range and its
+own two labels in the gutter.
+
+The stack is what the containment is built around. The outer clip keeps every
+layer out of the axis gutters. An inner clip keeps everything that reads as a
+price inside the pane that has a price axis — without it, a candle at the edge of
+the band draws down through the oscillator beneath it and reads as part of that
+oscillator's line. Each band then clips itself. Enforcing all of this in the
+renderer rather than trusting each painter is what makes the guarantee worth
+anything.
+
+Gaps and the time grid are the exception, and deliberately so: they belong to
+time rather than to price, so they cross every band.
+
+### Telling two apart
+
+The same indicator added twice at different settings is the ordinary case, not an
+edge one. Each copy carries a colour of its own, assigned from the first one
+nothing else is using, and that colour is what the legend beside it is marked
+with. Only what the indicator drew in its own colour moves; an accent the author
+chose to differ — a dashed midline, a signal line, the shading of a band — says
+something about the reading and is left alone.
+
+The legend sits at the top of the band its indicator is drawn in, carries the
+parameters it was run with and what each of its series reads under the pointer,
+and holds the controls that retune or remove it. At rest it reads the newest bar
+rather than emptying, which is both what a chart should say when nobody is
+pointing at it and what stops the row changing width under the hand reaching for
+its controls.
 
 ## Executions
 
@@ -239,7 +281,12 @@ discipline, and an architecture test holds it.
 
 Inside each, two folders where the division is real: `core/` for logic with no
 external dependency — testable without a database or a DOM — and `services/` for
-what talks to the world. `app/` adds `painting/`, `react/`, `ui/` and `i18n/`.
+what talks to the world. `app/` adds `painting/`, `react/`, `ui/`, `i18n/` and
+`indicators/`.
+
+`indicators/` holds pure functions from bars to vertices and nothing else — no
+palette, no context, no notion of a pixel. That is what makes the folder the one
+an indicator nobody here wrote could eventually be dropped into.
 
 State in `app/` lives in an `ObservableStore` inside `core/`, not in `useState`.
 The `ChartController` decides everything: what to load, when to reload, what the
