@@ -75,3 +75,53 @@ describe('TradePainter', () => {
         expect(alpha).toBeLessThan(0.35);
     });
 });
+
+describe('TradePainter merging', () => {
+    it('draws one bubble for prints that land on the same spot', () => {
+        // A day of a liquid contract puts several prints inside one column, and
+        // one column is under a pixel wide: the second bubble hides the first.
+        const recording = paintWith([
+            buildCluster({ executedAtMs: 1_500_000 }),
+            buildCluster({ executedAtMs: 1_500_100 }),
+            buildCluster({ executedAtMs: 1_500_200 }),
+        ]);
+
+        expect(recording.callsTo('arc').length).toBe(1);
+    });
+
+    it('sizes a merged bubble from everything that went into it', () => {
+        const alone = paintWith([
+            buildCluster({ executedAtMs: 1_500_000, buyQuantity: 1 }),
+            buildCluster({ executedAtMs: 1_200_000, buyQuantity: 4 }),
+        ]);
+        const merged = paintWith([
+            buildCluster({ executedAtMs: 1_500_000, buyQuantity: 1 }),
+            buildCluster({ executedAtMs: 1_500_100, buyQuantity: 3 }),
+            buildCluster({ executedAtMs: 1_200_000, buyQuantity: 4 }),
+        ]);
+
+        const radiusOf = (recording: ReturnType<typeof paintWith>): number =>
+            Number(recording.callsTo('arc')[0]!.args[2]);
+        expect(radiusOf(merged)).toBeGreaterThan(radiusOf(alone));
+    });
+
+    it('keeps prints apart while they can be told apart', () => {
+        const recording = paintWith([
+            buildCluster({ executedAtMs: 1_200_000 }),
+            buildCluster({ executedAtMs: 1_500_000 }),
+            buildCluster({ executedAtMs: 1_800_000 }),
+        ]);
+
+        expect(recording.callsTo('arc').length).toBe(3);
+    });
+
+    it('skips prints outside the price band rather than drawing them off-plot', () => {
+        const recording = paintWith([
+            buildCluster({ priceBucketIndex: 7_850 }),
+            buildCluster({ priceBucketIndex: 90_000 }),
+            buildCluster({ priceBucketIndex: 10 }),
+        ]);
+
+        expect(recording.callsTo('arc').length).toBe(1);
+    });
+});

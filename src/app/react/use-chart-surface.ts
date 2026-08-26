@@ -2,7 +2,6 @@ import { ChartGestureController } from '../core/chart-gesture-controller.ts';
 import { resolveChartLayout } from '../painting/chart-layout.ts';
 import { HeatmapRenderer, type PointerReadout } from '../painting/heatmap-renderer.ts';
 import { type RefObject, useCallback, useEffect, useRef } from 'react';
-import { buildTranslate } from '../i18n/translator.ts';
 import { useKernel } from './kernel-context.ts';
 import { useElementSize } from './use-element-size.ts';
 
@@ -13,6 +12,7 @@ export interface ChartSurfaceHandles {
     readonly containerRef: RefObject<HTMLDivElement | null>;
     readonly depthCanvasRef: RefObject<HTMLCanvasElement | null>;
     readonly overlayCanvasRef: RefObject<HTMLCanvasElement | null>;
+    readonly cursorCanvasRef: RefObject<HTMLCanvasElement | null>;
 }
 
 /**
@@ -25,6 +25,7 @@ export function useChartSurface(): ChartSurfaceHandles {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const depthCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const cursorCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
     const rendererRef = useRef<HeatmapRenderer | null>(null);
     const pointerRef = useRef<PointerReadout | null>(null);
@@ -38,6 +39,7 @@ export function useChartSurface(): ChartSurfaceHandles {
             return;
         }
         const state = kernel.chart.store.read();
+        const appearance = kernel.appearance.store.read();
         renderer.render({
             viewport: state.viewport,
             dataset: state.dataset,
@@ -46,7 +48,8 @@ export function useChartSurface(): ChartSurfaceHandles {
             isTradeOverlayVisible: state.isTradeOverlayVisible,
             isVolumeProfileVisible: state.isVolumeProfileVisible,
             pointer: pointerRef.current,
-            translate: buildTranslate(kernel.appearance.store.read().locale),
+            locale: appearance.locale,
+            theme: appearance.resolvedTheme,
         });
     }, [kernel]);
 
@@ -57,12 +60,13 @@ export function useChartSurface(): ChartSurfaceHandles {
     useEffect(() => {
         const depthCanvas = depthCanvasRef.current;
         const overlayCanvas = overlayCanvasRef.current;
+        const cursorCanvas = cursorCanvasRef.current;
         const container = containerRef.current;
-        if (depthCanvas === null || overlayCanvas === null || container === null) {
+        if (depthCanvas === null || overlayCanvas === null || cursorCanvas === null || container === null) {
             return;
         }
 
-        const renderer = new HeatmapRenderer({ depthCanvas, overlayCanvas });
+        const renderer = new HeatmapRenderer({ depthCanvas, overlayCanvas, cursorCanvas });
         rendererRef.current = renderer;
 
         const gestures = new ChartGestureController({
@@ -116,5 +120,5 @@ export function useChartSurface(): ChartSurfaceHandles {
         schedulePaint();
     }, [kernel, schedulePaint, size.height, size.width]);
 
-    return { containerRef, depthCanvasRef, overlayCanvasRef };
+    return { containerRef, depthCanvasRef, overlayCanvasRef, cursorCanvasRef };
 }

@@ -125,7 +125,7 @@ export class CrosshairPainter {
         const askQuantity = frame.asks.quantities[bucketIndex - frame.asks.lowestBucketIndex] ?? 0;
         const asset = resolveBaseAsset(paint.request.dataset.instrumentSymbol);
 
-        const translate = paint.request.translate;
+        const translate = paint.translate;
         const price = formatPrice(bucketPrice);
 
         if (bidQuantity > 0) {
@@ -155,7 +155,7 @@ export class CrosshairPainter {
         const delta = bucketPrice - midPrice;
 
         return {
-            label: paint.request.translate('readout.fromMid', {
+            label: paint.translate('readout.fromMid', {
                 delta: formatSignedPrice(delta),
                 percent: formatSignedPercent(delta / midPrice),
             }),
@@ -176,7 +176,7 @@ export class CrosshairPainter {
             return [];
         }
 
-        const translate = paint.request.translate;
+        const translate = paint.translate;
         const sides: string[] = [];
         if (cluster.buyQuantity > 0) {
             sides.push(translate('readout.buy', { size: formatQuantity(cluster.buyQuantity) }));

@@ -3,10 +3,10 @@ import { useTranslate } from '../react/use-appearance.ts';
 import type { ReactElement } from 'react';
 
 /**
- * The two stacked canvases the chart is drawn on.
+ * The three stacked canvases the chart is drawn on.
  */
 export function ChartSurface(): ReactElement {
-    const { containerRef, depthCanvasRef, overlayCanvasRef } = useChartSurface();
+    const { containerRef, depthCanvasRef, overlayCanvasRef, cursorCanvasRef } = useChartSurface();
     const translate = useTranslate();
 
     return (
@@ -18,6 +18,7 @@ export function ChartSurface(): ReactElement {
         >
             <canvas ref={depthCanvasRef} className="absolute inset-0" />
             <canvas ref={overlayCanvasRef} className="absolute inset-0" />
+            <canvas ref={cursorCanvasRef} className="absolute inset-0" />
         </div>
     );
 }

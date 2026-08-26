@@ -24,7 +24,7 @@ export interface RecordingContext {
 const RECORDED_METHODS = [
     'clearRect', 'fillRect', 'strokeRect', 'beginPath', 'moveTo', 'lineTo',
     'stroke', 'arc', 'fill', 'setLineDash', 'fillText', 'drawImage',
-    'putImageData', 'save', 'restore', 'closePath', 'roundRect',
+    'putImageData', 'save', 'restore', 'closePath', 'roundRect', 'setTransform',
 ] as const;
 
 /**
@@ -108,6 +108,7 @@ export function buildPaintContext(
     return {
         context: recording.context,
         layout,
+        translate: buildTranslate('en'),
         priceTicks: choosePriceTicks({
             viewport,
             extentPx: layout.plotHeight,
@@ -131,7 +132,8 @@ export function buildPaintContext(
             isTradeOverlayVisible: true,
             isVolumeProfileVisible: options.isVolumeProfileVisible ?? false,
             pointer: options.pointer ?? null,
-            translate: buildTranslate('en'),
+            locale: 'en',
+            theme: 'dark',
         },
         crosshairY: options.crosshairY ?? options.pointer?.y ?? null,
     };

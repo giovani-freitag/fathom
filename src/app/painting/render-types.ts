@@ -1,6 +1,8 @@
 import type { ChartViewport } from '../core/chart-viewport.ts';
 import type { ViewportProjector } from '../core/viewport-projector.ts';
 import type { ChartDataset } from '../core/chart-dataset.ts';
+import type { ResolvedTheme } from '../core/theme.ts';
+import type { Locale } from '../i18n/locale.ts';
 import type { Translate } from '../i18n/translator.ts';
 
 export interface PointerReadout {
@@ -17,8 +19,9 @@ export interface RenderRequest {
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
     readonly pointer: PointerReadout | null;
-    /** The crosshair readout is the one place the canvas writes prose. */
-    readonly translate: Translate;
+    readonly locale: Locale;
+    /** Named rather than read from the palette, which is mutated in place. */
+    readonly theme: ResolvedTheme;
 }
 
 /**
@@ -42,6 +45,8 @@ export interface PaintContext {
     readonly layout: ChartLayout;
     readonly projector: ViewportProjector;
     readonly request: RenderRequest;
+    /** The crosshair readout is the one place the canvas writes prose. */
+    readonly translate: Translate;
     /** Y of the crosshair when one is over the plot, so layers can yield to it. */
     readonly crosshairY: number | null;
     /**

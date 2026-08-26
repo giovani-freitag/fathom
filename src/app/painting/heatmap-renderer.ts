@@ -1,4 +1,5 @@
 import { choosePriceTicks, chooseTimeTicks } from './axis-ticks.ts';
+import { buildTranslate } from '../i18n/translator.ts';
 import { formatAxisTime } from '../core/formatting.ts';
 import { ViewportProjector } from '../core/viewport-projector.ts';
 import { CandlePainter } from './painters/candle-painter.ts';
@@ -31,8 +32,12 @@ const PRICE_LABEL_SPACING_PX = 56;
 export type { PointerReadout, RenderRequest } from './render-types.ts';
 
 export interface HeatmapRendererConfig {
+    /** The depth field, blitted from one offscreen image. */
     readonly depthCanvas: HTMLCanvasElement;
+    /** Everything drawn from the data, held between frames. */
     readonly overlayCanvas: HTMLCanvasElement;
+    /** Everything drawn from the cursor, cleared and redrawn every frame. */
+    readonly cursorCanvas: HTMLCanvasElement;
 }
 
 /**
@@ -41,8 +46,10 @@ export interface HeatmapRendererConfig {
 export class HeatmapRenderer {
     private readonly depthCanvas: HTMLCanvasElement;
     private readonly overlayCanvas: HTMLCanvasElement;
+    private readonly cursorCanvas: HTMLCanvasElement;
     private readonly depthContext: CanvasRenderingContext2D | null;
     private readonly overlayContext: CanvasRenderingContext2D | null;
+    private readonly cursorContext: CanvasRenderingContext2D | null;
 
     private readonly depthLayerPainter = new DepthLayerPainter();
     private readonly gapPainter = new GapPainter();
@@ -58,18 +65,21 @@ export class HeatmapRenderer {
     private cssHeight = 0;
     private layout: ChartLayout = EMPTY_LAYOUT;
     private cachedField: DepthField | null = null;
+    private paintedOverlayKey: string | null = null;
 
     constructor(config: HeatmapRendererConfig) {
         this.depthCanvas = config.depthCanvas;
         this.overlayCanvas = config.overlayCanvas;
+        this.cursorCanvas = config.cursorCanvas;
         this.depthContext = config.depthCanvas.getContext('2d');
         this.overlayContext = config.overlayCanvas.getContext('2d');
+        this.cursorContext = config.cursorCanvas.getContext('2d');
         this.touchLinePainter = new TouchLinePainter({ axisPainter: this.axisPainter });
         this.crosshairPainter = new CrosshairPainter({ axisPainter: this.axisPainter });
     }
 
     /**
-     * Matches both canvases to a surface size and pixel density.
+     * Matches every canvas to a surface size and pixel density.
      *
      * @param cssWidth - Surface width in CSS pixels.
      * @param cssHeight - Surface height in CSS pixels.
@@ -80,7 +90,10 @@ export class HeatmapRenderer {
         this.cssHeight = cssHeight;
         const cappedRatio = Math.min(Math.max(pixelRatio, 1), MAXIMUM_PIXEL_RATIO);
 
-        for (const canvas of [this.depthCanvas, this.overlayCanvas]) {
+        // Resizing a canvas clears it, which takes the held overlay with it.
+        this.paintedOverlayKey = null;
+
+        for (const canvas of [this.depthCanvas, this.overlayCanvas, this.cursorCanvas]) {
             canvas.width = Math.max(1, Math.round(cssWidth * cappedRatio));
             canvas.height = Math.max(1, Math.round(cssHeight * cappedRatio));
             canvas.style.width = `${cssWidth}px`;
@@ -89,6 +102,7 @@ export class HeatmapRenderer {
 
         this.depthContext?.setTransform(cappedRatio, 0, 0, cappedRatio, 0, 0);
         this.overlayContext?.setTransform(cappedRatio, 0, 0, cappedRatio, 0, 0);
+        this.cursorContext?.setTransform(cappedRatio, 0, 0, cappedRatio, 0, 0);
     }
 
     /**
@@ -97,7 +111,7 @@ export class HeatmapRenderer {
      * @param request - Viewport, data, and the display settings to honour.
      */
     render(request: RenderRequest): void {
-        if (this.depthContext === null || this.overlayContext === null || this.cssWidth === 0) {
+        if (this.depthContext === null || this.cursorContext === null || this.cssWidth === 0) {
             return;
         }
 
@@ -108,14 +122,24 @@ export class HeatmapRenderer {
         });
 
         this.paintDepthLayer(request);
-        this.paintOverlay(request);
+
+        // Moving the cursor changes nothing the data layers drew. Repainting it
+        // anyway is what makes an indicator cost its own price on every frame
+        // rather than once per change.
+        const overlayKey = describeOverlayState(request, this.layout);
+        if (overlayKey !== this.paintedOverlayKey) {
+            this.paintOverlay(this.buildPaintContext(this.overlayContext!, request));
+            this.paintedOverlayKey = overlayKey;
+        }
+        this.paintCursor(this.buildPaintContext(this.cursorContext, request));
     }
 
     /**
-     * Releases the cached depth image.
+     * Releases the cached depth image and the held overlay.
      */
     dispose(): void {
         this.cachedField = null;
+        this.paintedOverlayKey = null;
     }
 
     private paintDepthLayer(request: RenderRequest): void {
@@ -129,9 +153,42 @@ export class HeatmapRenderer {
         this.depthLayerPainter.paint({ context, layout: this.layout, request, field });
     }
 
-    private paintOverlay(request: RenderRequest): void {
-        const context = this.overlayContext!;
-        context.clearRect(0, 0, this.cssWidth, this.cssHeight);
+    /**
+     * Draws what the data says, on a layer that outlives the frame.
+     */
+    private paintOverlay(paint: PaintContext): void {
+        const { request } = paint;
+        paint.context.clearRect(0, 0, this.cssWidth, this.cssHeight);
+
+        this.gapPainter.paint(paint);
+        this.gridPainter.paint(paint);
+        if (request.isVolumeProfileVisible) {
+            this.volumeProfilePainter.paint(paint);
+        }
+        if (request.isCandleOverlayVisible) {
+            this.candlePainter.paint(paint);
+        }
+        if (request.isTradeOverlayVisible) {
+            this.tradePainter.paint(paint);
+        }
+    }
+
+    /**
+     * Draws what the cursor says, and the axes that yield to it.
+     */
+    private paintCursor(paint: PaintContext): void {
+        paint.context.clearRect(0, 0, this.cssWidth, this.cssHeight);
+
+        this.touchLinePainter.paint(paint);
+        this.axisPainter.paintPriceAxis(paint);
+        this.axisPainter.paintTimeAxis(paint);
+        this.crosshairPainter.paint(paint);
+    }
+
+    private buildPaintContext(
+        context: CanvasRenderingContext2D,
+        request: RenderRequest,
+    ): PaintContext {
         context.font = this.layout.isCompact
             ? RENDER_METRICS.labelFontCompact
             : RENDER_METRICS.labelFont;
@@ -141,9 +198,10 @@ export class HeatmapRenderer {
             formatAxisTime(request.viewport.toMs, spanMs),
         ).width;
 
-        const paint: PaintContext = {
+        return {
             context,
             layout: this.layout,
+            translate: buildTranslate(request.locale),
             projector: new ViewportProjector({
                 viewport: request.viewport,
                 width: this.layout.plotWidth,
@@ -162,22 +220,6 @@ export class HeatmapRenderer {
                 minimumSpacingPx: timeLabelWidth * TIME_LABEL_SPACING_FACTOR,
             }),
         };
-
-        this.gapPainter.paint(paint);
-        this.gridPainter.paint(paint);
-        if (request.isVolumeProfileVisible) {
-            this.volumeProfilePainter.paint(paint);
-        }
-        if (request.isCandleOverlayVisible) {
-            this.candlePainter.paint(paint);
-        }
-        if (request.isTradeOverlayVisible) {
-            this.tradePainter.paint(paint);
-        }
-        this.touchLinePainter.paint(paint);
-        this.axisPainter.paintPriceAxis(paint);
-        this.axisPainter.paintTimeAxis(paint);
-        this.crosshairPainter.paint(paint);
     }
 
     private resolveCrosshairY(request: RenderRequest): number | null {
@@ -205,4 +247,32 @@ export class HeatmapRenderer {
         this.cachedField = field;
         return field;
     }
+}
+
+/**
+ * Everything the data layers read, as one comparable value.
+ *
+ * A field left out here is a stale layer: the reader changes something and the
+ * chart keeps showing what it drew before. A field added that the layers do not
+ * read costs a repaint that changes no pixels.
+ */
+function describeOverlayState(request: RenderRequest, layout: ChartLayout): string {
+    const { viewport, dataset } = request;
+
+    return [
+        dataset.revision,
+        dataset.instrumentSymbol,
+        viewport.fromMs,
+        viewport.toMs,
+        viewport.lowPrice,
+        viewport.highPrice,
+        layout.plotWidth,
+        layout.plotHeight,
+        request.isCandleOverlayVisible,
+        request.isTradeOverlayVisible,
+        request.isVolumeProfileVisible,
+        request.theme,
+        // The volume profile writes sizes, which every language groups its own way.
+        request.locale,
+    ].join('|');
 }
