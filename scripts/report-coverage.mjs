@@ -1,5 +1,9 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
+// A reader who pipes this into `head` closes the pipe halfway, and an unhandled
+// EPIPE turns that into a stack trace that reads like a broken script.
+process.stdout.on('error', () => undefined);
+
 /** Where vitest writes the machine-readable summary. */
 const SUMMARY_PATH = 'coverage/coverage-summary.json';
 
