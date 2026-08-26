@@ -46,13 +46,15 @@ export function LayerAccordion({
             collapsible
             value={expanded ?? ''}
             onValueChange={(value) => { onExpandedChange(value === '' ? null : value); }}
-            // Divides its own rows and nothing else. A rule of its own below
-            // the last one would sit a gap above the next section's rule, and two
-            // parallel lines with nothing between them read as a mistake.
-            className="divide-y divide-hairline"
+            // One card each rather than a divided list. A rule between rows says
+            // where one ends; a card says what belongs to it, which is what a
+            // reader needs when the thing it opens onto is a panel of controls.
+            className="space-y-2"
         >
             {controls.added.length === 0 && (
-                <p className="py-3 text-xs text-ink-500">{translate('indicators.none')}</p>
+                <p className="rounded-lg border border-dashed border-hairline px-3 py-4 text-center text-xs text-ink-500">
+                    {translate('indicators.none')}
+                </p>
             )}
             {controls.added.map((added) => (
                 <LayerRow key={added.instanceId} added={added} controls={controls} state={state} />
@@ -82,11 +84,14 @@ function LayerRow({ added, controls, state }: LayerRowProps): ReactElement | nul
     const isTunable = layer.parameters.length > 0 || isBook;
 
     return (
-        <Accordion.Item value={added.instanceId}>
-            <div className="flex items-center gap-2 py-1">
+        <Accordion.Item
+            value={added.instanceId}
+            className="overflow-hidden rounded-lg border border-hairline bg-abyss-900/60 data-[state=open]:border-hairline-bright"
+        >
+            <div className="flex items-center gap-1 px-2 py-1">
                 <Accordion.Trigger
                     disabled={!isTunable}
-                    className="group flex min-w-0 flex-1 items-center gap-2 py-1.5 text-left disabled:cursor-default"
+                    className="group flex min-w-0 flex-1 items-center gap-2 py-2 text-left disabled:cursor-default"
                 >
                     {isTunable && (
                         <ChevronDown className="size-3.5 shrink-0 text-ink-500 transition-transform group-data-[state=open]:rotate-180" />
@@ -107,7 +112,7 @@ function LayerRow({ added, controls, state }: LayerRowProps): ReactElement | nul
                     onClick={() => { controls.setVisibility(added.instanceId, !isHidden); }}
                     className="grid size-8 shrink-0 place-items-center rounded text-ink-500 hover:bg-abyss-700 hover:text-ink-100"
                 >
-                    {isHidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    {isHidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                 </button>
                 <button
                     type="button"
@@ -115,19 +120,21 @@ function LayerRow({ added, controls, state }: LayerRowProps): ReactElement | nul
                     onClick={() => { controls.remove(added.instanceId); }}
                     className="grid size-8 shrink-0 place-items-center rounded text-ink-500 hover:bg-abyss-700 hover:text-ask"
                 >
-                    <X className="size-4" />
+                    <X className="size-3.5" />
                 </button>
             </div>
 
-            <Accordion.Content className="overflow-hidden pb-3 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-                <IndicatorParameters
-                    indicator={layer}
-                    hasTone={isTinted}
-                    added={added}
-                    onRetune={(name, value) => { controls.retune(added.instanceId, name, value); }}
-                    onRecolour={(tone) => { controls.recolour(added.instanceId, tone); }}
-                />
-                {isBook && <BookPanel state={state} />}
+            <Accordion.Content className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+                <div className="border-t border-hairline px-3 py-3">
+                    <IndicatorParameters
+                        indicator={layer}
+                        hasTone={isTinted}
+                        added={added}
+                        onRetune={(name, value) => { controls.retune(added.instanceId, name, value); }}
+                        onRecolour={(tone) => { controls.recolour(added.instanceId, tone); }}
+                    />
+                    {isBook && <BookPanel state={state} />}
+                </div>
             </Accordion.Content>
         </Accordion.Item>
     );
