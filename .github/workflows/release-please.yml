@@ -21,6 +21,17 @@ jobs:
       # Reads the conventional-commit subjects since the last tag, keeps a
       # release pull request up to date with the version and changelog they
       # imply, and tags the commit when that request is merged.
-      - uses: googleapis/release-please-action@v4
+      - id: release
+        uses: googleapis/release-please-action@v4
         with:
           release-type: node
+
+      # A release published with GITHUB_TOKEN does not start another workflow —
+      # GitHub refuses to let a run trigger a run. `repository_dispatch` is the
+      # one event exempt from that, which is why the deploy is asked for rather
+      # than left to notice the release on its own.
+      - if: steps.release.outputs.release_created == 'true'
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          event-type: release-published
+          client-payload: '{"ref": "${{ steps.release.outputs.tag_name }}"}'
