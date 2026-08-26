@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { AVERAGE_CONVERGENCE } from '../../../../src/app/indicators/average-convergence.ts';
-import { AVERAGE_TRUE_RANGE } from '../../../../src/app/indicators/average-true-range.ts';
-import { BOLLINGER_BANDS } from '../../../../src/app/indicators/bollinger-bands.ts';
-import { DONCHIAN_CHANNELS } from '../../../../src/app/indicators/donchian-channels.ts';
-import { RELATIVE_STRENGTH } from '../../../../src/app/indicators/relative-strength.ts';
-import { SIMPLE_AVERAGE } from '../../../../src/app/indicators/simple-average.ts';
-import { STOCHASTIC_OSCILLATOR } from '../../../../src/app/indicators/stochastic-oscillator.ts';
+import { AVERAGE_CONVERGENCE } from '../../../../src/app/indicators/average-convergence/average-convergence.ts';
+import { AVERAGE_TRUE_RANGE } from '../../../../src/app/indicators/average-true-range/average-true-range.ts';
+import { BOLLINGER_BANDS } from '../../../../src/app/indicators/bollinger-bands/bollinger-bands.ts';
+import { DONCHIAN_CHANNELS } from '../../../../src/app/indicators/donchian-channels/donchian-channels.ts';
+import { RELATIVE_STRENGTH } from '../../../../src/app/indicators/relative-strength/relative-strength.ts';
+import { SIMPLE_AVERAGE } from '../../../../src/app/indicators/simple-average/simple-average.ts';
+import { STOCHASTIC_OSCILLATOR } from '../../../../src/app/indicators/stochastic-oscillator/stochastic-oscillator.ts';
 import { recolourPlan } from '../../../../src/shared/core/draw-plan.ts';
 import type { Indicator, IndicatorSettings } from '../../../../src/shared/core/draw-plan.ts';
 import { buildBar, buildRun, buildWindow } from '../../../mocks/price-bars.ts';

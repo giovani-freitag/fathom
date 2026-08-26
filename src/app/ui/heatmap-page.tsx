@@ -8,7 +8,7 @@ import type { Translate } from '../i18n/translator.ts';
 import { ControlButton } from './control-button.tsx';
 import { ChartSurface } from './chart-surface.tsx';
 import { CoverageStrip } from './coverage-strip.tsx';
-import { DepthLegend } from './depth-legend.tsx';
+import { listDrawnOverlays } from '../indicators/layer-contributions.ts';
 import { SettingsDrawer } from './settings-drawer.tsx';
 import { InstrumentPicker } from './instrument-picker.tsx';
 import { SpanPresets } from './span-presets.tsx';
@@ -93,13 +93,12 @@ export function HeatmapPage(): ReactElement {
             <main ref={surfaceRef} className="relative min-h-0 flex-1">
                 <ChartSurface />
 
+                {/* Whatever the layers on the chart put over it. The page
+                    mounts them without knowing which layer any of them is. */}
                 <div className="pointer-events-none absolute left-3 top-3">
-                    {state.isDepthVisible && <DepthLegend
-                        saturationQuantity={state.dataset.saturationQuantity}
-                        floorQuantity={state.dataset.floorQuantity}
-                        colourGain={state.colourGain}
-                        instrumentSymbol={state.instrumentSymbol}
-                    />}
+                    {listDrawnOverlays(state.addedIndicators).map(({ instanceId, Overlay }) => (
+                        <Overlay key={instanceId} state={state} />
+                    ))}
                 </div>
 
                 <IndicatorOverlay

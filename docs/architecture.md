@@ -156,6 +156,35 @@ derivable from the execution grid to within a hundredth of a percent, so this is
 a choice: the mid is what the recording is of, and it is defined in every second
 the collector saw, including the ones nothing traded in.
 
+## A folder is a layer
+
+Everything one layer is lives in `src/app/indicators/<layer>/`: the arithmetic
+that produces its plan, whatever paints it, and whatever it puts in the
+interface. The book is the whole of `book/` — its field, its colour ramp, the
+three painters that draw it, the legend over the chart and the panel inside its
+card. An average is a single file in a folder of its own, and that folder is
+there so the second file has somewhere to go.
+
+Four files sit above them, and they are the only way in:
+
+- `indicator-catalogue.ts` — what the build ships, and what a chart opens with.
+- `field-layers.ts` — the layers the host paints, and what the reader chose across them.
+- `layer-painters.ts` — what each contributes to the drawing, and in what order.
+- `layer-contributions.ts` — what each puts in the shell: a panel, a mark, whether it may be removed.
+
+The renderer names no layer. It walks the painters, asks each whether it is
+drawn, and paints in the order they declare; the page mounts whatever marks the
+drawn layers carry; the settings card shows whatever panel the layer brought.
+Adding a layer is adding a member to a list, and removing one is deleting a
+folder. An architecture test holds this: nothing outside `indicators/` may reach
+past those four files into a layer, and no layer may reach into another.
+
+Two seams are named in that test rather than hidden by it. The preferences
+service reads documents written when the layers were arranged differently, so
+the layer names in it are history. The chart dataset summarises the recorded
+frames it holds, and the cuts it takes exist only because the book paints a ramp
+with them.
+
 ## One list of what is on the chart
 
 The depth map, the candles, the executions and the volume profile used to be

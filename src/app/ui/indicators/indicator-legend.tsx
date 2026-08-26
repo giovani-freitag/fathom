@@ -7,6 +7,7 @@ import { formatFixed } from '../../core/formatting.ts';
 import { useCursorInstant } from '../../react/use-cursor-instant.ts';
 import { findChartLayer } from '../../indicators/indicator-catalogue.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
+import { findLayerContribution } from '../../indicators/layer-contributions.ts';
 import { groupPanedPlans, needsOwnBand } from '../../painting/pane-projector.ts';
 import type { ChartLayout } from '../../painting/render-types.ts';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
@@ -202,10 +203,10 @@ function LegendRow({ added, plan, controls, onOpenSettings, banding }: LegendRow
     // The depth map has a ramp of its own, and the candles have two colours
     // that mean something. Neither takes an identity colour.
     const isTinted = findFieldLayer(added.indicatorId) === null;
-    const isBook = added.indicatorId === 'depth';
+    const hasPanel = findLayerContribution(added.indicatorId)?.Panel !== undefined;
     // A control that opens onto nothing teaches a reader that opening is not
     // worth it, so a layer with nothing to tell it does not offer one.
-    const isTunable = layer.parameters.length > 0 || isBook;
+    const isTunable = layer.parameters.length > 0 || hasPanel;
 
     const isHidden = added.isHidden === true;
     const hasSettled = plan === null || plan.hasConverged;

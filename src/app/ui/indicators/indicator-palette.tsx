@@ -1,12 +1,12 @@
 import { type ReactElement, useMemo, useState } from 'react';
-import type { Indicator } from '../../../shared/core/draw-plan.ts';
-import type { FieldLayer } from '../../indicators/field-layers.ts';
+import type { FieldLayer, Indicator } from '../../../shared/core/draw-plan.ts';
 
-type Offered = Indicator | FieldLayer;
 import { CHART_LAYERS } from '../../indicators/indicator-catalogue.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
 import { needsOwnBand } from '../../painting/pane-projector.ts';
 import { Search } from 'lucide-react';
+
+type Offered = Indicator | FieldLayer;
 import { useTranslate } from '../../react/use-appearance.ts';
 import { translateLabel } from '../../i18n/translator.ts';
 import type { Translate } from '../../i18n/translator.ts';

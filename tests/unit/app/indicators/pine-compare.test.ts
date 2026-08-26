@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { atr, ema, rsi, sma, stdevPop } from '../../../mocks/pine-oracle.ts';
-import { AVERAGE_TRUE_RANGE } from '../../../../src/app/indicators/average-true-range.ts';
-import { BOLLINGER_BANDS } from '../../../../src/app/indicators/bollinger-bands.ts';
-import { EXPONENTIAL_AVERAGE } from '../../../../src/app/indicators/exponential-average.ts';
+import { AVERAGE_TRUE_RANGE } from '../../../../src/app/indicators/average-true-range/average-true-range.ts';
+import { BOLLINGER_BANDS } from '../../../../src/app/indicators/bollinger-bands/bollinger-bands.ts';
+import { EXPONENTIAL_AVERAGE } from '../../../../src/app/indicators/exponential-average/exponential-average.ts';
 import type { Indicator, IndicatorSettings } from '../../../../src/shared/core/draw-plan.ts';
-import { RELATIVE_STRENGTH } from '../../../../src/app/indicators/relative-strength.ts';
-import { SIMPLE_AVERAGE } from '../../../../src/app/indicators/simple-average.ts';
+import { RELATIVE_STRENGTH } from '../../../../src/app/indicators/relative-strength/relative-strength.ts';
+import { SIMPLE_AVERAGE } from '../../../../src/app/indicators/simple-average/simple-average.ts';
 import { buildBar, buildWindow } from '../../../mocks/price-bars.ts';
 
 /** Wanders and trends at once, so nothing passes by being flat or monotone. */

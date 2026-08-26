@@ -2,7 +2,7 @@ import type { LiquidityFrame, LiquidityFrameWindow } from '../../shared/core/liq
 import { EMPTY_BAR_WINDOW, type PriceBarWindow } from '../../shared/core/price-bar.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
-import { resolveDepthRange } from '../painting/depth-colour-scale.ts';
+import { resolveDepthRange } from '../indicators/book/depth-colour-scale.ts';
 
 /** Quantities inspected when picking the saturation point, at most. */
 const SATURATION_SAMPLE_LIMIT = 40_000;
@@ -10,23 +10,6 @@ const SATURATION_SAMPLE_LIMIT = 40_000;
 /** Where resting size stops brightening; above this the whole field washes out. */
 export const DEFAULT_SATURATION_PERCENTILE = 0.995;
 
-/**
- * Where resting size starts registering at all.
- */
-export const DEFAULT_FLOOR_PERCENTILE = 0.40;
-
-/** Limits the two cuts are held inside, so neither can erase the other. */
-export const DEPTH_CUT_RANGE = {
-    floorMinimum: 0,
-    floorMaximum: 0.9,
-    floorStep: 0.01,
-    saturationMinimum: 0.9,
-    saturationMaximum: 1,
-    // Half a percent, because the useful travel of the upper cut is the last
-    // one percent: a whole step of it is the difference between reserving the
-    // hot end for walls and handing it to a single outlier.
-    saturationStep: 0.005,
-} as const;
 
 /**
  * How far the saturation point must move before it is adopted.

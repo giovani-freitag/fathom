@@ -91,3 +91,67 @@ export interface PaintContext {
     /** The indicator panes, top to bottom, with the range each was scaled to. */
     readonly panePlacements: readonly PanePlacement[];
 }
+
+/**
+ * A layer of the chart the host paints, contributed by whatever declared it.
+ *
+ * The host knows the order to paint in and the surface to paint on; what is
+ * drawn, and when it is drawn at all, is the layer's own business. Adding one
+ * is adding a member to a list, not a branch in the renderer.
+ */
+export interface FieldLayerPainter {
+    /** Lower is painted first, so a higher one is painted over it. */
+    readonly order: number;
+    /**
+     * Whether it has anything to draw with the chart in this state.
+     *
+     * @param request - Everything the frame is being drawn from.
+     * @returns True when it should be painted.
+     */
+    isDrawn(request: RenderRequest): boolean;
+    /**
+     * Draws it.
+     *
+     * @param paint - The surface, the layout, and what to read.
+     */
+    paint(paint: PaintContext): void;
+}
+
+/**
+ * A layer painted on a surface of its own, which a drag re-uses as a blit.
+ *
+ * Separate from the one above because it is not repainted per frame: it holds
+ * whatever it built, and says for itself when that is still good.
+ */
+export interface FieldBackgroundPainter {
+    /**
+     * Draws onto the layer's own surface.
+     *
+     * @param request - The surface, the layout, and what to read.
+     */
+    paintBackground(request: BackgroundPaintRequest): void;
+    /** Releases whatever it is holding. */
+    dispose(): void;
+}
+
+export interface BackgroundPaintRequest {
+    readonly context: CanvasRenderingContext2D;
+    readonly layout: ChartLayout;
+    readonly request: RenderRequest;
+}
+
+/**
+ * A layer that paints in colours of its own, told when the theme changes.
+ *
+ * The host owns the palette but not every ramp built from it: a layer that
+ * pre-renders its colours has to rebuild them, and it is the only thing that
+ * knows what it built.
+ */
+export interface ThemedLayer {
+    /**
+     * Rebuilds whatever it had coloured.
+     *
+     * @param theme - The theme to paint from now on.
+     */
+    applyTheme(theme: ResolvedTheme): void;
+}

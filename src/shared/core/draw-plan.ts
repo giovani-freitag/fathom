@@ -232,6 +232,23 @@ export interface IndicatorInput {
  * constructor, so the same object serves every copy a reader has added and
  * nothing has to be rebuilt when one of them is retuned.
  */
+/**
+ * A layer the host draws itself, rather than one built from arithmetic.
+ *
+ * The depth map is the reason this exists. It is a picture of hundreds of
+ * thousands of cells built from the book, not a handful of vertices built from
+ * bars, and it is painted on a layer of its own so that dragging the chart is a
+ * blit rather than a repaint. None of that fits what an indicator returns.
+ *
+ * What it does share with an indicator is everything the reader touches: it is
+ * added, tuned, hidden and removed the same way, from the same list.
+ */
+export interface FieldLayer {
+    readonly id: string;
+    readonly labelKey: string;
+    readonly parameters: readonly IndicatorParameter[];
+}
+
 export interface Indicator {
     readonly id: string;
     readonly labelKey: string;

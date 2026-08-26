@@ -4,8 +4,8 @@ import type { ReactElement } from 'react';
 import type { ChartState } from '../../core/chart-controller.ts';
 import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts';
 import { readSetting, type Tunable } from '../../../shared/core/draw-plan.ts';
-import { BookPanel } from './book-panel.tsx';
 import { findChartLayer, findIndicator } from '../../indicators/indicator-catalogue.ts';
+import { findLayerContribution } from '../../indicators/layer-contributions.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
 import { IndicatorParameters } from './indicator-parameters.tsx';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
@@ -73,7 +73,8 @@ function LayerRow({ added, controls, state }: LayerRowProps): ReactElement | nul
         return null;
     }
 
-    const isBook = added.indicatorId === 'depth';
+    const contribution = findLayerContribution(added.indicatorId);
+    const Panel = contribution?.Panel;
     // A layer the host draws, and one whose own colours are a reading, are both
     // drawn in colours that already mean something.
     const isTinted = findFieldLayer(added.indicatorId) === null
@@ -81,7 +82,7 @@ function LayerRow({ added, controls, state }: LayerRowProps): ReactElement | nul
     const isHidden = added.isHidden === true;
     // A layer with nothing to tell it has nothing to open onto, and a control
     // that opens onto nothing teaches a reader that opening is not worth it.
-    const isTunable = layer.parameters.length > 0 || isBook;
+    const isTunable = layer.parameters.length > 0 || Panel !== undefined;
 
     return (
         <Accordion.Item
@@ -114,12 +115,7 @@ function LayerRow({ added, controls, state }: LayerRowProps): ReactElement | nul
                 >
                     {isHidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                 </button>
-                {/*
-                    The book holds what is being recorded, and a control that
-                    goes away with it is a collector nobody can stop. It is
-                    hidden instead, which leaves the same chart behind.
-                */}
-                {!isBook && (
+                {contribution?.isRemovable !== false && (
                     <button
                         type="button"
                         aria-label={translate('indicators.remove')}
@@ -140,7 +136,7 @@ function LayerRow({ added, controls, state }: LayerRowProps): ReactElement | nul
                         onRetune={(name, value) => { controls.retune(added.instanceId, name, value); }}
                         onRecolour={(tone) => { controls.recolour(added.instanceId, tone); }}
                     />
-                    {isBook && <BookPanel state={state} />}
+                    {Panel !== undefined && <Panel state={state} />}
                 </div>
             </Accordion.Content>
         </Accordion.Item>

@@ -1,7 +1,7 @@
 import { EMPTY_BAR_WINDOW } from '../../../src/shared/core/price-bar.ts';
 import type { LiquidityFrame } from '../../../src/shared/core/liquidity-frame.ts';
 import type { ChartDataset } from '../../../src/app/core/chart-dataset.ts';
-import { DepthField } from '../../../src/app/painting/depth-field.ts';
+import { DepthField } from '../../../src/app/indicators/book/depth-field.ts';
 import { describe, expect, it } from 'vitest';
 
 const PRICE_BUCKET_SIZE = 10;

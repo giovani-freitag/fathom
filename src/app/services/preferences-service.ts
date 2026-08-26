@@ -1,6 +1,5 @@
-import { FIELD_LAYERS } from '../indicators/field-layers.ts';
-import { VOLUME } from '../indicators/volume.ts';
-import { chooseLayerTone, readLayerDefaults } from '../indicators/indicator-catalogue.ts';
+import { VOLUME } from '../indicators/volume/volume.ts';
+import { chooseLayerTone, OPENING_LAYERS, readLayerDefaults } from '../indicators/indicator-catalogue.ts';
 import { PLOT_TONES } from '../../shared/core/draw-plan.ts';
 import {
     type AddedIndicator,
@@ -119,15 +118,11 @@ export class PreferencesService {
 }
 
 /**
- * What a chart shows before anybody has chosen anything.
- *
- * The book, the price, and what traded in it: a chart that opens on less than
- * the price and its volume is asking the reader to assemble the ordinary case
- * by hand before they can read anything at all.
+ * The opening set, as entries a reader can then tune.
  */
 function buildDefaultLayers(): readonly AddedIndicator[] {
     let added: readonly AddedIndicator[] = [];
-    for (const layer of [...FIELD_LAYERS, VOLUME]) {
+    for (const layer of OPENING_LAYERS) {
         added = withIndicatorAdded(added, layer.id, readLayerDefaults(layer), chooseLayerTone(layer, added));
     }
     return added;
@@ -212,7 +207,7 @@ function migrateLayers(
     }
 
     const legacy = raw as Record<string, unknown>;
-    const wanted = [...FIELD_LAYERS, VOLUME].filter((layer) => legacy[LEGACY_FLAGS[layer.id] ?? ''] !== false);
+    const wanted = OPENING_LAYERS.filter((layer) => legacy[LEGACY_FLAGS[layer.id] ?? ''] !== false);
 
     let carried: readonly AddedIndicator[] = [];
     for (const layer of wanted) {

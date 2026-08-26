@@ -2,18 +2,14 @@ import { choosePriceTicks, chooseTimeTicks } from './axis-ticks.ts';
 import { buildTranslate } from '../i18n/translator.ts';
 import { formatAxisTime } from '../core/formatting.ts';
 import { ViewportProjector } from '../core/viewport-projector.ts';
-import { CandlePainter } from './painters/candle-painter.ts';
 import { EMPTY_LAYOUT, resolveChartLayout } from './chart-layout.ts';
-import { DepthField } from './depth-field.ts';
 import { AxisPainter } from './painters/axis-painter.ts';
+import { buildBackgroundPainters, buildFieldPainters } from '../indicators/layer-painters.ts';
 import { CrosshairPainter } from './painters/crosshair-painter.ts';
-import { DepthLayerPainter } from './painters/depth-layer-painter.ts';
 import { GapPainter } from './painters/gap-painter.ts';
 import { GridPainter } from './painters/grid-painter.ts';
 import { TouchLinePainter } from './painters/touch-line-painter.ts';
 import { PlotPainter } from './painters/plot-painter.ts';
-import { TradePainter } from './painters/trade-painter.ts';
-import { VolumeProfilePainter } from './painters/volume-profile-painter.ts';
 import { RENDER_METRICS } from './render-palette.ts';
 import type { ChartLayout, PaintContext, RenderRequest } from './render-types.ts';
 import type { DrawPlan } from '../../shared/core/draw-plan.ts';
@@ -54,12 +50,12 @@ export class HeatmapRenderer {
     private readonly overlayContext: CanvasRenderingContext2D | null;
     private readonly cursorContext: CanvasRenderingContext2D | null;
 
-    private readonly depthLayerPainter = new DepthLayerPainter();
     private readonly gapPainter = new GapPainter();
     private readonly gridPainter = new GridPainter();
-    private readonly volumeProfilePainter = new VolumeProfilePainter();
-    private readonly candlePainter = new CandlePainter();
-    private readonly tradePainter = new TradePainter();
+    // Walked rather than named: what the chart can draw is a list the layers
+    // contribute to, and the renderer knows only the order and the surface.
+    private readonly fieldPainters = buildFieldPainters();
+    private readonly backgroundPainters = buildBackgroundPainters();
     private readonly plotPainter = new PlotPainter();
     private readonly axisPainter = new AxisPainter();
     private readonly touchLinePainter: TouchLinePainter;
@@ -68,7 +64,6 @@ export class HeatmapRenderer {
     private cssWidth = 0;
     private cssHeight = 0;
     private layout: ChartLayout = EMPTY_LAYOUT;
-    private cachedField: DepthField | null = null;
     private paintedOverlayKey: string | null = null;
 
     constructor(config: HeatmapRendererConfig) {
@@ -143,7 +138,9 @@ export class HeatmapRenderer {
      * Releases the cached depth image and the held overlay.
      */
     dispose(): void {
-        this.cachedField = null;
+        for (const painter of this.backgroundPainters) {
+            painter.dispose();
+        }
         this.paintedOverlayKey = null;
     }
 
@@ -151,11 +148,9 @@ export class HeatmapRenderer {
         const context = this.depthContext!;
         context.clearRect(0, 0, this.cssWidth, this.cssHeight);
 
-        const field = request.isDepthVisible ? this.resolveField(request) : null;
-        if (field === null) {
-            return;
+        for (const painter of this.backgroundPainters) {
+            painter.paintBackground({ context, layout: this.layout, request });
         }
-        this.depthLayerPainter.paint({ context, layout: this.layout, request, field });
     }
 
     /**
@@ -183,14 +178,10 @@ export class HeatmapRenderer {
         paint.context.beginPath();
         paint.context.rect(0, 0, paint.layout.priceAxisX, paint.layout.pricePaneHeight);
         paint.context.clip();
-        if (request.isVolumeProfileVisible) {
-            this.volumeProfilePainter.paint(paint);
-        }
-        if (request.isCandleOverlayVisible) {
-            this.candlePainter.paint(paint);
-        }
-        if (request.isTradeOverlayVisible) {
-            this.tradePainter.paint(paint);
+        for (const painter of this.fieldPainters) {
+            if (painter.isDrawn(request)) {
+                painter.paint(paint);
+            }
         }
         // Last of the price layers: an indicator is drawn over what it describes.
         this.plotPainter.paintOverPrice(paint);
@@ -258,23 +249,6 @@ export class HeatmapRenderer {
         return pointer.y;
     }
 
-    private resolveField(request: RenderRequest): DepthField | null {
-        if (request.dataset.frames.length === 0) {
-            return null;
-        }
-
-        // A streamed second changes one column. Letting the field absorb it beats
-        // rebuilding the window, which costs tens of milliseconds twice a second
-        // and is felt as stutter on a phone long before it is on a desktop.
-        const cached = this.cachedField;
-        if (cached !== null && cached.absorb(request.dataset, request.colourGain)) {
-            return cached;
-        }
-
-        const field = new DepthField({ dataset: request.dataset, colourGain: request.colourGain });
-        this.cachedField = field;
-        return field;
-    }
 }
 
 /**

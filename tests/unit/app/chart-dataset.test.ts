@@ -1,4 +1,5 @@
 import type { PriceBar, PriceBarWindow } from '../../../src/shared/core/price-bar.ts';
+import { DEFAULT_FLOOR_PERCENTILE } from '../../../src/app/indicators/book/book.ts';
 import { EMPTY_BAR_WINDOW } from '../../../src/shared/core/price-bar.ts';
 import type { LiquidityFrame } from '../../../src/shared/core/liquidity-frame.ts';
 import type { TradeCluster } from '../../../src/shared/core/trade-cluster.ts';
@@ -6,7 +7,6 @@ import { describe, expect, it } from 'vitest';
 import {
     appendClusters,
     appendFrames,
-    DEFAULT_FLOOR_PERCENTILE,
     DEFAULT_SATURATION_PERCENTILE,
     type ChartDataset,
     EMPTY_DATASET,

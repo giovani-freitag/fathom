@@ -1,15 +1,15 @@
-import type { Indicator, IndicatorSettings, PlotTone } from '../../shared/core/draw-plan.ts';
+import type { FieldLayer, Indicator, IndicatorSettings, PlotTone } from '../../shared/core/draw-plan.ts';
 import { type AddedIndicator, chooseInstanceTone } from '../../shared/core/indicator-selection.ts';
-import { AVERAGE_CONVERGENCE } from './average-convergence.ts';
-import { type FieldLayer, FIELD_LAYERS, findFieldLayer } from './field-layers.ts';
-import { AVERAGE_TRUE_RANGE } from './average-true-range.ts';
-import { BOLLINGER_BANDS } from './bollinger-bands.ts';
-import { DONCHIAN_CHANNELS } from './donchian-channels.ts';
-import { EXPONENTIAL_AVERAGE } from './exponential-average.ts';
-import { RELATIVE_STRENGTH } from './relative-strength.ts';
-import { SIMPLE_AVERAGE } from './simple-average.ts';
-import { STOCHASTIC_OSCILLATOR } from './stochastic-oscillator.ts';
-import { VOLUME } from './volume.ts';
+import { AVERAGE_CONVERGENCE } from './average-convergence/average-convergence.ts';
+import { FIELD_LAYERS, findFieldLayer } from './field-layers.ts';
+import { AVERAGE_TRUE_RANGE } from './average-true-range/average-true-range.ts';
+import { BOLLINGER_BANDS } from './bollinger-bands/bollinger-bands.ts';
+import { DONCHIAN_CHANNELS } from './donchian-channels/donchian-channels.ts';
+import { EXPONENTIAL_AVERAGE } from './exponential-average/exponential-average.ts';
+import { RELATIVE_STRENGTH } from './relative-strength/relative-strength.ts';
+import { SIMPLE_AVERAGE } from './simple-average/simple-average.ts';
+import { STOCHASTIC_OSCILLATOR } from './stochastic-oscillator/stochastic-oscillator.ts';
+import { VOLUME } from './volume/volume.ts';
 
 /**
  * Every indicator the build ships with, in the order they are offered.
@@ -114,3 +114,12 @@ export function chooseLayerTone(
 ): PlotTone {
     return findFieldLayer(layer.id) === null ? chooseInstanceTone(added) : 'muted';
 }
+
+/**
+ * What a chart shows before anybody has chosen anything.
+ *
+ * The book, the price, and how much traded in it: a chart that opens on less
+ * than the price and its volume asks the reader to assemble the ordinary case
+ * by hand before they can read anything at all.
+ */
+export const OPENING_LAYERS: readonly (Indicator | FieldLayer)[] = [...FIELD_LAYERS, VOLUME];
