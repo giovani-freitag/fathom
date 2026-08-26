@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/giovani-freitag/fathom/compare/v0.2.0...v0.3.0) (2026-08-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* give both registrations one tail and one message type
+
+### Features
+
+* give both registrations one tail and one message type ([453143e](https://github.com/giovani-freitag/fathom/commit/453143e56f503a877fe15520bb672428c9c5f364))
+
 ## [0.2.0](https://github.com/giovani-freitag/fathom/compare/v0.1.0...v0.2.0) (2026-08-26)
 
 
