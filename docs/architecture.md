@@ -156,6 +156,27 @@ derivable from the execution grid to within a hundredth of a percent, so this is
 a choice: the mid is what the recording is of, and it is defined in every second
 the collector saw, including the ones nothing traded in.
 
+## Following only what you read
+
+The canvas never goes through React: the renderer subscribes to the store and
+paints from it, and painting a frame costs about a millisecond and a half even
+with the book, the price and eight readings on the screen. What used to cost
+twenty was React — a page that read the whole chart, so a drag rewriting the
+viewport sixty times a second rebuilt every control that never looks at it.
+
+Anything that follows the chart follows a slice of it. A control reads the one
+figure it shows, through a selector declared once so the subscription is the
+same on every render; the components that show something under the cursor
+subscribe to the cursor instead, and the ones behind a closed drawer subscribe
+to nothing because they do not exist. Measured on a drag with the book, the
+candles, the volume and seven readings on screen: the 95th-percentile frame fell
+from 39ms to 20ms, the worst from 118ms to 29ms, and frames over budget from
+three in ten to three in a hundred.
+
+The rule that keeps it: a component that is handed the whole chart re-renders on
+every frame of a drag whether or not it reads anything that moved. Hand it the
+slice, or let it read the slice itself.
+
 ## How long a bar covers
 
 A bar is fitted to the window by default: the span presets already put a
