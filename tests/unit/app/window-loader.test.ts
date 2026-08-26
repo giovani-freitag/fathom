@@ -1,4 +1,4 @@
-import { WindowLoader } from '../../../src/app/core/window-loader.ts';
+import { WindowLoader, type WindowSource } from '../../../src/app/core/window-loader.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { buildWindow, buildFrame, createChartServiceMocks } from '../../mocks/chart-services.ts';
 
@@ -36,6 +36,7 @@ function buildRequest(overrides: Partial<Parameters<WindowLoader['load']>[0]> = 
         frameIntervalMs: 1_000,
         priceGroupSize: 1,
         warmupBars: 1,
+        sources: ['frames', 'trades'] as readonly WindowSource[],
         ...overrides,
     };
 }
@@ -212,5 +213,49 @@ describe('WindowLoader resolution', () => {
 
         expect(harness.mocks.fetchFrameWindow.mock.calls.length).toBe(2);
         vi.useRealTimers();
+    });
+});
+
+describe('WindowLoader sources', () => {
+    it('fetches none of the book when nothing on the chart draws it', async () => {
+        // The frame window is by far the heaviest thing the gateway serves, and
+        // a chart showing candles alone was paying for it to draw nothing.
+        const { loader, mocks } = buildHarness();
+
+        await loader.load(buildRequest({ sources: [] }));
+
+        expect(mocks.api.fetchFrameWindow).not.toHaveBeenCalled();
+        expect(mocks.api.fetchTradeClusters).not.toHaveBeenCalled();
+        expect(mocks.api.fetchPriceBars).toHaveBeenCalled();
+    });
+
+    it('fetches the executions without the frames when only they are read', async () => {
+        const { loader, mocks } = buildHarness();
+
+        await loader.load(buildRequest({ sources: ['trades'] }));
+
+        expect(mocks.api.fetchFrameWindow).not.toHaveBeenCalled();
+        expect(mocks.api.fetchTradeClusters).toHaveBeenCalled();
+    });
+
+    it('answers with an empty window rather than nothing when a source was skipped', async () => {
+        const { loader, loaded } = buildHarness();
+
+        await loader.load(buildRequest({ sources: [] }));
+
+        const window = loaded[0] as { window: { frames: unknown[] }; clusters: unknown[] };
+        expect(window.window.frames).toEqual([]);
+        expect(window.clusters).toEqual([]);
+    });
+
+    it('fetches again when the book is turned on over the same range', async () => {
+        // The range has not moved, so the request would otherwise be recognised
+        // as one already answered and the book would stay blank.
+        const { loader, mocks } = buildHarness();
+        await loader.load(buildRequest({ sources: [] }));
+
+        await loader.load(buildRequest({ sources: ['frames'] }));
+
+        expect(mocks.api.fetchFrameWindow).toHaveBeenCalledTimes(1);
     });
 });

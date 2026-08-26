@@ -30,7 +30,12 @@ import {
     resolveTradePriceGroupSize,
     resolveViewportBounds,
 } from './viewport-policy.ts';
-import { type LoadedWindow, WindowLoader, type WindowLoadRequest } from './window-loader.ts';
+import {
+    type LoadedWindow,
+    WindowLoader,
+    type WindowLoadRequest,
+    type WindowSource,
+} from './window-loader.ts';
 import {
     findIndicator,
     resolveRequiredWarmupBars,
@@ -382,6 +387,7 @@ export class ChartController {
             frameIntervalMs: instrument?.frameIntervalMs ?? state.dataset.sampleIntervalMs,
             priceGroupSize: resolveTradePriceGroupSize(state.viewport, state.dataset.priceBucketSize),
             warmupBars: resolveRequiredWarmupBars(state.addedIndicators),
+            sources: resolveWindowSources(state),
         };
     }
 
@@ -548,6 +554,25 @@ function describeTuning(entry: AddedIndicator): string {
         .map(([name, value]) => `${name}=${String(value)}`)
         .join(',');
     return `${entry.tone}|${settings}`;
+}
+
+/**
+ * The bodies of data something on the chart is going to read.
+ *
+ * The frame window is the heaviest thing the gateway serves, and a chart with
+ * the book hidden draws none of it. What reads the executions is the bubbles,
+ * the profile and the traded volume, each of which the book can be showing or
+ * not independently.
+ */
+function resolveWindowSources(state: ChartState): readonly WindowSource[] {
+    const sources: WindowSource[] = [];
+    if (state.isDepthVisible) {
+        sources.push('frames');
+    }
+    if (state.isTradeOverlayVisible || state.isVolumeProfileVisible || state.isBookVolumeVisible) {
+        sources.push('trades');
+    }
+    return sources;
 }
 
 function buildInitialState(preferences: ViewerPreferences): ChartState {

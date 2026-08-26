@@ -4,7 +4,7 @@ import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
 import { chooseBarIntervalMs } from './bar-interval.ts';
 import type { ChartViewport } from './chart-viewport.ts';
 import type { PriceBarWindow } from '../../shared/core/price-bar.ts';
-import type { HeatmapSource } from '../../shared/core/heatmap-source.ts';
+import type { HeatmapSource, TradeClusterResult } from '../../shared/core/heatmap-source.ts';
 
 /** Loaded window is this much wider than the view, so a short pan needs no refetch. */
 const OVERSCAN_RATIO = 0.6;
@@ -40,7 +40,29 @@ export interface WindowLoadRequest {
     readonly priceGroupSize: number;
     /** Bars to read before the window, for whatever indicator needs the most. */
     readonly warmupBars: number;
+    /**
+     * What something on the chart is going to read.
+     *
+     * Declared by the caller rather than assumed, so a chart drawing none of
+     * the book does not fetch it.
+     */
+    readonly sources: readonly WindowSource[];
 }
+
+/** The bodies of data a window may hold. */
+export type WindowSource = 'frames' | 'trades';
+
+const EMPTY_FRAME_WINDOW: LiquidityFrameWindow = {
+    priceBucketSize: 1,
+    sampleIntervalMs: 1,
+    frames: [],
+};
+
+const EMPTY_TRADE_RESULT: TradeClusterResult = {
+    clusters: [],
+    priceBucketSize: 1,
+    sampleIntervalMs: 1,
+};
 
 export interface WindowLoaderConfig {
     readonly api: HeatmapSource;
@@ -222,6 +244,9 @@ export class WindowLoader {
                 maxColumns,
                 barIntervalMs,
                 request.warmupBars,
+                // Turning the book on has to fetch what it draws, and the range
+                // it is drawn over has not moved.
+                [...request.sources].sort().join(','),
             ].join('|'),
         };
     }
@@ -238,17 +263,25 @@ export class WindowLoader {
             maxColumns: range.maxColumns,
         };
 
+        // Only what something on the chart is going to read. The frame window
+        // is by far the heaviest thing the gateway serves, and a chart showing
+        // candles alone was paying for it on every fetch to draw nothing.
+        const wanted = new Set(request.sources);
         const [window, tradeResult, gaps, bars] = await Promise.all([
-            this.config.api.fetchFrameWindow(query, signal),
-            this.config.api.fetchTradeClusters(
-                {
-                    ...query,
-                    maxColumns: TARGET_TRADE_COLUMNS,
-                    priceGroupSize: request.priceGroupSize,
-                    minimumQuantity: 0,
-                },
-                signal,
-            ),
+            wanted.has('frames')
+                ? this.config.api.fetchFrameWindow(query, signal)
+                : Promise.resolve(EMPTY_FRAME_WINDOW),
+            wanted.has('trades')
+                ? this.config.api.fetchTradeClusters(
+                    {
+                        ...query,
+                        maxColumns: TARGET_TRADE_COLUMNS,
+                        priceGroupSize: request.priceGroupSize,
+                        minimumQuantity: 0,
+                    },
+                    signal,
+                )
+                : Promise.resolve(EMPTY_TRADE_RESULT),
             this.config.api.fetchGaps(query, signal),
             this.config.api.fetchPriceBars({
                 symbol: request.symbol,
