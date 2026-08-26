@@ -1,6 +1,7 @@
 import type { CollectorCommand, CollectorEvent, CollectorState } from '../../shared/core/collector-worker-contract.ts';
 import { BROWSER_WRITE_SETTINGS } from '../core/collector-configuration.ts';
 import { BrowserRecordingControl } from '../../database/browser/browser-recording-control.ts';
+import { createBrowserCollectorLog } from './browser-collector-log.ts';
 import { CollectorSupervisor } from '../collector-supervisor.ts';
 import type { CollectorWorkerScope } from './worker-scope.ts';
 import { DEMO_CATALOGUE, readDemoConfiguration, resolveFrameCapacity } from './demo-collector-configuration.ts';
@@ -13,6 +14,14 @@ import { openBrowserMarketDataSocket } from './browser-market-data-socket.ts';
  * How often the chosen contracts and the ceiling are re-read.
  */
 const RECONCILE_INTERVAL_MS = 3_000;
+
+/**
+ * Silence after which a collector is replaced.
+ *
+ * Shorter than the server's: a page is watched while it records, so a stall
+ * that the reader can see should not outlive their patience.
+ */
+const STALL_TIMEOUT_MS = 45_000;
 
 const scope = self as unknown as CollectorWorkerScope;
 
@@ -62,13 +71,12 @@ async function start(): Promise<void> {
         control,
         archive,
         openSocket: openBrowserMarketDataSocket,
-        log: {
-            info: (message) => { post({ kind: 'log', level: 'info', message }); },
-            warning: (message) => { post({ kind: 'log', level: 'warning', message }); },
-        },
+        log: createBrowserCollectorLog({ post }),
         shared,
         framesPerFlush: BROWSER_WRITE_SETTINGS.framesPerFlush,
         reconcileIntervalMs: RECONCILE_INTERVAL_MS,
+        stallTimeoutMs: STALL_TIMEOUT_MS,
+        readNowMs: () => Date.now(),
     });
 
     try {

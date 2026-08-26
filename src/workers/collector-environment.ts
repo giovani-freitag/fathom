@@ -3,6 +3,9 @@ import {
     ConfigurationError,
 } from './core/collector-configuration.ts';
 
+/** Where the dated log files go when the environment does not say. */
+const DEFAULT_LOG_FILE_PATH = 'logs/collector';
+
 export function readCollectorConfiguration(): CollectorConfiguration {
     const recordedPriceRangeRatio = readPositiveNumber('RECORDED_PRICE_RANGE_RATIO', 0.02);
     const retainedPriceRangeRatio = readPositiveNumber('RETAINED_PRICE_RANGE_RATIO', 0.10);
@@ -33,6 +36,15 @@ export function readCollectorConfiguration(): CollectorConfiguration {
  */
 export function readDatabaseUrl(): string {
     return readRequiredText('DATABASE_URL');
+}
+
+/**
+ * Where the dated log files are written.
+ *
+ * @returns The path a dated suffix is appended to.
+ */
+export function readLogFilePath(): string {
+    return process.env['COLLECTOR_LOG_PATH']?.trim() || DEFAULT_LOG_FILE_PATH;
 }
 
 function readRequiredText(variableName: string): string {

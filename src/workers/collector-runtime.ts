@@ -106,8 +106,8 @@ export class CollectorRuntime {
         this.orderBook.start();
         this.feed.connect();
 
-        const { instrumentSymbol, priceBucketSize, frameIntervalMs } = this.configuration;
-        this.log.info(`Recording ${instrumentSymbol} at ${frameIntervalMs}ms x ${priceBucketSize} quote units`);
+        const { priceBucketSize, frameIntervalMs } = this.configuration;
+        this.log.info('Recording', { frameIntervalMs, priceBucketSize });
     }
 
     /**
@@ -137,20 +137,31 @@ export class CollectorRuntime {
     }
 
     private handleFeedDisconnected(reason: string): void {
-        this.log.warning(`Market data stream lost: ${reason}`);
+        this.log.warning('Market data stream lost', { reason });
         this.orderBook.invalidate(reason);
     }
 
     private handleBookDesynchronized(reason: string): void {
-        this.log.warning(`Order book desynchronized: ${reason}`);
+        this.log.warning('Order book desynchronized', { reason });
         this.recorder.noteInterruption(reason);
     }
 
     private handleBookSynchronized(): void {
-        this.log.info(`Order book synchronized with ${this.orderBook.levelCount} resting levels`);
+        this.log.info('Order book synchronized', { restingLevels: this.orderBook.levelCount });
     }
 
     private handleRecorderStatus(status: string): void {
         this.log.warning(status);
+    }
+
+    /**
+     * When this runtime last captured a frame, or null before its first.
+     *
+     * The capture clock, not the write: frames queued behind an archive that
+     * will not answer are a degraded runtime, and restarting it would throw the
+     * queue away without fixing anything.
+     */
+    get lastRecordedAtMs(): number | null {
+        return this.recorder.lastFrameAtMs;
     }
 }

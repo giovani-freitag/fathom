@@ -43,6 +43,10 @@ const REACHABLE: Record<string, readonly string[]> = {
 const CONFINED_PACKAGES: Record<string, string> = {
     pg: 'src/database/postgres',
     ws: 'src/workers/transport/node-market-data-socket.ts',
+    // The page implements the same log port by posting to its host, so the
+    // file-writing logger must not follow the collector into the bundle.
+    pino: 'src/workers/transport/node-collector-log.ts',
+    'pino-roll': 'src/workers/transport/node-collector-log.ts',
     // Only the demo's own registration may construct a Worker; the collector
     // is reached by URL, never imported into the page's bundle.
 

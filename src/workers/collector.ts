@@ -1,10 +1,10 @@
 import { CollectorSupervisor } from './collector-supervisor.ts';
-import { createNodeCollectorLog } from './transport/node-collector-log.ts';
+import { openNodeCollectorLog } from './transport/node-collector-log.ts';
 import { describeError } from './core/collector-log.ts';
 import { LiquidityArchiveService } from '../database/services/liquidity-archive-service.ts';
 import { openNodeMarketDataSocket } from './transport/node-market-data-socket.ts';
 import { PostgresService } from '../database/postgres/postgres-service.ts';
-import { readCollectorConfiguration, readDatabaseUrl } from './collector-environment.ts';
+import { readCollectorConfiguration, readDatabaseUrl, readLogFilePath } from './collector-environment.ts';
 import { RecordingControlService } from '../database/services/recording-control-service.ts';
 import { WRITE_SETTINGS } from './core/collector-configuration.ts';
 
@@ -15,7 +15,15 @@ const DATABASE_STATEMENT_TIMEOUT_MS = 30_000;
 /** How often the enabled set and the disk budget are re-read. */
 const RECONCILE_INTERVAL_MS = 15_000;
 
-const log = createNodeCollectorLog();
+/**
+ * Silence after which a collector is replaced.
+ *
+ * Long enough for a book to resynchronise after a dropped stream, which is the
+ * slowest thing a healthy runtime does.
+ */
+const STALL_TIMEOUT_MS = 120_000;
+
+const { log, flush: flushLog } = await openNodeCollectorLog({ filePath: readLogFilePath() });
 const { instrumentSymbol, priceBucketSize, frameIntervalMs, ...shared } = readCollectorConfiguration();
 
 const postgres = new PostgresService({
@@ -33,11 +41,14 @@ const supervisor = new CollectorSupervisor({
     shared,
     framesPerFlush: WRITE_SETTINGS.framesPerFlush,
     reconcileIntervalMs: RECONCILE_INTERVAL_MS,
+    stallTimeoutMs: STALL_TIMEOUT_MS,
+    readNowMs: () => Date.now(),
 });
 
 async function shutDown(signalName: string): Promise<void> {
-    log.warning(`Received ${signalName}, flushing before exit`);
+    log.warning('Received a stop signal, flushing before exit', { signalName });
     await supervisor.stop();
+    await flushLog();
     process.exit(0);
 }
 
@@ -62,8 +73,9 @@ try {
         isEnabled: true,
     });
     await supervisor.start();
-    log.info(`Supervising ${supervisor.recording.length} contract(s)`);
+    log.info('Supervising the enabled contracts', { contracts: supervisor.recording.length });
 } catch (error) {
-    log.warning(`Could not start: ${describeError(error)}`);
+    log.warning('The collector could not start', { reason: describeError(error) });
+    await flushLog();
     process.exit(1);
 }

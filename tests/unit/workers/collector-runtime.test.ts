@@ -1,6 +1,7 @@
 import { CollectorRuntime } from '../../../src/workers/collector-runtime.ts';
 import { describe, expect, it, vi } from 'vitest';
 import type { LiquidityArchive } from '../../../src/database/services/liquidity-archive.ts';
+import { createMockCollectorLog } from '../../mocks/collector-log.ts';
 import type { MarketDataSocket } from '../../../src/workers/core/market-data-socket.ts';
 
 /** A socket that connects and then says nothing, which is all the lifecycle needs. */
@@ -46,7 +47,7 @@ function buildRuntime(archive: LiquidityArchive): CollectorRuntime {
         openSocket: openSilentSocket,
         archive,
         framesPerFlush: 1,
-        log: { info: () => undefined, warning: () => undefined },
+        log: createMockCollectorLog().log,
     });
 }
 

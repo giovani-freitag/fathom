@@ -38,7 +38,14 @@ export class LiquidityRecorderService {
     private frameTimer: TimerHandle | null = null;
     private flushTimer: TimerHandle | null = null;
     private isRunning = false;
-    private lastFrameAtMs: number | null = null;
+    private lastCapturedAtMs: number | null = null;
+
+    /** When the recording clock last produced a frame, or null before the first. */
+    get lastFrameAtMs(): number | null {
+        return this.lastCapturedAtMs;
+    }
+
+
     private openGapStartedAtMs: number | null = null;
     private openGapReason = '';
 
@@ -121,9 +128,9 @@ export class LiquidityRecorderService {
             // One interval past the last frame, because that frame was recorded.
             // Starting at it would claim a second that exists is missing, and
             // would disagree with how a gap left by a previous run is reopened.
-            this.openGapStartedAtMs = this.lastFrameAtMs === null
+            this.openGapStartedAtMs = this.lastCapturedAtMs === null
                 ? Date.now()
-                : this.lastFrameAtMs + this.config.frameIntervalMs;
+                : this.lastCapturedAtMs + this.config.frameIntervalMs;
             this.openGapReason = reason;
         }
     }
@@ -134,10 +141,10 @@ export class LiquidityRecorderService {
      * @param capturedAtMs - The instant this capture is filing under.
      */
     private noteSkippedInstants(capturedAtMs: number): void {
-        if (this.lastFrameAtMs === null) {
+        if (this.lastCapturedAtMs === null) {
             return;
         }
-        if (capturedAtMs > this.lastFrameAtMs + this.config.frameIntervalMs) {
+        if (capturedAtMs > this.lastCapturedAtMs + this.config.frameIntervalMs) {
             this.noteInterruption('the recording clock did not fire on time');
         }
     }
@@ -177,7 +184,7 @@ export class LiquidityRecorderService {
 
     private captureFrame(): void {
         const capturedAtMs = floorToInterval(Date.now(), this.config.frameIntervalMs);
-        if (this.lastFrameAtMs !== null && capturedAtMs <= this.lastFrameAtMs) {
+        if (this.lastCapturedAtMs !== null && capturedAtMs <= this.lastCapturedAtMs) {
             return;
         }
 
@@ -202,7 +209,7 @@ export class LiquidityRecorderService {
             recordedPriceRangeRatio: this.config.recordedPriceRangeRatio,
         }));
         this.writeBuffer.enqueueTradeClusters(this.tradeClusters.drainBefore(capturedAtMs));
-        this.lastFrameAtMs = capturedAtMs;
+        this.lastCapturedAtMs = capturedAtMs;
 
         if (this.writeBuffer.pendingFrameCount >= this.config.framesPerFlush) {
             void this.writeBuffer.flush();

@@ -17,6 +17,15 @@ export interface CollectorSupervisorConfig {
     readonly framesPerFlush: number;
     /** How often the enabled set and the disk budget are re-read. */
     readonly reconcileIntervalMs: number;
+    /**
+     * Silence after which a collector is treated as stopped and replaced.
+     *
+     * The recording clock ticks every second whatever the market does, so
+     * silence here is never a quiet contract — it is a runtime that died.
+     */
+    readonly stallTimeoutMs: number;
+    /** Reads the wall clock, so a test can move it. */
+    readonly readNowMs: () => number;
 }
 
 /**
@@ -25,6 +34,8 @@ export interface CollectorSupervisorConfig {
 export class CollectorSupervisor {
     private readonly config: CollectorSupervisorConfig;
     private readonly running = new Map<string, CollectorRuntime>();
+    /** When each runtime was started, which is its liveness before its first frame. */
+    private readonly startedAtMs = new Map<string, number>();
     private reconcileTimer: TimerHandle | null = null;
     private isReconciling = false;
     private wasStopped = false;
@@ -41,7 +52,7 @@ export class CollectorSupervisor {
      */
     async start(): Promise<void> {
         await this.config.archive.open();
-        await this.reconcile();
+        await this.reconcileNow();
 
         this.reconcileTimer = setInterval(this.handleReconcileDue, this.config.reconcileIntervalMs);
         releaseTimerFromEventLoop(this.reconcileTimer);
@@ -58,8 +69,7 @@ export class CollectorSupervisor {
         }
 
         for (const [symbol, runtime] of this.running) {
-            await runtime.stop();
-            this.running.delete(symbol);
+            await this.discard(symbol, runtime);
         }
         await this.config.archive.close();
     }
@@ -70,13 +80,15 @@ export class CollectorSupervisor {
     }
 
     private handleReconcileDue(): void {
-        void this.reconcile();
+        void this.reconcileNow();
     }
 
     /**
      * Closes the difference between what is running and what should be.
+     *
+     * @returns Once the pass has finished, or immediately when one is under way.
      */
-    private async reconcile(): Promise<void> {
+    async reconcileNow(): Promise<void> {
         if (this.isReconciling || this.wasStopped) {
             return;
         }
@@ -85,10 +97,13 @@ export class CollectorSupervisor {
         try {
             const registered = await this.config.control.listContracts();
             await this.stopDisabled(registered);
+            await this.dropStalled();
             await this.startEnabled(registered);
             await this.enforceBudget();
         } catch (error) {
-            this.config.log.warning(`Could not reconcile the recording: ${describeError(error)}`);
+            this.config.log.warning('Could not reconcile the recording', {
+                reason: describeError(error),
+            });
         } finally {
             this.isReconciling = false;
         }
@@ -104,10 +119,40 @@ export class CollectorSupervisor {
             if (wanted.has(symbol)) {
                 continue;
             }
-            await runtime.stop();
-            this.running.delete(symbol);
-            this.config.log.info(`Stopped recording ${symbol}`);
+            await this.discard(symbol, runtime);
+            this.config.log.info('Stopped recording', { instrumentSymbol: symbol });
         }
+    }
+
+    /**
+     * Lets go of a collector that stopped recording, so the next pass rebuilds it.
+     *
+     * Holding the handle was enough to believe it was working: the map recorded
+     * that a runtime had been built, never that it was still capturing, so one
+     * that died stayed in it until the process itself was restarted.
+     */
+    private async dropStalled(): Promise<void> {
+        const nowMs = this.config.readNowMs();
+
+        for (const [symbol, runtime] of this.running) {
+            const lastSignMs = runtime.lastRecordedAtMs ?? this.startedAtMs.get(symbol) ?? nowMs;
+            const silentForMs = nowMs - lastSignMs;
+            if (silentForMs < this.config.stallTimeoutMs) {
+                continue;
+            }
+
+            await this.discard(symbol, runtime);
+            this.config.log.warning('Collector stopped recording and is being replaced', {
+                instrumentSymbol: symbol,
+                silentForMs,
+            });
+        }
+    }
+
+    private async discard(symbol: string, runtime: CollectorRuntime): Promise<void> {
+        await runtime.stop();
+        this.running.delete(symbol);
+        this.startedAtMs.delete(symbol);
     }
 
     private async startEnabled(registered: readonly RecordedContract[]): Promise<void> {
@@ -126,18 +171,22 @@ export class CollectorSupervisor {
                 openSocket: this.config.openSocket,
                 archive: this.config.archive,
                 framesPerFlush: this.config.framesPerFlush,
-                log: this.config.log,
+                // Bound to the contract, so every line a runtime writes says
+                // which one wrote it. Four collectors share one log.
+                log: this.config.log.child({ instrumentSymbol: instrument.instrumentSymbol }),
             });
 
             try {
                 await runtime.start();
                 this.running.set(instrument.instrumentSymbol, runtime);
+                this.startedAtMs.set(instrument.instrumentSymbol, this.config.readNowMs());
             } catch (error) {
                 // One venue refusing must not stop the others: the next
                 // reconcile tries again, and every other contract keeps writing.
-                this.config.log.warning(
-                    `Could not start ${instrument.instrumentSymbol}: ${describeError(error)}`,
-                );
+                this.config.log.warning('Could not start a collector', {
+                    instrumentSymbol: instrument.instrumentSymbol,
+                    reason: describeError(error),
+                });
                 await runtime.stop();
             }
         }
@@ -149,9 +198,9 @@ export class CollectorSupervisor {
     private async enforceBudget(): Promise<void> {
         const dropped = await this.config.control.pruneToBudget();
         if (dropped > 0) {
-            this.config.log.warning(
-                `Dropped ${dropped} of the oldest partitions to stay inside the disk budget`,
-            );
+            this.config.log.warning('Dropped the oldest partitions to stay inside the disk budget', {
+                partitions: dropped,
+            });
         }
     }
 }
