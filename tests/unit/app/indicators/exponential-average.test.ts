@@ -37,16 +37,40 @@ describe('ExponentialAverage', () => {
 
     it('restarts across a hole instead of smoothing over time nobody saw', () => {
         // Carrying an average across unrecorded time invents a trend through it.
-        const before = buildRun(10, () => 100);
+        // Stated as independence rather than as a value: what is drawn after the
+        // hole must be exactly what would be drawn if nothing preceded it.
+        const before = buildRun(20, () => 100);
+        const after = buildRun(20, (index) => 200 + index, 30);
+        const settings = { periodBars: 5 };
+
+        const across = EXPONENTIAL_AVERAGE.compute({
+            bars: buildWindow([...before, ...after]),
+            warmupBarCount: 20,
+            settings,
+        });
+
+        const alone = EXPONENTIAL_AVERAGE.compute({
+            bars: buildWindow(after),
+            warmupBarCount: 0,
+            settings,
+        });
+        expect([...across.series[0]!.value.slice(20)]).toEqual([...alone.series[0]!.value]);
+    });
+
+    it('says nothing after a hole until it has a full period to average', () => {
+        // Seeding from two bars and drawing the result would show a settled-
+        // looking line built out of almost nothing.
+        const before = buildRun(20, () => 100);
         const after = [buildBar(30 * BAR_INTERVAL_MS, 200), buildBar(31 * BAR_INTERVAL_MS, 200)];
 
         const plan = EXPONENTIAL_AVERAGE.compute({
             bars: buildWindow([...before, ...after]),
-            warmupBarCount: 10,
+            warmupBarCount: 20,
             settings: { periodBars: 5 },
         });
 
-        expect(plan.series[0]?.value[10]).toBe(200);
+        expect(plan.series[0]?.value[20]).toBeNaN();
+        expect(plan.series[0]?.value[21]).toBeNaN();
     });
 
     it('says it has not converged when the archive could not seed it', () => {

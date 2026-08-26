@@ -7,6 +7,7 @@ import {
     withIndicatorRemoved,
     withIndicatorRestored,
     withIndicatorRetuned,
+    withIndicatorVisibility,
 } from '../../../../src/shared/core/indicator-selection.ts';
 import type { AddedIndicator } from '../../../../src/shared/core/indicator-selection.ts';
 
@@ -104,5 +105,24 @@ describe('undoing a removal', () => {
         const stray = { instanceId: 'rsi-9', indicatorId: 'rsi', settings: SETTINGS, tone: 'cyan' } as const;
 
         expect(withIndicatorRestored(full, stray, 0)).toHaveLength(MAXIMUM_ADDED_INDICATORS);
+    });
+});
+
+describe('hiding an indicator', () => {
+    it('keeps how it was tuned', () => {
+        const added = withIndicatorRetuned(addTimes(1), 'ema-1', 'periodBars', 200);
+
+        const hidden = withIndicatorVisibility(added, 'ema-1', true);
+
+        expect(hidden[0]?.isHidden).toBe(true);
+        expect(hidden[0]?.settings['periodBars']).toBe(200);
+    });
+
+    it('leaves its neighbours drawing', () => {
+        const added = withIndicatorAdded(addTimes(1), 'rsi', SETTINGS);
+
+        const hidden = withIndicatorVisibility(added, 'ema-1', true);
+
+        expect(hidden.map((entry) => entry.isHidden === true)).toEqual([true, false]);
     });
 });

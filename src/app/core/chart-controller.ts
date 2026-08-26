@@ -278,7 +278,9 @@ export class ChartController {
         const plans: DrawPlan[] = [];
         for (const entry of state.addedIndicators) {
             const indicator = findIndicator(entry.indicatorId);
-            if (indicator === null) {
+            // A hidden indicator produces nothing, so it takes no band and costs
+            // no arithmetic. What it keeps is how it was tuned.
+            if (indicator === null || entry.isHidden === true) {
                 continue;
             }
             const plan = indicator.compute({

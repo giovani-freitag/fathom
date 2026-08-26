@@ -3,18 +3,20 @@ import {
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
+    type NumericParameter,
     type IndicatorSettings,
     type PlotScale,
     readSetting,
 } from '../../shared/core/draw-plan.ts';
+import { collectSource, SOURCE } from './bar-source.ts';
 import {
     collectInstants,
     createBlankValues,
+    fillExponential,
     findContinuousSegments,
-    resolveExponentialWeight,
 } from './series-math.ts';
 
-const PERIOD_BARS: IndicatorParameter = {
+const PERIOD_BARS: NumericParameter = {
     name: 'periodBars',
     kind: 'integer',
     defaultValue: 20,
@@ -40,7 +42,7 @@ export class ExponentialAverage implements Indicator {
     readonly id = 'ema';
     readonly labelKey = 'indicator.ema';
     readonly scale: PlotScale = { kind: 'price' };
-    readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS];
+    readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS, SOURCE];
 
     /**
      * Bars needed before the window for the seed to have washed out.
@@ -61,18 +63,11 @@ export class ExponentialAverage implements Indicator {
     compute(input: IndicatorInput): DrawPlan {
         const bars = input.bars.bars;
         const periodBars = readSetting(input.settings, PERIOD_BARS);
-        const weight = resolveExponentialWeight(periodBars);
+        const source = collectSource(bars, input.settings);
         const value = createBlankValues(bars.length);
 
         for (const segment of findContinuousSegments(bars)) {
-            let average = bars[segment.startIndex]!.closePrice;
-            for (let index = segment.startIndex; index < segment.endIndex; index += 1) {
-                const closePrice = bars[index]!.closePrice;
-                average = index === segment.startIndex
-                    ? closePrice
-                    : average + weight * (closePrice - average);
-                value[index] = average;
-            }
+            fillExponential(source, periodBars, segment.startIndex, segment.endIndex, value);
         }
 
         return {

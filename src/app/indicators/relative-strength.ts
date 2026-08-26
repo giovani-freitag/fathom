@@ -3,10 +3,12 @@ import {
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
+    type NumericParameter,
     type IndicatorSettings,
     type PlotScale,
     readSetting,
 } from '../../shared/core/draw-plan.ts';
+import { collectSource, SOURCE } from './bar-source.ts';
 import {
     collectInstants,
     createBlankValues,
@@ -14,7 +16,7 @@ import {
     smoothWilder,
 } from './series-math.ts';
 
-const PERIOD_BARS: IndicatorParameter = {
+const PERIOD_BARS: NumericParameter = {
     name: 'periodBars',
     kind: 'integer',
     defaultValue: 14,
@@ -33,7 +35,7 @@ export class RelativeStrength implements Indicator {
     readonly id = 'rsi';
     readonly labelKey = 'indicator.rsi';
     readonly scale: PlotScale = { kind: 'fixed', low: 0, high: 100 };
-    readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS];
+    readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS, SOURCE];
 
     /**
      * Bars needed before the window for the smoothed averages to have settled.
@@ -56,8 +58,9 @@ export class RelativeStrength implements Indicator {
         const periodBars = readSetting(input.settings, PERIOD_BARS);
         const value = createBlankValues(bars.length);
 
+        const source = collectSource(bars, input.settings);
         for (const segment of findContinuousSegments(bars)) {
-            this.fillSegment(input, segment.startIndex, segment.endIndex, periodBars, value);
+            fillRelativeStrength(source, periodBars, segment.startIndex, segment.endIndex, value);
         }
 
         return {
@@ -80,36 +83,36 @@ export class RelativeStrength implements Indicator {
         };
     }
 
-    /**
-     * Seeds from the first full period of moves, then smooths the rest onto it.
-     */
-    private fillSegment(
-        input: IndicatorInput,
-        startIndex: number,
-        endIndex: number,
-        periodBars: number,
-        value: Float64Array,
-    ): void {
-        const bars = input.bars.bars;
-        if (endIndex - startIndex <= periodBars) {
-            return;
-        }
+}
 
-        let averageGain = 0;
-        let averageLoss = 0;
-        for (let index = startIndex + 1; index <= startIndex + periodBars; index += 1) {
-            const move = bars[index]!.closePrice - bars[index - 1]!.closePrice;
-            averageGain += Math.max(0, move) / periodBars;
-            averageLoss += Math.max(0, -move) / periodBars;
-        }
-        value[startIndex + periodBars] = toReading(averageGain, averageLoss);
+/**
+ * Seeds from the first full period of moves, then smooths the rest onto it.
+ */
+function fillRelativeStrength(
+    source: ArrayLike<number>,
+    periodBars: number,
+    startIndex: number,
+    endIndex: number,
+    value: Float64Array,
+): void {
+    if (endIndex - startIndex <= periodBars) {
+        return;
+    }
 
-        for (let index = startIndex + periodBars + 1; index < endIndex; index += 1) {
-            const move = bars[index]!.closePrice - bars[index - 1]!.closePrice;
-            averageGain = smoothWilder(averageGain, Math.max(0, move), periodBars);
-            averageLoss = smoothWilder(averageLoss, Math.max(0, -move), periodBars);
-            value[index] = toReading(averageGain, averageLoss);
-        }
+    let averageGain = 0;
+    let averageLoss = 0;
+    for (let index = startIndex + 1; index <= startIndex + periodBars; index += 1) {
+        const move = source[index]! - source[index - 1]!;
+        averageGain += Math.max(0, move) / periodBars;
+        averageLoss += Math.max(0, -move) / periodBars;
+    }
+    value[startIndex + periodBars] = toReading(averageGain, averageLoss);
+
+    for (let index = startIndex + periodBars + 1; index < endIndex; index += 1) {
+        const move = source[index]! - source[index - 1]!;
+        averageGain = smoothWilder(averageGain, Math.max(0, move), periodBars);
+        averageLoss = smoothWilder(averageLoss, Math.max(0, -move), periodBars);
+        value[index] = toReading(averageGain, averageLoss);
     }
 }
 

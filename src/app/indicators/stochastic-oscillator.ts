@@ -3,13 +3,14 @@ import {
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
+    type NumericParameter,
     type IndicatorSettings,
     type PlotScale,
     readSetting,
 } from '../../shared/core/draw-plan.ts';
 import { collectInstants, createBlankValues, findContinuousSegments } from './series-math.ts';
 
-const PERIOD_BARS: IndicatorParameter = {
+const PERIOD_BARS: NumericParameter = {
     name: 'periodBars',
     kind: 'integer',
     defaultValue: 14,
@@ -17,7 +18,7 @@ const PERIOD_BARS: IndicatorParameter = {
     maximum: 200,
 };
 
-const SMOOTHING_BARS: IndicatorParameter = {
+const SMOOTHING_BARS: NumericParameter = {
     name: 'smoothingBars',
     kind: 'integer',
     defaultValue: 3,

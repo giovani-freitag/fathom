@@ -79,6 +79,93 @@ export function resolveExponentialWeight(periodBars: number): number {
 }
 
 /**
+ * Fills a stretch with an exponential average of a source series.
+ *
+ * Seeded with the simple mean of the first period rather than with the first
+ * value. It is what the reference implementations do, and it is why an average
+ * read off this chart and one read off another agree from the first bar either
+ * of them draws rather than only after the seed has washed out.
+ *
+ * @param source - Values to smooth; NaN is treated as the series not having started.
+ * @param periodBars - Bars the average spans.
+ * @param startIndex - First index of the stretch, inclusive.
+ * @param endIndex - Last index of the stretch, exclusive.
+ * @param out - Written in place, and left untouched before the seed is complete.
+ */
+export function fillExponential(
+    source: ArrayLike<number>,
+    periodBars: number,
+    startIndex: number,
+    endIndex: number,
+    out: Float64Array,
+): void {
+    const firstIndex = findFirstReal(source, startIndex, endIndex);
+    const seedIndex = firstIndex + periodBars - 1;
+    if (firstIndex === -1 || seedIndex >= endIndex) {
+        return;
+    }
+
+    let total = 0;
+    for (let index = firstIndex; index <= seedIndex; index += 1) {
+        total += source[index]!;
+    }
+
+    const weight = resolveExponentialWeight(periodBars);
+    let average = total / periodBars;
+    out[seedIndex] = average;
+    for (let index = seedIndex + 1; index < endIndex; index += 1) {
+        average += weight * (source[index]! - average);
+        out[index] = average;
+    }
+}
+
+/**
+ * Fills a stretch with Wilder's smoothing of a source series.
+ *
+ * Seeded with the simple mean of the first period, which is the seed Wilder
+ * defined and the one the reference implementations use.
+ *
+ * @param source - Values to smooth.
+ * @param periodBars - Bars the average spans.
+ * @param startIndex - First index of the stretch, inclusive.
+ * @param endIndex - Last index of the stretch, exclusive.
+ * @param out - Written in place, and left untouched before the seed is complete.
+ */
+export function fillWilder(
+    source: ArrayLike<number>,
+    periodBars: number,
+    startIndex: number,
+    endIndex: number,
+    out: Float64Array,
+): void {
+    const seedIndex = startIndex + periodBars - 1;
+    if (seedIndex >= endIndex) {
+        return;
+    }
+
+    let total = 0;
+    for (let index = startIndex; index <= seedIndex; index += 1) {
+        total += source[index]!;
+    }
+
+    let average = total / periodBars;
+    out[seedIndex] = average;
+    for (let index = seedIndex + 1; index < endIndex; index += 1) {
+        average = smoothWilder(average, source[index]!, periodBars);
+        out[index] = average;
+    }
+}
+
+function findFirstReal(source: ArrayLike<number>, startIndex: number, endIndex: number): number {
+    for (let index = startIndex; index < endIndex; index += 1) {
+        if (!Number.isNaN(source[index]!)) {
+            return index;
+        }
+    }
+    return -1;
+}
+
+/**
  * The mean of a slice.
  *
  * @param values - Source values.

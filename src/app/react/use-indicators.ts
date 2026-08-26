@@ -5,6 +5,7 @@ import {
     withIndicatorRemoved,
     withIndicatorRecoloured,
     withIndicatorRestored,
+    withIndicatorVisibility,
     withIndicatorRetuned,
 } from '../../shared/core/indicator-selection.ts';
 import type { PlotTone } from '../../shared/core/draw-plan.ts';
@@ -18,8 +19,9 @@ export interface IndicatorControls {
     readonly isFull: boolean;
     readonly add: (indicatorId: string) => void;
     readonly remove: (instanceId: string) => void;
-    readonly retune: (instanceId: string, name: string, value: number) => void;
+    readonly retune: (instanceId: string, name: string, value: number | string) => void;
     readonly recolour: (instanceId: string, tone: PlotTone) => void;
+    readonly setVisibility: (instanceId: string, isHidden: boolean) => void;
     /** How many copies of each indicator are on the chart, by indicator id. */
     readonly addedCounts: ReadonlyMap<string, number>;
     /** The last removal, until it is undone or another change lands. */
@@ -71,7 +73,7 @@ export function useIndicators(): IndicatorControls {
 
     const forgetRemoval = useCallback(() => { setRemoval(null); }, []);
 
-    const retune = useCallback((instanceId: string, name: string, value: number) => {
+    const retune = useCallback((instanceId: string, name: string, value: number | string) => {
         kernel.chart.updateIndicators(
             (current) => withIndicatorRetuned(current, instanceId, name, value),
         );
@@ -80,6 +82,12 @@ export function useIndicators(): IndicatorControls {
     const recolour = useCallback((instanceId: string, tone: PlotTone) => {
         kernel.chart.updateIndicators(
             (current) => withIndicatorRecoloured(current, instanceId, tone),
+        );
+    }, [kernel]);
+
+    const setVisibility = useCallback((instanceId: string, isHidden: boolean) => {
+        kernel.chart.updateIndicators(
+            (current) => withIndicatorVisibility(current, instanceId, isHidden),
         );
     }, [kernel]);
 
@@ -99,8 +107,9 @@ export function useIndicators(): IndicatorControls {
         remove,
         retune,
         recolour,
+        setVisibility,
         lastRemoved: removal?.entry ?? null,
         undoRemoval,
         forgetRemoval,
-    }), [added, addedCounts, add, remove, retune, recolour, removal, undoRemoval, forgetRemoval]);
+    }), [added, addedCounts, add, remove, retune, recolour, setVisibility, removal, undoRemoval, forgetRemoval]);
 }

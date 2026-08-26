@@ -80,6 +80,26 @@ describe('IndicatorLegend', () => {
         expect(screen.getByText(/^\d{1,3}\.\d{2}$/).textContent).toBe(atNewestBar);
     });
 
+    it('keeps a hidden indicator listed, with the control that brings it back', () => {
+        // Hiding is not removing: the parameters survive, and the way back has
+        // to be on the row rather than in the catalogue.
+        const hidden = { ...RSI, isHidden: true };
+        const kernel = renderLegend([SMA_FAST, hidden]);
+
+        expect(screen.getByRole('button', { name: 'Show' })).toBeDefined();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Show' }));
+        expect(kernel.readAdded()[1]?.isHidden).toBe(false);
+    });
+
+    it('gives a hidden indicator no band, so it stops taking room from the price', () => {
+        renderLegend([{ ...RSI, isHidden: true }]);
+
+        const rows = screen.getAllByRole('listitem');
+        const tops = rows.map((row) => row.parentElement!.style.top);
+        expect(tops.every((top) => top === `${44}px`)).toBe(true);
+    });
+
     it('drops the indicator the reader dismissed and leaves its neighbour', () => {
         const kernel = renderLegend([SMA_FAST, RSI]);
 

@@ -42,17 +42,25 @@ describe('PreferencesService indicators', () => {
         expect(added).toEqual([]);
     });
 
-    it('drops a setting that is not a number, which the arithmetic would stall on', () => {
+    it('drops a setting the arithmetic would stall on, and keeps a chosen one', () => {
+        // A figure and a choice are both answers a knob can take; a figure that
+        // is not a number is not.
         const added = readIndicators({
             addedIndicators: [{
                 instanceId: 'ema-1',
                 indicatorId: 'ema',
-                settings: { periodBars: 'twenty', deviations: Number.NaN, fastBars: 12 },
+                settings: {
+                    deviations: Number.NaN,
+                    fastBars: 12,
+                    source: 'hl2',
+                    rambling: 'x'.repeat(400),
+                    nested: { periodBars: 3 },
+                },
                 tone: 'amber',
             }],
         });
 
-        expect(added[0]?.settings).toEqual({ fastBars: 12 });
+        expect(added[0]?.settings).toEqual({ fastBars: 12, source: 'hl2' });
     });
 
     it('gives a free colour to a set stored before colours existed', () => {

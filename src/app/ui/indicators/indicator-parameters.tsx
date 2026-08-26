@@ -1,6 +1,6 @@
-import type { Indicator, IndicatorParameter } from '../../../shared/core/draw-plan.ts';
+import type { ChoiceParameter, Indicator, NumericParameter } from '../../../shared/core/draw-plan.ts';
 import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts';
-import { INSTANCE_TONES, readSetting } from '../../../shared/core/draw-plan.ts';
+import { INSTANCE_TONES, readChoice, readSetting } from '../../../shared/core/draw-plan.ts';
 import type { PlotTone } from '../../../shared/core/draw-plan.ts';
 import { ToneSwatch } from './tone-swatch.tsx';
 import type { ReactElement } from 'react';
@@ -10,7 +10,7 @@ import { translateLabel } from '../../i18n/translator.ts';
 interface IndicatorParametersProps {
     readonly indicator: Indicator;
     readonly added: AddedIndicator;
-    readonly onRetune: (name: string, value: number) => void;
+    readonly onRetune: (name: string, value: number | string) => void;
     readonly onRecolour: (tone: PlotTone) => void;
 }
 
@@ -28,14 +28,21 @@ export function IndicatorParameters({
     return (
         <div className="space-y-3">
             <div className="flex flex-wrap gap-2">
-                {indicator.parameters.map((parameter) => (
+                {indicator.parameters.map((parameter) => (parameter.kind === 'choice' ? (
+                    <ChoiceField
+                        key={parameter.name}
+                        parameter={parameter}
+                        value={readChoice(added.settings, parameter)}
+                        onChange={(value) => { onRetune(parameter.name, value); }}
+                    />
+                ) : (
                     <ParameterField
                         key={parameter.name}
                         parameter={parameter}
                         value={readSetting(added.settings, parameter)}
                         onChange={(value) => { onRetune(parameter.name, value); }}
                     />
-                ))}
+                )))}
             </div>
 
             <div className="flex flex-col gap-1">
@@ -74,8 +81,37 @@ function applyIfFinite(text: string, apply: (value: number) => void): void {
     }
 }
 
+interface ChoiceFieldProps {
+    readonly parameter: ChoiceParameter;
+    readonly value: string;
+    readonly onChange: (value: string) => void;
+}
+
+function ChoiceField({ parameter, value, onChange }: ChoiceFieldProps): ReactElement {
+    const translate = useTranslate();
+
+    return (
+        <label className="flex w-full min-w-0 flex-col gap-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+                {translateLabel(translate, `parameter.${parameter.name}`)}
+            </span>
+            <select
+                value={value}
+                onChange={(event) => { onChange(event.target.value); }}
+                className="min-h-9 w-full rounded border border-hairline bg-abyss-900 px-2 text-sm text-ink-100 outline-none focus:border-phosphor/60"
+            >
+                {parameter.choices.map((choice) => (
+                    <option key={choice} value={choice}>
+                        {translateLabel(translate, `source.${choice}`)}
+                    </option>
+                ))}
+            </select>
+        </label>
+    );
+}
+
 interface ParameterFieldProps {
-    readonly parameter: IndicatorParameter;
+    readonly parameter: NumericParameter;
     readonly value: number;
     readonly onChange: (value: number) => void;
 }

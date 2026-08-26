@@ -19,6 +19,13 @@ export interface AddedIndicator {
      * and the indicator has no idea there are two.
      */
     readonly tone: PlotTone;
+    /**
+     * Kept but not drawn.
+     *
+     * Distinct from removing it: the parameters someone tuned survive, and a
+     * band that is not being read stops taking room from the price.
+     */
+    readonly isHidden?: boolean;
 }
 
 /** How many an added set may hold, so a stored preference cannot stall a session. */
@@ -128,7 +135,7 @@ export function withIndicatorRetuned(
     added: readonly AddedIndicator[],
     instanceId: string,
     name: string,
-    value: number,
+    value: number | string,
 ): readonly AddedIndicator[] {
     return added.map((entry) => (
         entry.instanceId === instanceId
@@ -162,4 +169,22 @@ export function withIndicatorRestored(
     const restored = [...added];
     restored.splice(Math.min(Math.max(index, 0), added.length), 0, entry);
     return restored;
+}
+
+/**
+ * Draws or stops drawing one added indicator, keeping how it was tuned.
+ *
+ * @param added - What is on the chart.
+ * @param instanceId - Which copy to change.
+ * @param isHidden - True to keep it without drawing it.
+ * @returns The new set, in the order it was already in.
+ */
+export function withIndicatorVisibility(
+    added: readonly AddedIndicator[],
+    instanceId: string,
+    isHidden: boolean,
+): readonly AddedIndicator[] {
+    return added.map((entry) => (
+        entry.instanceId === instanceId ? { ...entry, isHidden } : entry
+    ));
 }

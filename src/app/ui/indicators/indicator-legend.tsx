@@ -1,8 +1,9 @@
 import { Popover } from 'radix-ui';
-import { Settings2, X } from 'lucide-react';
+import { Eye, EyeOff, Settings2, X } from 'lucide-react';
 import type { ReactElement } from 'react';
 import type { DrawPlan, PlotTone } from '../../../shared/core/draw-plan.ts';
-import { readValueAt } from '../../../shared/core/draw-plan.ts';
+import { readChoice, readSetting, readValueAt } from '../../../shared/core/draw-plan.ts';
+import type { Indicator } from '../../../shared/core/draw-plan.ts';
 import { formatFixed } from '../../core/formatting.ts';
 import { useCursorInstant } from '../../react/use-cursor-instant.ts';
 import { findIndicator } from '../../indicators/indicator-catalogue.ts';
@@ -10,9 +11,11 @@ import { isPriceScale } from '../../painting/pane-projector.ts';
 import type { ChartLayout } from '../../painting/render-types.ts';
 import { IndicatorParameters } from './indicator-parameters.tsx';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
+import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts';
 import { useChartState } from '../../react/use-chart-state.ts';
 import { useTranslate } from '../../react/use-appearance.ts';
 import { translateLabel } from '../../i18n/translator.ts';
+import type { Translate } from '../../i18n/translator.ts';
 import { ToneSwatch } from './tone-swatch.tsx';
 
 /** Clear space under the depth key, where the price pane's own rows start. */
@@ -35,8 +38,16 @@ interface IndicatorLegendProps {
  */
 export function IndicatorLegend({ controls, layout }: IndicatorLegendProps): ReactElement {
     const plans = useChartState().plans;
-    const overPrice = plans.filter((plan) => isPriceScale(plan.scale));
+    const planFor = new Map(plans.map((plan) => [plan.instanceId, plan]));
     const inPanes = plans.filter((plan) => !isPriceScale(plan.scale));
+
+    // Rows come from what was added rather than from what was drawn, so an
+    // indicator that is being kept without being drawn still has the control
+    // that brings it back.
+    const overPrice = controls.added.filter((entry) => {
+        const plan = planFor.get(entry.instanceId);
+        return plan === undefined || isPriceScale(plan.scale);
+    });
 
     return (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -44,20 +55,26 @@ export function IndicatorLegend({ controls, layout }: IndicatorLegendProps): Rea
                 className="absolute flex flex-col items-start gap-1"
                 style={{ left: ROWS_LEFT_PX, top: PRICE_ROWS_TOP_PX }}
             >
-                {overPrice.map((plan) => (
-                    <LegendRow key={plan.instanceId} plan={plan} controls={controls} />
+                {overPrice.map((added) => (
+                    <LegendRow
+                        key={added.instanceId}
+                        added={added}
+                        plan={planFor.get(added.instanceId) ?? null}
+                        controls={controls}
+                    />
                 ))}
             </ul>
 
             {inPanes.map((plan, index) => {
                 const pane = layout.indicatorPanes[index];
-                return pane === undefined ? null : (
+                const added = controls.added.find((entry) => entry.instanceId === plan.instanceId);
+                return pane === undefined || added === undefined ? null : (
                     <ul
                         key={plan.instanceId}
                         className="absolute"
                         style={{ left: ROWS_LEFT_PX, top: pane.topY + PANE_ROW_TOP_PX }}
                     >
-                        <LegendRow plan={plan} controls={controls} />
+                        <LegendRow added={added} plan={plan} controls={controls} />
                     </ul>
                 );
             })}
@@ -119,31 +136,37 @@ function resolveReadoutDigits(value: number): number {
 }
 
 interface LegendRowProps {
-    readonly plan: DrawPlan;
+    readonly added: AddedIndicator;
+    /** Absent while the indicator is being kept without being drawn. */
+    readonly plan: DrawPlan | null;
     readonly controls: IndicatorControls;
 }
 
-function LegendRow({ plan, controls }: LegendRowProps): ReactElement | null {
+function LegendRow({ added, plan, controls }: LegendRowProps): ReactElement | null {
     const translate = useTranslate();
-    const indicator = findIndicator(plan.indicatorId);
-    const added = controls.added.find((entry) => entry.instanceId === plan.instanceId);
-    if (indicator === null || added === undefined) {
+    const indicator = findIndicator(added.indicatorId);
+    if (indicator === null) {
         return null;
     }
 
-    const unsettled = plan.hasConverged ? undefined : translate('indicators.unconverged');
+    const isHidden = added.isHidden === true;
+    const hasSettled = plan === null || plan.hasConverged;
+    const unsettled = hasSettled ? undefined : translate('indicators.unconverged');
 
     return (
         <li
             title={unsettled}
             className="group pointer-events-auto flex items-center gap-2 rounded border border-transparent bg-abyss-900/70 px-2 py-1 backdrop-blur-sm transition-colors hover:border-hairline"
         >
-            <ToneSwatch tone={added.tone} className="size-2" />
-            <span className={`text-xs font-semibold ${plan.hasConverged ? 'text-ink-100' : 'text-amber'}`}>
+            <ToneSwatch tone={added.tone} className={`size-2 ${isHidden ? 'opacity-30' : ''}`} />
+            <span className={resolveNameClasses(isHidden, hasSettled)}>
                 {translateLabel(translate, indicator.labelKey)}
             </span>
-            <span className="text-xs tabular-nums text-ink-500">{plan.parameterSummary}</span>
-            <CursorValues plan={plan} />
+            <span className="text-xs tabular-nums text-ink-500">
+                {plan?.parameterSummary ?? summariseSettings(indicator, added)}
+            </span>
+            {describeChosenSource(indicator, added, translate)}
+            {plan !== null && <CursorValues plan={plan} />}
 
             {/*
                 Half-lit at rest rather than hidden. A control that only exists
@@ -151,6 +174,15 @@ function LegendRow({ plan, controls }: LegendRowProps): ReactElement | null {
                 one a finger cannot reach at all.
             */}
             <span className="flex items-center gap-0.5 opacity-40 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                <button
+                    type="button"
+                    aria-label={translate(isHidden ? 'indicators.show' : 'indicators.hide')}
+                    onClick={() => { controls.setVisibility(added.instanceId, !isHidden); }}
+                    className="grid size-6 place-items-center rounded text-ink-500 hover:bg-abyss-700 hover:text-ink-100"
+                >
+                    {isHidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                </button>
+
                 <Popover.Root>
                     <Popover.Trigger
                         aria-label={translate('indicators.tune')}
@@ -185,4 +217,48 @@ function LegendRow({ plan, controls }: LegendRowProps): ReactElement | null {
             </span>
         </li>
     );
+}
+
+/**
+ * How a row's name reads: dimmed while kept but not drawn, amber while unsettled.
+ */
+function resolveNameClasses(isHidden: boolean, hasSettled: boolean): string {
+    if (isHidden) {
+        return 'text-xs font-semibold text-ink-500 line-through decoration-ink-700';
+    }
+    return `text-xs font-semibold ${hasSettled ? 'text-ink-100' : 'text-amber'}`;
+}
+
+/**
+ * The parameters of an indicator that is not currently drawing a plan to read them from.
+ */
+function summariseSettings(indicator: Indicator, added: AddedIndicator): string {
+    return indicator.parameters
+        .filter((parameter) => parameter.kind !== 'choice')
+        .map((parameter) => String(readSetting(added.settings, parameter)))
+        .join(' · ');
+}
+
+/**
+ * Names a chosen source, but only where the reader chose something unusual.
+ *
+ * Every row saying "close" is noise on a chart where almost everything is read
+ * off the close. The one row that is not is worth a word.
+ */
+function describeChosenSource(
+    indicator: Indicator,
+    added: AddedIndicator,
+    translate: Translate,
+): ReactElement | null {
+    for (const parameter of indicator.parameters) {
+        const chosen = parameter.kind === 'choice' ? readChoice(added.settings, parameter) : null;
+        if (chosen !== null && chosen !== parameter.defaultValue) {
+            return (
+                <span className="text-xs text-ink-500">
+                    {translateLabel(translate, `source.${chosen}`).toLowerCase()}
+                </span>
+            );
+        }
+    }
+    return null;
 }

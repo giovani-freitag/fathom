@@ -3,18 +3,20 @@ import {
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
+    type NumericParameter,
     type IndicatorSettings,
     type PlotScale,
     readSetting,
 } from '../../shared/core/draw-plan.ts';
+import { collectSource, SOURCE } from './bar-source.ts';
 import {
     collectInstants,
     createBlankValues,
+    fillExponential,
     findContinuousSegments,
-    resolveExponentialWeight,
 } from './series-math.ts';
 
-const FAST_BARS: IndicatorParameter = {
+const FAST_BARS: NumericParameter = {
     name: 'fastBars',
     kind: 'integer',
     defaultValue: 12,
@@ -22,7 +24,7 @@ const FAST_BARS: IndicatorParameter = {
     maximum: 200,
 };
 
-const SLOW_BARS: IndicatorParameter = {
+const SLOW_BARS: NumericParameter = {
     name: 'slowBars',
     kind: 'integer',
     defaultValue: 26,
@@ -30,7 +32,7 @@ const SLOW_BARS: IndicatorParameter = {
     maximum: 400,
 };
 
-const SIGNAL_BARS: IndicatorParameter = {
+const SIGNAL_BARS: NumericParameter = {
     name: 'signalBars',
     kind: 'integer',
     defaultValue: 9,
@@ -45,7 +47,7 @@ export class AverageConvergence implements Indicator {
     readonly id = 'macd';
     readonly labelKey = 'indicator.macd';
     readonly scale: PlotScale = { kind: 'symmetric' };
-    readonly parameters: readonly IndicatorParameter[] = [FAST_BARS, SLOW_BARS, SIGNAL_BARS];
+    readonly parameters: readonly IndicatorParameter[] = [FAST_BARS, SLOW_BARS, SIGNAL_BARS, SOURCE];
 
     /**
      * Bars needed before the window for both averages and the signal to settle.
@@ -75,27 +77,23 @@ export class AverageConvergence implements Indicator {
         const signal = createBlankValues(bars.length);
         const gap = createBlankValues(bars.length);
 
+        const source = collectSource(bars, input.settings);
+        const fast = createBlankValues(bars.length);
+        const slow = createBlankValues(bars.length);
+
         for (const segment of findContinuousSegments(bars)) {
-            let fast = Number.NaN;
-            let slow = Number.NaN;
-            let smoothed = Number.NaN;
-            const fastWeight = resolveExponentialWeight(fastBars);
-            const slowWeight = resolveExponentialWeight(slowBars);
-            const signalWeight = resolveExponentialWeight(signalBars);
+            fillExponential(source, fastBars, segment.startIndex, segment.endIndex, fast);
+            fillExponential(source, slowBars, segment.startIndex, segment.endIndex, slow);
 
             for (let index = segment.startIndex; index < segment.endIndex; index += 1) {
-                const closePrice = bars[index]!.closePrice;
-                fast = Number.isNaN(fast) ? closePrice : fast + fastWeight * (closePrice - fast);
-                slow = Number.isNaN(slow) ? closePrice : slow + slowWeight * (closePrice - slow);
+                difference[index] = fast[index]! - slow[index]!;
+            }
+            // Smoothed over the difference rather than over the price, and the
+            // difference does not exist until the slower average does.
+            fillExponential(difference, signalBars, segment.startIndex, segment.endIndex, signal);
 
-                const separation = fast - slow;
-                smoothed = Number.isNaN(smoothed)
-                    ? separation
-                    : smoothed + signalWeight * (separation - smoothed);
-
-                difference[index] = separation;
-                signal[index] = smoothed;
-                gap[index] = separation - smoothed;
+            for (let index = segment.startIndex; index < segment.endIndex; index += 1) {
+                gap[index] = difference[index]! - signal[index]!;
             }
         }
 

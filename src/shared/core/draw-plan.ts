@@ -125,21 +125,31 @@ export interface DrawPlan {
     readonly hasConverged: boolean;
 }
 
-export type IndicatorParameterKind = 'integer' | 'decimal';
-
 /**
- * One knob an indicator exposes, described well enough to build a control from.
+ * A knob that takes a figure.
  */
-export interface IndicatorParameter {
+export interface NumericParameter {
     readonly name: string;
-    readonly kind: IndicatorParameterKind;
+    readonly kind: 'integer' | 'decimal';
     readonly defaultValue: number;
     readonly minimum: number;
     readonly maximum: number;
 }
 
+/**
+ * A knob that takes one of a fixed set of answers.
+ */
+export interface ChoiceParameter {
+    readonly name: string;
+    readonly kind: 'choice';
+    readonly defaultValue: string;
+    readonly choices: readonly string[];
+}
+
+export type IndicatorParameter = NumericParameter | ChoiceParameter;
+
 /** Parameter values by name. */
-export type IndicatorSettings = Readonly<Record<string, number>>;
+export type IndicatorSettings = Readonly<Record<string, number | string>>;
 
 export interface IndicatorInput {
     readonly bars: PriceBarWindow;
@@ -197,16 +207,34 @@ export function isPlanWithinBudget(plan: DrawPlan): boolean {
 }
 
 /**
- * Reads a setting, falling back to what the indicator declared.
+ * Reads a figure, falling back to what the indicator declared.
+ *
+ * Clamped rather than trusted: a setting outlives the control that produced it,
+ * so a figure no current control could produce still has to arrive safely.
  *
  * @param settings - Values the reader chose.
  * @param parameter - The knob being read.
  * @returns The value, clamped to the declared range and rounded when integral.
  */
-export function readSetting(settings: IndicatorSettings, parameter: IndicatorParameter): number {
-    const chosen = settings[parameter.name] ?? parameter.defaultValue;
-    const clamped = Math.min(parameter.maximum, Math.max(parameter.minimum, chosen));
+export function readSetting(settings: IndicatorSettings, parameter: NumericParameter): number {
+    const chosen = settings[parameter.name];
+    const wanted = typeof chosen === 'number' ? chosen : parameter.defaultValue;
+    const clamped = Math.min(parameter.maximum, Math.max(parameter.minimum, wanted));
     return parameter.kind === 'integer' ? Math.round(clamped) : clamped;
+}
+
+/**
+ * Reads a choice, falling back to what the indicator declared.
+ *
+ * @param settings - Values the reader chose.
+ * @param parameter - The knob being read.
+ * @returns One of the declared choices.
+ */
+export function readChoice(settings: IndicatorSettings, parameter: ChoiceParameter): string {
+    const chosen = settings[parameter.name];
+    return typeof chosen === 'string' && parameter.choices.includes(chosen)
+        ? chosen
+        : parameter.defaultValue;
 }
 
 /**

@@ -80,7 +80,9 @@ function buildState(added: readonly AddedIndicator[]): ChartState {
 
 function toPlan(entry: AddedIndicator): DrawPlan[] {
     const indicator = findIndicator(entry.indicatorId);
-    if (indicator === null) {
+    // Mirrors the controller: a hidden indicator produces nothing, so it takes
+    // no band and no arithmetic.
+    if (indicator === null || entry.isHidden === true) {
         return [];
     }
     const plan = indicator.compute({ bars: BARS, warmupBarCount: 300, settings: entry.settings });

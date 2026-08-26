@@ -3,18 +3,20 @@ import {
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
+    type NumericParameter,
     type IndicatorSettings,
     type PlotScale,
     readSetting,
 } from '../../shared/core/draw-plan.ts';
+import type { PriceBar } from '../../shared/core/price-bar.ts';
 import {
     collectInstants,
     createBlankValues,
+    fillWilder,
     findContinuousSegments,
-    smoothWilder,
 } from './series-math.ts';
 
-const PERIOD_BARS: IndicatorParameter = {
+const PERIOD_BARS: NumericParameter = {
     name: 'periodBars',
     kind: 'integer',
     defaultValue: 14,
@@ -52,23 +54,18 @@ export class AverageTrueRange implements Indicator {
         const periodBars = readSetting(input.settings, PERIOD_BARS);
         const value = createBlankValues(bars.length);
 
+        const trueRanges = new Float64Array(bars.length);
         for (const segment of findContinuousSegments(bars)) {
-            let average = Number.NaN;
             for (let index = segment.startIndex; index < segment.endIndex; index += 1) {
                 const bar = bars[index]!;
-                const previousClose = index === segment.startIndex
-                    ? bar.openPrice
-                    : bars[index - 1]!.closePrice;
-                const trueRange = Math.max(
-                    bar.highPrice - bar.lowPrice,
-                    Math.abs(bar.highPrice - previousClose),
-                    Math.abs(bar.lowPrice - previousClose),
-                );
-                average = Number.isNaN(average)
-                    ? trueRange
-                    : smoothWilder(average, trueRange, periodBars);
-                value[index] = average;
+                // The first bar of a stretch has no close behind it, so its
+                // range is its own extent rather than a reach to a bar that was
+                // never recorded.
+                trueRanges[index] = index === segment.startIndex
+                    ? bar.highPrice - bar.lowPrice
+                    : resolveTrueRange(bar, bars[index - 1]!.closePrice);
             }
+            fillWilder(trueRanges, periodBars, segment.startIndex, segment.endIndex, value);
         }
 
         return {
@@ -86,6 +83,17 @@ export class AverageTrueRange implements Indicator {
             hasConverged: input.warmupBarCount >= this.resolveWarmupBars(input.settings),
         };
     }
+}
+
+/**
+ * How far a bar travelled, counting the gap from where the last one closed.
+ */
+function resolveTrueRange(bar: PriceBar, previousClose: number): number {
+    return Math.max(
+        bar.highPrice - bar.lowPrice,
+        Math.abs(bar.highPrice - previousClose),
+        Math.abs(bar.lowPrice - previousClose),
+    );
 }
 
 export const AVERAGE_TRUE_RANGE = new AverageTrueRange();

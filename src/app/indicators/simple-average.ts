@@ -3,13 +3,15 @@ import {
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
+    type NumericParameter,
     type IndicatorSettings,
     type PlotScale,
     readSetting,
 } from '../../shared/core/draw-plan.ts';
+import { collectSource, SOURCE } from './bar-source.ts';
 import { collectInstants, createBlankValues, findContinuousSegments } from './series-math.ts';
 
-const PERIOD_BARS: IndicatorParameter = {
+const PERIOD_BARS: NumericParameter = {
     name: 'periodBars',
     kind: 'integer',
     defaultValue: 20,
@@ -24,7 +26,7 @@ export class SimpleAverage implements Indicator {
     readonly id = 'sma';
     readonly labelKey = 'indicator.sma';
     readonly scale: PlotScale = { kind: 'price' };
-    readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS];
+    readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS, SOURCE];
 
     /**
      * Bars needed before the window for the first drawn value to be a full mean.
@@ -45,14 +47,15 @@ export class SimpleAverage implements Indicator {
     compute(input: IndicatorInput): DrawPlan {
         const bars = input.bars.bars;
         const periodBars = readSetting(input.settings, PERIOD_BARS);
+        const source = collectSource(bars, input.settings);
         const value = createBlankValues(bars.length);
 
         for (const segment of findContinuousSegments(bars)) {
             let runningTotal = 0;
             for (let index = segment.startIndex; index < segment.endIndex; index += 1) {
-                runningTotal += bars[index]!.closePrice;
+                runningTotal += source[index]!;
                 if (index - segment.startIndex >= periodBars) {
-                    runningTotal -= bars[index - periodBars]!.closePrice;
+                    runningTotal -= source[index - periodBars]!;
                 }
                 if (index - segment.startIndex >= periodBars - 1) {
                     value[index] = runningTotal / periodBars;

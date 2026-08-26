@@ -138,6 +138,7 @@ function keepUsableIndicators(stored: unknown): readonly AddedIndicator[] {
             // A set stored before colours existed, or one edited by hand, gets a
             // free colour rather than a blank one.
             tone: INSTANCE_TONES.find((tone) => tone === entry.tone) ?? chooseInstanceTone(kept),
+            ...(entry.isHidden === true ? { isHidden: true } : {}),
         });
         if (kept.length === MAXIMUM_ADDED_INDICATORS) {
             break;
@@ -152,6 +153,7 @@ interface StoredIndicator {
     readonly indicatorId: string;
     readonly settings: Record<string, unknown>;
     readonly tone?: unknown;
+    readonly isHidden?: unknown;
 }
 
 function isUsableIndicator(entry: unknown): entry is StoredIndicator {
@@ -165,10 +167,12 @@ function isUsableIndicator(entry: unknown): entry is StoredIndicator {
         && candidate['settings'] !== null;
 }
 
-function keepFiniteSettings(settings: Record<string, unknown>): Record<string, number> {
-    const usable: Record<string, number> = {};
+function keepFiniteSettings(settings: Record<string, unknown>): Record<string, number | string> {
+    const usable: Record<string, number | string> = {};
     for (const [name, value] of Object.entries(settings)) {
-        if (typeof value === 'number' && Number.isFinite(value)) {
+        const isUsable = (typeof value === 'number' && Number.isFinite(value))
+            || (typeof value === 'string' && value.length <= 32);
+        if (isUsable) {
             usable[name] = value;
         }
     }

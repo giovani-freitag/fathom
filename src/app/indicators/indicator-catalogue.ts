@@ -44,7 +44,7 @@ export function findIndicator(indicatorId: string): Indicator | null {
  * @returns Its declared defaults, by parameter name.
  */
 export function readDefaultSettings(indicator: Indicator): IndicatorSettings {
-    const settings: Record<string, number> = {};
+    const settings: Record<string, number | string> = {};
     for (const parameter of indicator.parameters) {
         settings[parameter.name] = parameter.defaultValue;
     }
