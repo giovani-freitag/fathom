@@ -176,7 +176,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'recording.reading': 'Lendo o que está sendo gravado…',
     'recording.title': 'Gravação',
     'recording.usage': '{used} de {total}',
-    'recording.contractsHelp': 'Desligar um contrato interrompe a gravação dele. Tudo o que ele já capturou permanece.',
+    'recording.contractsHelp': 'O que é capturado é o livro e tudo que negocia nele, na grade de preço mostrada. Desligar um contrato interrompe a gravação dele; tudo o que ele já capturou permanece.',
     'recording.toggle': 'Gravar {symbol}',
     'recording.saveFailed': 'Não foi possível salvar essa alteração.',
     'recording.ceiling': 'Teto de armazenamento',

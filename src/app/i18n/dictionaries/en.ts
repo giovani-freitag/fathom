@@ -174,7 +174,7 @@ export const EN_DICTIONARY = {
     'recording.reading': 'Reading what is being recorded…',
     'recording.title': 'Recording',
     'recording.usage': '{used} of {total}',
-    'recording.contractsHelp': 'Turning a contract off stops recording it. Everything it already captured stays.',
+    'recording.contractsHelp': 'What is captured is the book and everything that trades in it, on the price grid shown. Turning a contract off stops recording it; everything it already captured stays.',
     'recording.toggle': 'Record {symbol}',
     'recording.saveFailed': 'That change could not be saved.',
     'recording.ceiling': 'Storage ceiling',
