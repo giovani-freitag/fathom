@@ -241,6 +241,21 @@ export class ChartController {
     }
 
     /**
+     * Frames the price axis on what is drawn, and follows it again from there.
+     *
+     * The way back from a band the reader dragged, and from one a wide window
+     * widened: nothing else ever shrinks the axis.
+     */
+    refitPrice(): void {
+        this.needsPriceFraming = true;
+        this.store.update((state) => ({ ...state, isFollowingPrice: true }));
+        this.applyView({
+            viewport: this.store.read().viewport,
+            surfaceWidthPx: this.surfaceWidthPx,
+        });
+    }
+
+    /**
      * Adopts the bar rung the reader named, or hands the choice back to the window.
      *
      * @param barIntervalMs - A rung of the ladder, or null to fit the window.

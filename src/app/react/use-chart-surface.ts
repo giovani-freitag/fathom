@@ -126,6 +126,7 @@ export function useChartSurface(): ChartSurfaceHandles {
                 });
             },
             onView: (request) => kernel.chart.applyView(request),
+            onRefitPrice: () => { kernel.chart.refitPrice(); },
             onPointerMove: (pointer) => {
                 pointerRef.current = pointer;
                 publishCursor(kernel.cursor, readCursorInstant(container, kernel, pointer));

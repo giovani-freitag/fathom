@@ -1,13 +1,14 @@
 import { DepthColourScale } from './depth-colour-scale.ts';
 import { formatQuantity, resolveBaseAsset } from '../../core/formatting.ts';
 import { type ReactElement, useEffect, useRef } from 'react';
-import type { LayerViewProps } from '../layer-contributions.ts';
 import { useAppearance, useTranslate } from '../../react/use-appearance.ts';
+import { useChartState } from '../../react/use-chart-state.ts';
 
 /**
  * The colour ramp, with the sizes at each of its ends.
  */
-export function DepthLegend({ state }: LayerViewProps): ReactElement {
+export function DepthLegend(): ReactElement {
+    const state = useChartState();
     const { colourGain, instrumentSymbol } = state;
     const { floorQuantity, saturationQuantity } = state.dataset;
     const canvasRef = useRef<HTMLCanvasElement | null>(null);

@@ -8,6 +8,8 @@ export interface GestureSurfaceMock {
     readonly height: number;
     readonly published: ViewRequest[];
     readonly pointers: (({ x: number; y: number }) | null)[];
+    /** How many times the price axis was asked to refit. */
+    refits: number;
     readonly readViewport: () => ChartViewport;
     fire: (type: string, event: Record<string, unknown>) => void;
     listenerCount: () => number;
@@ -53,6 +55,7 @@ export function createGestureSurface(
         height: size.height,
         published,
         pointers,
+        refits: 0,
         readViewport: () => viewport,
         fire: (type, event) => {
             for (const handler of handlers.get(type) ?? []) {

@@ -1,17 +1,16 @@
-import type { ChartState } from '../core/chart-controller.ts';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { Dialog } from 'radix-ui';
-import type { ReactElement } from 'react';
+import { memo, type ReactElement } from 'react';
 import { AboutPanel } from './about-panel.tsx';
 import type { IndicatorControls } from '../react/use-indicators.ts';
 import { LayerAccordion } from './indicators/layer-accordion.tsx';
 import { AppearanceControls } from './appearance-controls.tsx';
 import { ControlButton } from './control-button.tsx';
 import { useAppearance, useTranslate } from '../react/use-appearance.ts';
+import { useChartState } from '../react/use-chart-state.ts';
 import { useKernel } from '../react/kernel-context.ts';
 
 interface SettingsDrawerProps {
-    readonly state: ChartState;
     readonly controls: IndicatorControls;
     readonly isOpen: boolean;
     readonly onOpenChange: (isOpen: boolean) => void;
@@ -23,8 +22,7 @@ interface SettingsDrawerProps {
 /**
  * Everything a reader can change, in one drawer.
  */
-export function SettingsDrawer({
-    state,
+function SettingsDrawerShell({
     controls,
     isOpen,
     onOpenChange,
@@ -72,9 +70,8 @@ export function SettingsDrawer({
                         <span className="block text-xs text-ink-300">
                             {translate('indicators.title')}
                         </span>
-                        <LayerAccordion
+                        <DrawerLayers
                             controls={controls}
-                            state={state}
                             expanded={expandedLayer}
                             onExpandedChange={onExpandedLayerChange}
                         />
@@ -106,3 +103,35 @@ export function SettingsDrawer({
         </Dialog.Root>
     );
 }
+
+interface DrawerLayersProps {
+    readonly controls: IndicatorControls;
+    readonly expanded: string | null;
+    readonly onExpandedChange: (instanceId: string | null) => void;
+}
+
+/**
+ * The layer cards, reading the window themselves.
+ *
+ * A component of its own so the hook lives where the panel does: a drag rewrites
+ * the viewport many times a second, and a closed drawer that followed it rebuilt
+ * this whole dialog on every frame of one.
+ */
+function DrawerLayers({ controls, expanded, onExpandedChange }: DrawerLayersProps): ReactElement {
+    return (
+        <LayerAccordion
+            controls={controls}
+            state={useChartState()}
+            expanded={expanded}
+            onExpandedChange={onExpandedChange}
+        />
+    );
+}
+
+/**
+ * Re-rendered only when what it shows changes.
+ *
+ * Closed, it is a button; the panel behind it does not exist. Following the
+ * viewport from here rebuilt the dialog on every frame of a drag.
+ */
+export const SettingsDrawer = memo(SettingsDrawerShell);

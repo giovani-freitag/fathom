@@ -1,5 +1,5 @@
 import { Combine, Eye, EyeOff, Settings2, Split, X } from 'lucide-react';
-import type { ReactElement } from 'react';
+import { memo, type ReactElement } from 'react';
 import type { DrawPlan, PlotTone } from '../../../shared/core/draw-plan.ts';
 import { readChoice, readSetting, readValueAt } from '../../../shared/core/draw-plan.ts';
 import type { Tunable } from '../../../shared/core/draw-plan.ts';
@@ -13,7 +13,10 @@ import type { ChartLayout } from '../../painting/render-types.ts';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
 import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts';
 import type { ChartState } from '../../core/chart-controller.ts';
-import { useChartState } from '../../react/use-chart-state.ts';
+
+/** Declared once so the subscription is the same one on every render. */
+const readPlans = (state: ChartState): readonly DrawPlan[] => state.plans;
+import { useChartSlice } from '../../react/use-chart-state.ts';
 import { useTranslate } from '../../react/use-appearance.ts';
 import { translateLabel } from '../../i18n/translator.ts';
 import type { Translate } from '../../i18n/translator.ts';
@@ -39,9 +42,9 @@ interface IndicatorLegendProps {
  * would like to.
  */
 export function IndicatorLegend({ controls, layout, onOpenSettings }: IndicatorLegendProps): ReactElement {
-    const state = useChartState();
-    const planFor = new Map(state.plans.map((plan) => [plan.instanceId, plan]));
-    const bands = groupPanedPlans(state.plans);
+    const plans = useChartSlice(readPlans);
+    const planFor = new Map(plans.map((plan) => [plan.instanceId, plan]));
+    const bands = groupPanedPlans(plans);
 
     // Rows come from what was added rather than from what was drawn, so an
     // indicator that is being kept without being drawn still has the control
@@ -62,7 +65,6 @@ export function IndicatorLegend({ controls, layout, onOpenSettings }: IndicatorL
                         key={added.instanceId}
                         added={added}
                         plan={planFor.get(added.instanceId) ?? null}
-                        state={state}
                         controls={controls}
                         onOpenSettings={onOpenSettings}
                     />
@@ -89,7 +91,6 @@ export function IndicatorLegend({ controls, layout, onOpenSettings }: IndicatorL
                                     key={plan.instanceId}
                                     added={added}
                                     plan={plan}
-                                    state={state}
                                     controls={controls}
                                     onOpenSettings={onOpenSettings}
                                     banding={resolveBanding(band, bands[index - 1] ?? null, plan)}
@@ -190,15 +191,13 @@ interface LegendRowProps {
     readonly added: AddedIndicator;
     /** Absent while the indicator is being kept without being drawn. */
     readonly plan: DrawPlan | null;
-    /** For a layer that reads the window rather than a plan built from it. */
-    readonly state: ChartState;
     readonly controls: IndicatorControls;
     readonly onOpenSettings: (instanceId: string) => void;
     /** Absent for a row drawn over the price, which shares the price's scale already. */
     readonly banding?: RowBanding;
 }
 
-function LegendRow({ added, plan, state, controls, onOpenSettings, banding }: LegendRowProps): ReactElement | null {
+function LegendRowContent({ added, plan, controls, onOpenSettings, banding }: LegendRowProps): ReactElement | null {
     const translate = useTranslate();
     const layer = findChartLayer(added.indicatorId);
     if (layer === null) {
@@ -235,7 +234,7 @@ function LegendRow({ added, plan, state, controls, onOpenSettings, banding }: Le
             </span>
             {describeChosenSource(layer, added, translate)}
             {plan !== null && <CursorValues plan={plan} />}
-            {Readout !== undefined && !isHidden && <Readout state={state} />}
+            {Readout !== undefined && !isHidden && <Readout />}
 
             {/*
                 Half-lit at rest rather than hidden. A control that only exists
@@ -343,3 +342,11 @@ function describeChosenSource(
     }
     return null;
 }
+
+/**
+ * Re-rendered only when the row itself changes.
+ *
+ * What moves under the cursor lives in children of its own, so a row whose
+ * name, tuning and controls are unchanged has nothing to redraw.
+ */
+const LegendRow = memo(LegendRowContent);

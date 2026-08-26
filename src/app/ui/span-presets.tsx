@@ -1,6 +1,6 @@
 import { ControlButton } from './control-button.tsx';
 import { SPAN_PRESETS } from './span-preset-catalogue.ts';
-import type { ReactElement } from 'react';
+import { memo, type ReactElement } from 'react';
 import { useTranslate } from '../react/use-appearance.ts';
 
 interface SpanPresetsProps {
@@ -12,7 +12,7 @@ interface SpanPresetsProps {
 /**
  * Jumps the time axis to a fixed span ending at the live edge.
  */
-export function SpanPresets({ activeSpanMs, recordedSpanMs, onSelect }: SpanPresetsProps): ReactElement {
+function SpanPresetsComponent({ activeSpanMs, recordedSpanMs, onSelect }: SpanPresetsProps): ReactElement {
     const translate = useTranslate();
 
     return (
@@ -39,3 +39,11 @@ export function SpanPresets({ activeSpanMs, recordedSpanMs, onSelect }: SpanPres
         </div>
     );
 }
+
+/**
+ * Re-rendered only when the span it marks changes.
+ *
+ * A pan leaves the span alone, so following the viewport from here rebuilt a
+ * row of buttons on every frame of one.
+ */
+export const SpanPresets = memo(SpanPresetsComponent);

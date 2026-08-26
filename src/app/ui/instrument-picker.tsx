@@ -1,7 +1,7 @@
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
 import { ChevronDown, Check } from 'lucide-react';
 import { Select } from 'radix-ui';
-import type { ReactElement } from 'react';
+import { memo, type ReactElement } from 'react';
 import { useTranslate } from '../react/use-appearance.ts';
 
 interface InstrumentPickerProps {
@@ -13,7 +13,7 @@ interface InstrumentPickerProps {
 /**
  * Picks which recorded contract the chart shows.
  */
-export function InstrumentPicker({
+function InstrumentPickerComponent({
     instruments,
     selectedSymbol,
     onSelect,
@@ -61,3 +61,12 @@ export function InstrumentPicker({
         </Select.Root>
     );
 }
+
+/**
+ * Re-rendered only when what it shows changes.
+ *
+ * A drag rewrites the viewport many times a second and the whole page follows
+ * it; this reads none of that, and rebuilding its menu each time was the
+ * costliest thing on the screen during a drag.
+ */
+export const InstrumentPicker = memo(InstrumentPickerComponent);

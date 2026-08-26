@@ -86,6 +86,8 @@ function buildState(added: readonly AddedIndicator[]): ChartState {
         addedIndicators: added,
         plans: added.flatMap(toPlan),
         dataset: { ...EMPTY_DATASET, bars: BARS },
+        instruments: [],
+        instrumentSymbol: 'BTCUSDT',
         isVolumeProfileVisible: false,
     } as unknown as ChartState;
 }

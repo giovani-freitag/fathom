@@ -1,6 +1,6 @@
 import { BAR_INTERVALS_MS, type BarIntervalMs } from '../core/bar-interval.ts';
 import { formatDuration } from '../core/formatting.ts';
-import type { ReactElement } from 'react';
+import { memo, type ReactElement } from 'react';
 import { useTranslate } from '../react/use-appearance.ts';
 
 /** The value the select carries while the window is deciding for itself. */
@@ -24,7 +24,7 @@ interface IntervalPickerProps {
  * rung pins it: zooming then changes how many bars are seen rather than how
  * much each one covers, which is what a reader comparing two windows means.
  */
-export function IntervalPicker({
+function IntervalPickerComponent({
     chosen,
     effectiveMs,
     frameIntervalMs,
@@ -55,3 +55,12 @@ export function IntervalPicker({
         </label>
     );
 }
+
+/**
+ * Re-rendered only when what it shows changes.
+ *
+ * A drag rewrites the viewport many times a second and the whole page follows
+ * it; this reads none of that, and rebuilding its menu each time was the
+ * costliest thing on the screen during a drag.
+ */
+export const IntervalPicker = memo(IntervalPickerComponent);

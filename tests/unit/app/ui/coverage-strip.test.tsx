@@ -6,23 +6,22 @@ import { createIndicatorKernel } from '../../../mocks/indicator-kernel.tsx';
 import { EMPTY_DATASET } from '../../../../src/app/core/chart-dataset.ts';
 import { KernelProvider } from '../../../../src/app/react/kernel-provider.tsx';
 
-function buildState(isDepthVisible: boolean): ChartState {
-    return {
+function renderStrip(isDepthVisible: boolean): void {
+    const kernel = createIndicatorKernel([]);
+    kernel.container.chart.store.update((state: ChartState) => ({
+        ...state,
         isDepthVisible,
         isFollowingLive: true,
         liveStatus: 'streaming',
         isLoadingWindow: false,
         failureKey: null,
         phase: 'ready',
-        dataset: { ...EMPTY_DATASET, sampleIntervalMs: 1_000, bars: { ...EMPTY_DATASET.bars, intervalMs: 5_000 } },
-    } as unknown as ChartState;
-}
+        dataset: { ...EMPTY_DATASET, sampleIntervalMs: 1_000 },
+    }));
 
-function renderStrip(isDepthVisible: boolean): void {
-    const kernel = createIndicatorKernel([]);
     render(
         <KernelProvider container={kernel.container}>
-            <CoverageStrip state={buildState(isDepthVisible)} />
+            <CoverageStrip />
         </KernelProvider>,
     );
 }

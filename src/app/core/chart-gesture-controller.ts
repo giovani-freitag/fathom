@@ -43,6 +43,8 @@ export interface ChartGestureControllerConfig {
     readonly readLayout: () => ChartLayout;
     readonly onView: (request: ViewRequest) => void;
     readonly onPointerMove: (pointer: PointerReadout | null) => void;
+    /** Asked for when the reader double-clicks the price axis. */
+    readonly onRefitPrice: () => void;
 }
 
 interface PointerPosition {
@@ -195,6 +197,13 @@ export class ChartGestureController {
     private handleDoubleClick(event: MouseEvent): void {
         event.preventDefault();
 
+        // On the price axis it means the axis, which is the only way back from
+        // a band the reader has dragged or one a wide window has widened.
+        if (this.resolveRegion(this.toLocalPosition(event)) === 'price-scale') {
+            this.config.onRefitPrice();
+            return;
+        }
+
         const viewport = this.config.readViewport();
         const spanMs = viewport.toMs - viewport.fromMs;
         const nowMs = Date.now();
@@ -340,7 +349,7 @@ export class ChartGestureController {
         });
     }
 
-    private toLocalPosition(event: PointerEvent | WheelEvent): PointerPosition {
+    private toLocalPosition(event: MouseEvent): PointerPosition {
         const bounds = this.config.surface.getBoundingClientRect();
         return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
     }

@@ -3,16 +3,9 @@ import { screen } from '@testing-library/react';
 import { type ReactElement, useState } from 'react';
 import { createIndicatorKernel, renderWithKernel } from '../../../mocks/indicator-kernel.tsx';
 import type { AddedIndicator } from '../../../../src/shared/core/indicator-selection.ts';
-import type { ChartState } from '../../../../src/app/core/chart-controller.ts';
-import { EMPTY_DATASET } from '../../../../src/app/core/chart-dataset.ts';
 import { SettingsDrawer } from '../../../../src/app/ui/settings-drawer.tsx';
 import { useIndicators } from '../../../../src/app/react/use-indicators.ts';
 
-const STATE = {
-    instruments: [],
-    instrumentSymbol: 'BTCUSDT',
-    dataset: EMPTY_DATASET,
-} as unknown as ChartState;
 
 const BOOK: AddedIndicator = {
     instanceId: 'depth-1', indicatorId: 'depth', settings: {}, tone: 'ink',
@@ -28,7 +21,6 @@ function renderDrawer(added: readonly AddedIndicator[], openOn: string | null = 
         const [expanded, setExpanded] = useState<string | null>(openOn);
         return (
             <SettingsDrawer
-                state={STATE}
                 controls={useIndicators()}
                 isOpen
                 onOpenChange={() => undefined}

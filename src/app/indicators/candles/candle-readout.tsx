@@ -1,10 +1,15 @@
+import type { ChartDataset } from '../../core/chart-dataset.ts';
+import type { ChartState } from '../../core/chart-controller.ts';
 import { findBarAt } from '../../core/dataset-lookup.ts';
 import { formatPrice, formatSignedChange, formatSignedPercent } from '../../core/formatting.ts';
-import type { LayerViewProps } from '../layer-contributions.ts';
 import type { PriceBar } from '../../../shared/core/price-bar.ts';
 import type { ReactElement } from 'react';
+import { useChartSlice } from '../../react/use-chart-state.ts';
 import { useCursorInstant } from '../../react/use-cursor-instant.ts';
 import { useTranslate } from '../../react/use-appearance.ts';
+
+/** Declared once so the subscription is the same one on every render. */
+const readDataset = (state: ChartState): ChartDataset => state.dataset;
 
 /** The four figures of a bar, in the order every chart writes them. */
 const FIGURES = [
@@ -21,11 +26,12 @@ const FIGURES = [
  * eye is on the price: a reader comparing two bars looks between them, not down
  * at a box that moves with the pointer.
  */
-export function CandleReadout({ state }: LayerViewProps): ReactElement | null {
+export function CandleReadout(): ReactElement | null {
     const translate = useTranslate();
+    const dataset = useChartSlice(readDataset);
     // At rest it is the newest bar, which is the one a reader means by "now".
     const atMs = useCursorInstant() ?? Number.POSITIVE_INFINITY;
-    const bar = findBarAt(state.dataset, atMs) ?? state.dataset.bars.bars.at(-1) ?? null;
+    const bar = findBarAt(dataset, atMs) ?? dataset.bars.bars.at(-1) ?? null;
 
     if (bar === null) {
         return null;

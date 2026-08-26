@@ -9,11 +9,12 @@ import {
     withIndicatorVisibility,
     withIndicatorRetuned,
 } from '../../shared/core/indicator-selection.ts';
+import type { ChartState } from '../core/chart-controller.ts';
 import type { PlotTone } from '../../shared/core/draw-plan.ts';
 import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
 import { chooseLayerTone, findChartLayer, readLayerDefaults } from '../indicators/indicator-catalogue.ts';
 import { findFieldLayer } from '../indicators/field-layers.ts';
-import { useChartState } from './use-chart-state.ts';
+import { useChartSlice } from './use-chart-state.ts';
 import { useKernel } from './kernel-context.ts';
 
 export interface IndicatorControls {
@@ -38,9 +39,15 @@ export interface IndicatorControls {
  *
  * @returns The set and the operations over it.
  */
+/** Declared once so the subscription is the same one on every render. */
+const readAddedIndicators = (state: ChartState): readonly AddedIndicator[] => state.addedIndicators;
+
 export function useIndicators(): IndicatorControls {
     const kernel = useKernel();
-    const added = useChartState().addedIndicators;
+    // Sliced, not read whole: this is held by the page, and following the
+    // viewport from here rebuilt every control on the screen for a figure none
+    // of them read.
+    const added = useChartSlice(readAddedIndicators);
 
     const add = useCallback((indicatorId: string) => {
         const layer = findChartLayer(indicatorId);

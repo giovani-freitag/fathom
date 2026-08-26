@@ -12,10 +12,16 @@ import { DepthLegend } from './book/depth-legend.tsx';
 export interface LayerContribution {
     /** Controls shown inside the layer's own settings card. */
     readonly Panel?: ComponentType<LayerViewProps>;
-    /** A mark shown over the chart while the layer is on it. */
-    readonly Overlay?: ComponentType<LayerViewProps>;
+    /**
+     * A mark shown over the chart while the layer is on it.
+     *
+     * Reads the window itself rather than being handed it: what it shows
+     * changes far more often than the row or the page that mounts it, and
+     * passing the whole window down would rebuild both on every change.
+     */
+    readonly Overlay?: ComponentType;
     /** What it reads under the cursor, shown beside its name in the legend. */
-    readonly Readout?: ComponentType<LayerViewProps>;
+    readonly Readout?: ComponentType;
     /** False for a layer that must not be taken off the chart. */
     readonly isRemovable?: boolean;
 }
@@ -50,7 +56,7 @@ export function findLayerContribution(layerId: string): LayerContribution | null
 
 export interface DrawnOverlay {
     readonly instanceId: string;
-    readonly Overlay: ComponentType<LayerViewProps>;
+    readonly Overlay: ComponentType;
 }
 
 /**
