@@ -1,5 +1,5 @@
 import type { InstrumentCoverage } from '../../../src/shared/core/api-contract.ts';
-import { EMPTY_DATASET } from '../../../src/app/core/chart-dataset.ts';
+import { type ChartDataset, EMPTY_DATASET } from '../../../src/app/core/chart-dataset.ts';
 import {
     followLiveEdge,
     followTouchPrice,
@@ -12,6 +12,14 @@ import { describe, expect, it } from 'vitest';
 import { buildFrame } from '../../mocks/chart-services.ts';
 
 const VIEWPORT = { fromMs: 1_000_000, toMs: 1_900_000, lowPrice: 78_000, highPrice: 79_000 };
+
+const FLAT_BAR = {
+    openedAtMs: 0, closedAtMs: 5_000,
+    openPrice: 79_000, highPrice: 79_000, lowPrice: 79_000, closePrice: 79_000,
+    buyVolume: 0, sellVolume: 0, tradeCount: 0,
+    expectedFrames: 5, frameCount: 5, isClosed: true,
+    firstFrameAtMs: 0, lastFrameAtMs: 4_000,
+};
 
 const INSTRUMENT: InstrumentCoverage = {
     instrumentSymbol: 'BTCUSDT',
@@ -176,5 +184,52 @@ describe('resolveRecordedSpanMs', () => {
 
     it('reports nothing for an unknown instrument', () => {
         expect(resolveRecordedSpanMs([INSTRUMENT], 'ETHUSDT')).toBe(0);
+    });
+});
+
+describe('frameOnBook without the book', () => {
+    function buildDataset(barRange: readonly [number, number]): ChartDataset {
+        return {
+            ...EMPTY_DATASET,
+            frames: [buildFrame(1_000, 79_000)],
+            bars: {
+                instrumentSymbol: 'BTCUSDT',
+                intervalMs: 5_000,
+                warmupBarsRequested: 0,
+                warmupBarsReturned: 0,
+                bars: [
+                    { ...FLAT_BAR, lowPrice: barRange[0], highPrice: barRange[0] },
+                    { ...FLAT_BAR, lowPrice: barRange[1], highPrice: barRange[1] },
+                ],
+            },
+        };
+    }
+
+    it('frames on the price once the book is not the thing being drawn', () => {
+        // A band wide enough to hold the book leaves every candle a sliver when
+        // the candles are the only thing on the axis.
+        const framed = frameOnBook(VIEWPORT, buildDataset([78_900, 79_100]), false);
+
+        expect(framed.highPrice - framed.lowPrice).toBeLessThan(400);
+        expect(framed.lowPrice).toBeLessThan(78_900);
+        expect(framed.highPrice).toBeGreaterThan(79_100);
+    });
+
+    it('keeps the band the book needs while the book is drawn', () => {
+        const framed = frameOnBook(VIEWPORT, buildDataset([78_900, 79_100]), true);
+
+        expect(framed.highPrice - framed.lowPrice).toBeGreaterThan(400);
+    });
+
+    it('falls back to the book when there are no bars to frame on', () => {
+        const framed = frameOnBook(VIEWPORT, { ...EMPTY_DATASET, frames: [buildFrame(1_000, 79_000)] }, false);
+
+        expect(framed.highPrice - framed.lowPrice).toBeGreaterThan(400);
+    });
+
+    it('gives a window where price never moved a band it can still draw in', () => {
+        const framed = frameOnBook(VIEWPORT, buildDataset([79_000, 79_000]), false);
+
+        expect(framed.highPrice).toBeGreaterThan(framed.lowPrice);
     });
 });

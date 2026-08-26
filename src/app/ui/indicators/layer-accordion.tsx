@@ -46,7 +46,10 @@ export function LayerAccordion({
             collapsible
             value={expanded ?? ''}
             onValueChange={(value) => { onExpandedChange(value === '' ? null : value); }}
-            className="divide-y divide-hairline border-y border-hairline"
+            // Divides its own rows and nothing else. A rule of its own below
+            // the last one would sit a gap above the next section's rule, and two
+            // parallel lines with nothing between them read as a mistake.
+            className="divide-y divide-hairline"
         >
             {controls.added.length === 0 && (
                 <p className="py-3 text-xs text-ink-500">{translate('indicators.none')}</p>

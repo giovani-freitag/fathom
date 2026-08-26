@@ -478,14 +478,14 @@ export class ChartController {
     }
 
     /**
-     * Frames the price axis on the book, once per instrument.
+     * Frames the price axis on what is being drawn, once per instrument.
      */
     private framePriceRange(viewport: ChartViewport, dataset: ChartDataset): ChartViewport {
         if (!this.needsPriceFraming || dataset.frames.length === 0) {
             return viewport;
         }
         this.needsPriceFraming = false;
-        return frameOnBook(viewport, dataset);
+        return frameOnBook(viewport, dataset, this.store.read().isDepthVisible);
     }
 
     private get isDisposed(): boolean {

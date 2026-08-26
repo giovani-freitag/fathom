@@ -72,14 +72,32 @@ export function followTouchPrice(viewport: ChartViewport, dataset: ChartDataset)
     return { ...viewport, lowPrice: touchPrice - halfSpan, highPrice: touchPrice + halfSpan };
 }
 
+/** Clear space above and below a price range framed on the price itself. */
+const PRICE_FRAME_PADDING = 0.15;
+
 /**
- * Centres the price axis on the book, for the first window of a session.
+ * Frames the price axis on what is being drawn, for the first window of a session.
+ *
+ * A band wide enough to hold the book is the right band while the book is being
+ * drawn: it is what the map needs, and the price sits inside it. It is the wrong
+ * band once the book is off, because the price is then the only thing on the
+ * axis and a band four times its travel leaves every candle a sliver.
  *
  * @param viewport - The viewport to frame.
- * @param dataset - The window holding the newest touch.
+ * @param dataset - The window holding the newest touch and the bars.
+ * @param isDepthVisible - Whether the book is being drawn.
  * @returns The framed viewport, or the original when nothing is loaded.
  */
-export function frameOnBook(viewport: ChartViewport, dataset: ChartDataset): ChartViewport {
+export function frameOnBook(
+    viewport: ChartViewport,
+    dataset: ChartDataset,
+    isDepthVisible = true,
+): ChartViewport {
+    const framedOnPrice = isDepthVisible ? null : frameOnBars(viewport, dataset);
+    if (framedOnPrice !== null) {
+        return framedOnPrice;
+    }
+
     const newestFrame = dataset.frames[dataset.frames.length - 1];
     if (newestFrame === undefined) {
         return viewport;
@@ -88,6 +106,25 @@ export function frameOnBook(viewport: ChartViewport, dataset: ChartDataset): Cha
     const midPrice = (newestFrame.bestBidPrice + newestFrame.bestAskPrice) / 2;
     const halfRange = midPrice * INITIAL_PRICE_RANGE_RATIO;
     return { ...viewport, lowPrice: midPrice - halfRange, highPrice: midPrice + halfRange };
+}
+
+/**
+ * The band the bars themselves cover, with head-room.
+ */
+function frameOnBars(viewport: ChartViewport, dataset: ChartDataset): ChartViewport | null {
+    let low = Number.POSITIVE_INFINITY;
+    let high = Number.NEGATIVE_INFINITY;
+    for (const bar of dataset.bars.bars) {
+        low = Math.min(low, bar.lowPrice);
+        high = Math.max(high, bar.highPrice);
+    }
+
+    if (low > high) {
+        return null;
+    }
+    // A window where price never moved would otherwise frame onto nothing.
+    const padding = Math.max((high - low) * PRICE_FRAME_PADDING, high * Number.EPSILON, 1e-8);
+    return { ...viewport, lowPrice: low - padding, highPrice: high + padding };
 }
 
 /**
