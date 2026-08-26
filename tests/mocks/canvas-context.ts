@@ -92,6 +92,8 @@ export interface PaintContextOptions {
     readonly plans?: RenderRequest['plans'];
     readonly crosshairY?: number | null;
     readonly isVolumeProfileVisible?: boolean;
+    /** The instant being painted, for what counts down rather than sits still. */
+    readonly nowMs?: number;
     /** What each drawn layer is tuned to, for a painter that reads its own. */
     readonly layerSettings?: RenderRequest['layerSettings'];
     readonly cssWidth?: number;
@@ -143,6 +145,7 @@ export function buildPaintContext(
         request: {
             viewport,
             dataset: { ...EMPTY_DATASET, priceBucketSize: 10, ...options.dataset },
+            nowMs: options.nowMs ?? DEFAULT_VIEWPORT.toMs,
             colourGain: 1,
             isDepthVisible: true,
             isCandleOverlayVisible: true,

@@ -40,6 +40,7 @@ function buildRequest(overrides: Partial<RenderRequest> = {}): RenderRequest {
     return {
         viewport: DEFAULT_VIEWPORT,
         dataset: { ...EMPTY_DATASET, frames: [buildFrame(DEFAULT_VIEWPORT.fromMs, 78_500)], revision: 1 },
+        nowMs: DEFAULT_VIEWPORT.toMs,
         colourGain: 1,
         isDepthVisible: true,
         isCandleOverlayVisible: true,

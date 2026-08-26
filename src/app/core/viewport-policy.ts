@@ -15,6 +15,8 @@ export interface BoundsRequest {
     readonly instrument: InstrumentCoverage | undefined;
     readonly priceBucketSize: number;
     readonly nowMs: number;
+    /** Empty room kept after the newest bar, so it is not glued to the axis. */
+    readonly rightMarginMs: number;
 }
 
 /**
@@ -28,7 +30,8 @@ export function resolveViewportBounds(request: BoundsRequest): ViewportBounds {
         earliestMs: request.instrument?.firstFrameAtMs ?? 0,
         // The tail may be seconds ahead of the newest frame the viewer holds, so
         // the edge follows the clock rather than the data.
-        latestMs: Math.max(request.nowMs, request.instrument?.lastFrameAtMs ?? 0),
+        latestMs: Math.max(request.nowMs, request.instrument?.lastFrameAtMs ?? 0)
+            + Math.max(0, request.rightMarginMs),
         minimumSpanMs: MINIMUM_SPAN_MS,
         maximumSpanMs: MAXIMUM_SPAN_MS,
         minimumPriceSpan: request.priceBucketSize * MINIMUM_PRICE_BUCKETS,
@@ -40,14 +43,26 @@ export function resolveViewportBounds(request: BoundsRequest): ViewportBounds {
  *
  * @param viewport - The viewport to advance.
  * @param dataset - The window holding the newest frame.
+ * @param rightMarginMs - Empty room to keep after it.
  * @returns The advanced viewport, or the original when nothing is newer.
  */
-export function followLiveEdge(viewport: ChartViewport, dataset: ChartDataset): ChartViewport {
+export function followLiveEdge(
+    viewport: ChartViewport,
+    dataset: ChartDataset,
+    rightMarginMs = 0,
+): ChartViewport {
     const newestMs = newestFrameTimestamp(dataset);
-    if (newestMs === null || newestMs <= viewport.toMs) {
+    if (newestMs === null) {
         return viewport;
     }
-    return { ...viewport, fromMs: viewport.fromMs + (newestMs - viewport.toMs), toMs: newestMs };
+
+    // The edge is kept a few bars ahead of the newest one, which is the room a
+    // chart leaves to read the bar being built without it touching the axis.
+    const edgeMs = newestMs + Math.max(0, rightMarginMs);
+    if (edgeMs <= viewport.toMs) {
+        return viewport;
+    }
+    return { ...viewport, fromMs: viewport.fromMs + (edgeMs - viewport.toMs), toMs: edgeMs };
 }
 
 /** Clear space above and below a price range framed on the price itself. */

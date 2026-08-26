@@ -156,6 +156,18 @@ derivable from the execution grid to within a hundredth of a percent, so this is
 a choice: the mid is what the recording is of, and it is defined in every second
 the collector saw, including the ones nothing traded in.
 
+## Room after the newest bar
+
+The live edge is kept a few bars ahead of the newest one. Pressed against the
+axis, the bar being built is the hardest one to read and there is nowhere to say
+how much of it is left — which is written under the last price, counted against
+the clock the frame is painted at rather than against the edge of the view, so
+that panning into history stops it rather than counting down to a moment already
+past.
+
+The room is measured in bars, not pixels, so it is the same amount of chart at
+every zoom.
+
 ## Following only what you read
 
 The canvas never goes through React: the renderer subscribes to the store and

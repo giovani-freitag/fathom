@@ -46,6 +46,9 @@ import { type AddedIndicator, resolveBandKey } from '../../shared/core/indicator
 import { isPlanWithinBudget, recolourPlan } from '../../shared/core/draw-plan.ts';
 
 /** How often the instrument listing and its coverage are re-read. */
+/** Bars of clear space kept after the newest one. */
+const RIGHT_MARGIN_BARS = 5;
+
 const COVERAGE_REFRESH_MS = 5_000;
 
 export type ChartPhase = 'initialising' | 'ready' | 'empty' | 'failed';
@@ -394,6 +397,7 @@ export class ChartController {
             ),
             priceBucketSize: state.dataset.priceBucketSize,
             nowMs: Date.now(),
+            rightMarginMs: resolveRightMarginMs(state),
         });
     }
 
@@ -526,7 +530,7 @@ export class ChartController {
             return state.viewport;
         }
 
-        const onLiveEdge = followLiveEdge(state.viewport, dataset);
+        const onLiveEdge = followLiveEdge(state.viewport, dataset, resolveRightMarginMs(state));
         if (!state.isFollowingPrice) {
             return onLiveEdge;
         }
@@ -616,6 +620,17 @@ function resolveWindowSources(state: ChartState): readonly WindowSource[] {
  * the chart: a chart showing candles alone loads no book at all, and reading
  * emptiness off the book would tell it nothing was ever recorded.
  */
+/**
+ * Empty room kept after the newest bar.
+ *
+ * Measured in bars rather than pixels, so it is the same amount of chart at
+ * every zoom: a handful of bars of clear space, which is what makes the one
+ * being built readable instead of pressed against the axis.
+ */
+function resolveRightMarginMs(state: ChartState): number {
+    return RIGHT_MARGIN_BARS * state.dataset.bars.intervalMs;
+}
+
 function hasAnything(dataset: ChartDataset): boolean {
     return dataset.frames.length > 0 || dataset.bars.bars.length > 0;
 }

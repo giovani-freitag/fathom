@@ -46,6 +46,7 @@ describe('resolveViewportBounds', () => {
             instrument: INSTRUMENT,
             priceBucketSize: 10,
             nowMs: 3_000_000,
+            rightMarginMs: 0,
         });
 
         expect(bounds.earliestMs).toBe(500_000);
@@ -56,6 +57,7 @@ describe('resolveViewportBounds', () => {
             instrument: INSTRUMENT,
             priceBucketSize: 10,
             nowMs: 3_000_000,
+            rightMarginMs: 0,
         });
 
         expect(bounds.latestMs).toBe(3_000_000);
@@ -66,19 +68,33 @@ describe('resolveViewportBounds', () => {
             instrument: INSTRUMENT,
             priceBucketSize: 10,
             nowMs: 1_000,
+            rightMarginMs: 0,
         });
 
         expect(bounds.latestMs).toBe(2_000_000);
     });
 
+    it('keeps room after the edge for the bar being built', () => {
+        // Otherwise the newest bar is pressed against the axis, with nowhere to
+        // show what is left of it.
+        const bounds = resolveViewportBounds({
+            instrument: INSTRUMENT,
+            priceBucketSize: 10,
+            nowMs: 3_000_000,
+            rightMarginMs: 60_000,
+        });
+
+        expect(bounds.latestMs).toBe(3_060_000);
+    });
+
     it('scales the minimum price span with the recorded grid', () => {
-        const bounds = resolveViewportBounds({ instrument: INSTRUMENT, priceBucketSize: 25, nowMs: 0 });
+        const bounds = resolveViewportBounds({ instrument: INSTRUMENT, priceBucketSize: 25, nowMs: 0, rightMarginMs: 0 });
 
         expect(bounds.minimumPriceSpan).toBe(100);
     });
 
     it('survives an instrument that was never recorded', () => {
-        const bounds = resolveViewportBounds({ instrument: undefined, priceBucketSize: 10, nowMs: 5_000 });
+        const bounds = resolveViewportBounds({ instrument: undefined, priceBucketSize: 10, nowMs: 5_000, rightMarginMs: 0 });
 
         expect(bounds.earliestMs).toBe(0);
     });
@@ -278,5 +294,31 @@ describe('frameOnBook without the book', () => {
         const framed = frameOnBook(VIEWPORT, buildDataset([79_000, 79_000]), false);
 
         expect(framed.highPrice).toBeGreaterThan(framed.lowPrice);
+    });
+});
+
+describe('followLiveEdge keeping room after the newest bar', () => {
+    it('runs the edge past the newest frame by the room asked for', () => {
+        const dataset = datasetWith(buildFrame(1_950_000, 78_500));
+
+        const followed = followLiveEdge(VIEWPORT, dataset, 30_000);
+
+        expect(followed.toMs).toBe(1_980_000);
+    });
+
+    it('keeps the span while it does so', () => {
+        const dataset = datasetWith(buildFrame(1_950_000, 78_500));
+
+        const followed = followLiveEdge(VIEWPORT, dataset, 30_000);
+
+        expect(followed.toMs - followed.fromMs).toBe(VIEWPORT.toMs - VIEWPORT.fromMs);
+    });
+
+    it('stays put once the room is already there', () => {
+        // The edge is ahead of the newest frame by design; that is not a reason
+        // to keep sliding it.
+        const dataset = datasetWith(buildFrame(1_880_000, 78_500));
+
+        expect(followLiveEdge(VIEWPORT, dataset, 20_000)).toBe(VIEWPORT);
     });
 });

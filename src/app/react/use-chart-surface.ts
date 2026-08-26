@@ -79,6 +79,7 @@ export function useChartSurface(): ChartSurfaceHandles {
         renderer.render({
             viewport: state.viewport,
             dataset: state.dataset,
+            nowMs: Date.now(),
             colourGain: state.colourGain,
             isDepthVisible: state.isDepthVisible,
             isCandleOverlayVisible: state.isCandleOverlayVisible,

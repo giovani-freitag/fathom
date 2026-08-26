@@ -61,9 +61,9 @@ export class TouchLinePainter {
     /**
      * Writes how long the bar being built still has to run.
      *
-     * Measured against the edge of the view rather than the clock: panned into
-     * history there is no bar being built, and a countdown there would be
-     * counting down to a moment already past.
+     * Nothing is written unless the newest bar is the one the clock is inside:
+     * panned into history there is no bar being built, and a countdown there
+     * would be counting down to a moment already past.
      */
     private paintCountdown(paint: PaintContext, y: number): void {
         const { bars } = paint.request.dataset;
@@ -72,7 +72,7 @@ export class TouchLinePainter {
             return;
         }
 
-        const remainingMs = newest.closedAtMs - paint.request.viewport.toMs;
+        const remainingMs = newest.closedAtMs - paint.request.nowMs;
         if (remainingMs <= 0 || remainingMs > bars.intervalMs) {
             return;
         }

@@ -115,6 +115,7 @@ describe('TouchLinePainter in history', () => {
 
 describe('TouchLinePainter counting a bar down', () => {
     const INTERVAL_MS = 60_000;
+    const NOW_MS = 1_900_000;
 
     function buildBars(closedAtMs: number, intervalMs = INTERVAL_MS) {
         return {
@@ -137,6 +138,7 @@ describe('TouchLinePainter counting a bar down', () => {
         const recording = createRecordingContext();
         const paint = buildPaintContext(recording, {
             dataset: { frames: [buildFrame(78_500)], bars: buildBars(closedAtMs, intervalMs) },
+            nowMs: NOW_MS,
         });
 
         buildPainter().paint(paint);
