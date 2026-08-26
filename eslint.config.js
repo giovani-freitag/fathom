@@ -60,8 +60,17 @@ export default tseslint.config(
     },
 
     {
-        files: ['*.config.{js,ts}', 'eslint.config.js'],
-        languageOptions: { parserOptions: { projectService: false } },
+        // Neither the configs nor the build scripts belong to a tsconfig, so
+        // the type-aware rules have no program to ask about them.
+        files: ['*.config.{js,ts}', 'eslint.config.js', 'scripts/**/*.mjs'],
+        // Spread first: this preset carries its own `languageOptions`, and a
+        // block declared above it would be the one that gets overwritten.
         ...tseslint.configs.disableTypeChecked,
+        languageOptions: {
+            parserOptions: { projectService: false },
+            // Only what these files actually reach for; a whole globals package
+            // would declare a hundred names to satisfy one.
+            globals: { process: 'readonly' },
+        },
     },
 );

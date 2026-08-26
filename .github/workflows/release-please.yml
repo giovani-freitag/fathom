@@ -1,0 +1,26 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+
+# A release opens a pull request and later tags a commit; two of those racing
+# would tag the same version twice.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      # Reads the conventional-commit subjects since the last tag, keeps a
+      # release pull request up to date with the version and changelog they
+      # imply, and tags the commit when that request is merged.
+      - uses: googleapis/release-please-action@v4
+        with:
+          release-type: node
