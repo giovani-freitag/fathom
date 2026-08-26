@@ -288,6 +288,27 @@ and counts sum, the largest single trade takes a maximum. A large print stays
 legible after aggregation instead of dissolving into its neighbours. Continuous
 aggregates at one minute and one hour precompute the two widest zooms.
 
+## Executions on screen
+
+Prints closer together than the smallest bubble are merged, and the cell they
+are merged into is a span of time and price rather than a square of the screen.
+A cell keyed on where a print landed moves as the chart is dragged: two prints
+sharing one at a given offset fall into separate cells a pixel later, and the
+bubble visibly splits and rejoins for as long as the drag lasts. The size of a
+cell still follows the zoom, because what it exists to prevent is overlap in
+pixels — but the zoom does not change while the chart is being dragged, and that
+is what keeps the grid still.
+
+The same holds for how large a bubble is drawn. Scaled against the largest print
+in view, one whale scrolling in from the edge resizes every other bubble on
+screen at once. The reference is taken over everything loaded, at a high
+percentile rather than the maximum, so that a single outlier saturates instead
+of flattening the ordinary prints a reader is comparing against each other.
+
+Because neither the grid nor the reference depends on where the chart is
+scrolled to, the merge is held between frames and rebuilt only when the
+executions or the zoom change. Dragging re-projects what is already there.
+
 ## The renderer
 
 The depth field is painted once into an image whose axes are time and price band.

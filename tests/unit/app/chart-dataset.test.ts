@@ -443,3 +443,39 @@ describe('appendClusters volume', () => {
         expect(next.bars.bars[0]?.buyVolume).toBe(5);
     });
 });
+
+describe('foldFramesIntoBars sealing', () => {
+    const INTERVAL_MS = 60_000;
+
+    function buildLiveWindow(): PriceBarWindow {
+        return { instrumentSymbol: 'BTCUSDT', intervalMs: INTERVAL_MS, warmupBarsRequested: 0, warmupBarsReturned: 0, bars: [] };
+    }
+
+    function buildTick(capturedAtMs: number, midPrice: number): LiquidityFrame {
+        return {
+            capturedAtMs,
+            bestBidPrice: midPrice, bestAskPrice: midPrice,
+            priceBucketIndex: 0, bidQuantities: [], askQuantities: [],
+        } as unknown as LiquidityFrame;
+    }
+
+    it('closes the bucket behind it once a new one opens', () => {
+        // Nothing more can belong to a bucket whose time is over. Left open it
+        // reads as still being built for the rest of the session, and is drawn
+        // hollow beside bars no more finished than it is.
+        const window = foldFramesIntoBars(buildLiveWindow(), [
+            buildTick(0, 100),
+            buildTick(30_000, 101),
+            buildTick(60_000, 102),
+        ]);
+
+        expect(window.bars.map((bar) => bar.isClosed)).toEqual([true, false]);
+    });
+
+    it('leaves the bucket still being filled open', () => {
+        const window = foldFramesIntoBars(buildLiveWindow(), [buildTick(0, 100), buildTick(1_000, 101)]);
+
+        expect(window.bars).toHaveLength(1);
+        expect(window.bars[0]?.isClosed).toBe(false);
+    });
+});

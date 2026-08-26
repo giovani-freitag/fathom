@@ -1,7 +1,7 @@
 import type { TradeCluster } from '../../../../../src/shared/core/trade-cluster.ts';
 import { TradePainter } from '../../../../../src/app/painting/painters/trade-painter.ts';
 import { describe, expect, it } from 'vitest';
-import { buildPaintContext, createRecordingContext } from '../../../../mocks/canvas-context.ts';
+import { buildPaintContext, createRecordingContext, DEFAULT_VIEWPORT } from '../../../../mocks/canvas-context.ts';
 
 function buildCluster(overrides: Partial<TradeCluster> = {}): TradeCluster {
     return {
@@ -15,10 +15,14 @@ function buildCluster(overrides: Partial<TradeCluster> = {}): TradeCluster {
     };
 }
 
-function paintWith(clusters: TradeCluster[]) {
+function paintWith(
+    clusters: readonly TradeCluster[],
+    options: { viewport?: Partial<typeof DEFAULT_VIEWPORT> } = {},
+) {
     const recording = createRecordingContext();
     new TradePainter().paint(buildPaintContext(recording, {
-        dataset: { clusters, clusterPriceBucketSize: 10 },
+        dataset: { clusters: [...clusters], clusterPriceBucketSize: 10 },
+        ...(options.viewport === undefined ? {} : { viewport: options.viewport }),
     }));
     return recording;
 }
@@ -123,5 +127,49 @@ describe('TradePainter merging', () => {
         ]);
 
         expect(recording.callsTo('arc').length).toBe(1);
+    });
+});
+
+describe('TradePainter stability under a drag', () => {
+    /**
+     * The bubbles a viewport shows, as radius and centre, rounded to a pixel.
+     */
+    function bubblesAt(clusters: readonly TradeCluster[], shiftMs: number): string[] {
+        const recording = paintWith(clusters, {
+            viewport: {
+                fromMs: DEFAULT_VIEWPORT.fromMs + shiftMs,
+                toMs: DEFAULT_VIEWPORT.toMs + shiftMs,
+            },
+        });
+        return recording.callsTo('arc').map((call) => Number(call.args[2]).toFixed(3));
+    }
+
+    it('merges the same prints together however far the chart has been dragged', () => {
+        // Keyed on where a print landed on screen, a cell moves as the chart is
+        // dragged: two prints sharing one at a given offset fall into separate
+        // ones a pixel later, and the bubble splits and rejoins as it moves.
+        const clusters = Array.from({ length: 40 }, (_, index) => buildCluster({
+            executedAtMs: 1_200_000 + index * 900,
+            buyQuantity: 1 + (index % 5),
+        }));
+
+        const still = bubblesAt(clusters, 0);
+        const dragged = bubblesAt(clusters, 137);
+
+        expect(dragged).toEqual(still);
+    });
+
+    it('keeps a bubble the size it was when a bigger one scrolls into view', () => {
+        // Scaled against what is visible, one whale entering the window resizes
+        // every other bubble on screen at once.
+        const clusters = [
+            buildCluster({ executedAtMs: 1_500_000, buyQuantity: 1 }),
+            buildCluster({ executedAtMs: 1_050_000, buyQuantity: 900 }),
+        ];
+
+        const before = bubblesAt(clusters, 0);
+        const after = bubblesAt(clusters, -120_000);
+
+        expect(after[0]).toBe(before[0]);
     });
 });

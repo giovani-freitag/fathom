@@ -249,6 +249,13 @@ export function foldFramesIntoBars(
         const last = bars[bars.length - 1];
 
         if (last === undefined || last.openedAtMs !== openedAtMs) {
+            // The bucket behind this one is over, so nothing more can belong to
+            // it. Left open it would read as still being built for the rest of
+            // the session, and the chart would draw it hollow beside bars that
+            // are no more finished than it is.
+            if (last !== undefined) {
+                bars[bars.length - 1] = { ...last, isClosed: true };
+            }
             bars.push({
                 openedAtMs,
                 closedAtMs: openedAtMs + intervalMs,
