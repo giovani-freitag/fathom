@@ -36,6 +36,8 @@ export const PT_BR_DICTIONARY: Dictionary = {
 
     'indicator.volume': 'Volume',
     'indicator.volume.help': 'O quanto mudou de mãos em cada barra',
+    'indicator.volume.rising': 'Volume',
+    'indicator.volume.falling': 'Volume',
     'indicator.volume.bought': 'Comprado',
     'indicator.volume.sold': 'Vendido',
     'parameter.mode': 'Mostrar',

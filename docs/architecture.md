@@ -207,6 +207,13 @@ a strip along the floor of the price pane: it costs the price no height, only
 some of the floor, and it is held back enough that the depth map underneath
 still reads. A split is two directions and needs room, so it takes a band.
 
+A total is coloured by where its own bar's price ended up, which is the
+convention everywhere and the thing the size is being compared against. It is
+drawn as two series that between them cover every bar and never the same one
+twice, rather than as one series with a colour per vertex: a gap is already how
+a series says it has nothing to say at an instant, and the other series says it
+there instead.
+
 Every indicator restarts at a break in the recording rather than carrying state
 across it. Smoothing through unrecorded time invents a trend, and once it is a
 line on a screen it is indistinguishable from a real one. The rule is testable
@@ -237,6 +244,11 @@ Gaps and the time grid are the exception, and deliberately so: they belong to
 time rather than to price, so they cross every band.
 
 ### Sharing a band
+
+A band answers to what is on screen rather than to what was loaded. A window is
+fetched wider than it is shown, and a spike an hour off the left edge would
+otherwise flatten every bar the reader can actually see. A declared range is the
+exception, because for a bounded reading the bounds are the reading.
 
 Each reading that needs a band gets one of its own, and any of them can be moved
 into another's. That move is the whole reason for having two copies of one

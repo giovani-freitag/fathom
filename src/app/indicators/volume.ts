@@ -8,7 +8,7 @@ import {
     type PlotSeries,
     readChoice,
 } from '../../shared/core/draw-plan.ts';
-import { collectInstants } from './series-math.ts';
+import { collectInstants, createBlankValues } from './series-math.ts';
 import type { PriceBar } from '../../shared/core/price-bar.ts';
 
 const MODE: ChoiceParameter = {
@@ -67,7 +67,7 @@ export class Volume implements Indicator {
             // on nought and given a band: two directions need room, and a strip
             // along the floor has none to give.
             scale: isSplit ? { kind: 'symmetric' } : this.scale,
-            series: isSplit ? buildSplit(bars, atMs) : [buildTotal(bars, atMs)],
+            series: isSplit ? buildSplit(bars, atMs) : buildTotal(bars, atMs),
             levels: isSplit ? [{ value: 0, tone: 'muted' }] : [],
             // Nothing is carried between bars, so there is nothing to converge.
             hasConverged: true,
@@ -75,21 +75,32 @@ export class Volume implements Indicator {
     }
 }
 
-function buildTotal(bars: readonly PriceBar[], atMs: Float64Array): PlotSeries {
-    const value = new Float64Array(bars.length);
+/**
+ * The total, in two series that between them cover every bar.
+ *
+ * A bar is coloured by where its own price ended up, which is the convention
+ * everywhere and the thing a reader is comparing the size against. Two series
+ * rather than a colour per bar: a gap in one is already how a series says it
+ * has nothing to say at an instant, and the other says it there instead.
+ */
+function buildTotal(bars: readonly PriceBar[], atMs: Float64Array): PlotSeries[] {
+    const rising = createBlankValues(bars.length);
+    const falling = createBlankValues(bars.length);
+
     for (let index = 0; index < bars.length; index += 1) {
         const bar = bars[index]!;
-        value[index] = bar.buyVolume + bar.sellVolume;
+        const total = bar.buyVolume + bar.sellVolume;
+        if (bar.closePrice >= bar.openPrice) {
+            rising[index] = total;
+            continue;
+        }
+        falling[index] = total;
     }
 
-    return {
-        labelKey: 'indicator.volume',
-        tone: 'phosphor',
-        shape: 'histogram',
-        baseline: 0,
-        atMs,
-        value,
-    };
+    return [
+        { labelKey: 'indicator.volume.rising', tone: 'bid', shape: 'histogram', baseline: 0, atMs, value: rising },
+        { labelKey: 'indicator.volume.falling', tone: 'ask', shape: 'histogram', baseline: 0, atMs, value: falling },
+    ];
 }
 
 function buildSplit(bars: readonly PriceBar[], atMs: Float64Array): PlotSeries[] {

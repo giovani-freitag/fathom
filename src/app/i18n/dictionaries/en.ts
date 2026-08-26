@@ -34,6 +34,8 @@ export const EN_DICTIONARY = {
 
     'indicator.volume': 'Volume',
     'indicator.volume.help': 'How much changed hands in each bar',
+    'indicator.volume.rising': 'Volume',
+    'indicator.volume.falling': 'Volume',
     'indicator.volume.bought': 'Bought',
     'indicator.volume.sold': 'Sold',
     'parameter.mode': 'Show',

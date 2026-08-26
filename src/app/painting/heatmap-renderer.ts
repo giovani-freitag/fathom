@@ -241,7 +241,7 @@ export class HeatmapRenderer {
                 extentPx: this.layout.pricePaneHeight,
                 minimumSpacingPx: PRICE_LABEL_SPACING_PX,
             }),
-            panePlacements: placePanes(request.plans, this.layout.indicatorPanes),
+            panePlacements: placePanes(request.plans, this.layout.indicatorPanes, request.viewport),
             timeTicks: chooseTimeTicks({
                 viewport: request.viewport,
                 extentPx: this.layout.plotWidth,

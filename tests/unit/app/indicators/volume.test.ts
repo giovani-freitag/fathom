@@ -4,8 +4,8 @@ import { buildBar, buildWindow } from '../../../mocks/price-bars.ts';
 import { VOLUME } from '../../../../src/app/indicators/volume.ts';
 
 const BARS = buildWindow([
-    buildBar(0, 100, { buyVolume: 8, sellVolume: 2, tradeCount: 30 }),
-    buildBar(60_000, 101, { buyVolume: 1, sellVolume: 9, tradeCount: 40 }),
+    buildBar(0, 100, { openPrice: 95, buyVolume: 8, sellVolume: 2, tradeCount: 30 }),
+    buildBar(60_000, 101, { openPrice: 105, buyVolume: 1, sellVolume: 9, tradeCount: 40 }),
 ]);
 
 function compute(mode: string) {
@@ -16,7 +16,22 @@ describe('Volume', () => {
     it('adds both sides together when asked for the total', () => {
         const plan = compute('total');
 
-        expect([...plan.series[0]!.value]).toEqual([10, 10]);
+        const spoken = [0, 1].map((bar) => plan.series
+            .map((series) => series.value[bar]!)
+            .filter(Number.isFinite));
+        expect(spoken).toEqual([[10], [10]]);
+    });
+
+    it('colours each bar by where its own price ended up', () => {
+        // The first bar closed above where it opened, the second below. The two
+        // series between them cover every bar and never the same one twice.
+        const plan = compute('total');
+
+        const [rising, falling] = plan.series.map((series) => [...series.value]);
+        expect(rising![0]).toBe(10);
+        expect(rising![1]).toBeNaN();
+        expect(falling![0]).toBeNaN();
+        expect(falling![1]).toBe(10);
     });
 
     it('draws the two sides against each other rather than stacking them', () => {

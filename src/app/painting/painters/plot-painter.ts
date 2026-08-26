@@ -82,7 +82,10 @@ export class PlotPainter {
         context.rect(0, strip.topY, paint.layout.plotWidth, strip.height);
         context.clip();
 
-        this.paintPlanOverPrice(paint, plan, new PaneProjector({ rect: strip, ...resolvePlanRange(plan) }));
+        this.paintPlanOverPrice(paint, plan, new PaneProjector({
+            rect: strip,
+            ...resolvePlanRange(plan, paint.request.viewport),
+        }));
 
         context.restore();
     }

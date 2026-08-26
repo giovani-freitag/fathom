@@ -124,7 +124,7 @@ export function buildPaintContext(
             extentPx: layout.plotWidth,
             minimumSpacingPx: options.timeTickSpacingPx ?? 96,
         }),
-        panePlacements: placePanes(plans, layout.indicatorPanes),
+        panePlacements: placePanes(plans, layout.indicatorPanes, viewport),
         projector: new ViewportProjector({
             viewport,
             width: layout.plotWidth,

@@ -60,6 +60,18 @@ export interface ValueRange {
 /** Head-room above and below an automatic range, so a peak is not clipped. */
 const AUTOMATIC_RANGE_PADDING = 0.1;
 
+/** The stretch of time on screen, which is what an automatic range answers to. */
+export interface VisibleWindow {
+    readonly fromMs: number;
+    readonly toMs: number;
+}
+
+/** Everything the plan holds, for a caller with no viewport to hand. */
+const EVERYTHING: VisibleWindow = {
+    fromMs: Number.NEGATIVE_INFINITY,
+    toMs: Number.POSITIVE_INFINITY,
+};
+
 /**
  * The value range one plan should be drawn against.
  *
@@ -67,15 +79,20 @@ const AUTOMATIC_RANGE_PADDING = 0.1;
  * the bounds are the reading: an oscillator rescaled to what it happened to
  * reach this window makes 40 look like an extreme.
  *
+ * Everything else answers to what is on screen rather than to what was loaded.
+ * A window is fetched wider than it is shown, and a spike an hour off the left
+ * edge would otherwise flatten every bar the reader can actually see.
+ *
  * @param plan - The plan being placed.
+ * @param visible - The stretch of time on screen.
  * @returns The low and high of its pane.
  */
-export function resolvePlanRange(plan: DrawPlan): ValueRange {
+export function resolvePlanRange(plan: DrawPlan, visible: VisibleWindow = EVERYTHING): ValueRange {
     if (plan.scale.kind === 'fixed') {
         return { low: plan.scale.low, high: plan.scale.high };
     }
 
-    const observed = measureObservedRange(plan);
+    const observed = measureObservedRange(plan, visible) ?? measureObservedRange(plan, EVERYTHING);
     if (observed === null) {
         return { low: 0, high: 1 };
     }
@@ -99,13 +116,15 @@ export function resolvePlanRange(plan: DrawPlan): ValueRange {
  * Levels count because a threshold drawn outside the pane is a threshold the
  * reader cannot use.
  */
-function measureObservedRange(plan: DrawPlan): ValueRange | null {
+function measureObservedRange(plan: DrawPlan, visible: VisibleWindow): ValueRange | null {
     let low = Number.POSITIVE_INFINITY;
     let high = Number.NEGATIVE_INFINITY;
 
     for (const series of plan.series) {
-        for (const value of series.value) {
-            if (Number.isFinite(value)) {
+        for (let index = 0; index < series.value.length; index += 1) {
+            const at = series.atMs[index]!;
+            const value = series.value[index]!;
+            if (Number.isFinite(value) && at >= visible.fromMs && at <= visible.toMs) {
                 low = Math.min(low, value);
                 high = Math.max(high, value);
             }
@@ -214,13 +233,18 @@ export function countPanedPlans(plans: readonly DrawPlan[]): number {
 export function placePanes(
     plans: readonly DrawPlan[],
     panes: readonly PaneRect[],
+    visible: VisibleWindow = EVERYTHING,
 ): readonly PanePlacement[] {
     const placements: PanePlacement[] = [];
 
     groupPanedPlans(plans).forEach((band, index) => {
         const rect = panes[index];
         if (rect !== undefined) {
-            placements.push({ rect, ...resolveBandRange(band), levels: band.flatMap((plan) => plan.levels ?? []) });
+            placements.push({
+                rect,
+                ...resolveBandRange(band, visible),
+                levels: band.flatMap((plan) => plan.levels ?? []),
+            });
         }
     });
 
@@ -233,12 +257,12 @@ export function placePanes(
  * Two readings sharing a band have to share its scale, or the comparison the
  * reader put them together for is between two different rulers.
  */
-function resolveBandRange(band: readonly DrawPlan[]): ValueRange {
+function resolveBandRange(band: readonly DrawPlan[], visible: VisibleWindow): ValueRange {
     let low = Number.POSITIVE_INFINITY;
     let high = Number.NEGATIVE_INFINITY;
 
     for (const plan of band) {
-        const range = resolvePlanRange(plan);
+        const range = resolvePlanRange(plan, visible);
         low = Math.min(low, range.low);
         high = Math.max(high, range.high);
     }
