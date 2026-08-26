@@ -11,7 +11,7 @@ const SUMMARY_PATH = 'coverage/coverage-summary.json';
 const BADGE_PATH = 'coverage/badge.json';
 
 /** Kept beside the thresholds in vitest.config.ts, which is what enforces them. */
-const FLOORS = { statements: 60, branches: 55, functions: 50, lines: 60 };
+const FLOORS = { statements: 78, branches: 66, functions: 71, lines: 78 };
 
 /** What the badge is coloured by, read the way most tools report coverage. */
 const HEADLINE_METRIC = 'lines';

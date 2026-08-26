@@ -2,18 +2,7 @@ import { CollectorRuntime } from '../../../src/workers/collector-runtime.ts';
 import { describe, expect, it, vi } from 'vitest';
 import type { LiquidityArchive } from '../../../src/database/services/liquidity-archive.ts';
 import { createMockCollectorLog } from '../../mocks/collector-log.ts';
-import type { MarketDataSocket } from '../../../src/workers/core/market-data-socket.ts';
-
-/** A socket that connects and then says nothing, which is all the lifecycle needs. */
-function openSilentSocket(): MarketDataSocket {
-    return {
-        onOpen: () => undefined,
-        onMessage: () => undefined,
-        onError: () => undefined,
-        onClose: () => undefined,
-        close: () => Promise.resolve(),
-    };
-}
+import { openSilentMarketDataSocket } from '../../mocks/market-data-socket.ts';
 
 function createArchiveSpy() {
     const open = vi.fn().mockResolvedValue(undefined);
@@ -44,7 +33,7 @@ function buildRuntime(archive: LiquidityArchive): CollectorRuntime {
             retainedPriceRangeRatio: 0.1,
             deepRepairIntervalMs: 3_600_000,
         },
-        openSocket: openSilentSocket,
+        openSocket: openSilentMarketDataSocket,
         archive,
         framesPerFlush: 1,
         log: createMockCollectorLog().log,

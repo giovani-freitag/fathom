@@ -2,21 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CollectorSupervisor } from '../../../src/workers/collector-supervisor.ts';
 import { createMockCollectorLog, type MockCollectorLog } from '../../mocks/collector-log.ts';
 import type { LiquidityArchive } from '../../../src/database/services/liquidity-archive.ts';
-import type { MarketDataSocket } from '../../../src/workers/core/market-data-socket.ts';
+import { openSilentMarketDataSocket } from '../../mocks/market-data-socket.ts';
 import type { RecordedContract } from '../../../src/shared/core/recording-control.ts';
 
 const STALL_TIMEOUT_MS = 120_000;
-
-/** A socket that connects and then says nothing, which is all the lifecycle needs. */
-function openSilentSocket(): MarketDataSocket {
-    return {
-        onOpen: () => undefined,
-        onMessage: () => undefined,
-        onError: () => undefined,
-        onClose: () => undefined,
-        close: () => Promise.resolve(),
-    };
-}
 
 function buildArchive(): LiquidityArchive {
     return {
@@ -55,7 +44,7 @@ function buildHarness(contracts: readonly RecordedContract[]): Harness {
             pruneToBudget: vi.fn().mockResolvedValue(0),
         },
         archive: buildArchive(),
-        openSocket: openSilentSocket,
+        openSocket: openSilentMarketDataSocket,
         log: log.log,
         shared: {
             recordedPriceRangeRatio: 0.02,

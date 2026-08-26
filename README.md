@@ -14,7 +14,7 @@
 <p align="center">
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178c6">
   ·
-  <img alt="React" src="https://img.shields.io/badge/React-19-149eca">
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-2bd4a8">
   ·
   <img alt="Vite" src="https://img.shields.io/badge/Vite-rolldown-a259ff">
   ·
@@ -74,8 +74,4 @@ The chart only covers time the collector was running. Leave it up.
 - [Data model](docs/data-model.md) — schema, grids, and what each column means
 - [Operations](docs/operations.md) — running it as a service, disk, sharing it
 - [Decisions](docs/adr/) — why the design is what it is, with the measurements behind it
-- [Demo](demo/) — the browser-only build, published from `main` to GitHub Pages
-
-## License
-
-MIT © [Giovani Freitag](https://github.com/giovani-freitag)
+- [Demo](demo/) — the browser-only build, published to GitHub Pages on every release

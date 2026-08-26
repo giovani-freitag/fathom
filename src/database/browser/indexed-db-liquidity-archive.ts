@@ -138,12 +138,16 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
         }
 
         const dropping = Math.min(excess, PRUNE_BATCH_FRAMES);
-        const oldest = await this.database.readRange<FrameRecord>(
+        // One record more than is being dropped: the delete below is bounded
+        // strictly, so the horizon has to be the first frame that survives.
+        // Taking the last of the batch instead left that frame behind, and the
+        // count returned still claimed it had gone.
+        const batch = await this.database.readRange<FrameRecord>(
             STORES.liquidityFrame,
             range,
-            dropping,
+            dropping + 1,
         );
-        const horizonMs = oldest[oldest.length - 1]?.capturedAtMs;
+        const horizonMs = batch[dropping]?.capturedAtMs;
         if (horizonMs === undefined) {
             return 0;
         }
@@ -160,7 +164,7 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
                 this.deleteGapsEndingBefore(gaps!, instrumentSymbol, horizonMs);
             },
         );
-        return oldest.length;
+        return dropping;
     }
 
     /**

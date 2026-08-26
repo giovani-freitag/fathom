@@ -10,7 +10,7 @@ export default defineConfig({
                     name: 'app',
                     environment: 'jsdom',
                     setupFiles: ['./tests/setup.ts'],
-                    include: ['tests/**/app/**/*.test.ts'],
+                    include: ['tests/**/app/**/*.test.{ts,tsx}'],
                 },
             },
             {
@@ -18,7 +18,7 @@ export default defineConfig({
                     // Everything that runs on Node, plus the shared contract.
                     name: 'node',
                     environment: 'node',
-                    include: ['tests/**/*.test.ts'],
+                    include: ['tests/**/*.test.{ts,tsx}'],
                     exclude: ['tests/**/app/**'],
                 },
             },
@@ -35,6 +35,7 @@ export default defineConfig({
                 'src/**/main.tsx',
                 'src/workers/collector.ts',
                 'src/workers/browser/collector-worker.ts',
+                'src/server/http/server.ts',
                 'src/server/http/schemas/**',
                 '**/*.d.ts',
             ],
@@ -43,10 +44,10 @@ export default defineConfig({
             // and the one that was there claimed five hundred tests out of five
             // hundred and fifty.
             thresholds: {
-                statements: 60,
-                branches: 55,
-                functions: 50,
-                lines: 60,
+                statements: 78,
+                branches: 66,
+                functions: 71,
+                lines: 78,
             },
         },
     },
