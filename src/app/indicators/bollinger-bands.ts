@@ -25,6 +25,7 @@ const DEVIATIONS: NumericParameter = {
     defaultValue: 2,
     minimum: 0.5,
     maximum: 5,
+    step: 0.1,
 };
 
 /**

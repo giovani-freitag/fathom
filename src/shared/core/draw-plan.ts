@@ -150,6 +150,14 @@ export interface NumericParameter {
     readonly defaultValue: number;
     readonly minimum: number;
     readonly maximum: number;
+    /**
+     * How far one nudge moves it.
+     *
+     * Declared where the useful travel is not spread evenly across the range:
+     * the upper cut of the depth map lives in its last percent, and a step
+     * sized to the whole range would offer two positions inside it.
+     */
+    readonly step?: number;
 }
 
 /**

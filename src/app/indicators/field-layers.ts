@@ -27,6 +27,7 @@ const COLOUR_GAIN: NumericParameter = {
     defaultValue: 1,
     minimum: 0.4,
     maximum: 3,
+    step: 0.05,
 };
 
 const FLOOR_PERCENTILE: NumericParameter = {
@@ -35,6 +36,7 @@ const FLOOR_PERCENTILE: NumericParameter = {
     defaultValue: 0.4,
     minimum: DEPTH_CUT_RANGE.floorMinimum,
     maximum: DEPTH_CUT_RANGE.floorMaximum,
+    step: DEPTH_CUT_RANGE.floorStep,
 };
 
 const SATURATION_PERCENTILE: NumericParameter = {
@@ -43,6 +45,7 @@ const SATURATION_PERCENTILE: NumericParameter = {
     defaultValue: 0.995,
     minimum: DEPTH_CUT_RANGE.saturationMinimum,
     maximum: DEPTH_CUT_RANGE.saturationMaximum,
+    step: DEPTH_CUT_RANGE.saturationStep,
 };
 
 /**

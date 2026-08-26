@@ -12,6 +12,7 @@ const CONTRACTS: RecordedContract[] = [
 describe('RecordingPanel', () => {
     let budget: StorageBudget;
     let saveContract: Mock<(contract: RecordedContract) => Promise<void>>;
+    let setBudget: Mock<(maximumBytes: number) => Promise<void>>;
     let onContractsChanged: Mock<() => void>;
 
     function renderPanel(): void {
@@ -19,7 +20,7 @@ describe('RecordingPanel', () => {
             listContracts: () => Promise.resolve(CONTRACTS),
             readBudget: () => Promise.resolve(budget),
             saveContract,
-            setBudget: vi.fn().mockResolvedValue(undefined),
+            setBudget,
             pruneToBudget: vi.fn().mockResolvedValue(0),
         } as unknown as RecordingControl;
 
@@ -36,6 +37,7 @@ describe('RecordingPanel', () => {
         saveContract = vi.fn<(contract: RecordedContract) => Promise<void>>()
             .mockResolvedValue(undefined);
         onContractsChanged = vi.fn<() => void>();
+        setBudget = vi.fn<(maximumBytes: number) => Promise<void>>().mockResolvedValue(undefined);
         budget = { maximumBytes: 10_737_418_240, usedBytes: 1_073_741_824, availableBytes: null };
     });
 
@@ -66,7 +68,9 @@ describe('RecordingPanel', () => {
     it('offers fixed ceilings when the host will not say how much room there is', async () => {
         renderPanel();
 
-        expect(await screen.findByRole('button', { name: '10 GB' })).toBeTruthy();
+        const ceiling = await screen.findByRole('slider', { name: 'Storage ceiling' });
+        expect(ceiling.getAttribute('aria-valuemax')).toBe('4');
+        expect(screen.getByText('10 GB')).toBeTruthy();
     });
 
     it('offers shares of the quota when the host does name one', async () => {
@@ -76,8 +80,21 @@ describe('RecordingPanel', () => {
 
         // A quarter of four gigabytes, in gibibytes: the ceilings on offer are
         // shares of what the host allows, not the fixed list it falls back to.
-        expect(await screen.findByRole('button', { name: '0.9 GB' })).toBeTruthy();
-        expect(screen.queryByRole('button', { name: '100 GB' })).toBeNull();
+        const ceiling = await screen.findByRole('slider', { name: 'Storage ceiling' });
+        expect(ceiling.getAttribute('aria-valuemax')).toBe('3');
+        expect(screen.getByText('0.9 GB')).toBeTruthy();
+        expect(screen.queryByText('100 GB')).toBeNull();
+    });
+
+    it('raises the ceiling by a step from the keyboard', async () => {
+        renderPanel();
+        const ceiling = await screen.findByRole('slider', { name: 'Storage ceiling' });
+
+        fireEvent.keyDown(ceiling, { key: 'ArrowRight' });
+
+        await waitFor(() => {
+            expect(setBudget).toHaveBeenCalledWith(25 * 1_073_741_824);
+        });
     });
 
     it('names a failed change rather than quoting the driver at the reader', async () => {

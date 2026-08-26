@@ -2,6 +2,7 @@ import { type ReactElement, useCallback, useEffect, useState } from 'react';
 import type { RecordedContract, RecordingControl, StorageBudget } from '../../shared/core/recording-control.ts';
 import { Switch } from 'radix-ui';
 import { formatFixed } from '../core/formatting.ts';
+import { RangeField } from './range-field.tsx';
 import type { Translate } from '../i18n/translator.ts';
 
 /** Ceilings offered when the host will not say how much room it has. */
@@ -144,26 +145,22 @@ function BudgetChooser({ budget, isSaving, onChoose, translate }: {
             bytes: Math.floor(budget.availableBytes! * share),
         }));
 
+    // The ceiling is a figure with two ends, and what a reader wants from it is
+    // where it sits between them rather than which of five buttons is lit.
+    const chosen = Math.max(0, choices.findIndex((choice) => isChosen(choice.bytes, budget.maximumBytes)));
+
     return (
-        <div className="space-y-1.5">
-            <span className="text-xs text-ink-300">{translate('recording.ceiling')}</span>
-            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
-                {choices.map((choice) => (
-                    <button
-                        key={choice.label}
-                        type="button"
-                        disabled={isSaving}
-                        onClick={() => { onChoose(choice.bytes); }}
-                        className={`numeric whitespace-nowrap rounded-md border px-2 py-1.5 text-[11px] disabled:opacity-50 ${
-                            isChosen(choice.bytes, budget.maximumBytes)
-                                ? 'border-phosphor/60 bg-phosphor/12 text-phosphor'
-                                : 'border-hairline text-ink-400 hover:border-ink-700'
-                        }`}
-                    >
-                        {choice.label}
-                    </button>
-                ))}
-            </div>
+        <div className={isSaving ? 'pointer-events-none opacity-50' : ''}>
+            <RangeField
+                label={translate('recording.ceiling')}
+                display={choices[chosen]?.label ?? ''}
+                value={chosen}
+                minimum={0}
+                maximum={choices.length - 1}
+                step={1}
+                handleLabel={translate('recording.ceiling')}
+                onChange={(index) => { onChoose(choices[index]!.bytes); }}
+            />
         </div>
     );
 }
