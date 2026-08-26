@@ -4,7 +4,9 @@
   "bump-patch-for-minor-pre-major": false,
   "packages": {
     ".": {
-      "release-type": "node"
+      "release-type": "node",
+      "package-name": "fathom"
     }
-  }
+  },
+  "include-component-in-tag": false
 }
