@@ -43,6 +43,10 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'indicator.atr': 'ATR',
     'indicator.atr.help': 'O quanto o preço tem andado por barra',
 
+    'indicator.vwap': 'VWAP',
+    'parameter.vwapAnchor': 'Âncora',
+    'vwapAnchor.session': 'Sessão',
+    'vwapAnchor.window': 'Janela',
     'indicator.volume': 'Volume',
     'indicator.volume.rising': 'Volume',
     'indicator.volume.falling': 'Volume',

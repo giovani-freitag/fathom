@@ -55,5 +55,43 @@ export class TouchLinePainter {
             background: RENDER_PALETTE.phosphor,
             foreground: RENDER_PALETTE.surface,
         });
+        this.paintCountdown(paint, y);
     }
+
+    /**
+     * Writes how long the bar being built still has to run.
+     *
+     * Measured against the edge of the view rather than the clock: panned into
+     * history there is no bar being built, and a countdown there would be
+     * counting down to a moment already past.
+     */
+    private paintCountdown(paint: PaintContext, y: number): void {
+        const { bars } = paint.request.dataset;
+        const newest = bars.bars[bars.bars.length - 1];
+        if (newest === undefined || bars.intervalMs <= 0) {
+            return;
+        }
+
+        const remainingMs = newest.closedAtMs - paint.request.viewport.toMs;
+        if (remainingMs <= 0 || remainingMs > bars.intervalMs) {
+            return;
+        }
+        this.axisPainter.paintCountdownTag(paint, y, formatCountdown(remainingMs));
+    }
+}
+
+/**
+ * A countdown as minutes and seconds, or as seconds alone under a minute.
+ *
+ * @param remainingMs - How much of the bar is left.
+ * @returns The formatted countdown.
+ */
+function formatCountdown(remainingMs: number): string {
+    const totalSeconds = Math.ceil(remainingMs / 1_000);
+    if (totalSeconds < 60) {
+        return `${totalSeconds}s`;
+    }
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }

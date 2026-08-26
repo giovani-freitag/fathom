@@ -10,6 +10,7 @@ import { RELATIVE_STRENGTH } from './relative-strength/relative-strength.ts';
 import { SIMPLE_AVERAGE } from './simple-average/simple-average.ts';
 import { STOCHASTIC_OSCILLATOR } from './stochastic-oscillator/stochastic-oscillator.ts';
 import { VOLUME } from './volume/volume.ts';
+import { VOLUME_WEIGHTED_AVERAGE } from './volume-weighted-average/volume-weighted-average.ts';
 
 /**
  * Every indicator the build ships with, in the order they are offered.
@@ -21,6 +22,7 @@ import { VOLUME } from './volume/volume.ts';
 export const INDICATOR_CATALOGUE: readonly Indicator[] = [
     VOLUME,
     SIMPLE_AVERAGE,
+    VOLUME_WEIGHTED_AVERAGE,
     EXPONENTIAL_AVERAGE,
     BOLLINGER_BANDS,
     DONCHIAN_CHANNELS,

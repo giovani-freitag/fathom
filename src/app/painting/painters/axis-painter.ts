@@ -162,6 +162,28 @@ export class AxisPainter {
     }
 
     /**
+     * Pins a countdown into the price axis, under whatever tag it belongs to.
+     *
+     * @param paint - The shared paint context.
+     * @param y - Where the tag it belongs to sits.
+     * @param label - What to write, already formatted.
+     */
+    paintCountdownTag(paint: PaintContext, y: number, label: string): void {
+        const { context, layout } = paint;
+        const top = y + AXIS_TAG_HEIGHT / 2;
+        if (top + AXIS_TAG_HEIGHT > layout.paneStackHeight) {
+            return;
+        }
+
+        context.fillStyle = RENDER_PALETTE.surface;
+        context.fillRect(layout.priceAxisX + 1, top, layout.priceAxisWidth - 1, AXIS_TAG_HEIGHT);
+        context.fillStyle = RENDER_PALETTE.inkMuted;
+        context.textAlign = 'left';
+        context.textBaseline = 'middle';
+        context.fillText(label, layout.priceAxisX + 6, top + AXIS_TAG_HEIGHT / 2);
+    }
+
+    /**
      * Labels the top and bottom of each indicator band in the gutter beside it.
      *
      * Two figures rather than a ladder of ticks: a band is a few dozen pixels

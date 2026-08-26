@@ -41,6 +41,10 @@ export const EN_DICTIONARY = {
     'indicator.atr': 'ATR',
     'indicator.atr.help': 'How far price has been travelling per bar',
 
+    'indicator.vwap': 'VWAP',
+    'parameter.vwapAnchor': 'Anchor',
+    'vwapAnchor.session': 'Session',
+    'vwapAnchor.window': 'Window',
     'indicator.volume': 'Volume',
     'indicator.volume.rising': 'Volume',
     'indicator.volume.falling': 'Volume',
