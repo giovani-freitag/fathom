@@ -8,8 +8,8 @@ import {
     chooseInstanceTone,
     MAXIMUM_ADDED_INDICATORS,
 } from '../../shared/core/indicator-selection.ts';
-import type { Locale } from '../i18n/locale.ts';
-import type { ThemeChoice } from '../core/theme.ts';
+import { type Locale, resolveLocale } from '../i18n/locale.ts';
+import { THEME_CHOICES, type ThemeChoice } from '../core/theme.ts';
 
 const STORAGE_KEY = 'fathom.preferences.v1';
 
@@ -77,6 +77,11 @@ export class PreferencesService {
             colourGain: clampToRange(merged.colourGain, 0.4, 3),
             visibleSpanMs: clampToRange(merged.visibleSpanMs, 30_000, 90 * 24 * 60 * 60 * 1_000),
             addedIndicators: keepUsableIndicators(merged.addedIndicators),
+            // A tag from storage reaches the dictionary before anything has
+            // looked at it, and one that names no dictionary takes the whole
+            // interface down on the first phrase it tries to render.
+            locale: merged.locale === null ? null : resolveLocale([String(merged.locale)]),
+            themeChoice: THEME_CHOICES.find((choice) => choice === merged.themeChoice) ?? 'system',
         };
     }
 

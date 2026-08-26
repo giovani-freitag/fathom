@@ -19,6 +19,10 @@ function readIndicators(stored: unknown): ReturnType<PreferencesService['read']>
     return new PreferencesService({ storage: buildStorage(stored) }).read().addedIndicators;
 }
 
+function readAppearance(stored: Record<string, unknown>): ReturnType<PreferencesService['read']> {
+    return new PreferencesService({ storage: buildStorage(stored) }).read();
+}
+
 describe('PreferencesService indicators', () => {
     it('keeps a set that was stored properly', () => {
         const added = readIndicators({
@@ -105,5 +109,25 @@ describe('PreferencesService indicators', () => {
         } as unknown as Storage;
 
         expect(new PreferencesService({ storage }).read()).toEqual(DEFAULT_PREFERENCES);
+    });
+});
+
+describe('PreferencesService appearance', () => {
+    it('lands a stored tag on the closest translation it has', () => {
+        // A tag reaches the dictionary before anything has looked at it, and one
+        // that names no dictionary takes the interface down on the first phrase.
+        expect(readAppearance({ locale: 'pt-br' }).locale).toBe('pt-BR');
+        expect(readAppearance({ locale: 'pt-PT' }).locale).toBe('pt-BR');
+        expect(readAppearance({ locale: 'klingon' }).locale).toBe('en');
+        expect(readAppearance({ locale: 42 }).locale).toBe('en');
+    });
+
+    it('leaves the choice unmade when nobody has made one', () => {
+        expect(readAppearance({ locale: null }).locale).toBeNull();
+    });
+
+    it('falls back to following the host when the stored theme names nothing', () => {
+        expect(readAppearance({ themeChoice: 'sepia' }).themeChoice).toBe('system');
+        expect(readAppearance({ themeChoice: 'light' }).themeChoice).toBe('light');
     });
 });
