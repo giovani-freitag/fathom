@@ -211,7 +211,18 @@ export class WindowLoader {
             toMs,
             maxColumns,
             barIntervalMs,
-            key: `${request.symbol}|${Math.floor(fromMs)}|${Math.ceil(toMs)}|${maxColumns}|${barIntervalMs}`,
+            // The warm-up belongs in the key as much as the range does: asking
+            // for the same window with more history behind it is a different
+            // request, and without it the fetch an added indicator triggers is
+            // deduplicated away against the one that did not have it.
+            key: [
+                request.symbol,
+                Math.floor(fromMs),
+                Math.ceil(toMs),
+                maxColumns,
+                barIntervalMs,
+                request.warmupBars,
+            ].join('|'),
         };
     }
 

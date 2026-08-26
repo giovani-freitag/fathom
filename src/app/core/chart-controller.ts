@@ -285,6 +285,7 @@ export class ChartController {
                     ...recolourPlan(plan, entry.tone),
                     instanceId: entry.instanceId,
                     bandKey: resolveBandKey(entry),
+                    tuning: describeTuning(entry),
                 });
             }
         }
@@ -513,6 +514,21 @@ export class ChartController {
             failureKey,
         }));
     }
+}
+
+/**
+ * What an added indicator was run with, as one line.
+ *
+ * Everything the drawing depends on and the plan does not otherwise carry: the
+ * colour it was recoloured to, and every setting, including the ones that leave
+ * no mark on the summary a reader sees.
+ */
+function describeTuning(entry: AddedIndicator): string {
+    const settings = Object.entries(entry.settings)
+        .sort(([first], [second]) => first.localeCompare(second))
+        .map(([name, value]) => `${name}=${String(value)}`)
+        .join(',');
+    return `${entry.tone}|${settings}`;
 }
 
 function buildInitialState(preferences: ViewerPreferences): ChartState {

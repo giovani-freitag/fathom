@@ -12,9 +12,6 @@ import type { PaintContext } from '../render-types.ts';
  */
 const MERGE_CELL_PX = 3;
 
-/** Rows a cell key may encode, which is more than any grid will hold. */
-const CELL_KEY_STRIDE = 1_048_576;
-
 /**
  * Where the largest bubble is reached.
  *
@@ -175,12 +172,16 @@ function resolveMergeGrid(paint: PaintContext): MergeGrid {
  */
 function mergePrints(paint: PaintContext, grid: MergeGrid): MergedPrints {
     const { clusters } = paint.request.dataset;
-    const cells = new Map<number, PrintCell>();
+    // Keyed as a pair rather than packed into one number. A cell derived from
+    // the epoch multiplied by any stride leaves the range integers are exact
+    // in: below a minute of span the low digits are lost, and neighbouring
+    // price cells silently merge into one bubble.
+    const cells = new Map<string, PrintCell>();
 
     for (const cluster of clusters) {
         const timeCell = Math.floor(cluster.executedAtMs / grid.cellMs);
         const priceCell = Math.floor(cluster.priceBucketIndex / grid.cellBuckets);
-        const key = timeCell * CELL_KEY_STRIDE + priceCell;
+        const key = `${timeCell}:${priceCell}`;
 
         const found = cells.get(key);
         if (found === undefined) {

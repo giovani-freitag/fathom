@@ -285,7 +285,12 @@ export class HeatmapRenderer {
  * read costs a repaint that changes no pixels.
  */
 function describePlan(plan: DrawPlan): string {
-    return `${plan.indicatorId}:${plan.parameterSummary}:${plan.hasConverged}`;
+    return [
+        plan.instanceId ?? plan.indicatorId,
+        plan.bandKey ?? '',
+        plan.tuning ?? plan.parameterSummary,
+        plan.hasConverged,
+    ].join(':');
 }
 
 function describeOverlayState(request: RenderRequest, layout: ChartLayout): string {

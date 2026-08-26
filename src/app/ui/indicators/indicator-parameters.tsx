@@ -5,7 +5,7 @@ import type { PlotTone } from '../../../shared/core/draw-plan.ts';
 import { formatFixed } from '../../core/formatting.ts';
 import { RangeField } from '../range-field.tsx';
 import { ToneSwatch } from './tone-swatch.tsx';
-import type { ReactElement } from 'react';
+import { type ReactElement, useState } from 'react';
 import { useTranslate } from '../../react/use-appearance.ts';
 import { translateLabel } from '../../i18n/translator.ts';
 
@@ -136,19 +136,6 @@ function describeValue(parameter: NumericParameter, value: number): string {
     return formatFixed(value, 2);
 }
 
-/**
- * Passes a typed value on only once it is a number.
- *
- * A field mid-edit reads as empty or as a lone minus sign, and pushing that
- * through would reset the control under the reader's cursor.
- */
-function applyIfFinite(text: string, apply: (value: number) => void): void {
-    const parsed = Number.parseFloat(text);
-    if (Number.isFinite(parsed)) {
-        apply(parsed);
-    }
-}
-
 interface ChoiceFieldProps {
     readonly parameter: ChoiceParameter;
     readonly label: string;
@@ -186,7 +173,17 @@ interface ParameterFieldProps {
     readonly onChange: (value: number) => void;
 }
 
+/**
+ * A box for a figure the reader knows and types.
+ *
+ * What is typed is held as written until the field is left. Fed straight back
+ * through the clamp instead, the first digit of a three-digit period lands
+ * under the declared minimum and is rewritten under the cursor, so the rest of
+ * the number arrives beside a figure the reader did not type.
+ */
 function ParameterField({ parameter, label, value, onChange }: ParameterFieldProps): ReactElement {
+    const [draft, setDraft] = useState<string | null>(null);
+
     return (
         <label className="flex min-w-0 flex-col gap-1">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">
@@ -195,13 +192,50 @@ function ParameterField({ parameter, label, value, onChange }: ParameterFieldPro
             <input
                 type="number"
                 inputMode="decimal"
-                value={value}
+                value={draft ?? String(value)}
                 min={parameter.minimum}
                 max={parameter.maximum}
                 step={parameter.step ?? 1}
-                onChange={(event) => { applyIfFinite(event.target.value, onChange); }}
+                onChange={(event) => { setDraft(readDraft(event.target.value, parameter, onChange)); }}
+                onBlur={() => { setDraft(commitDraft(draft, parameter, onChange)); }}
                 className="min-h-9 w-full rounded border border-hairline bg-abyss-900 px-2 text-sm text-ink-100 tabular-nums outline-none focus:border-phosphor/60"
             />
         </label>
     );
+}
+
+/**
+ * Takes what was typed, passing on only a figure the indicator would accept.
+ *
+ * A number still being typed is often outside the range for a keystroke or two.
+ * Passing it on would clamp it, and clamping what is on screen mid-word is what
+ * makes the field impossible to type in.
+ */
+function readDraft(
+    text: string,
+    parameter: NumericParameter,
+    onChange: (value: number) => void,
+): string {
+    const parsed = Number.parseFloat(text);
+    if (Number.isFinite(parsed) && parsed >= parameter.minimum && parsed <= parameter.maximum) {
+        onChange(parsed);
+    }
+    return text;
+}
+
+/**
+ * Settles the field on the figure the indicator is going to use.
+ *
+ * @returns Null, so the field goes back to showing what is stored.
+ */
+function commitDraft(
+    draft: string | null,
+    parameter: NumericParameter,
+    onChange: (value: number) => void,
+): null {
+    const parsed = draft === null ? Number.NaN : Number.parseFloat(draft);
+    if (Number.isFinite(parsed)) {
+        onChange(Math.min(parameter.maximum, Math.max(parameter.minimum, parsed)));
+    }
+    return null;
 }

@@ -11,7 +11,7 @@ import {
 } from '../../shared/core/indicator-selection.ts';
 import type { PlotTone } from '../../shared/core/draw-plan.ts';
 import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
-import { findChartLayer, readLayerDefaults } from '../indicators/indicator-catalogue.ts';
+import { chooseLayerTone, findChartLayer, readLayerDefaults } from '../indicators/indicator-catalogue.ts';
 import { useChartState } from './use-chart-state.ts';
 import { useKernel } from './kernel-context.ts';
 
@@ -46,7 +46,12 @@ export function useIndicators(): IndicatorControls {
         if (layer !== null) {
             const settings = readLayerDefaults(layer);
             kernel.chart.updateIndicators(
-                (current) => withIndicatorAdded(current, indicatorId, settings),
+                (current) => withIndicatorAdded(
+                    current,
+                    indicatorId,
+                    settings,
+                    chooseLayerTone(layer, current),
+                ),
             );
         }
     }, [kernel]);

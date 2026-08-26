@@ -1,6 +1,6 @@
 import { FIELD_LAYERS } from '../indicators/field-layers.ts';
-import { readLayerDefaults } from '../indicators/indicator-catalogue.ts';
-import { INSTANCE_TONES } from '../../shared/core/draw-plan.ts';
+import { chooseLayerTone, readLayerDefaults } from '../indicators/indicator-catalogue.ts';
+import { PLOT_TONES } from '../../shared/core/draw-plan.ts';
 import {
     type AddedIndicator,
     chooseInstanceTone,
@@ -123,7 +123,7 @@ export class PreferencesService {
 function buildDefaultLayers(): readonly AddedIndicator[] {
     let added: readonly AddedIndicator[] = [];
     for (const layer of FIELD_LAYERS) {
-        added = withIndicatorAdded(added, layer.id, readLayerDefaults(layer));
+        added = withIndicatorAdded(added, layer.id, readLayerDefaults(layer), chooseLayerTone(layer, added));
     }
     return added;
 }
@@ -153,10 +153,12 @@ function migrateLayers(
 
     let carried: readonly AddedIndicator[] = [];
     for (const layer of wanted) {
-        carried = withIndicatorAdded(carried, layer.id, {
-            ...readLayerDefaults(layer),
-            ...(layer.id === 'depth' ? readLegacyDepth(legacy) : {}),
-        });
+        carried = withIndicatorAdded(
+            carried,
+            layer.id,
+            { ...readLayerDefaults(layer), ...(layer.id === 'depth' ? readLegacyDepth(legacy) : {}) },
+            chooseLayerTone(layer, carried),
+        );
     }
     // The document's own list, not the merged one: merging over the defaults
     // hands an old document the very layers this is deciding about.
@@ -211,8 +213,11 @@ function keepUsableIndicators(stored: unknown): readonly AddedIndicator[] {
             indicatorId: entry.indicatorId,
             settings: keepFiniteSettings(entry.settings),
             // A set stored before colours existed, or one edited by hand, gets a
-            // free colour rather than a blank one.
-            tone: INSTANCE_TONES.find((tone) => tone === entry.tone) ?? chooseInstanceTone(kept),
+            // free colour rather than a blank one. Checked against every tone
+            // rather than against the rotation: a layer the host paints holds
+            // one from outside it, and replacing that would spend an identity
+            // colour on something that never shows it.
+            tone: PLOT_TONES.find((tone) => tone === entry.tone) ?? chooseInstanceTone(kept),
             ...(entry.isHidden === true ? { isHidden: true } : {}),
             // Kept only when it names an entry that survived, so a band cannot
             // point at an indicator this build dropped or the trim discarded.

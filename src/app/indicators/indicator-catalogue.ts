@@ -1,7 +1,7 @@
-import type { Indicator, IndicatorSettings } from '../../shared/core/draw-plan.ts';
-import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
+import type { Indicator, IndicatorSettings, PlotTone } from '../../shared/core/draw-plan.ts';
+import { type AddedIndicator, chooseInstanceTone } from '../../shared/core/indicator-selection.ts';
 import { AVERAGE_CONVERGENCE } from './average-convergence.ts';
-import { type FieldLayer, FIELD_LAYERS } from './field-layers.ts';
+import { type FieldLayer, FIELD_LAYERS, findFieldLayer } from './field-layers.ts';
 import { AVERAGE_TRUE_RANGE } from './average-true-range.ts';
 import { BOLLINGER_BANDS } from './bollinger-bands.ts';
 import { DONCHIAN_CHANNELS } from './donchian-channels.ts';
@@ -104,4 +104,23 @@ export function resolveRequiredWarmupBars(added: readonly AddedIndicator[]): num
         }
     }
     return deepest;
+}
+
+/**
+ * The colour a newly added layer is identified by.
+ *
+ * A layer the host paints — the depth map has a ramp, the candles have two
+ * colours that already mean something — takes a tone outside the rotation, so
+ * it reserves nothing. Reserving one would spend an identity colour on a layer
+ * that never shows it, and hand the reader's first indicator whatever was left.
+ *
+ * @param layer - What is being added.
+ * @param added - What is already on the chart.
+ * @returns The tone to draw it in.
+ */
+export function chooseLayerTone(
+    layer: Indicator | FieldLayer,
+    added: readonly AddedIndicator[],
+): PlotTone {
+    return findFieldLayer(layer.id) === null ? chooseInstanceTone(added) : 'muted';
 }

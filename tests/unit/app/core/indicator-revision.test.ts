@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+    chooseInstanceTone,
     MAXIMUM_STORED_INDICATORS,
     mintInstanceId,
     withIndicatorAdded,
@@ -16,7 +17,7 @@ const SETTINGS = { periodBars: 20 };
 function addTimes(count: number): readonly AddedIndicator[] {
     let added: readonly AddedIndicator[] = [];
     for (let index = 0; index < count; index += 1) {
-        added = withIndicatorAdded(added, 'ema', SETTINGS);
+        added = withIndicatorAdded(added, 'ema', SETTINGS, chooseInstanceTone(added));
     }
     return added;
 }
@@ -38,7 +39,7 @@ describe('indicator revision', () => {
     it('stops adding once the chart is holding all it can draw', () => {
         const full = addTimes(MAXIMUM_STORED_INDICATORS);
 
-        const beyond = withIndicatorAdded(full, 'rsi', SETTINGS);
+        const beyond = withIndicatorAdded(full, 'rsi', SETTINGS, chooseInstanceTone(full));
 
         expect(beyond).toHaveLength(MAXIMUM_STORED_INDICATORS);
     });
@@ -55,8 +56,8 @@ describe('indicator revision', () => {
         // Each revision reads the set the one before it produced. Applying both
         // to the same starting set instead would land the second on top of the
         // first, and the addition would be silently lost.
-        const first = withIndicatorAdded([], 'ema', SETTINGS);
-        const second = withIndicatorAdded(first, 'rsi', SETTINGS);
+        const first = withIndicatorAdded([], 'ema', SETTINGS, 'phosphor');
+        const second = withIndicatorAdded(first, 'rsi', SETTINGS, chooseInstanceTone(first));
 
         expect(second.map((entry) => entry.indicatorId)).toEqual(['ema', 'rsi']);
     });
@@ -86,7 +87,7 @@ describe('undoing a removal', () => {
     it('puts the indicator back in the band it was drawn in', () => {
         // Restoring to the end would move every oscillator below it up a pane,
         // which is not what undoing a removal means.
-        const added = [...addTimes(1), ...withIndicatorAdded(addTimes(1), 'rsi', SETTINGS).slice(1)];
+        const added = [...addTimes(1), ...withIndicatorAdded(addTimes(1), 'rsi', SETTINGS, 'cyan').slice(1)];
         const removed = withIndicatorRemoved(added, added[0]!.instanceId);
 
         const restored = withIndicatorRestored(removed, added[0]!, 0);
@@ -119,7 +120,7 @@ describe('hiding an indicator', () => {
     });
 
     it('leaves its neighbours drawing', () => {
-        const added = withIndicatorAdded(addTimes(1), 'rsi', SETTINGS);
+        const added = withIndicatorAdded(addTimes(1), 'rsi', SETTINGS, 'cyan');
 
         const hidden = withIndicatorVisibility(added, 'ema-1', true);
 

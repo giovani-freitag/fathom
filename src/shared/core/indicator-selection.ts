@@ -77,12 +77,15 @@ export function mintInstanceId(
  * @param added - What is already on the chart.
  * @param indicatorId - The indicator to add.
  * @param settings - Its starting parameters.
+ * @param tone - What it is drawn in, decided by the caller: a layer the host
+ *               paints in colours of its own takes none of the rotation.
  * @returns The new set, unchanged once it is full.
  */
 export function withIndicatorAdded(
     added: readonly AddedIndicator[],
     indicatorId: string,
     settings: IndicatorSettings,
+    tone: PlotTone,
 ): readonly AddedIndicator[] {
     if (added.length >= MAXIMUM_STORED_INDICATORS) {
         return added;
@@ -91,7 +94,7 @@ export function withIndicatorAdded(
         instanceId: mintInstanceId(indicatorId, added),
         indicatorId,
         settings,
-        tone: chooseInstanceTone(added),
+        tone,
     }];
 }
 
@@ -103,8 +106,11 @@ export function withIndicatorAdded(
  */
 export function chooseInstanceTone(added: readonly AddedIndicator[]): PlotTone {
     const taken = new Set(added.map((entry) => entry.tone));
+    // Counted off what is taken rather than off how many were added: a layer
+    // holding a colour outside the rotation reserves nothing, and cycling on
+    // the total would hand out a colour already in use while free ones remain.
     return INSTANCE_TONES.find((tone) => !taken.has(tone))
-        ?? INSTANCE_TONES[added.length % INSTANCE_TONES.length]!;
+        ?? INSTANCE_TONES[taken.size % INSTANCE_TONES.length]!;
 }
 
 /**

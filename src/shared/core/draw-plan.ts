@@ -17,6 +17,18 @@ export type PlotTone =
     | 'ink'
     | 'muted';
 
+/** Every tone a plan may name. */
+export const PLOT_TONES: readonly PlotTone[] = [
+    'bid',
+    'ask',
+    'amber',
+    'phosphor',
+    'violet',
+    'cyan',
+    'ink',
+    'muted',
+];
+
 /**
  * The tones one added copy can be given to tell it from another.
  *
@@ -124,6 +136,15 @@ export interface DrawPlan {
      * readings belong side by side is the reader's judgement, not its own.
      */
     readonly bandKey?: string;
+    /**
+     * What it was produced from, stamped by the host rather than the author.
+     *
+     * The drawn layer is held between frames and repainted only when its
+     * description changes. A recolour or a different source changes the
+     * drawing and nothing else about it, so without this the canvas keeps
+     * showing the previous one.
+     */
+    readonly tuning?: string;
     readonly labelKey: string;
     /** The parameters that produced it, as the legend shows them. */
     readonly parameterSummary: string;
