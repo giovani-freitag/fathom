@@ -44,9 +44,13 @@ export function CoverageStrip({ state }: CoverageStripProps): ReactElement {
                 </span>
             </span>
 
-            <span className="numeric" title={translate('coverage.columnWidth')}>
-                {formatDuration(state.dataset.sampleIntervalMs, translate)}{translate('coverage.perColumn')}
-            </span>
+            {/* How wide a column of the book is, which a chart that draws no
+                book has no answer to rather than an answer of nought. */}
+            {state.isDepthVisible && (
+                <span className="numeric" title={translate('coverage.columnWidth')}>
+                    {formatDuration(state.dataset.sampleIntervalMs, translate)}{translate('coverage.perColumn')}
+                </span>
+            )}
 
             {/* The bar rung is its own resolution now: the depth field follows the
                 surface, and a bar deliberately does not. */}
