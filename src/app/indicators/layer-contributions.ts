@@ -1,6 +1,8 @@
 import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
 import { BOOK_LAYER } from './book/book.ts';
 import { BookPanel } from './book/book-panel.tsx';
+import { CandleReadout } from './candles/candle-readout.tsx';
+import { CANDLES_LAYER } from './candles/candles.ts';
 import type { ChartState } from '../core/chart-controller.ts';
 import type { ComponentType } from 'react';
 import { DepthLegend } from './book/depth-legend.tsx';
@@ -11,6 +13,8 @@ export interface LayerContribution {
     readonly Panel?: ComponentType<LayerViewProps>;
     /** A mark shown over the chart while the layer is on it. */
     readonly Overlay?: ComponentType<LayerViewProps>;
+    /** What it reads under the cursor, shown beside its name in the legend. */
+    readonly Readout?: ComponentType<LayerViewProps>;
     /** False for a layer that must not be taken off the chart. */
     readonly isRemovable?: boolean;
 }
@@ -30,6 +34,7 @@ const CONTRIBUTIONS: Readonly<Record<string, LayerContribution>> = {
     // The book holds what is being recorded, and a control that goes away with
     // it is a collector nobody can stop. Hiding it leaves the same chart behind.
     [BOOK_LAYER.id]: { Panel: BookPanel, Overlay: DepthLegend, isRemovable: false },
+    [CANDLES_LAYER.id]: { Readout: CandleReadout },
 };
 
 /**

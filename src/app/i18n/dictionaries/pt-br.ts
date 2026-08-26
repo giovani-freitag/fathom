@@ -110,6 +110,10 @@ export const PT_BR_DICTIONARY: Dictionary = {
 
     'legend.book': 'book',
 
+    'readout.open': 'A',
+    'readout.high': 'M',
+    'readout.low': 'm',
+    'readout.close': 'F',
     'readout.bid': 'COMPRA {size} {asset} em {price}',
     'readout.ask': 'VENDA {size} {asset} em {price}',
     'readout.empty': 'nada parado em {price}',

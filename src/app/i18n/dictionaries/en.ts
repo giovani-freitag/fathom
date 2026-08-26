@@ -108,6 +108,10 @@ export const EN_DICTIONARY = {
 
     'legend.book': 'book',
 
+    'readout.open': 'O',
+    'readout.high': 'H',
+    'readout.low': 'L',
+    'readout.close': 'C',
     'readout.bid': 'BID {size} {asset} at {price}',
     'readout.ask': 'ASK {size} {asset} at {price}',
     'readout.empty': 'nothing resting at {price}',

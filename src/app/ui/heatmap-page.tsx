@@ -1,4 +1,4 @@
-import { Radar, RefreshCw, TriangleAlert } from 'lucide-react';
+import { RefreshCw, TriangleAlert } from 'lucide-react';
 import { type ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { resolveRecordedSpanMs } from '../core/viewport-policy.ts';
 import { useKernel } from '../react/kernel-context.ts';
@@ -7,6 +7,7 @@ import { useTranslate } from '../react/use-appearance.ts';
 import type { Translate } from '../i18n/translator.ts';
 import { ControlButton } from './control-button.tsx';
 import { ChartSurface } from './chart-surface.tsx';
+import { ReturnToLive } from './return-to-live.tsx';
 import { CoverageStrip } from './coverage-strip.tsx';
 import { listDrawnOverlays } from '../indicators/layer-contributions.ts';
 import { SettingsDrawer } from './settings-drawer.tsx';
@@ -74,11 +75,6 @@ export function HeatmapPage(): ReactElement {
                     <CoverageStrip state={state} />
                 </div>
 
-                {!state.isFollowingLive && (
-                    <ControlButton onClick={handleReturnToLive} aria-label={translate('page.returnToLive')}>
-                        <Radar className="size-4" />
-                    </ControlButton>
-                )}
                 <IndicatorTrigger controls={indicators} />
                 <SettingsDrawer
                     state={state}
@@ -106,6 +102,10 @@ export function HeatmapPage(): ReactElement {
                     layout={surfaceLayout}
                     onOpenSettings={handleOpenSettings}
                 />
+
+                {!state.isFollowingLive && <ReturnToLive onReturn={handleReturnToLive} />}
+
+                
 
                 {state.phase === 'initialising' && <SurfaceNotice message={translate('page.probing')} translate={translate} />}
                 {state.phase === 'empty' && (
