@@ -48,8 +48,12 @@ describe('RecordingControlService.pruneToBudget', () => {
 
         await buildService(mock).pruneToBudget();
 
-        const statements = mock.execute.mock.calls.map((call) => String(call[0]));
-        expect(statements.every((statement) => statement.includes('drop_chunks'))).toBe(true);
+        // Every statement that removes anything removes a partition; the only
+        // other one the prune runs records what it is about to remove.
+        const removing = mock.execute.mock.calls
+            .map((call) => String(call[0]))
+            .filter((statement) => !statement.includes('INSERT INTO recording_gap'));
+        expect(removing.every((statement) => statement.includes('drop_chunks'))).toBe(true);
     });
 
     it('takes both hypertables to the same boundary, so trades never outlive frames', async () => {
@@ -57,7 +61,9 @@ describe('RecordingControlService.pruneToBudget', () => {
 
         await buildService(mock).pruneToBudget();
 
-        const statement = String(mock.execute.mock.calls[0]?.[0]);
+        const statement = mock.execute.mock.calls
+            .map((call) => String(call[0]))
+            .find((candidate) => candidate.includes('drop_chunks')) ?? '';
         expect([statement.includes('liquidity_frame'), statement.includes('trade_cluster')])
             .toEqual([true, true]);
     });
@@ -93,5 +99,59 @@ describe('RecordingControlService', () => {
 
         const bound = mock.execute.mock.calls[0]?.[1] as readonly number[] | undefined;
         expect(Number(bound?.[0])).toBeGreaterThan(0);
+    });
+});
+
+describe('RecordingControlService and the history it drops', () => {
+    let mock: PostgresServiceMock;
+
+    beforeEach(() => {
+        mock = createPostgresServiceMock();
+    });
+
+    /** Statements the service ran, in order, so a test can assert what came first. */
+    function statementsRun(): string[] {
+        return mock.execute.mock.calls.map((call) => String(call[0]));
+    }
+
+    it('records the stretch it is about to delete as a gap', async () => {
+        // Without this the archive cannot tell a stretch it never saw from one
+        // it deleted, and the chart draws straight through both.
+        stubShrinkingArchive(mock, [GIGABYTE * 2, GIGABYTE - 1], new Date());
+
+        await buildService(mock).pruneToBudget();
+
+        expect(statementsRun().some((statement) => statement.includes('INSERT INTO recording_gap')))
+            .toBe(true);
+    });
+
+    it('records it before the drop, while there is still something to measure', async () => {
+        stubShrinkingArchive(mock, [GIGABYTE * 2, GIGABYTE - 1], new Date());
+
+        await buildService(mock).pruneToBudget();
+
+        const run = statementsRun();
+        const recorded = run.findIndex((statement) => statement.includes('INSERT INTO recording_gap'));
+        const dropped = run.findIndex((statement) => statement.includes('drop_chunks'));
+        expect(recorded).toBeGreaterThanOrEqual(0);
+        expect(recorded).toBeLessThan(dropped);
+    });
+
+    it('widens the gap it already left rather than leaving one per partition', async () => {
+        stubShrinkingArchive(mock, [GIGABYTE * 2, GIGABYTE - 1], new Date());
+
+        await buildService(mock).pruneToBudget();
+
+        const insert = statementsRun().find((statement) => statement.includes('INSERT INTO recording_gap'));
+        expect(insert).toContain('ON CONFLICT');
+        expect(insert).toContain('GREATEST');
+    });
+
+    it('leaves nothing behind when the recording already fits', async () => {
+        stubShrinkingArchive(mock, [GIGABYTE - 1], new Date());
+
+        await buildService(mock).pruneToBudget();
+
+        expect(statementsRun()).toEqual([]);
     });
 });

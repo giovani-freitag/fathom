@@ -361,3 +361,58 @@ describe('ChartGestureController on a phone', () => {
         expect(published.toMs - published.fromMs).toBeLessThan(900_000);
     });
 });
+
+describe('ChartGestureController tracking', () => {
+    /** Where the plot ends, which is short of the surface whenever chrome shows. */
+    function plotWidthOf(surface: GestureSurfaceMock): number {
+        return resolveChartLayout({
+            cssWidth: surface.width,
+            cssHeight: surface.height,
+            isVolumeProfileVisible: true,
+        }).plotWidth;
+    }
+
+    it('moves the chart exactly as far as the finger, not as far as the surface', () => {
+        // The projector maps time across the plot, not across the container. A
+        // gesture measured against the container makes the content lag the
+        // finger by the width of the profile and the price axis — about a fifth.
+        const { surface } = buildHarness();
+        const spanMs = VIEWPORT.toMs - VIEWPORT.fromMs;
+
+        dragBy(surface, 100, 0);
+
+        const moved = VIEWPORT.fromMs - (surface.published.at(-1)?.viewport.fromMs ?? 0);
+        expect(moved).toBeCloseTo((100 / plotWidthOf(surface)) * spanMs, 6);
+    });
+
+    it('moves the chart vertically as far as the finger', () => {
+        const { surface } = buildHarness();
+        const priceSpan = VIEWPORT.highPrice - VIEWPORT.lowPrice;
+        const plotHeight = resolveChartLayout({
+            cssWidth: surface.width,
+            cssHeight: surface.height,
+            isVolumeProfileVisible: true,
+        }).plotHeight;
+
+        dragBy(surface, 0, 50);
+
+        const moved = (surface.published.at(-1)?.viewport.lowPrice ?? 0) - VIEWPORT.lowPrice;
+        expect(moved).toBeCloseTo((50 / plotHeight) * priceSpan, 6);
+    });
+
+    it('keeps the instant under the wheel where it was', () => {
+        // Zoom anchors on a ratio of the plot; measuring that ratio against the
+        // container puts the anchor to the right of the cursor and the chart
+        // slides under it as it scales.
+        const { surface } = buildHarness();
+        const plotWidth = plotWidthOf(surface);
+        const anchorX = 200;
+        const before = VIEWPORT.fromMs + (anchorX / plotWidth) * (VIEWPORT.toMs - VIEWPORT.fromMs);
+
+        surface.fire('wheel', { clientX: anchorX, clientY: 250, deltaY: -100 });
+
+        const zoomed = surface.published.at(-1)!.viewport;
+        const after = zoomed.fromMs + (anchorX / plotWidth) * (zoomed.toMs - zoomed.fromMs);
+        expect(after).toBeCloseTo(before, 6);
+    });
+});

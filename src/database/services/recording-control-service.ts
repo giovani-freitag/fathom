@@ -153,6 +153,10 @@ export class RecordingControlService implements RecordingControl {
                 return dropped;
             }
 
+            // Recorded before the drop, because afterwards there is nothing left
+            // to ask. Without it the archive cannot tell a stretch it never saw
+            // from one it deleted, and a chart draws straight through both.
+            await this.recordDroppedHistory(boundary);
             await this.postgres.execute(
                 `SELECT drop_chunks('liquidity_frame', older_than => $1::timestamptz),
                         drop_chunks('trade_cluster',   older_than => $1::timestamptz)`,
@@ -160,6 +164,27 @@ export class RecordingControlService implements RecordingControl {
             );
             dropped += 1;
         }
+    }
+
+    /**
+     * Marks what is about to be dropped as a stretch the archive no longer holds.
+     *
+     * One row per contract, spanning from its oldest frame to the boundary, and
+     * merged with whatever gap already reaches into that range so a partition
+     * dropped every day does not leave a row for every day.
+     */
+    private async recordDroppedHistory(boundary: Date): Promise<void> {
+        await this.postgres.execute(
+            `INSERT INTO recording_gap (instrument_symbol, gap_started_at, gap_ended_at, gap_reason)
+             SELECT instrument_symbol, min(captured_at), $1::timestamptz,
+                    'history dropped to stay inside the disk budget'
+             FROM liquidity_frame
+             WHERE captured_at < $1::timestamptz
+             GROUP BY instrument_symbol
+             ON CONFLICT (instrument_symbol, gap_started_at)
+             DO UPDATE SET gap_ended_at = GREATEST(recording_gap.gap_ended_at, EXCLUDED.gap_ended_at)`,
+            [boundary],
+        );
     }
 
     /**
