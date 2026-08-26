@@ -26,6 +26,16 @@ jobs:
         with:
           release-type: node
 
+      # A release published with GITHUB_TOKEN does not start another workflow —
+      # GitHub refuses to let a run trigger a run. `repository_dispatch` is the
+      # one event exempt from that, which is why the deploy is asked for rather
+      # than left to notice the release on its own.
+      - if: steps.release.outputs.release_created == 'true'
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          event-type: release-published
+          client-payload: '{"ref": "${{ steps.release.outputs.tag_name }}"}'
+
       # Measured against the commit that was just tagged, so the badge in the
       # README describes the code someone can actually download rather than
       # whatever main happens to be in the middle of.
@@ -71,13 +81,3 @@ jobs:
               content: Buffer.from(content).toString('base64'),
               ...(published === null ? {} : { sha: published.data.sha }),
             });
-
-      # A release published with GITHUB_TOKEN does not start another workflow —
-      # GitHub refuses to let a run trigger a run. `repository_dispatch` is the
-      # one event exempt from that, which is why the deploy is asked for rather
-      # than left to notice the release on its own.
-      - if: steps.release.outputs.release_created == 'true'
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          event-type: release-published
-          client-payload: '{"ref": "${{ steps.release.outputs.tag_name }}"}'
