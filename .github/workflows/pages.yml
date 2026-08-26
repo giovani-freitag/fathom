@@ -1,8 +1,11 @@
 name: demo
 
+# Published when a release is cut rather than on every push, so the page and a
+# tag always name the same code. `workflow_dispatch` stays, because a demo that
+# can only be refreshed by cutting a release is a demo nobody refreshes.
 on:
-  push:
-    branches: [main]
+  release:
+    types: [published]
   workflow_dispatch:
 
 # One deployment at a time, and never cancel one halfway: a partial publish
