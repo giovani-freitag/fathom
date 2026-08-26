@@ -89,10 +89,7 @@ export function SettingsDrawer({
                             recovered afterwards.
                         */}
                         {kernel.recording !== null && (
-                            <>
-                                <span className="block border-t border-hairline pt-5 text-xs text-ink-300">
-                                    {translate('recording.title')}
-                                </span>
+                            <div className="space-y-4 border-t border-hairline pt-5">
                                 <RecordingPanel
                                     recording={kernel.recording}
                                     onContractsChanged={() => { void kernel.chart.refreshInstruments(); }}
@@ -104,7 +101,7 @@ export function SettingsDrawer({
                                 <p className="text-[11px] leading-relaxed text-ink-500">
                                     {translate('settings.backfillNote')}
                                 </p>
-                            </>
+                            </div>
                         )}
 
                         <span className="block border-t border-hairline pt-5 text-xs text-ink-300">

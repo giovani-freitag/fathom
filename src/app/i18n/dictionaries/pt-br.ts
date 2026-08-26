@@ -6,7 +6,7 @@ import type { Dictionary } from './en.ts';
 export const PT_BR_DICTIONARY: Dictionary = {
     'chart.surface': 'Mapa de calor da liquidez do livro',
 
-    'layer.depth': 'Livro',
+    'layer.depth': 'Book',
     'layer.depth.help': 'Tamanho em repouso em cada preço, como mudou ao longo do tempo',
     'layer.candles': 'Candles',
     'layer.candles.help': 'Onde o preço abriu, chegou e fechou em cada barra',
@@ -111,7 +111,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'coverage.gapMany': '{count} lacunas',
     'coverage.loading': 'carregando…',
 
-    'legend.book': 'livro',
+    'legend.book': 'book',
 
     'readout.bid': 'COMPRA {size} {asset} em {price}',
     'readout.ask': 'VENDA {size} {asset} em {price}',
