@@ -23,6 +23,12 @@ export interface PriceBar {
     readonly buyVolume: number;
     readonly sellVolume: number;
     readonly tradeCount: number;
+    /**
+     * Frames a wholly recorded bucket of this width holds.
+     *
+     * A bar short of them was built from less than it should have been, which
+     * is a different fact from a bar still being built.
+     */
     readonly expectedFrames: number;
     /** Frames that actually landed. Below `expectedFrames` on a closed bar, the bar is partial. */
     readonly frameCount: number;

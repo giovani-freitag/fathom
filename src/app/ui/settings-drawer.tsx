@@ -116,7 +116,6 @@ export function SettingsDrawer({
                             onSelectTheme={(themeChoice) => { kernel.appearance.selectTheme(themeChoice); }}
                         />
 
-
                         <AboutPanel translate={translate} />
                     </div>
                 </Dialog.Content>

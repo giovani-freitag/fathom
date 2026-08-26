@@ -61,6 +61,19 @@ describe('agreement with the reference formulas', () => {
         expect(widestGap(ours(RELATIVE_STRENGTH, { periodBars: 14 }), rsi(CLOSES, 14))).toBeLessThan(TOLERANCE);
     });
 
+    it('reads the middle where nothing moved either way', () => {
+        // A book mid that sits still for a whole period is ordinary on a quiet
+        // contract. There is no ratio to take, and the answer is not maximum
+        // strength — a market that did not move is not a market rising hard.
+        const still = Array.from({ length: CLOSES.length }, () => 100);
+        const bars = buildWindow(still.map((close, index) => buildBar(index * 60_000, close)));
+
+        const plan = RELATIVE_STRENGTH.compute({ bars, warmupBarCount: 500, settings: { periodBars: 14 } });
+
+        expect(plan.series[0]!.value.at(-1)).toBe(50);
+        expect(widestGap([...plan.series[0]!.value], rsi(still, 14))).toBeLessThan(TOLERANCE);
+    });
+
     it('measures the channel on the population deviation, not the sample one', () => {
         const reference = CLOSES.map((_, index) => (
             index >= 19 ? sma(CLOSES, 20, index) + 2 * stdevPop(CLOSES, 20, index) : Number.NaN

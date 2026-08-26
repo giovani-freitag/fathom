@@ -3,10 +3,7 @@ import { ChevronDown, Eye, EyeOff, X } from 'lucide-react';
 import type { ReactElement } from 'react';
 import type { ChartState } from '../../core/chart-controller.ts';
 import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts';
-import { type IndicatorParameter, readSetting } from '../../../shared/core/draw-plan.ts';
-
-/** Anything with knobs a reader can turn. */
-type Tunable = { readonly parameters: readonly IndicatorParameter[] };
+import { readSetting, type Tunable } from '../../../shared/core/draw-plan.ts';
 import { BookPanel } from './book-panel.tsx';
 import { findChartLayer } from '../../indicators/indicator-catalogue.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';

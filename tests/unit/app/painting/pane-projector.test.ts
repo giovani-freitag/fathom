@@ -201,3 +201,32 @@ describe('a shared band', () => {
         expect(placements[0]!.levels.map((level) => level.value)).toEqual([70, 30, 50]);
     });
 });
+
+describe('a band with nothing visible in it', () => {
+    it('falls back to the whole plan rather than collapsing onto its own zero line', () => {
+        // A plan carrying a baseline and a threshold always has those two
+        // values. Folded in whatever the window shows, every window looks
+        // occupied and the band scales to a hair either side of nought.
+        const plan: DrawPlan = {
+            ...buildPlan({ kind: 'symmetric' }, [Number.NaN, 40], [0]),
+            series: [{
+                labelKey: 'indicator.macd.gap',
+                tone: 'bid',
+                shape: 'histogram',
+                baseline: 0,
+                atMs: Float64Array.from([5_000, 6_000]),
+                value: Float64Array.from([Number.NaN, 40]),
+            }],
+        };
+
+        const range = resolvePlanRange(plan, { fromMs: 0, toMs: 1_000 });
+
+        expect(range.high).toBeGreaterThan(1);
+    });
+
+    it('still answers when a plan says nothing anywhere at all', () => {
+        const plan = buildPlan({ kind: 'auto' }, [Number.NaN, Number.NaN]);
+
+        expect(resolvePlanRange(plan, { fromMs: 0, toMs: 1_000 })).toEqual({ low: 0, high: 1 });
+    });
+});

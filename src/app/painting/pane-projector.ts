@@ -119,6 +119,10 @@ export function resolvePlanRange(plan: DrawPlan, visible: VisibleWindow = EVERYT
 function measureObservedRange(plan: DrawPlan, visible: VisibleWindow): ValueRange | null {
     let low = Number.POSITIVE_INFINITY;
     let high = Number.NEGATIVE_INFINITY;
+    // Tracked apart from the extremes: a baseline and a threshold are constants
+    // the plan always carries, so folding them in would make every window look
+    // like it had something in it and the fallback would never run.
+    let hasReading = false;
 
     for (const series of plan.series) {
         for (let index = 0; index < series.value.length; index += 1) {
@@ -127,6 +131,7 @@ function measureObservedRange(plan: DrawPlan, visible: VisibleWindow): ValueRang
             if (Number.isFinite(value) && at >= visible.fromMs && at <= visible.toMs) {
                 low = Math.min(low, value);
                 high = Math.max(high, value);
+                hasReading = true;
             }
         }
         if (series.baseline !== undefined) {
@@ -139,7 +144,7 @@ function measureObservedRange(plan: DrawPlan, visible: VisibleWindow): ValueRang
         high = Math.max(high, level.value);
     }
 
-    return low > high ? null : { low, high };
+    return hasReading ? { low, high } : null;
 }
 
 /**

@@ -12,6 +12,7 @@ import {
 import type { PlotTone } from '../../shared/core/draw-plan.ts';
 import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
 import { chooseLayerTone, findChartLayer, readLayerDefaults } from '../indicators/indicator-catalogue.ts';
+import { findFieldLayer } from '../indicators/field-layers.ts';
 import { useChartState } from './use-chart-state.ts';
 import { useKernel } from './kernel-context.ts';
 
@@ -51,6 +52,7 @@ export function useIndicators(): IndicatorControls {
                     indicatorId,
                     settings,
                     chooseLayerTone(layer, current),
+                    findFieldLayer(indicatorId) === null,
                 ),
             );
         }
@@ -59,14 +61,18 @@ export function useIndicators(): IndicatorControls {
     const [removal, setRemoval] = useState<{ entry: AddedIndicator; index: number } | null>(null);
 
     const remove = useCallback((instanceId: string) => {
-        kernel.chart.updateIndicators((current) => {
-            const index = current.findIndex((entry) => entry.instanceId === instanceId);
-            const entry = current[index];
-            // Held so the removal can be taken back. An indicator someone tuned
-            // is minutes of work, and one stray click is all it takes.
-            setRemoval(entry === undefined ? null : { entry, index });
-            return withIndicatorRemoved(current, instanceId);
-        });
+        // Read before the revision rather than inside it: what the store is
+        // handed has to be a function of its argument and nothing else, and a
+        // React state write in that slot depends on it being called exactly
+        // once.
+        const current = kernel.chart.store.read().addedIndicators;
+        const index = current.findIndex((entry) => entry.instanceId === instanceId);
+        const entry = current[index];
+        // Held so the removal can be taken back. An indicator someone tuned is
+        // minutes of work, and one stray click is all it takes.
+        setRemoval(entry === undefined ? null : { entry, index });
+
+        kernel.chart.updateIndicators((set) => withIndicatorRemoved(set, instanceId));
     }, [kernel]);
 
     const undoRemoval = useCallback(() => {

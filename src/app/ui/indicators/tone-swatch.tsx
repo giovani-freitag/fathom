@@ -26,5 +26,3 @@ interface ToneSwatchProps {
 export function ToneSwatch({ tone, className = '' }: ToneSwatchProps): ReactElement {
     return <span className={`block rounded-full ${TONE_CLASSES[tone]} ${className}`} />;
 }
-
-export { TONE_CLASSES };

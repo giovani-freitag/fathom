@@ -106,7 +106,7 @@ function IndicatorGroup({ titleKey, indicators, isFull, addedCounts, onAdd }: In
                 <button
                     key={indicator.id}
                     type="button"
-                    disabled={isFull}
+                    disabled={isFull || (findFieldLayer(indicator.id) !== null && (addedCounts.get(indicator.id) ?? 0) > 0)}
                     onClick={() => { onAdd(indicator.id); }}
                     className="flex w-full flex-col items-start gap-0.5 rounded px-2 py-2 text-left transition-colors hover:bg-abyss-700 disabled:opacity-40 disabled:hover:bg-transparent"
                 >

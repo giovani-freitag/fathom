@@ -1,4 +1,4 @@
-import type { ChoiceParameter, IndicatorParameter, NumericParameter } from '../../../shared/core/draw-plan.ts';
+import type { ChoiceParameter, IndicatorParameter, NumericParameter, Tunable } from '../../../shared/core/draw-plan.ts';
 import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts';
 import { INSTANCE_TONES, readChoice, readSetting } from '../../../shared/core/draw-plan.ts';
 import type { PlotTone } from '../../../shared/core/draw-plan.ts';
@@ -10,7 +10,7 @@ import { useTranslate } from '../../react/use-appearance.ts';
 import { translateLabel } from '../../i18n/translator.ts';
 
 interface IndicatorParametersProps {
-    readonly indicator: { readonly parameters: readonly IndicatorParameter[] };
+    readonly indicator: Tunable;
     /** False for a layer the host draws in colours that already mean something. */
     readonly hasTone?: boolean;
     readonly added: AddedIndicator;

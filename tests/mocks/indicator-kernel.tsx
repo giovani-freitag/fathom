@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react';
 import type { ReactElement } from 'react';
-import type { AddedIndicator } from '../../src/shared/core/indicator-selection.ts';
+import { type AddedIndicator, resolveBandKey } from '../../src/shared/core/indicator-selection.ts';
 import type { ChartState } from '../../src/app/core/chart-controller.ts';
 import { createCursorStore } from '../../src/app/core/cursor-store.ts';
 import type { DrawPlan } from '../../src/shared/core/draw-plan.ts';
@@ -98,5 +98,9 @@ function toPlan(entry: AddedIndicator): DrawPlan[] {
         return [];
     }
     const plan = indicator.compute({ bars: BARS, warmupBarCount: 300, settings: entry.settings });
-    return [{ ...recolourPlan(plan, entry.tone), instanceId: entry.instanceId }];
+    return [{
+        ...recolourPlan(plan, entry.tone),
+        instanceId: entry.instanceId,
+        bandKey: resolveBandKey(entry),
+    }];
 }

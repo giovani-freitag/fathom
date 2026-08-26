@@ -2,10 +2,7 @@ import { Combine, Eye, EyeOff, Settings2, Split, X } from 'lucide-react';
 import type { ReactElement } from 'react';
 import type { DrawPlan, PlotTone } from '../../../shared/core/draw-plan.ts';
 import { readChoice, readSetting, readValueAt } from '../../../shared/core/draw-plan.ts';
-import type { IndicatorParameter } from '../../../shared/core/draw-plan.ts';
-
-/** Anything with knobs a reader can turn. */
-type Tunable = { readonly parameters: readonly IndicatorParameter[] };
+import type { Tunable } from '../../../shared/core/draw-plan.ts';
 import { formatFixed } from '../../core/formatting.ts';
 import { useCursorInstant } from '../../react/use-cursor-instant.ts';
 import { findChartLayer } from '../../indicators/indicator-catalogue.ts';

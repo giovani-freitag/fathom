@@ -5,7 +5,7 @@ import { ViewportProjector } from '../../src/app/core/viewport-projector.ts';
 import type { ChartDataset } from '../../src/app/core/chart-dataset.ts';
 import { EMPTY_DATASET } from '../../src/app/core/chart-dataset.ts';
 import { resolveChartLayout } from '../../src/app/painting/chart-layout.ts';
-import { isPriceScale, placePanes } from '../../src/app/painting/pane-projector.ts';
+import { countPanedPlans, placePanes } from '../../src/app/painting/pane-projector.ts';
 import type { PaintContext, RenderRequest } from '../../src/app/painting/render-types.ts';
 
 export interface RecordedCall {
@@ -107,7 +107,7 @@ export function buildPaintContext(
         cssWidth: options.cssWidth ?? 1_000,
         cssHeight: options.cssHeight ?? 600,
         isVolumeProfileVisible: options.isVolumeProfileVisible ?? false,
-        indicatorPaneCount: plans.filter((plan) => !isPriceScale(plan.scale)).length,
+        indicatorPaneCount: countPanedPlans(plans),
     });
 
     return {

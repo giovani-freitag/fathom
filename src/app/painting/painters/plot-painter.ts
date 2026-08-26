@@ -39,7 +39,6 @@ const BAND_ALPHA = 0.1;
 /** How much of a floor strip survives, so the depth map under it still reads. */
 const FLOOR_STRIP_ALPHA = 0.55;
 
-
 /**
  * Draws the plans indicators produced, each against the scale it asked for.
  *
@@ -125,9 +124,6 @@ export class PlotPainter {
     }
 
     /**
-     * Draws a plan in its own band of the stack, on a scale of its own.
-     */
-    /**
      * Draws one band of the stack, and everything sharing it, on one scale.
      */
     private paintPane(
@@ -143,7 +139,11 @@ export class PlotPainter {
         // cannot draw over the price, whatever its values turn out to be.
         context.save();
         context.beginPath();
-        context.rect(0, rect.topY, paint.layout.priceAxisX, rect.height);
+        // The plot, not the gutter beside it. Clipped to the axis instead, the
+        // series run on under the volume profile while the band's own rule and
+        // its thresholds stop short, and below the price pane there is no
+        // backdrop to hide the difference.
+        context.rect(0, rect.topY, paint.layout.plotWidth, rect.height);
         context.clip();
 
         this.paintPaneFrame(paint, rect);

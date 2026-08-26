@@ -201,6 +201,14 @@ function keepUsableIndicators(stored: unknown): readonly AddedIndicator[] {
         return [];
     }
 
+    // Which instances survive is decided before any band is read: a band naming
+    // one stored after it would otherwise be dropped for no reason but order.
+    const surviving = new Set(
+        (stored as readonly unknown[])
+            .filter(isUsableIndicator)
+            .slice(0, MAXIMUM_STORED_INDICATORS)
+            .map((entry) => entry.instanceId),
+    );
     const seen = new Set<string>();
     const kept: AddedIndicator[] = [];
     for (const entry of stored as readonly unknown[]) {
@@ -221,7 +229,7 @@ function keepUsableIndicators(stored: unknown): readonly AddedIndicator[] {
             ...(entry.isHidden === true ? { isHidden: true } : {}),
             // Kept only when it names an entry that survived, so a band cannot
             // point at an indicator this build dropped or the trim discarded.
-            ...(typeof entry.bandKey === 'string' && seen.has(entry.bandKey)
+            ...(typeof entry.bandKey === 'string' && surviving.has(entry.bandKey)
                 ? { bandKey: entry.bandKey }
                 : {}),
         });

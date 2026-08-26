@@ -147,14 +147,20 @@ function BudgetChooser({ budget, isSaving, onChoose, translate }: {
 
     // The ceiling is a figure with two ends, and what a reader wants from it is
     // where it sits between them rather than which of five buttons is lit.
-    const chosen = Math.max(0, choices.findIndex((choice) => isChosen(choice.bytes, budget.maximumBytes)));
+    // Nothing matching is its own answer. The offered ceilings are shares of
+    // the room the host reports, so a change in free disk moves every one of
+    // them and a ceiling saved against the old set matches none of the new.
+    // Pointing at the first would tell the reader a figure the server is not
+    // enforcing.
+    const chosen = choices.findIndex((choice) => isChosen(choice.bytes, budget.maximumBytes));
+    const isOffered = chosen !== -1;
 
     return (
         <div className={isSaving ? 'pointer-events-none opacity-50' : ''}>
             <RangeField
                 label={translate('recording.ceiling')}
-                display={choices[chosen]?.label ?? ''}
-                value={chosen}
+                display={isOffered ? choices[chosen]!.label : formatGigabytes(budget.maximumBytes)}
+                value={isOffered ? chosen : 0}
                 minimum={0}
                 maximum={choices.length - 1}
                 step={1}

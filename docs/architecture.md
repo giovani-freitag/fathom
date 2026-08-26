@@ -337,7 +337,8 @@ of flattening the ordinary prints a reader is comparing against each other.
 
 Because neither the grid nor the reference depends on where the chart is
 scrolled to, the merge is held between frames and rebuilt only when the
-executions or the zoom change. Dragging re-projects what is already there.
+recording or the zoom moves — which live is about once a second, and during a
+drag is not at all. Dragging re-projects what is already there.
 
 ## The renderer
 

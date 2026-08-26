@@ -77,16 +77,6 @@ export function findIndicator(indicatorId: string): Indicator | null {
 }
 
 /**
- * The starting parameters for a newly added indicator.
- *
- * @param indicator - The indicator being added.
- * @returns Its declared defaults, by parameter name.
- */
-export function readDefaultSettings(indicator: Indicator): IndicatorSettings {
-    return readLayerDefaults(indicator);
-}
-
-/**
  * The deepest history any added indicator needs behind the drawn window.
  *
  * One figure for the whole set because they share a fetch: reading each one's

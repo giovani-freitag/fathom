@@ -3,7 +3,7 @@ import {
     CHART_LAYERS,
     findChartLayer,
     INDICATOR_CATALOGUE,
-    readDefaultSettings,
+    readLayerDefaults,
 } from '../../../../src/app/indicators/indicator-catalogue.ts';
 import { resolveFieldSettings } from '../../../../src/app/indicators/field-layers.ts';
 import { isPlanWithinBudget } from '../../../../src/shared/core/draw-plan.ts';
@@ -17,7 +17,7 @@ function computeOver(indicator: Indicator, bars: ReturnType<typeof buildRun>) {
     return indicator.compute({
         bars: buildWindow(bars),
         warmupBarCount: 0,
-        settings: readDefaultSettings(indicator),
+        settings: readLayerDefaults(indicator),
     });
 }
 

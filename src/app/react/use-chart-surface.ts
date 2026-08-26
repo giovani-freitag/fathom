@@ -20,11 +20,6 @@ export interface ChartSurfaceHandles {
 }
 
 /**
- * Wires the canvases, the renderer, and the gesture controller together.
- *
- * @returns Refs to attach to the container and the two stacked canvases.
- */
-/**
  * The instant under the pointer, in the viewport in force.
  *
  * @param container - The surface, for the width the viewport is spread over.
@@ -56,6 +51,11 @@ function readCursorInstant(
     }).xToTime(pointer.x);
 }
 
+/**
+ * Wires the canvases, the renderer, and the gesture controller together.
+ *
+ * @returns Refs to attach to the container and the two stacked canvases.
+ */
 export function useChartSurface(): ChartSurfaceHandles {
     const kernel = useKernel();
     const containerRef = useRef<HTMLDivElement | null>(null);

@@ -34,6 +34,13 @@ function rsi(close: Series, n: number): number[] {
     const out: number[] = new Array<number>(close.length).fill(NaN);
     for (let i = 0; i < u.length; i++) {
         if (Number.isNaN(u[i]!)) continue;
+        // A stretch with neither a rise nor a fall has no ratio to take, and it
+        // is not maximum strength: it is the middle. The published branch reads
+        // "no losses means a hundred", which is only true where something rose.
+        if (u[i] === 0 && d[i] === 0) {
+            out[i + 1] = 50;
+            continue;
+        }
         out[i + 1] = d[i] === 0 ? 100 : u[i] === 0 ? 0 : 100 - 100 / (1 + u[i]! / d[i]!);
     }
     return out;

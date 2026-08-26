@@ -86,18 +86,6 @@ export interface ViewRequest {
     readonly isFollowingPrice?: boolean;
 }
 
-export type ChartSettingsPatch = Partial<
-    Pick<
-        ChartState,
-        | 'colourGain'
-        | 'depthFloorPercentile'
-        | 'depthSaturationPercentile'
-        | 'isCandleOverlayVisible'
-        | 'isTradeOverlayVisible'
-        | 'isVolumeProfileVisible'
-    >
->;
-
 /**
  * Everything the chart knows, and the only thing that changes it.
  */
@@ -344,8 +332,6 @@ export class ChartController {
             nowMs: Date.now(),
         });
     }
-
-
 
     private buildLoadRequest(): WindowLoadRequest | null {
         const state = this.store.read();

@@ -79,15 +79,21 @@ export function mintInstanceId(
  * @param settings - Its starting parameters.
  * @param tone - What it is drawn in, decided by the caller: a layer the host
  *               paints in colours of its own takes none of the rotation.
- * @returns The new set, unchanged once it is full.
+ * @param isRepeatable - False for a layer the host draws once however many
+ *                       copies are asked for, whose second copy would be a row
+ *                       of controls that change nothing.
+ * @returns The new set, unchanged once it is full or the copy would be idle.
  */
 export function withIndicatorAdded(
     added: readonly AddedIndicator[],
     indicatorId: string,
     settings: IndicatorSettings,
     tone: PlotTone,
+    isRepeatable = true,
 ): readonly AddedIndicator[] {
-    if (added.length >= MAXIMUM_STORED_INDICATORS) {
+    const isRefused = added.length >= MAXIMUM_STORED_INDICATORS
+        || (!isRepeatable && added.some((entry) => entry.indicatorId === indicatorId));
+    if (isRefused) {
         return added;
     }
     return [...added, {

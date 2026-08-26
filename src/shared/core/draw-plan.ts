@@ -193,6 +193,11 @@ export interface ChoiceParameter {
 
 export type IndicatorParameter = NumericParameter | ChoiceParameter;
 
+/** Anything with knobs a reader can turn, whoever draws it. */
+export interface Tunable {
+    readonly parameters: readonly IndicatorParameter[];
+}
+
 /** Parameter values by name. */
 export type IndicatorSettings = Readonly<Record<string, number | string>>;
 

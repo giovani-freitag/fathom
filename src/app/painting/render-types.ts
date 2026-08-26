@@ -30,9 +30,6 @@ export interface RenderRequest {
     readonly theme: ResolvedTheme;
 }
 
-/**
- * Where each band of the surface starts and ends, resolved once per paint.
- */
 /** Where one pane sits in the stack, in surface pixels. */
 export interface PaneRect {
     readonly topY: number;
@@ -60,9 +57,6 @@ export interface ChartLayout {
 }
 
 /**
- * The shared argument every painter takes.
- */
-/**
  * One indicator pane, and the range of values it was scaled to.
  *
  * Computed once per frame and read by both the layer that draws inside the pane
@@ -77,6 +71,9 @@ export interface PanePlacement {
     readonly levels: readonly PlotLevel[];
 }
 
+/**
+ * The shared argument every painter takes.
+ */
 export interface PaintContext {
     readonly context: CanvasRenderingContext2D;
     readonly layout: ChartLayout;
