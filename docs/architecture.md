@@ -176,6 +176,19 @@ less than it wanted is drawn dashed — because a seeded average looks exactly
 like a settled one. Adding an indicator that reaches further back than the loaded
 window does is a reason to fetch again, not a reason to seed from what is there.
 
+Where a reading has a conventional definition, the definition is what ships.
+Simple and exponential averages, relative strength, the Bollinger channel and
+the true range are each checked against a transcription of the published formula
+and agree with it to floating-point precision — the seed included, which is the
+part implementations usually differ on and the part a reader comparing two
+screens sees first. An exponential average is seeded with the simple mean of its
+first period, not with its first bar; Wilder's smoothing is seeded the same way.
+
+Anything read off one figure per bar takes that figure as a parameter: the
+close, one of the other three corners, or one of the conventional blends of
+them. Everything else — the channel of extremes, the range of a bar, where a
+close sits inside a range — reads the bar's own extent and has no such choice.
+
 Every indicator restarts at a break in the recording rather than carrying state
 across it. Smoothing through unrecorded time invents a trend, and once it is a
 line on a screen it is indistinguishable from a real one. The rule is testable
@@ -212,7 +225,9 @@ something about the reading and is left alone.
 
 The legend sits at the top of the band its indicator is drawn in, carries the
 parameters it was run with and what each of its series reads under the pointer,
-and holds the controls that retune or remove it. At rest it reads the newest bar
+and holds the controls that hide, retune or remove it. Hiding is distinct from
+removing: the parameters survive, and a band nobody is reading stops taking room
+from the price rather than sitting there empty. At rest it reads the newest bar
 rather than emptying, which is both what a chart should say when nobody is
 pointing at it and what stops the row changing width under the hand reaching for
 its controls.
