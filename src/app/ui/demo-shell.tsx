@@ -71,6 +71,7 @@ export function DemoShell({ factory, storage, appearanceHost, build }: DemoShell
             wasCancelled = true;
             container.collector.stop();
             container.database.close();
+            container.chart.dispose();
             container.appearance.dispose();
         };
     }, [container]);

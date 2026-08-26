@@ -27,6 +27,7 @@ describe('DemoShell', () => {
         const container = {
             database: { open: openDatabase, close: vi.fn() },
             collector: { start: vi.fn(), stop: vi.fn() },
+            chart: { dispose: vi.fn() },
             api: { fetchInstruments },
             appearance: {
                 // One object, handed back every read: `useSyncExternalStore`

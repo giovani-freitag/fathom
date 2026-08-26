@@ -8,6 +8,8 @@ import {
     INSTRUMENT,
 } from '../../mocks/chart-services.ts';
 
+import { buildBar, buildWindow as buildBarWindow } from '../../mocks/price-bars.ts';
+
 const SURFACE_WIDTH = 1_000;
 
 function buildController(mocks = createChartServiceMocks()): ChartController {
@@ -427,5 +429,25 @@ describe('ChartController.refreshInstruments', () => {
 
         // A failed refresh must not replace a working screen with an error.
         expect(controller.store.read().instruments).toBe(before);
+    });
+});
+
+describe('ChartController readiness', () => {
+    it('is ready on bars alone, because a chart may load no book at all', async () => {
+        // Which body of data is fetched depends on what is on the chart. Read
+        // off the book, a candles-only chart looks like a contract nobody ever
+        // recorded.
+        const mocks = createChartServiceMocks({
+            addedIndicators: [
+                { instanceId: 'candles-1', indicatorId: 'candles', settings: {}, tone: 'muted' },
+            ],
+        });
+        mocks.fetchPriceBars.mockResolvedValue(buildBarWindow([buildBar(1_500_000, 79_000)]));
+        const controller = buildController(mocks);
+
+        await controller.initialize();
+
+        expect(controller.store.read().phase).toBe('ready');
+        expect(mocks.fetchFrameWindow).not.toHaveBeenCalled();
     });
 });

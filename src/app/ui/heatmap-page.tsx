@@ -38,11 +38,11 @@ export function HeatmapPage(): ReactElement {
         setIsDrawerOpen(true);
     }, []);
 
+    // Started, never torn down: the chart outlives this page. Whoever built the
+    // container owns its lifetime, and a page that disposed it would leave a
+    // dead controller behind for the next mount to draw nothing from.
     useEffect(() => {
         void kernel.chart.initialize();
-        return () => {
-            kernel.chart.dispose();
-        };
     }, [kernel]);
 
     const handleSpanSelect = useCallback((spanMs: number) => {

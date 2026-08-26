@@ -41,7 +41,6 @@ import {
     resolveRequiredWarmupBars,
 } from '../indicators/indicator-catalogue.ts';
 import { resolveFieldSettings } from '../indicators/field-layers.ts';
-import { VOLUME } from '../indicators/volume.ts';
 import { type AddedIndicator, resolveBandKey } from '../../shared/core/indicator-selection.ts';
 import { isPlanWithinBudget, recolourPlan } from '../../shared/core/draw-plan.ts';
 
@@ -73,8 +72,6 @@ export interface ChartState {
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
     /** Whether the book's own traded volume is drawn, and how. */
-    readonly isBookVolumeVisible: boolean;
-    readonly bookVolumeMode: string;
     readonly addedIndicators: readonly AddedIndicator[];
     /** What the indicators produced for the window on screen. */
     readonly plans: readonly DrawPlan[];
@@ -106,6 +103,7 @@ export class ChartController {
     private surfaceWidthPx = 800;
     private needsPriceFraming = true;
     private wasDisposed = false;
+    private wasInitialised = false;
     private coverageTimer: ReturnType<typeof setInterval> | null = null;
 
     constructor(config: ChartControllerConfig) {
@@ -148,6 +146,13 @@ export class ChartController {
     }
 
     async initialize(): Promise<void> {
+        // A mount that runs its effects twice must not open a second live tail
+        // or refetch the window it already has.
+        if (this.wasInitialised) {
+            return;
+        }
+        this.wasInitialised = true;
+
         try {
             const instruments = await this.config.api.fetchInstruments();
             const preferred = this.choosePreferredInstrument(instruments);
@@ -287,36 +292,9 @@ export class ChartController {
             }
         }
 
-        const bookVolume = this.computeBookVolume(state);
-        if (bookVolume !== null) {
-            plans.push(bookVolume);
-        }
         return plans;
     }
 
-    /**
-     * The volume the recorded book traded, where the reader asked for it.
-     *
-     * Produced from the book's own settings rather than from an entry of its
-     * own: how much changed hands is the recording seen another way, and it is
-     * turned on in the same card the recording is.
-     */
-    private computeBookVolume(state: ChartState): DrawPlan | null {
-        const book = state.addedIndicators.find((entry) => entry.indicatorId === 'depth');
-        if (book === undefined || !state.isBookVolumeVisible) {
-            return null;
-        }
-
-        const plan = VOLUME.compute({
-            bars: state.dataset.bars,
-            warmupBarCount: state.dataset.bars.warmupBarsReturned,
-            settings: { mode: state.bookVolumeMode },
-        });
-        const instanceId = `${book.instanceId}-volume`;
-        return isPlanWithinBudget(plan)
-            ? { ...plan, instanceId, bandKey: instanceId, tuning: state.bookVolumeMode }
-            : null;
-    }
 
     /**
      * Revises the set of indicators on the chart.
@@ -427,7 +405,7 @@ export class ChartController {
             const next = {
                 ...current,
                 isLoadingWindow: false,
-                phase: (dataset.frames.length === 0 ? 'empty' : 'ready') as ChartPhase,
+                phase: (hasAnything(dataset) ? 'ready' : 'empty') as ChartPhase,
                 failureKey: null,
                 dataset,
                 viewport: this.framePriceRange(current.viewport, dataset),
@@ -507,7 +485,7 @@ export class ChartController {
      * Frames the price axis on what is being drawn, once per instrument.
      */
     private framePriceRange(viewport: ChartViewport, dataset: ChartDataset): ChartViewport {
-        if (!this.needsPriceFraming || dataset.frames.length === 0) {
+        if (!this.needsPriceFraming || !hasAnything(dataset)) {
             return viewport;
         }
         this.needsPriceFraming = false;
@@ -534,7 +512,7 @@ export class ChartController {
         const failureKey = resolveFailureKey(error);
         this.store.update((state) => ({
             ...state,
-            phase: state.dataset.frames.length > 0 ? state.phase : 'failed',
+            phase: hasAnything(state.dataset) ? state.phase : 'failed',
             isLoadingWindow: false,
             failureKey,
         }));
@@ -569,10 +547,21 @@ function resolveWindowSources(state: ChartState): readonly WindowSource[] {
     if (state.isDepthVisible) {
         sources.push('frames');
     }
-    if (state.isTradeOverlayVisible || state.isVolumeProfileVisible || state.isBookVolumeVisible) {
+    if (state.isTradeOverlayVisible || state.isVolumeProfileVisible) {
         sources.push('trades');
     }
     return sources;
+}
+
+/**
+ * Whether the window holds anything to draw.
+ *
+ * Counted across both, because which of them was fetched depends on what is on
+ * the chart: a chart showing candles alone loads no book at all, and reading
+ * emptiness off the book would tell it nothing was ever recorded.
+ */
+function hasAnything(dataset: ChartDataset): boolean {
+    return dataset.frames.length > 0 || dataset.bars.bars.length > 0;
 }
 
 function buildInitialState(preferences: ViewerPreferences): ChartState {
