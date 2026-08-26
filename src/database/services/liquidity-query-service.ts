@@ -1,4 +1,5 @@
 import type { InstrumentCoverage, TradeClusterQuery, WindowQuery } from '../../shared/core/api-contract.ts';
+import { BAR_BUDGET, type PriceBar, type PriceBarQuery, type PriceBarWindow } from '../../shared/core/price-bar.ts';
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeClusterWindow } from '../../shared/core/trade-cluster.ts';
@@ -114,10 +115,14 @@ export class LiquidityQueryService {
         );
 
         // One range scan that keeps the first frame of each probe bucket. The
-        // shape matters more than it looks: a lateral probe per bucket costs
-        // 0.018 ms on a row chunk but has to decompress a whole batch to answer
-        // on a columnstore one, which turned an hour of two-day-old history into
-        // a seven-second read. Scanning once is 47 ms on either kind.
+        // shape matters more than it looks: a lateral probe per bucket is quick
+        // on a row chunk but has to decompress a whole batch to answer on a
+        // columnstore one, which turned an hour of two-day-old history into a
+        // seven-second read.
+        //
+        // This projection names the depth arrays, so it pays for them on either
+        // kind of chunk. A projection that does not — the price bars below — is
+        // the opposite case: on a columnstore chunk it never fetches them.
         const rows = await this.postgres.selectRows<LiquidityFrameRow>(
             `SELECT DISTINCT ON (time_bucket(make_interval(secs => $4), captured_at))
                  ${FRAME_COLUMNS}
@@ -236,6 +241,62 @@ export class LiquidityQueryService {
         return rows.map(toRecordingGap);
     }
 
+    /**
+     * Open-high-low-close bars of the book mid, on a declared interval.
+     *
+     * @param query - The instrument, the range, the interval, and the warm-up.
+     * @returns The bars, oldest first, warm-up included at the front.
+     * @throws Error when the instrument has never been recorded.
+     */
+    async fetchPriceBars(query: PriceBarQuery): Promise<PriceBarWindow> {
+        const grid = await this.resolveInstrumentGrid(query.symbol);
+        const intervalMs = Math.max(grid.frameIntervalMs, Math.floor(query.intervalMs));
+        const warmupBars = Math.max(0, Math.floor(query.warmupBars));
+
+        // Snapped outward to bucket edges, so a bar keeps its shape however the
+        // range that asked for it was rounded. A bucket the range cut in half
+        // would otherwise arrive with a different high than the same bucket
+        // fetched a second later.
+        const fromMs = alignDown(query.fromMs, intervalMs) - warmupBars * intervalMs;
+        const toMs = alignUp(query.toMs, intervalMs);
+
+        const rows = await this.postgres.selectRows<PriceBarRow>(
+            `SELECT time_bucket(make_interval(secs => $4), captured_at)     AS bucket_start,
+                    first(mid_price, captured_at)                          AS open_price,
+                    max(mid_price)                                         AS high_price,
+                    min(mid_price)                                         AS low_price,
+                    last(mid_price, captured_at)                           AS close_price,
+                    count(*)::int                                          AS frame_count,
+                    min(captured_at)                                       AS first_frame_at,
+                    max(captured_at)                                       AS last_frame_at
+             FROM (
+                 SELECT captured_at,
+                        (best_bid_price + best_ask_price) / 2 AS mid_price
+                 FROM liquidity_frame
+                 WHERE instrument_symbol = $1
+                   AND captured_at >= $2::timestamptz
+                   AND captured_at < $3::timestamptz
+             ) narrow
+             GROUP BY 1
+             ORDER BY 1
+             LIMIT ${BAR_BUDGET.maximumBars}`,
+            [query.symbol, new Date(fromMs), new Date(toMs), intervalMs / MILLISECONDS_PER_SECOND],
+        );
+
+        const expectedFrames = Math.max(1, Math.round(intervalMs / grid.frameIntervalMs));
+        const closedBeforeMs = Date.now() - intervalMs;
+        const bars = rows.map((row) => toPriceBar(row, intervalMs, expectedFrames, closedBeforeMs));
+        const drawnFromMs = alignDown(query.fromMs, intervalMs);
+
+        return {
+            instrumentSymbol: query.symbol,
+            intervalMs,
+            warmupBarsRequested: warmupBars,
+            warmupBarsReturned: bars.filter((bar) => bar.openedAtMs < drawnFromMs).length,
+            bars,
+        };
+    }
+
     private async resolveInstrumentGrid(instrumentSymbol: string): Promise<InstrumentGrid> {
         const rows = await this.postgres.selectRows<{
             price_bucket_size: number;
@@ -271,4 +332,45 @@ function selectTradeSource(sampleIntervalMs: number): TradeSource {
         }
     }
     return selected;
+}
+
+interface PriceBarRow {
+    readonly bucket_start: Date;
+    readonly open_price: number;
+    readonly high_price: number;
+    readonly low_price: number;
+    readonly close_price: number;
+    readonly frame_count: number;
+    readonly first_frame_at: Date;
+    readonly last_frame_at: Date;
+}
+
+function alignDown(instantMs: number, intervalMs: number): number {
+    return Math.floor(instantMs / intervalMs) * intervalMs;
+}
+
+function alignUp(instantMs: number, intervalMs: number): number {
+    return Math.ceil(instantMs / intervalMs) * intervalMs;
+}
+
+function toPriceBar(
+    row: PriceBarRow,
+    intervalMs: number,
+    expectedFrames: number,
+    closedBeforeMs: number,
+): PriceBar {
+    const openedAtMs = row.bucket_start.getTime();
+    return {
+        openedAtMs,
+        closedAtMs: openedAtMs + intervalMs,
+        openPrice: row.open_price,
+        highPrice: row.high_price,
+        lowPrice: row.low_price,
+        closePrice: row.close_price,
+        expectedFrames,
+        frameCount: row.frame_count,
+        isClosed: openedAtMs <= closedBeforeMs,
+        firstFrameAtMs: row.first_frame_at.getTime(),
+        lastFrameAtMs: row.last_frame_at.getTime(),
+    };
 }

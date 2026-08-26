@@ -5,6 +5,7 @@ export const API_ROUTES = {
     health: '/api/health',
     instruments: '/api/instruments',
     heatmap: '/api/heatmap',
+    bars: '/api/bars',
     tradeClusters: '/api/trade-clusters',
     gaps: '/api/gaps',
     live: '/api/live',

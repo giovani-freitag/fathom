@@ -17,6 +17,7 @@ import { resolve } from 'node:path';
 import { AccessGuard } from '../services/access-guard.ts';
 import { REQUEST_BUDGET } from '../core/gateway-configuration.ts';
 import type { LiveTailService } from '../services/live-tail-service.ts';
+import { createBarsHandler } from './actions/bars-action.ts';
 import { createGapsHandler } from './actions/gaps-action.ts';
 import { createHealthHandler } from './actions/health-action.ts';
 import { createHeatmapHandler } from './actions/heatmap-action.ts';
@@ -28,6 +29,7 @@ import {
 } from './actions/recording-action.ts';
 import { createLiveHandler } from './actions/live-action.ts';
 import { createTradeClustersHandler } from './actions/trade-clusters-action.ts';
+import { BarsRouteSchema } from './schemas/bars-schema.ts';
 import { GapsRouteSchema } from './schemas/gaps-schema.ts';
 import { HealthRouteSchema } from './schemas/health-schema.ts';
 import { HeatmapRouteSchema } from './schemas/heatmap-schema.ts';
@@ -167,6 +169,7 @@ export class Server {
         const heatmapHandler = createHeatmapHandler({ query: this.config.query });
         const tradeClustersHandler = createTradeClustersHandler({ query: this.config.query });
         const gapsHandler = createGapsHandler({ query: this.config.query });
+        const barsHandler = createBarsHandler({ query: this.config.query });
         const liveHandler = createLiveHandler({
             liveTail: this.config.liveTail,
             query: this.config.query,
@@ -180,6 +183,7 @@ export class Server {
         instance.get(API_ROUTES.heatmap, { schema: HeatmapRouteSchema }, heatmapHandler);
         instance.get(API_ROUTES.tradeClusters, { schema: TradeClustersRouteSchema }, tradeClustersHandler);
         instance.get(API_ROUTES.gaps, { schema: GapsRouteSchema }, gapsHandler);
+        instance.get(API_ROUTES.bars, { schema: BarsRouteSchema }, barsHandler);
         instance.get(API_ROUTES.live, { websocket: true, schema: LiveRouteSchema }, liveHandler);
     }
 }

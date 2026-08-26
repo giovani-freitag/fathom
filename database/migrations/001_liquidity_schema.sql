@@ -85,8 +85,10 @@ ALTER TABLE trade_cluster SET (
 );
 
 -- Two days of row storage keeps the write path and any recent-history query on
--- uncompressed chunks; everything older converts to columnar, where the mostly
--- empty depth arrays collapse by more than an order of magnitude.
+-- uncompressed chunks; everything older converts to columnar, which measures
+-- around four times smaller on the depth arrays. The larger win is not the size:
+-- in columnar form each column is stored apart, so a query that names only the
+-- price columns never fetches the arrays at all.
 CALL add_columnstore_policy('liquidity_frame', after => INTERVAL '2 days', if_not_exists => TRUE);
 CALL add_columnstore_policy('trade_cluster', after => INTERVAL '2 days', if_not_exists => TRUE);
 
