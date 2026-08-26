@@ -62,7 +62,7 @@ export default tseslint.config(
     {
         // Neither the configs nor the build scripts belong to a tsconfig, so
         // the type-aware rules have no program to ask about them.
-        files: ['*.config.{js,ts}', 'eslint.config.js', 'scripts/**/*.mjs'],
+        files: ['*.config.{js,ts}', 'eslint.config.js', 'scripts/**/*.{ts,mjs}'],
         // Spread first: this preset carries its own `languageOptions`, and a
         // block declared above it would be the one that gets overwritten.
         ...tseslint.configs.disableTypeChecked,

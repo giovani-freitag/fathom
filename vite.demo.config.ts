@@ -1,6 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { readReleaseDefines } from './scripts/release-notes.ts';
 
 /**
  * Where the demo will be served from.
@@ -21,6 +22,8 @@ export default defineConfig({
     publicDir: '../public',
     base: BASE_PATH,
     plugins: [react(), tailwindcss()],
+    // Read at build time: the page is static, so there is nothing to ask later.
+    define: readReleaseDefines(),
     build: {
         outDir: '../dist/demo',
         emptyOutDir: true,

@@ -90,6 +90,10 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'settings.perRow': '{value} por linha',
     'settings.columnsLoaded': 'Colunas carregadas',
     'settings.gapsInWindow': 'Lacunas na janela',
+    'about.whatsNew': 'Novidades',
+    'about.releasedOn': 'Publicado em {date}',
+    'about.unreleased': 'Compilado a partir da árvore de trabalho',
+
     'settings.backfillNote': 'Janelas maiores que o tempo já gravado ficam desabilitadas. O gráfico só cobre o período em que a gravação esteve ligada — um livro de ofertas não pode ser recuperado depois.',
 
     'recording.reading': 'Lendo o que está sendo gravado…',

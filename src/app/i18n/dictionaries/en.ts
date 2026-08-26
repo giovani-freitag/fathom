@@ -88,6 +88,10 @@ export const EN_DICTIONARY = {
     'settings.perRow': '{value} per row',
     'settings.columnsLoaded': 'Columns loaded',
     'settings.gapsInWindow': 'Gaps in window',
+    'about.whatsNew': 'What’s new',
+    'about.releasedOn': 'Released {date}',
+    'about.unreleased': 'Built from the working tree',
+
     'settings.backfillNote': 'Windows longer than what has been recorded are disabled. The chart only covers the time recording was on — an order book cannot be recovered after the fact.',
 
     'recording.reading': 'Reading what is being recorded…',

@@ -5,6 +5,7 @@ import { resolveRecordedSpanMs } from '../core/viewport-policy.ts';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { Dialog, Slider, Switch } from 'radix-ui';
 import type { ReactElement } from 'react';
+import { AboutPanel } from './about-panel.tsx';
 import { AppearanceControls } from './appearance-controls.tsx';
 import { ControlButton } from './control-button.tsx';
 import type { RecordingControl } from '../../shared/core/recording-control.ts';
@@ -225,6 +226,8 @@ export function SettingsDrawer({ state, onChange, recording, onContractsChanged 
                         <p className="text-[11px] leading-relaxed text-ink-500">
                             {translate('settings.backfillNote')}
                         </p>
+
+                        <AboutPanel translate={translate} />
                     </div>
                 </Dialog.Content>
             </Dialog.Portal>
