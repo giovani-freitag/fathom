@@ -18,7 +18,7 @@ import type { PriceBar } from '../../shared/core/price-bar.ts';
  * recording seen another way, so it is tuned where the recording is.
  */
 const MODE: ChoiceParameter = {
-    name: 'mode',
+    name: 'volumeMode',
     kind: 'choice',
     defaultValue: 'total',
     choices: ['total', 'sides'],
@@ -41,6 +41,13 @@ export class Volume implements Indicator {
      * only some of the floor it was not reading anyway.
      */
     readonly scale: PlotScale = { kind: 'overlay', heightRatio: 0.2 };
+    /**
+     * Green and red here mean the bar rose or fell.
+     *
+     * Painting a copy in the colour it is identified by would say something
+     * untrue about the bars, so no copy of this is tinted.
+     */
+    readonly isSelfColoured = true;
     readonly parameters: readonly IndicatorParameter[] = [MODE];
 
     /**
@@ -73,6 +80,7 @@ export class Volume implements Indicator {
             // on nought and given a band: two directions need room, and a strip
             // along the floor has none to give.
             scale: isSplit ? { kind: 'symmetric' } : this.scale,
+            isSelfColoured: this.isSelfColoured,
             series: isSplit ? buildSplit(bars, atMs) : buildTotal(bars, atMs),
             levels: isSplit ? [{ value: 0, tone: 'muted' }] : [],
             // Nothing is carried between bars, so there is nothing to converge.

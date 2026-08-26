@@ -1,9 +1,7 @@
 import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
 import {
-    type ChoiceParameter,
     type IndicatorParameter,
     type NumericParameter,
-    readChoice,
     readSetting,
     readToggle,
     type ToggleParameter,
@@ -58,23 +56,17 @@ const SATURATION_PERCENTILE: NumericParameter = {
 
 const SHOW_EXECUTIONS: ToggleParameter = { name: 'showExecutions', kind: 'toggle', defaultValue: true };
 const SHOW_PROFILE: ToggleParameter = { name: 'showProfile', kind: 'toggle', defaultValue: true };
-const SHOW_VOLUME: ToggleParameter = { name: 'showVolume', kind: 'toggle', defaultValue: false };
-
-const VOLUME_MODE: ChoiceParameter = {
-    name: 'volumeMode',
-    kind: 'choice',
-    defaultValue: 'total',
-    choices: ['total', 'sides'],
-};
-
 /**
  * The layers the chart can draw from the recording itself.
  *
  * Two, not five. Everything that reads the recorded book — the executions that
- * crossed it, how much of them there was, where in the price they landed — is
- * the book seen another way, and belongs with it rather than beside it. What
- * feeds it belongs there too: which contracts are written and how much room
- * they may take.
+ * crossed it, where in the price they landed — is the book seen another way,
+ * and belongs with it rather than beside it. What feeds it belongs there too:
+ * which contracts are written and how much room they may take.
+ *
+ * How much traded does not, though it was recorded alongside: a bar carries its
+ * own volume, so it is drawn from the bars the candles are drawn from and needs
+ * no book at all.
  *
  * The candles stay apart because they are the price, and a chart of the price
  * with nothing else on it is a thing somebody wants.
@@ -89,8 +81,6 @@ export const FIELD_LAYERS: readonly FieldLayer[] = [
             SATURATION_PERCENTILE,
             SHOW_EXECUTIONS,
             SHOW_PROFILE,
-            SHOW_VOLUME,
-            VOLUME_MODE,
         ],
     },
     { id: 'candles', labelKey: 'layer.candles', parameters: [] },
@@ -102,8 +92,6 @@ export interface FieldSettings {
     readonly isCandleOverlayVisible: boolean;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
-    readonly isBookVolumeVisible: boolean;
-    readonly bookVolumeMode: string;
     readonly colourGain: number;
     readonly depthFloorPercentile: number;
     readonly depthSaturationPercentile: number;
@@ -132,8 +120,6 @@ export function resolveFieldSettings(added: readonly AddedIndicator[]): FieldSet
         // read from is, because it is the same layer seen another way.
         isTradeOverlayVisible: depth !== undefined && readToggle(book, SHOW_EXECUTIONS),
         isVolumeProfileVisible: depth !== undefined && readToggle(book, SHOW_PROFILE),
-        isBookVolumeVisible: depth !== undefined && readToggle(book, SHOW_VOLUME),
-        bookVolumeMode: readChoice(book, VOLUME_MODE),
         colourGain: readSetting(book, COLOUR_GAIN),
         depthFloorPercentile: readSetting(book, FLOOR_PERCENTILE),
         depthSaturationPercentile: readSetting(book, SATURATION_PERCENTILE),

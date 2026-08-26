@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { readValueAt } from '../../../src/shared/core/draw-plan.ts';
-import type { PlotSeries } from '../../../src/shared/core/draw-plan.ts';
+import { readValueAt, recolourPlan } from '../../../src/shared/core/draw-plan.ts';
+import type { DrawPlan, PlotSeries } from '../../../src/shared/core/draw-plan.ts';
 
 function buildSeries(atMs: readonly number[], value: readonly number[]): PlotSeries {
     return {
@@ -38,5 +38,28 @@ describe('readValueAt', () => {
         const series = buildSeries([1_000, 2_000, 3_000], [10, Number.NaN, 30]);
 
         expect(readValueAt(series, 2_500)).toBeNaN();
+    });
+});
+
+describe('recolourPlan on a plan that colours itself', () => {
+    it('leaves a reading that is told by its colour alone', () => {
+        // Volume is green because the bar rose. Painted in the colour the copy
+        // is identified by, the chart would be claiming every bar rose.
+        const plan: DrawPlan = {
+            indicatorId: 'volume',
+            labelKey: 'indicator.volume',
+            parameterSummary: '',
+            scale: { kind: 'overlay', heightRatio: 0.2 },
+            isSelfColoured: true,
+            series: [
+                { labelKey: 'a', tone: 'bid', shape: 'histogram', baseline: 0, atMs: Float64Array.from([1]), value: Float64Array.from([2]) },
+                { labelKey: 'b', tone: 'ask', shape: 'histogram', baseline: 0, atMs: Float64Array.from([1]), value: Float64Array.from([3]) },
+            ],
+            hasConverged: true,
+        };
+
+        const recoloured = recolourPlan(plan, 'muted');
+
+        expect(recoloured.series.map((series) => series.tone)).toEqual(['bid', 'ask']);
     });
 });

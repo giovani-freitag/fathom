@@ -166,11 +166,20 @@ as a set.
 
 They are now members of the same list, and the list is short, because most of
 what looked like separate layers was the book seen another way. The executions
-that crossed it, how much of them there was, and where in the price they landed
-are all read from the same recording, so they are switches on the book rather
-than rows beside it. What feeds it sits there too: which contracts are written
-and how much room they may take. The collector is the book's instrument, not a
-requirement of the product, and its controls belong with the thing it serves.
+that crossed it and where in the price they landed are read from the same
+recording, so they are switches on the book rather than rows beside it. What
+feeds it sits there too: which contracts are written and how much room they may
+take. The collector is the book's instrument, not a requirement of the product,
+and its controls belong with the thing it serves.
+
+How much traded is not one of them, though it was recorded alongside. A bar
+carries its own volume, so it is drawn from the bars the candles are drawn from
+and needs no book at all: it is an indicator like any other, and it survives a
+chart the book has been taken off.
+
+A chart opens on the book, the candles and the volume, because a chart that
+opens on less than the price and what traded in it asks the reader to assemble
+the ordinary case by hand before they can read anything.
 
 Hiding the book leaves a plain candle chart, which is a thing somebody might
 genuinely want. Removing it is not offered: a control that went away with its
@@ -227,6 +236,11 @@ with a scan of its own: the two are stored apart and rolled up apart, and a join
 would tie each to whichever grid the other happened to need. A bucket the book
 was recorded through with nobody trading counts as nothing traded, which is a
 different fact from a bucket that was never recorded.
+
+Volume is drawn green or red by whether its bar rose or fell, and that holds
+whichever copy of the reading it is: a plan may declare that its colours are a
+reading rather than an identity, and the host then leaves them alone and offers
+no colour to pick.
 
 Knowing the side is what the archive has that a tape of prints does not, so
 volume is offered both ways: the total, which is what a reader expects to see,

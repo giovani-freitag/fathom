@@ -149,6 +149,14 @@ export interface DrawPlan {
     /** The parameters that produced it, as the legend shows them. */
     readonly parameterSummary: string;
     readonly scale: PlotScale;
+    /**
+     * Whether the plan's own colours carry a reading rather than an identity.
+     *
+     * Volume is drawn green and red because the bar rose or fell, not because
+     * it is the first copy on the chart. Painting such a plan in the colour a
+     * copy is identified by would say something untrue about the data.
+     */
+    readonly isSelfColoured?: boolean;
     readonly series: readonly PlotSeries[];
     readonly bands?: readonly PlotBand[];
     readonly levels?: readonly PlotLevel[];
@@ -228,6 +236,8 @@ export interface Indicator {
     readonly id: string;
     readonly labelKey: string;
     readonly scale: PlotScale;
+    /** Whether what it draws is told by its colour, so a copy cannot be tinted. */
+    readonly isSelfColoured?: boolean;
     readonly parameters: readonly IndicatorParameter[];
     /** Bars it needs before the drawn window for its output to have converged. */
     resolveWarmupBars(settings: IndicatorSettings): number;
@@ -323,8 +333,9 @@ function resolveOwnTone(plan: DrawPlan): PlotTone | undefined {
 /**
  * Recolours a plan to the tone its copy was given.
  *
- * Only what was drawn in the indicator's own colour moves. A tone the author
- * chose to differ — a dashed midline, a signal line, the shading of a band —
+ * A plan that says its colours are a reading is left alone. Otherwise only what
+ * was drawn in the indicator's own colour moves: a tone the author chose to
+ * differ — a dashed midline, a signal line, the shading of a band —
  * is an accent that says something about the reading, and flattening those into
  * one colour would lose what the author was distinguishing.
  *
@@ -333,6 +344,10 @@ function resolveOwnTone(plan: DrawPlan): PlotTone | undefined {
  * @returns The plan, with its own colour replaced.
  */
 export function recolourPlan(plan: DrawPlan, tone: PlotTone): DrawPlan {
+    if (plan.isSelfColoured === true) {
+        return plan;
+    }
+
     const own = resolveOwnTone(plan);
     if (own === undefined || own === tone) {
         return plan;

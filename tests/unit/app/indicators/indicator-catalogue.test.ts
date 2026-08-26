@@ -131,22 +131,28 @@ describe('what a reader can put on the chart', () => {
     });
 
     it('carries every reading of the book on the book itself', () => {
-        // Executions, the profile and the traded volume are the recording seen
-        // other ways. They are switches on the layer that draws it, not rows of
-        // their own beside it.
+        // Executions and the profile are the recording seen other ways. They are
+        // switches on the layer that draws it, not rows of their own beside it.
         const settings = resolveFieldSettings([
             {
                 instanceId: 'depth-1',
                 indicatorId: 'depth',
-                settings: { showExecutions: false, showProfile: true, showVolume: true, volumeMode: 'sides' },
+                settings: { showExecutions: false, showProfile: true },
                 tone: 'muted',
             },
         ]);
 
         expect(settings.isTradeOverlayVisible).toBe(false);
         expect(settings.isVolumeProfileVisible).toBe(true);
-        expect(settings.isBookVolumeVisible).toBe(true);
-        expect(settings.bookVolumeMode).toBe('sides');
+    });
+
+    it('leaves how much traded off the book, since a bar carries its own', () => {
+        // Volume is drawn from the bars the candles are drawn from, so it is an
+        // indicator of its own and survives a chart with no book on it.
+        const book = CHART_LAYERS.find((layer) => layer.id === 'depth');
+
+        expect(book?.parameters.map((parameter) => parameter.name)).not.toContain('showVolume');
+        expect(INDICATOR_CATALOGUE.map((indicator) => indicator.id)).toContain('volume');
     });
 
     it('draws none of them once the book itself is not drawn', () => {
@@ -158,7 +164,6 @@ describe('what a reader can put on the chart', () => {
 
         expect(settings.isTradeOverlayVisible).toBe(false);
         expect(settings.isVolumeProfileVisible).toBe(false);
-        expect(settings.isBookVolumeVisible).toBe(false);
     });
 
     it('stops drawing a layer that is hidden, and keeps how it was tuned', () => {

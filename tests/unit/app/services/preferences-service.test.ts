@@ -102,12 +102,50 @@ describe('PreferencesService indicators', () => {
 
     it('opens a new chart on everything it can draw', () => {
         // Nothing stored at all. The chart a reader has never touched shows the
-        // book, the candles, what traded and where it traded.
+        // book, the candles, how much traded and where it traded.
         const service = new PreferencesService({ storage: buildStorage(undefined) });
 
         expect(service.read().addedIndicators).toEqual(DEFAULT_PREFERENCES.addedIndicators);
         expect(DEFAULT_PREFERENCES.addedIndicators.map((entry) => entry.indicatorId))
-            .toEqual(['depth', 'candles']);
+            .toEqual(['depth', 'candles', 'volume']);
+    });
+
+    it('carries a reader whose volume was a switch inside the book', () => {
+        // How much traded is drawn from the bars, so it never needed the book.
+        // A reader who had it on keeps it, as the entry of its own it becomes.
+        const service = new PreferencesService({
+            storage: buildStorage({
+                schemaVersion: 3,
+                addedIndicators: [{
+                    instanceId: 'depth-1',
+                    indicatorId: 'depth',
+                    settings: { showVolume: true, volumeMode: 'sides' },
+                    tone: 'muted',
+                }],
+            }),
+        });
+
+        const added = service.read().addedIndicators;
+
+        expect(added.map((entry) => entry.indicatorId)).toEqual(['depth', 'volume']);
+        expect(added[1]?.settings['volumeMode']).toBe('sides');
+        expect(added[0]?.settings['showVolume']).toBeUndefined();
+    });
+
+    it('spends the switch for a reader who had turned the volume off', () => {
+        const service = new PreferencesService({
+            storage: buildStorage({
+                schemaVersion: 3,
+                addedIndicators: [{
+                    instanceId: 'depth-1',
+                    indicatorId: 'depth',
+                    settings: { showVolume: false },
+                    tone: 'muted',
+                }],
+            }),
+        });
+
+        expect(service.read().addedIndicators.map((entry) => entry.indicatorId)).toEqual(['depth']);
     });
 
     it('survives storage holding something that is not JSON', () => {

@@ -5,7 +5,7 @@ import type { ChartState } from '../../core/chart-controller.ts';
 import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts';
 import { readSetting, type Tunable } from '../../../shared/core/draw-plan.ts';
 import { BookPanel } from './book-panel.tsx';
-import { findChartLayer } from '../../indicators/indicator-catalogue.ts';
+import { findChartLayer, findIndicator } from '../../indicators/indicator-catalogue.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
 import { IndicatorParameters } from './indicator-parameters.tsx';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
@@ -74,7 +74,10 @@ function LayerRow({ added, controls, state }: LayerRowProps): ReactElement | nul
     }
 
     const isBook = added.indicatorId === 'depth';
-    const isTinted = findFieldLayer(added.indicatorId) === null;
+    // A layer the host draws, and one whose own colours are a reading, are both
+    // drawn in colours that already mean something.
+    const isTinted = findFieldLayer(added.indicatorId) === null
+        && findIndicator(added.indicatorId)?.isSelfColoured !== true;
     const isHidden = added.isHidden === true;
     // A layer with nothing to tell it has nothing to open onto, and a control
     // that opens onto nothing teaches a reader that opening is not worth it.

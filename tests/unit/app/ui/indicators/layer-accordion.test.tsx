@@ -17,6 +17,9 @@ const STATE = {
 const EMA: AddedIndicator = {
     instanceId: 'ema-1', indicatorId: 'ema', settings: { periodBars: 20 }, tone: 'amber',
 };
+const VOLUME: AddedIndicator = {
+    instanceId: 'volume-1', indicatorId: 'volume', settings: {}, tone: 'phosphor',
+};
 const CANDLES: AddedIndicator = {
     instanceId: 'candles-1', indicatorId: 'candles', settings: {}, tone: 'ink',
 };
@@ -93,5 +96,21 @@ describe('LayerAccordion', () => {
 
         expect(screen.getByRole('slider', { name: 'Intensity' })).toBeDefined();
         expect(screen.getByText('Recorded so far')).toBeDefined();
+    });
+});
+
+describe('a layer whose colours are a reading', () => {
+    it('offers no colour to pick, since picking one would not be honoured', () => {
+        // Volume is green because the bar rose. A swatch that changed nothing on
+        // the chart is a control that lies about what it does.
+        renderAccordion([VOLUME], 'volume-1');
+
+        expect(screen.queryByText('Colour')).toBeNull();
+    });
+
+    it('still offers one to a layer drawn in the colour of its copy', () => {
+        renderAccordion([EMA], 'ema-1');
+
+        expect(screen.queryByText('Colour')).not.toBeNull();
     });
 });

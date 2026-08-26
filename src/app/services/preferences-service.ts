@@ -1,4 +1,5 @@
 import { FIELD_LAYERS } from '../indicators/field-layers.ts';
+import { VOLUME } from '../indicators/volume.ts';
 import { chooseLayerTone, readLayerDefaults } from '../indicators/indicator-catalogue.ts';
 import { PLOT_TONES } from '../../shared/core/draw-plan.ts';
 import {
@@ -13,7 +14,7 @@ import { THEME_CHOICES, type ThemeChoice } from '../core/theme.ts';
 const STORAGE_KEY = 'fathom.preferences.v1';
 
 /** Bumped when a stored document has to be read differently than it was written. */
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 export interface ViewerPreferences {
     readonly schemaVersion: number;
@@ -119,13 +120,68 @@ export class PreferencesService {
 
 /**
  * What a chart shows before anybody has chosen anything.
+ *
+ * The book, the price, and what traded in it: a chart that opens on less than
+ * the price and its volume is asking the reader to assemble the ordinary case
+ * by hand before they can read anything at all.
  */
 function buildDefaultLayers(): readonly AddedIndicator[] {
     let added: readonly AddedIndicator[] = [];
-    for (const layer of FIELD_LAYERS) {
+    for (const layer of [...FIELD_LAYERS, VOLUME]) {
         added = withIndicatorAdded(added, layer.id, readLayerDefaults(layer), chooseLayerTone(layer, added));
     }
     return added;
+}
+
+/**
+ * Carries a document written while how much traded was a switch inside the book.
+ *
+ * A bar carries its own volume, so the reading never needed the book; a reader
+ * who had it on keeps it, as the entry of its own it should always have been.
+ *
+ * @param stored - The set as the document holds it.
+ * @returns The set with the book's volume switch spent.
+ */
+function liftVolumeOutOfTheBook(stored: readonly AddedIndicator[]): readonly AddedIndicator[] {
+    // Nothing here has been validated yet: it is JSON the reader could have
+    // edited, and an entry that is not an object at all reaches this first.
+    const book = stored.find((entry) => isSettled(entry) && entry.indicatorId === 'depth');
+    const carried = stored.map(withoutVolumeSettings);
+    if (book === undefined || book.settings['showVolume'] === false) {
+        return carried;
+    }
+    return withIndicatorAdded(
+        carried,
+        VOLUME.id,
+        { ...readLayerDefaults(VOLUME), volumeMode: String(book.settings['volumeMode'] ?? 'total') },
+        chooseLayerTone(VOLUME, carried),
+    );
+}
+
+const SPENT_BOOK_SETTINGS = ['showVolume', 'volumeMode'];
+
+/**
+ * Whether an entry is shaped enough to read a setting off.
+ *
+ * The declared type is optimistic here: the list is JSON the reader could have
+ * edited, and validation runs after this.
+ */
+function isSettled(entry: AddedIndicator): boolean {
+    const candidate = entry as { settings?: unknown } | null;
+    return candidate !== null
+        && typeof candidate === 'object'
+        && typeof candidate.settings === 'object'
+        && candidate.settings !== null;
+}
+
+function withoutVolumeSettings(entry: AddedIndicator): AddedIndicator {
+    if (!isSettled(entry)) {
+        return entry;
+    }
+    const kept = Object.fromEntries(
+        Object.entries(entry.settings).filter(([name]) => !SPENT_BOOK_SETTINGS.includes(name)),
+    );
+    return { ...entry, settings: kept };
 }
 
 /**
@@ -147,12 +203,15 @@ function migrateLayers(
     if ((raw.schemaVersion ?? 0) >= SCHEMA_VERSION) {
         return merged.addedIndicators;
     }
+    if ((raw.schemaVersion ?? 0) === 3) {
+        return liftVolumeOutOfTheBook(raw.addedIndicators ?? []);
+    }
     if ((raw.schemaVersion ?? 0) === 2) {
-        return foldReadingsIntoTheBook(raw.addedIndicators ?? []);
+        return liftVolumeOutOfTheBook(foldReadingsIntoTheBook(raw.addedIndicators ?? []));
     }
 
     const legacy = raw as Record<string, unknown>;
-    const wanted = FIELD_LAYERS.filter((layer) => legacy[LEGACY_FLAGS[layer.id] ?? ''] !== false);
+    const wanted = [...FIELD_LAYERS, VOLUME].filter((layer) => legacy[LEGACY_FLAGS[layer.id] ?? ''] !== false);
 
     let carried: readonly AddedIndicator[] = [];
     for (const layer of wanted) {

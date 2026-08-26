@@ -8,8 +8,8 @@ const BARS = buildWindow([
     buildBar(60_000, 101, { openPrice: 105, buyVolume: 1, sellVolume: 9, tradeCount: 40 }),
 ]);
 
-function compute(mode: string) {
-    return VOLUME.compute({ bars: BARS, warmupBarCount: 0, settings: { mode } });
+function compute(volumeMode: string) {
+    return VOLUME.compute({ bars: BARS, warmupBarCount: 0, settings: { volumeMode } });
 }
 
 describe('Volume', () => {
