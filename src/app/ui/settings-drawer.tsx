@@ -5,6 +5,7 @@ import type { ReactElement } from 'react';
 import { AboutPanel } from './about-panel.tsx';
 import type { IndicatorControls } from '../react/use-indicators.ts';
 import { LayerAccordion } from './indicators/layer-accordion.tsx';
+import { RecordingPanel } from './recording-panel.tsx';
 import { AppearanceControls } from './appearance-controls.tsx';
 import { ControlButton } from './control-button.tsx';
 import { useAppearance, useTranslate } from '../react/use-appearance.ts';
@@ -44,7 +45,7 @@ export function SettingsDrawer({
             </Dialog.Trigger>
 
             <Dialog.Portal>
-                <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px]" />
+                <Dialog.Overlay className="fixed inset-0 z-40 bg-black/25" />
                 {/*
                     A drawer against the right edge, on every size. It is capped
                     to the viewport and scrolls inside: grown past it, the panel
@@ -78,6 +79,33 @@ export function SettingsDrawer({
                             expanded={expandedLayer}
                             onExpandedChange={onExpandedLayerChange}
                         />
+
+                        {/*
+                            Its own section, present whether or not the book is
+                            being drawn. Kept inside the layer, taking the book
+                            off the chart would take the only control over a
+                            collector that goes on writing to disk — and an
+                            order book that stopped being recorded cannot be
+                            recovered afterwards.
+                        */}
+                        {kernel.recording !== null && (
+                            <>
+                                <span className="block border-t border-hairline pt-5 text-xs text-ink-300">
+                                    {translate('recording.title')}
+                                </span>
+                                <RecordingPanel
+                                    recording={kernel.recording}
+                                    onContractsChanged={() => { void kernel.chart.refreshInstruments(); }}
+                                    translate={translate}
+                                />
+                                <p className="text-[11px] leading-relaxed text-ink-500">
+                                    {translate('settings.recordingIsGlobal')}
+                                </p>
+                                <p className="text-[11px] leading-relaxed text-ink-500">
+                                    {translate('settings.backfillNote')}
+                                </p>
+                            </>
+                        )}
 
                         <span className="block border-t border-hairline pt-5 text-xs text-ink-300">
                             {translate('settings.appearance')}

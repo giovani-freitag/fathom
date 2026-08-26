@@ -1,5 +1,5 @@
 import { type ReactElement, useEffect } from 'react';
-import { findIndicator } from '../../indicators/indicator-catalogue.ts';
+import { findChartLayer } from '../../indicators/indicator-catalogue.ts';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
 import { Undo2 } from 'lucide-react';
 import { useTranslate } from '../../react/use-appearance.ts';
@@ -31,8 +31,8 @@ export function RemovalNotice({ controls }: RemovalNoticeProps): ReactElement | 
         return () => { clearTimeout(timer); };
     }, [removed, forget]);
 
-    const indicator = removed === null ? null : findIndicator(removed.indicatorId);
-    if (removed === null || indicator === null) {
+    const layer = removed === null ? null : findChartLayer(removed.indicatorId);
+    if (removed === null || layer === null) {
         return null;
     }
 
@@ -40,7 +40,7 @@ export function RemovalNotice({ controls }: RemovalNoticeProps): ReactElement | 
         <div className="pointer-events-auto flex items-center gap-3 rounded-md border border-hairline bg-abyss-800/95 px-3 py-2 shadow-lg shadow-black/50 backdrop-blur-sm">
             <span className="text-xs text-ink-300">
                 {translate('indicators.removed', {
-                    name: translateLabel(translate, indicator.labelKey),
+                    name: translateLabel(translate, layer.labelKey),
                 })}
             </span>
             <button

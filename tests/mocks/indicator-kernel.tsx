@@ -40,9 +40,21 @@ export function createIndicatorKernel(added: readonly AddedIndicator[] = []): In
 
     const container = {
         cursor,
-        appearance: { store: { read: () => APPEARANCE, subscribe: () => () => undefined } },
+        recording: {
+            listContracts: () => Promise.resolve([]),
+            readBudget: () => Promise.resolve({ maximumBytes: 10_737_418_240, usedBytes: 0, availableBytes: null }),
+            saveContract: () => Promise.resolve(),
+            setBudget: () => Promise.resolve(),
+            pruneToBudget: () => Promise.resolve(0),
+        },
+        appearance: {
+            store: { read: () => APPEARANCE, subscribe: () => () => undefined },
+            selectLocale: () => undefined,
+            selectTheme: () => undefined,
+        },
         chart: {
             store,
+            refreshInstruments: () => Promise.resolve(),
             updateIndicators: (revise: (current: readonly AddedIndicator[]) => readonly AddedIndicator[]) => {
                 store.update((state) => buildState(revise(state.addedIndicators)));
             },

@@ -1,9 +1,7 @@
 import type { ReactElement } from 'react';
 import type { ChartState } from '../../core/chart-controller.ts';
 import { formatDuration, formatFixed } from '../../core/formatting.ts';
-import { RecordingPanel } from '../recording-panel.tsx';
 import { resolveRecordedSpanMs } from '../../core/viewport-policy.ts';
-import { useKernel } from '../../react/kernel-context.ts';
 import { useTranslate } from '../../react/use-appearance.ts';
 
 interface BookPanelProps {
@@ -11,15 +9,18 @@ interface BookPanelProps {
 }
 
 /**
- * What the book is made of, and what is making it.
+ * What the book being drawn is made of.
  *
- * Everything here describes one thing: how far back the recording goes, the
- * grid it was written on, where it has holes, and which contracts are still
- * being written. They were spread between a drawer and a chart, and they are
- * all the same answer to what the depth map is showing.
+ * How far back it goes, the grid it was written on, how much of it is loaded
+ * and where it has holes. All of it answers one question — what am I looking
+ * at — which is why it sits with the layer that draws it rather than in a
+ * drawer of its own.
+ *
+ * What is deliberately not here is the recording. That belongs to the machine
+ * and outlives any layer: put here, taking the book off the chart would take
+ * the only control over a collector that keeps writing to disk.
  */
 export function BookPanel({ state }: BookPanelProps): ReactElement {
-    const kernel = useKernel();
     const translate = useTranslate();
 
     return (
@@ -43,26 +44,6 @@ export function BookPanel({ state }: BookPanelProps): ReactElement {
                 <dd className="numeric text-right text-ink-300">{formatFixed(state.dataset.gaps.length, 0)}</dd>
             </dl>
 
-            {kernel.recording === null ? null : (
-                <RecordingPanel
-                    recording={kernel.recording}
-                    onContractsChanged={() => { void kernel.chart.refreshInstruments(); }}
-                    translate={translate}
-                />
-            )}
-
-            {/*
-                Recording is the machine's, not this chart's. Taking the book off
-                the chart stops drawing it and nothing else — and it matters that
-                nobody reads it the other way, because a book that stopped being
-                recorded cannot be recovered afterwards.
-            */}
-            <p className="text-[11px] leading-relaxed text-ink-500">
-                {translate('settings.recordingIsGlobal')}
-            </p>
-            <p className="text-[11px] leading-relaxed text-ink-500">
-                {translate('settings.backfillNote')}
-            </p>
         </div>
     );
 }

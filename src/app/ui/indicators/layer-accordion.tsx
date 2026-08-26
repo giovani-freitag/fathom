@@ -2,6 +2,11 @@ import { Accordion } from 'radix-ui';
 import { ChevronDown, Eye, EyeOff, X } from 'lucide-react';
 import type { ReactElement } from 'react';
 import type { ChartState } from '../../core/chart-controller.ts';
+import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts';
+import { type IndicatorParameter, readSetting } from '../../../shared/core/draw-plan.ts';
+
+/** Anything with knobs a reader can turn. */
+type Tunable = { readonly parameters: readonly IndicatorParameter[] };
 import { BookPanel } from './book-panel.tsx';
 import { findChartLayer } from '../../indicators/indicator-catalogue.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
@@ -88,6 +93,9 @@ function LayerRow({ added, controls, state }: LayerRowProps): ReactElement | nul
                     <span className={`truncate text-sm ${isHidden ? 'text-ink-500 line-through decoration-ink-700' : 'text-ink-100'}`}>
                         {translateLabel(translate, layer.labelKey)}
                     </span>
+                    <span className="shrink-0 text-xs tabular-nums text-ink-500">
+                        {summariseTuning(layer, added)}
+                    </span>
                 </Accordion.Trigger>
 
                 <button
@@ -120,4 +128,20 @@ function LayerRow({ added, controls, state }: LayerRowProps): ReactElement | nul
             </Accordion.Content>
         </Accordion.Item>
     );
+}
+
+/**
+ * The parameters that tell one copy from another.
+ *
+ * Two of the same indicator read alike without them, and the panel is where a
+ * reader goes to tune the right one of the two.
+ */
+function summariseTuning(layer: Tunable, added: AddedIndicator): string {
+    const counts: string[] = [];
+    for (const parameter of layer.parameters) {
+        if (parameter.kind === 'integer') {
+            counts.push(String(readSetting(added.settings, parameter)));
+        }
+    }
+    return counts.join(' · ');
 }

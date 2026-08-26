@@ -1,10 +1,15 @@
 import { defineConfig } from 'vitest/config';
+import { readReleaseDefines } from './scripts/release-notes.ts';
 
 export default defineConfig({
     test: {
         clearMocks: true,
         projects: [
             {
+                // The same build-time injection the app gets, so a test may
+                // render the panel that reads it rather than mock around it.
+                // Declared per project: the projects do not inherit it.
+                define: readReleaseDefines(),
                 test: {
                     // The browser half, which needs a DOM to draw into.
                     name: 'app',

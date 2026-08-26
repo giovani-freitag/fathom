@@ -74,7 +74,10 @@ export function IndicatorLegend({ controls, layout, onOpenSettings }: IndicatorL
                 return pane === undefined ? null : (
                     <ul
                         key={band[0]!.instanceId}
-                        className="absolute flex flex-col items-start gap-1"
+                        // Laid out along the top of the band rather than down
+                        // into it: a second row stacked below the first lands on
+                        // the very line it is naming.
+                        className="absolute flex flex-wrap items-start gap-x-2 gap-y-1 pr-24"
                         style={{ left: ROWS_LEFT_PX, top: pane.topY + PANE_ROW_TOP_PX }}
                     >
                         {band.map((plan) => {

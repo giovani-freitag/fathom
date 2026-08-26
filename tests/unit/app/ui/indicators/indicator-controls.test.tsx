@@ -130,3 +130,19 @@ describe('RemovalNotice', () => {
         expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
     });
 });
+
+describe('taking a host layer off', () => {
+    it('offers it back, the same as an indicator', () => {
+        // The one whose removal costs most had no way back: the notice only
+        // knew the arithmetic half of the catalogue.
+        const kernel = createIndicatorKernel([
+            { instanceId: 'depth-1', indicatorId: 'depth', settings: {}, tone: 'ink' },
+        ]);
+        renderWithKernel(kernel, <OverlayHarness />);
+        fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+        fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+
+        expect(kernel.readAdded().map((entry) => entry.indicatorId)).toEqual(['depth']);
+    });
+});
