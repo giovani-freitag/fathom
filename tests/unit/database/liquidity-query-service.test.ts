@@ -200,3 +200,46 @@ describe('LiquidityQueryService price bars', () => {
         expect(window.bars.map((bar) => bar.openedAtMs)).toEqual([0, 120_000]);
     });
 });
+
+describe('LiquidityQueryService bar sources', () => {
+    let asked: Asked[];
+    let service: LiquidityQueryService;
+
+    beforeEach(() => {
+        asked = [];
+        const selectRows = vi.fn((statement: string, values: readonly unknown[]) => {
+            asked.push({ statement, values });
+            return Promise.resolve(statement.includes('instrument_registry') ? [GRID_ROW] : []);
+        });
+        service = new LiquidityQueryService({ postgres: { selectRows } as unknown as PostgresService });
+    });
+
+    async function sourceFor(intervalMs: number): Promise<string> {
+        await service.fetchPriceBars({ symbol: 'BTCUSDT', fromMs: 0, toMs: 10 * intervalMs, intervalMs, warmupBars: 0 });
+        return asked[asked.length - 1]!.statement;
+    }
+
+    it('scans the frames themselves below a minute, where nothing holds bars yet', async () => {
+        expect(await sourceFor(15_000)).toContain('FROM liquidity_frame');
+    });
+
+    it('reads a minute and above from the grid that already holds it', async () => {
+        expect(await sourceFor(300_000)).toContain('FROM book_bar_minute');
+    });
+
+    it('climbs to the hourly grid rather than folding sixty times as many rows', async () => {
+        expect(await sourceFor(14_400_000)).toContain('FROM book_bar_hour');
+    });
+
+    it('folds a coarser bar without losing what a finer one knew', async () => {
+        // Ends take first and last, extremes take max and min, and the frame
+        // count sums — which is what lets a rolled bar still know it is short.
+        const statement = await sourceFor(300_000);
+
+        expect(statement).toContain('first(open_price');
+        expect(statement).toContain('max(high_price)');
+        expect(statement).toContain('min(low_price)');
+        expect(statement).toContain('last(close_price');
+        expect(statement).toContain('sum(frame_count)');
+    });
+});

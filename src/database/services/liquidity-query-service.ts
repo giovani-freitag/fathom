@@ -29,6 +29,22 @@ const FRAME_COLUMNS = `
 // Rolling up executions on demand means grouping tens of millions of rows on a
 // wide range, so each request reads the coarsest pre-materialised grid that is
 // still finer than the resolution it asked for.
+/**
+ * Where bars of a given width are read from, coarsest that fits winning.
+ *
+ * Below a minute there is nothing to lean on and a narrow scan is used, which
+ * measured *faster* than a dedicated aggregate on a columnstore chunk — the
+ * price columns are stored apart there, so the scan never touches the depth
+ * arrays that make the row wide.
+ */
+const BAR_SOURCES = [
+    { table: 'liquidity_frame', nativeIntervalMs: 0 },
+    { table: 'book_bar_minute', nativeIntervalMs: 60_000 },
+    { table: 'book_bar_hour', nativeIntervalMs: 3_600_000 },
+] as const;
+
+type BarSource = (typeof BAR_SOURCES)[number];
+
 const TRADE_SOURCES = [
     { table: 'trade_cluster', nativeIntervalMs: 1_000 },
     { table: 'trade_cluster_minute', nativeIntervalMs: 60_000 },
@@ -260,26 +276,9 @@ export class LiquidityQueryService {
         const fromMs = alignDown(query.fromMs, intervalMs) - warmupBars * intervalMs;
         const toMs = alignUp(query.toMs, intervalMs);
 
+        const source = selectBarSource(intervalMs);
         const rows = await this.postgres.selectRows<PriceBarRow>(
-            `SELECT time_bucket(make_interval(secs => $4), captured_at)     AS bucket_start,
-                    first(mid_price, captured_at)                          AS open_price,
-                    max(mid_price)                                         AS high_price,
-                    min(mid_price)                                         AS low_price,
-                    last(mid_price, captured_at)                           AS close_price,
-                    count(*)::int                                          AS frame_count,
-                    min(captured_at)                                       AS first_frame_at,
-                    max(captured_at)                                       AS last_frame_at
-             FROM (
-                 SELECT captured_at,
-                        (best_bid_price + best_ask_price) / 2 AS mid_price
-                 FROM liquidity_frame
-                 WHERE instrument_symbol = $1
-                   AND captured_at >= $2::timestamptz
-                   AND captured_at < $3::timestamptz
-             ) narrow
-             GROUP BY 1
-             ORDER BY 1
-             LIMIT ${BAR_BUDGET.maximumBars}`,
+            source.nativeIntervalMs === 0 ? RAW_BAR_STATEMENT : rolledBarStatement(source),
             [query.symbol, new Date(fromMs), new Date(toMs), intervalMs / MILLISECONDS_PER_SECOND],
         );
 
@@ -343,6 +342,68 @@ interface PriceBarRow {
     readonly frame_count: number;
     readonly first_frame_at: Date;
     readonly last_frame_at: Date;
+}
+
+/**
+ * Bars scanned from the frames themselves, naming only the two price columns.
+ */
+const RAW_BAR_STATEMENT = `SELECT
+        time_bucket(make_interval(secs => $4), captured_at) AS bucket_start,
+        first(mid_price, captured_at)                       AS open_price,
+        max(mid_price)                                      AS high_price,
+        min(mid_price)                                      AS low_price,
+        last(mid_price, captured_at)                        AS close_price,
+        count(*)::int                                       AS frame_count,
+        min(captured_at)                                    AS first_frame_at,
+        max(captured_at)                                    AS last_frame_at
+    FROM (
+        SELECT captured_at, (best_bid_price + best_ask_price) / 2 AS mid_price
+        FROM liquidity_frame
+        WHERE instrument_symbol = $1
+          AND captured_at >= $2::timestamptz
+          AND captured_at < $3::timestamptz
+    ) narrow
+    GROUP BY 1
+    ORDER BY 1
+    LIMIT ${BAR_BUDGET.maximumBars}`;
+
+/**
+ * Bars rolled up from a coarser grid that already holds them.
+ *
+ * Every field folds without loss: the ends take first and last, the extremes
+ * take max and min, and the frame count sums — which is what lets a bar know it
+ * is short of frames however many levels it was rolled through.
+ */
+function rolledBarStatement(source: BarSource): string {
+    return `SELECT
+            time_bucket(make_interval(secs => $4), opened_at) AS bucket_start,
+            first(open_price, opened_at)                      AS open_price,
+            max(high_price)                                   AS high_price,
+            min(low_price)                                    AS low_price,
+            last(close_price, opened_at)                      AS close_price,
+            sum(frame_count)::int                             AS frame_count,
+            min(first_frame_at)                               AS first_frame_at,
+            max(last_frame_at)                                AS last_frame_at
+        FROM ${source.table}
+        WHERE instrument_symbol = $1
+          AND opened_at >= $2::timestamptz
+          AND opened_at < $3::timestamptz
+        GROUP BY 1
+        ORDER BY 1
+        LIMIT ${BAR_BUDGET.maximumBars}`;
+}
+
+/**
+ * The coarsest grid no finer than the interval asked for.
+ */
+function selectBarSource(intervalMs: number): BarSource {
+    let selected: BarSource = BAR_SOURCES[0];
+    for (const candidate of BAR_SOURCES) {
+        if (candidate.nativeIntervalMs <= intervalMs) {
+            selected = candidate;
+        }
+    }
+    return selected;
 }
 
 function alignDown(instantMs: number, intervalMs: number): number {
