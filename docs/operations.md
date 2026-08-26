@@ -1,9 +1,9 @@
-# Operação
+# Operations
 
-## Deixar o coletor rodando
+## Keeping the collector running
 
-Cada hora desligada é um buraco permanente. Rode como serviço de usuário do
-systemd, não num terminal.
+Every hour it is down is a permanent hole. Run it as a systemd user service, not
+in a terminal.
 
 `~/.config/systemd/user/fathom-collector.service`:
 
@@ -16,11 +16,10 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=%h/fathom
+Environment=COLLECTOR_LOG_PATH=%h/fathom/logs/collector
 ExecStart=/usr/bin/env node --env-file=%h/fathom/.env %h/fathom/dist/workers/collector.js
 Restart=always
 RestartSec=5
-StandardOutput=append:%h/fathom/collector.log
-StandardError=append:%h/fathom/collector.log
 KillSignal=SIGTERM
 TimeoutStopSec=20
 
@@ -28,79 +27,134 @@ TimeoutStopSec=20
 WantedBy=default.target
 ```
 
-O gateway tem uma unidade idêntica apontando para `dist/server/main.js`. As duas
-usam a raiz do projeto como `WorkingDirectory`, que é de onde o gateway resolve
-`dist/app`.
+The gateway has an identical unit pointing at `dist/server/main.js`. Both use the
+project root as `WorkingDirectory`, which is where the gateway resolves
+`dist/app` from.
+
+Note what is absent: no `StandardOutput=append:`. The collector opens its own log
+and rotates it, so systemd is left with the process's own lifecycle lines and
+nothing competes for the file.
 
 ```bash
 systemctl --user daemon-reload
 systemctl --user enable --now fathom-collector fathom-gateway
-loginctl enable-linger "$USER"     # sobrevive a logout e reboot
+loginctl enable-linger "$USER"     # survives logout and reboot
 ```
 
-Sem o `enable-linger` os serviços param quando você desloga. É o passo que mais
-custa esquecer.
+Without `enable-linger` the services stop when you log out. It is the step that
+costs most to forget.
 
-## Verificar
+## Reading the log
+
+One JSON object per line, one file per day, with a fixed number of days kept.
+Every line names the contract it is about, which is the only way to read a file
+four collectors are writing to at once.
+
+```bash
+tail -f logs/collector.*.log | jq -c '{time, level, instrumentSymbol, message}'
+
+# everything one contract said
+jq -c 'select(.instrumentSymbol == "BTCUSDT")' logs/collector.*.log
+
+# only what went wrong, by kind
+jq -r 'select(.level == "warning") | .message' logs/collector.*.log | sort | uniq -c | sort -rn
+```
+
+A healthy collector says, on each reconnection, that the stream connected and
+that the book synchronised with a level count. Roughly two thousand levels is
+what to expect: a ladder returns a thousand a side.
+
+## Checking what was recorded
 
 ```bash
 systemctl --user status fathom-collector
-tail -f collector.log
 
 docker compose exec -T timescaledb psql -U fathom -d fathom -c "
-SELECT count(*) AS frames, min(captured_at), max(captured_at) FROM liquidity_frame;
-SELECT gap_reason, count(*) FROM recording_gap GROUP BY 1;"
+SELECT instrument_symbol, count(*), min(captured_at), max(captured_at)
+FROM liquidity_frame GROUP BY 1;
+SELECT instrument_symbol, gap_reason, count(*),
+       sum(gap_ended_at - gap_started_at) AS lost
+FROM recording_gap GROUP BY 1, 2 ORDER BY 4 DESC;"
 ```
 
-Um coletor saudável registra, a cada reconexão:
+The gap ledger is the answer to "is anything missing". It accounts for every
+second the recording does not hold, with the reason it was lost. A contract whose
+frame count is short and whose gap ledger does not explain the shortfall is a
+bug worth reporting; one whose ledger does explain it was simply down.
 
+## Choosing what to record
+
+Contracts and the disk ceiling are chosen from the chart, in Settings, and stored
+in the database. The supervisor re-reads that choice every fifteen seconds and
+closes the difference — switching a contract on starts a collector for it within
+an interval, without touching the others or restarting anything.
+
+One process holds every contract. There is no unit per symbol and no environment
+variable to edit; `INSTRUMENT_SYMBOL` in `.env` is only the seed a fresh database
+needs so that a first run records something before anyone opens the chart.
+
+The supervisor also replaces a collector that stopped producing frames. A runtime
+that dies is not the same as one that was switched off, and the difference is
+only visible by asking when each last recorded.
+
+## Disk
+
+Past the ceiling chosen in Settings, the oldest day is dropped, a whole partition
+at a time — deleting single rows from compressed history costs more disk than it
+frees. Nothing else is needed to keep the archive inside its budget.
+
+```bash
+docker compose exec -T timescaledb psql -U fathom -d fathom -c "
+SELECT hypertable_name,
+       pg_size_pretty(hypertable_size(format('%I.%I', hypertable_schema, hypertable_name)::regclass))
+FROM timescaledb_information.hypertables;"
 ```
-INFO  Market data stream connected
-INFO  Order book synchronized with 2018 resting levels
-```
 
-Cerca de 2000 níveis é o esperado: o snapshot REST devolve 1000 por lado.
+Compression only acts on chunks older than the policy's window, so a freshly
+recorded day always looks several times larger than it will settle at. What a day
+costs is set by how wide the recorded band is and how many contracts are on, not
+by how busy the market was.
 
-## Mostrar para outra pessoa
+## Showing it to someone else
 
-O gráfico nasce aberto na LAN. Para mandar o link para alguém de fora, duas
-peças precisam estar no lugar: um token e um túnel.
+The chart is born open on the LAN. To send the link to someone outside it, two
+pieces have to be in place: a token and a tunnel.
 
-### O token
+### The token
 
-Sem `FATHOM_ACCESS_TOKEN` no `.env`, toda rota fica aberta. Com ele, o gateway
-responde 401 a qualquer requisição que não traga o segredo — inclusive ao
-upgrade do WebSocket, que é por onde o tempo real passa.
+Without `FATHOM_ACCESS_TOKEN` in `.env`, every route is open. With it, the
+gateway answers 401 to any request that does not carry the secret — including the
+WebSocket upgrade, which is where live data travels.
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"
 ```
 
-O link compartilhado carrega o token uma vez:
+The shared link carries the token once:
 
 ```
-https://SEU-SUBDOMINIO.trycloudflare.com/?token=SEU_TOKEN
+https://YOUR-SUBDOMAIN.trycloudflare.com/?token=YOUR_TOKEN
 ```
 
-Na primeira visita o gateway troca o token por um cookie de 30 dias, redireciona
-para `/` e o segredo some da barra de endereço. Quem receber o link não precisa
-copiar nada; quem chegar sem ele vê uma página pedindo o link completo.
+On the first visit the gateway trades the token for a thirty-day cookie,
+redirects to `/`, and the secret leaves the address bar. Whoever receives the
+link has nothing to copy; whoever arrives without one sees a page asking for it.
 
-O cookie existe por um motivo específico: o navegador não deixa mandar cabeçalho
-no handshake de WebSocket. Um `Authorization` protegeria o HTTP e deixaria o
-stream ao vento.
+The cookie exists for a specific reason: a browser will not let a page set a
+header on a WebSocket handshake. An `Authorization` header would protect the HTTP
+and leave the stream open.
 
-Só `/api/health` fica fora da proteção, para dar como sondar o túnel sem gastar
-o link.
+Only `/api/health` is outside the protection, so the tunnel can be probed without
+spending the link.
 
-### O túnel
+### The tunnel
 
-O `serveo`, que é a opção sem instalar nada, **não serve para este gráfico**.
-Medido: sobre HTTP/2 ele corta uma resposta de 2,6 MB em 344 kB, e não faz a
-ponte do WebSocket, então o mapa carrega vazio e o tempo real nunca conecta. O
-navegador negocia HTTP/2 sozinho, então não há como pedir para ele evitar isso.
+`serveo`, the option that installs nothing, **does not work for this chart**.
+Over HTTP/2 it truncates a large response and does not bridge the WebSocket, so
+the map loads empty and live data never connects. A browser negotiates HTTP/2 by
+itself, so there is no way to ask it not to.
 
-Use `cloudflared`, que fala HTTP/1.1 com o gateway e trata WebSocket:
+Use `cloudflared`, which speaks HTTP/1.1 to the gateway and handles WebSocket:
 
 ```bash
 mkdir -p ~/.local/bin
@@ -110,83 +164,46 @@ curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cl
 cloudflared tunnel --url http://localhost:8787
 ```
 
-Ele imprime uma URL `*.trycloudflare.com`, sem conta e sem página de aviso. O
-endereço é sorteado e vive enquanto o processo viver, o que basta para mostrar
-o gráfico a alguém.
+It prints a `*.trycloudflare.com` URL, with no account and no interstitial. The
+address is random and lives as long as the process, which is enough to show
+someone the chart.
 
-Para deixar de pé, uma unidade de usuário:
+To keep it up, a user unit pointing at that command, with `Restart=always`. When
+the tunnel is up, set `FATHOM_TUNNELLED=true` and restart the gateway: the cookie
+then goes out as `Secure`, so it cannot leak over a plaintext connection.
 
-```ini
-[Unit]
-Description=Fathom public tunnel
-After=network-online.target fathom-gateway.service
-Wants=network-online.target
+### The request ceiling
 
-[Service]
-Type=simple
-ExecStart=%h/.local/bin/cloudflared tunnel --url http://localhost:8787
-Restart=always
-RestartSec=10
-StandardOutput=append:%h/fathom/tunnel.log
-StandardError=append:%h/fathom/tunnel.log
+Each client gets a fixed budget of requests a minute. The risk is not privacy —
+the venue's book is public — it is contention: a tab in a loop competing with the
+collector for the same database delays writing, and delayed writing becomes a
+permanent hole. Past the ceiling the gateway answers 429 and the collector keeps
+writing.
 
-[Install]
-WantedBy=default.target
-```
-
-```bash
-systemctl --user daemon-reload
-systemctl --user enable --now fathom-tunnel
-grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' tunnel.log | head -1
-```
-
-Ao subir o túnel, marque `FATHOM_TUNNELLED=true` e reinicie o gateway: o cookie
-passa a sair como `Secure`, e aí ele não vaza numa conexão em texto puro.
-
-### O teto de requisições
-
-Cada cliente vale 240 requisições por minuto. O risco aqui não é privacidade —
-o livro do Binance é público — e sim contenção: uma aba em loop competindo com
-o coletor pela mesma base atrasa a gravação, e atraso de gravação vira buraco
-permanente. Passou do teto, o gateway responde 429 e o coletor segue escrevendo.
-
-### Fechar
+### Closing it
 
 ```bash
 systemctl --user disable --now fathom-tunnel
 ```
 
-Trocar o `FATHOM_ACCESS_TOKEN` e reiniciar o gateway invalida todos os cookies
-já entregues de uma vez.
+Changing `FATHOM_ACCESS_TOKEN` and restarting the gateway invalidates every
+cookie already handed out, at once.
 
-## Depois de reconstruir
+## After a rebuild
 
-O gateway serve os assets do viewer por caminho curinga, então um rebuild da
-interface é visto sem reiniciar. Já um rebuild do gateway ou do coletor exige
-`systemctl --user restart`.
+The gateway serves the viewer's assets by wildcard path, so rebuilding the
+interface is visible without restarting it. Rebuilding the gateway or the
+collector needs `systemctl --user restart`.
 
-## Espaço em disco
+## The browser-only build
 
-```bash
-docker compose exec -T timescaledb psql -U fathom -d fathom -c "
-SELECT hypertable_name,
-       pg_size_pretty(before_compression_total_bytes) AS antes,
-       pg_size_pretty(after_compression_total_bytes)  AS depois
-FROM hypertable_compression_stats('liquidity_frame');"
-```
+`npm run build:demo` produces a bundle with no backend at all: the page registers
+the collector as a Web Worker and records into IndexedDB. It is published on
+every release, and it is also the fastest way to see whether a change to the
+collector or the chart works without touching a database.
 
-A compressão só age em chunks com mais de dois dias. Antes disso são ~141 MB/dia
-medidos; depois, 4,0x menos — um chunk de 16 MB fecha em 3,96 MB. Com os padrões
-isso dá ~35 MB/dia em regime, ou ~12,5 GB/ano.
+## The database port
 
-## Trocar de contrato
-
-Mude `INSTRUMENT_SYMBOL` e reinicie o coletor. Os dois contratos convivem na mesma
-base e a interface mostra os dois no seletor — mas um coletor grava um contrato de
-cada vez. Para gravar vários em paralelo, rode uma unidade por símbolo, cada uma
-com seu `INSTRUMENT_SYMBOL`.
-
-## Porta do banco
-
-O compose publica em `${POSTGRES_PORT:-5433}`, não em 5432, para não colidir com
-um PostgreSQL já instalado na máquina. Se mudar, ajuste também o `DATABASE_URL`.
+Compose publishes on `${POSTGRES_PORT:-5433}`, not 5432, so it does not collide
+with a PostgreSQL already installed on the machine. If you change it, change
+`DATABASE_URL` too.

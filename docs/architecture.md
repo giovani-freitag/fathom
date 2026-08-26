@@ -1,191 +1,204 @@
-# Arquitetura
+# Architecture
 
-Três processos, um banco. Cada um tem uma responsabilidade que os outros não
-compartilham.
+Fathom is registered twice. On a server it is three processes around a database;
+in a page it is one worker beside the tab that opened it. Both registrations run
+the same collector, the same tail, and the same chart — only the drivers differ.
 
 ```mermaid
 flowchart LR
-    venue["Binance<br/>depth@100ms + trade"]
-    collector["collector<br/>espelha o livro"]
-    db[("TimescaleDB<br/>liquidity_frame")]
-    gateway["gateway<br/>REST + WebSocket"]
-    viewer["viewer<br/>canvas"]
+    venue["venue<br/>depth@100ms + trade"]
 
-    venue -->|WebSocket| collector
-    venue -->|REST snapshot| collector
-    collector -->|1 linha/s| db
-    db -->|consulta amostrada| gateway
-    gateway -->|janela binária| viewer
-    gateway -->|tail ao vivo| viewer
+    subgraph served["served"]
+        collector["collector<br/>mirrors the book"]
+        db[("TimescaleDB")]
+        gateway["gateway<br/>REST + WebSocket"]
+    end
+
+    subgraph browser["browser only"]
+        worker["worker<br/>collector + tail"]
+        store[("IndexedDB")]
+    end
+
+    chart["chart<br/>canvas"]
+
+    venue -->|snapshot, then stream| collector
+    venue -->|snapshot, then stream| worker
+    collector -->|one row a second| db
+    db -->|notifies| gateway
+    gateway -->|live messages| chart
+    worker -->|one row a second| store
+    worker -->|live messages| chart
 ```
 
-## Por que três processos
+## Why the server splits into two processes
 
-O coletor nunca pode ficar bloqueado por um leitor. Se a interface derruba o
-processo que grava, o buraco na base é permanente — e é a única coisa no sistema
-que não dá para refazer. Separar garante que abrir dez abas do gráfico não
-custa um segundo de gravação.
+The collector can never be blocked by a reader. If the interface can take down
+the process that writes, the hole it leaves is permanent — recorded book history
+is the one thing in the system that cannot be made again. Splitting them means
+ten open tabs cost no recorded second.
 
-## Limites do gateway
+In a page that separation is unnecessary and impossible: there is one worker, and
+if it stops the recording stops with it. That is the honest trade a demo makes.
 
-Cada socket ao vivo abre seu próprio cursor contra o mesmo banco em que o coletor
-escreve, então o número deles é limitado. Ligado a um endereço de LAN, algumas
-abas esquecidas são normais e um cliente descontrolado não pode disputar espaço
-com a gravação.
+## Both halves read from the archive, never from the collector
 
-## O gateway lê do arquivo, não do coletor
+Live data reaches a chart by tailing what was stored, not by a tunnel out of the
+collector. It buys two things:
 
-O tempo real chega ao navegador por um *tail* do banco, não por um túnel a partir
-do coletor. Custa até um segundo de latência e paga duas coisas:
+- What appears on screen exists in storage. A frame is never drawn and then lost
+  to a restart.
+- History and live data travel the same code path. There is no renderer for
+  fresh data and another for old data drifting apart.
 
-- O que aparece na tela existe no disco. Um frame nunca é desenhado e depois
-  perdido num restart.
-- Histórico e tempo real percorrem o mesmo caminho de código. Não há um
-  renderizador para dados vivos e outro para dados velhos divergindo com o tempo.
+## One tail, two transports
 
-## Reconstrução do livro
+The tail is shared code with no clock of its own. It holds a reader's cursors and
+answers one question — what has been recorded that this reader has not seen —
+emitting one message union that every transport carries.
 
-A Binance manda um snapshot completo por REST e um fluxo de mudanças por
-WebSocket. Cada mudança carrega o identificador final da mudança anterior, então
-uma mensagem perdida é **detectável** — e é isso que separa um livro correto de um
-livro que diverge em silêncio para sempre.
+Who advances it differs. On a server the collector announces a write on a
+database channel and the gateway catches the tails following that contract up; in
+a page the worker's own write does it directly. Both keep a slow interval behind
+that, so a missed trigger costs latency and never data. It is also why the
+announcement names the contract and never carries the rows: a cursor cannot be
+made wrong by a message that was dropped.
 
-Ao detectar a quebra, o coletor descarta o livro local e reconstrói. Nada é
-gravado no intervalo, e o intervalo é registrado como lacuna.
+The message type is the same on both wires. A socket writes a window of frames as
+bytes — two typed arrays per column, which JSON would spell out in digits — and
+everything else as text; a worker hands the whole thing over by structured clone.
 
-### O reparo profundo
+## Rebuilding the book
 
-O snapshot REST devolve no máximo 1000 níveis por lado — cerca de ±200 USDT no
-BTC, enquanto a janela gravada é ±2% (±1600 USDT). O resto da faixa só se preenche
-conforme as mudanças chegam.
+The venue serves a full ladder over REST and a stream of changes over WebSocket.
+Each change carries the previous change's final identifier, so a dropped message
+is **detectable** — that is what separates a correct book from one that diverges
+in silence forever.
 
-Isso deixa um erro permanente: um nível parado longe do meio, criado antes de a
-gravação começar e nunca mais tocado, jamais apareceria. E é exatamente ali que
-moram as paredes que interessam.
+On a break the collector discards its local book and rebuilds. Nothing is
+recorded in the meantime, and the meantime is recorded as a gap.
 
-Por isso, a cada cinco minutos um snapshot novo é mesclado **só dentro da faixa
-que ele próprio cobre**. Fora dela o conhecimento local é preservado. Substituir o
-livro inteiro jogaria fora justamente a profundidade que o produto existe para
-mostrar.
+### The deep repair
 
-### Quanto tempo o livro leva para encher
+A REST ladder returns at most a thousand levels a side — roughly ±200 quote units
+on BTC, against a recorded band of ±2%. The rest of the band fills only as
+changes arrive.
 
-Medido na base, contando faixas de preço preenchidas depois de uma
-ressincronização:
+That leaves a permanent error: a resting level far from the touch, placed before
+recording began and never touched again, would never appear. That is exactly
+where the walls worth seeing live.
 
-| Segundos após retomar | Faixas preenchidas |
-| --- | --- |
-| 1 | 173 de 316 (55%) |
-| 10 | 260 de 317 (82%) |
-| 60 | 311 de 317 (98%) |
-| 300 | 317 de 317 (100%) |
+So every five minutes a fresh ladder is merged **only inside the range it covers
+itself**. Outside it, local knowledge is kept. Replacing the whole book would
+throw away the depth the product exists to show.
 
-O snapshot REST entrega pouco mais da metade da janela gravada; o resto chega
-pelo fluxo de mudanças em cerca de um minuto.
+### How long the book takes to fill
 
-**Consequência para a leitura:** no primeiro minuto após qualquer retomada, uma
-parede distante que já existia antes ainda não apareceu. Ela vai surgir no
-gráfico como se tivesse sido colocada naquele instante. Esse minuto sempre vem
-logo depois de uma faixa de lacuna — que já é desenhada — então na prática o
-próprio gráfico marca onde não confiar.
+A ladder covers roughly half the recorded band immediately; the rest arrives with
+the change stream, and the far edges take about a minute to appear. The exact
+shape depends on how wide the band is against the venue's ladder limit, and on
+how busy the contract is.
 
-## Amostragem em janelas largas
+**What that means for a reader:** in the first minute after any resume, a distant
+wall that already existed has not appeared yet. It will arrive on the chart as if
+it had been placed at that instant. That minute always follows a gap band, which
+is already drawn — so the chart marks where not to trust it.
 
-Duas semanas a uma coluna por segundo são 1,2 milhão de colunas para uma tela de
-1500 pixels. O servidor não agrega: ele **amostra**, uma sonda de índice por coluna
-de saída, via `generate_series` com `LATERAL`.
+## Reading a wide window
 
-Amostrar em vez de mediar é defensável porque liquidez parada é persistente — uma
-parede que ficou dez minutos aparece em qualquer amostra daquele intervalo. O que
-se perde são paredes mais curtas que o passo de amostragem, e o passo vigente fica
-visível no cabeçalho da interface.
+Two weeks at a column a second is over a million columns for a screen fifteen
+hundred pixels wide. The server does not aggregate: it **samples**, keeping the
+first frame of each time bucket in a single range scan.
 
-O passo nunca fica mais fino que a grade gravada. Pedir mais colunas do que há
-frames deixaria buckets vazios entre os reais, e o renderizador desenharia um
-pente de colunas em branco.
+The shape matters more than it looks. A lateral probe per bucket is fast against
+an uncompressed chunk and has to decompress a whole batch against a columnar one,
+so the same query degrades by orders of magnitude the moment history ages past
+the compression policy. Scanning once costs the same on either kind of chunk.
+ADR 0005 records the measurement that settled it.
 
-Medido contra o arquivo:
+Sampling rather than averaging is defensible because resting liquidity persists —
+a wall that stood for ten minutes appears in any sample of that stretch. What is
+lost is a wall shorter than the sampling step, and the step in force is shown in
+the interface header.
 
-| Janela pedida | Profundidade | No fio | Agressões |
-| --- | --- | --- | --- |
-| 15 min | 0,15 s | 303 KB | 0,01 s |
-| 1 h | 0,24 s | 906 KB | 0,01 s |
-| 2,4 h | 0,24 s | 1,3 MB | 0,01 s |
+The step is never finer than the recorded grid. Asking for more columns than
+there are frames would leave empty buckets between the real ones, and the
+renderer would draw a comb of blank columns.
 
-Dez vezes mais janela custa 1,6 vezes mais tempo: a conta acompanha o número de
-colunas devolvidas, não a largura do intervalo — que é exatamente o ponto de
-sondar por índice em vez de varrer. As agressões ficam constantes porque as views
-contínuas já as agregaram.
+Both the time and the size of a read are governed by the column budget, not by
+the width of the window. Past the point where a window holds more seconds than
+the budget allows columns, asking for ten times the history costs almost nothing
+more — which is the property that makes a week as affordable to open as an hour.
 
-## Execuções
+## Executions
 
-As agressões já chegam agregadas na mesma grade dos frames: o coletor soma por
-(segundo, faixa de preço) antes de escrever. Um perpétuo líquido imprime ~100
-negócios por segundo, duas ordens de grandeza mais do que qualquer zoom do mapa
-consegue distinguir.
+Executions arrive already aggregated onto the same grid as the frames: the
+collector sums them by second and price band before writing. A liquid perpetual
+prints around a hundred trades a second, two orders of magnitude more than any
+zoom of the map can tell apart.
 
-Cada campo do agregado rola para uma grade mais grossa sem perda — as quantidades
-e a contagem somam, e o maior negócio individual usa máximo. Uma impressão grande
-continua legível depois da agregação em vez de dissolver entre as vizinhas.
-Agregados contínuos de 1 minuto e 1 hora pré-computam os dois zooms mais largos.
+Every field of the aggregate rolls to a coarser grid without loss — quantities
+and counts sum, the largest single trade takes a maximum. A large print stays
+legible after aggregation instead of dissolving into its neighbours. Continuous
+aggregates at one minute and one hour precompute the two widest zooms.
 
-## O renderizador
+## The renderer
 
-O campo de profundidade é pintado uma vez numa imagem cujos eixos são tempo e
-faixa de preço. Pan e zoom viram um único `drawImage` escalado, que o navegador
-entrega ao compositor. Pintar por pixel de tela a cada gesto repintaria centenas
-de milhares de pixels por quadro.
+The depth field is painted once into an image whose axes are time and price band.
+Pan and zoom become one scaled `drawImage`, which the browser hands to the
+compositor. Painting per screen pixel on every gesture would redraw hundreds of
+thousands of pixels a frame.
 
-Duas telas empilhadas: profundidade embaixo, cromo em cima. Mover o cursor repinta
-só a camada fina.
+### A new second does not rebuild the window
 
-### Um segundo novo não reconstrói a janela
+The field absorbs frames as they arrive rather than being remade. Rebuilding
+repaints the whole window — hundreds of thousands of pixels — for a change of one
+column, twice a second. Absorbing writes that column. The difference is three
+orders of magnitude, and it is spent on data that did not change; on a desktop it
+goes unnoticed, on a phone it is a stutter in the middle of a pinch.
 
-O campo absorve os frames que chegam ao vivo em vez de ser refeito. Medido numa
-janela de uma hora, antes e depois:
+The field refuses to absorb and asks to be rebuilt when the grid changes, when
+its spare columns run out, or when price leaves the band it has painted.
 
-| | Repinturas em 12s | Custo total |
+### Three layers
+
+Depth is blitted from that image. Above it sits everything drawn from the data —
+gaps, grid, volume profile, candles, executions — held between frames and
+repainted only when a declared key changes: the dataset revision, the viewport,
+the layout, which layers are on, the theme, and the language. Above that sits
+what is drawn from the cursor: the crosshair, the touch line, and the axes, which
+hide labels underneath the cursor's tag and so are cursor-coupled whether or not
+they look it.
+
+Moving the cursor then redraws a handful of vectors rather than every candle and
+every execution in the window. Before the split the cursor path cost more than a
+frame budget on a mid-range phone, and it grew with every indicator added. An
+indicator now costs its price when something changes rather than sixty times a
+second, which is what makes the surface affordable to grow. ADR 0010 records the
+measurements.
+
+## How the tree is arranged
+
+The top level divides by **who executes**, not by layer. It is the division that
+constrains most: a browser cannot import the PostgreSQL driver, and Node has no
+DOM. With that question at the top, the boundary is structure rather than
+discipline, and an architecture test holds it.
+
+| Folder | Runs in | Holds |
 | --- | --- | --- |
-| Reconstruindo | 24 de 712 mil pixels | 501 ms |
-| Absorvendo | 12 de uma coluna | 0,8 ms |
+| `shared/` | all three | wire types, the live tail, the binary codec, band arithmetic |
+| `database/` | Node and the browser | connection, writing, reading, both engines |
+| `server/` | the gateway process | routes, schemas, the socket bridge |
+| `workers/` | the collector process and the worker | the book mirror, the venue, recording |
+| `app/` | the browser | controller, canvas, React, translations |
 
-Meio segundo a cada doze era 4% da thread principal gasta redesenhando dados que
-não mudaram. No desktop isso passava despercebido; num celular, três a cinco vezes
-mais lento, vira engasgo no meio de um pinch.
+Inside each, two folders where the division is real: `core/` for logic with no
+external dependency — testable without a database or a DOM — and `services/` for
+what talks to the world. `app/` adds `painting/`, `react/`, `ui/` and `i18n/`.
 
-O campo recusa a absorção e pede reconstrução quando a grade muda, quando as
-colunas de folga acabam, ou quando o preço sai da faixa já pintada.
+State in `app/` lives in an `ObservableStore` inside `core/`, not in `useState`.
+The `ChartController` decides everything: what to load, when to reload, what the
+window shows. React only reads, through `react/use-store.ts`.
 
-### Camadas
-
-O coordenador não desenha nada: resolve o layout, o campo e os ticks, e entrega
-tudo num contexto compartilhado para cada camada — lacunas, grade, perfil,
-agressões, linha de preço, eixos, crosshair. Os ticks são resolvidos uma vez e
-compartilhados, porque uma linha de grade e seu rótulo discordarem por um pixel é
-o tipo de defeito que ninguém consegue explicar depois.
-
-## Como a árvore está organizada
-
-O topo divide por **quem executa**, não por camada. É a divisão que mais
-restringe: o navegador não pode importar o driver do PostgreSQL, e o Node não tem
-DOM. Com essa pergunta no topo, a fronteira vira estrutura em vez de disciplina.
-
-| Pasta | Executa em | Contém |
-| --- | --- | --- |
-| `shared/` | os três | tipos do fio, codec binário, matemática de faixas |
-| `database/` | Node | conexão, escrita, leitura |
-| `server/` | processo do gateway | rotas, schemas, tail ao vivo |
-| `workers/` | processo do coletor | espelho do livro, corretora, gravação |
-| `app/` | navegador | controller, canvas, React |
-
-Dentro de cada um, duas pastas onde a divisão é real: `core/` para lógica sem
-dependência externa — testável sem subir banco nem DOM — e `services/` para o
-que fala com o mundo. `app/` acrescenta `painting/`, `react/` e `ui/`.
-
-Estado no `app/` vive em `ObservableStore` dentro de `core/`, não em `useState`.
-O `ChartController` decide tudo: o que carregar, quando recarregar, o que a
-janela mostra. React apenas lê, através de `react/use-store.ts`.
-
-O coletor e o gateway são pares: nenhum importa do outro. O que os dois usam —
-o banco — é um vizinho dos dois, não uma pasta dentro de um deles. Assim as setas
-só apontam para baixo e não é preciso nenhuma regra para mantê-las assim.
+The collector and the gateway are peers: neither imports from the other. What
+both use — the database — is a neighbour of both rather than a folder inside one.
+The arrows point one way without a rule to keep them there.
