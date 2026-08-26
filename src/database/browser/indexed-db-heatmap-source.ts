@@ -10,6 +10,7 @@ import { foldFramesIntoColumns, INSTANTS_PER_COLUMN } from '../core/frame-aggreg
 import type { IndexedDbService } from './indexed-db-service.ts';
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
+import type { PriceBar, PriceBarQuery, PriceBarWindow } from '../../shared/core/price-bar.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import { STORES } from './browser-schema.ts';
 import {
@@ -124,6 +125,51 @@ export class IndexedDbHeatmapSource implements HeatmapSource {
             .map(toRecordingGap);
     }
 
+    /**
+     * Bars on a declared interval, grouped from the frames this page recorded.
+     *
+     * There is no pre-grouped grid here the way the server has one: a page holds
+     * hours, not months, so folding the raw seconds costs less than keeping a
+     * second copy of them current.
+     *
+     * @param query - Instrument, range, interval, and how much warm-up to read.
+     * @returns The bars, oldest first, warm-up included at the front.
+     * @throws HeatmapSourceError when the archive cannot be read.
+     */
+    async fetchPriceBars(query: PriceBarQuery): Promise<PriceBarWindow> {
+        const grid = await this.readGrid(query.symbol);
+        const frameIntervalMs = Math.max(1, grid?.frameIntervalMs ?? 1_000);
+        const intervalMs = Math.max(frameIntervalMs, Math.floor(query.intervalMs));
+        const warmupBars = Math.max(0, Math.floor(query.warmupBars));
+
+        const drawnFromMs = alignDown(query.fromMs, intervalMs);
+        const fromMs = drawnFromMs - warmupBars * intervalMs;
+        const records = await this.read<FrameRecord>(
+            STORES.liquidityFrame,
+            IDBKeyRange.bound(
+                [query.symbol, fromMs],
+                [query.symbol, alignUp(query.toMs, intervalMs)],
+                false,
+                true,
+            ),
+        );
+
+        const bars = foldRecordsIntoBars({
+            records,
+            intervalMs,
+            expectedFrames: Math.max(1, Math.round(intervalMs / frameIntervalMs)),
+            closedBeforeMs: Date.now() - intervalMs,
+        });
+
+        return {
+            instrumentSymbol: query.symbol,
+            intervalMs,
+            warmupBarsRequested: warmupBars,
+            warmupBarsReturned: bars.filter((bar) => bar.openedAtMs < drawnFromMs).length,
+            bars,
+        };
+    }
+
     private async readGrid(instrumentSymbol: string): Promise<InstrumentRecord | null> {
         const registered = await this.read<InstrumentRecord>(STORES.instrumentRegistry, null);
         return registered.find((record) => record.instrumentSymbol === instrumentSymbol) ?? null;
@@ -209,4 +255,80 @@ function keepEvery<TRecord extends { capturedAtMs: number }>(
 function resolveSampleInterval(query: FrameWindowQuery): number {
     const rangeMs = Math.max(1, query.toMs - query.fromMs);
     return Math.max(1, Math.ceil(rangeMs / Math.max(1, query.maxColumns)));
+}
+
+interface BarFoldRequest {
+    readonly records: readonly FrameRecord[];
+    readonly intervalMs: number;
+    readonly expectedFrames: number;
+    readonly closedBeforeMs: number;
+}
+
+/**
+ * Groups recorded frames into bars, leaving an unrecorded bucket out.
+ */
+function foldRecordsIntoBars(request: BarFoldRequest): PriceBar[] {
+    const bars: PriceBar[] = [];
+    let open: MutableBar | null = null;
+
+    for (const record of request.records) {
+        const midPrice = (record.bestBidPrice + record.bestAskPrice) / 2;
+        const openedAtMs = alignDown(record.capturedAtMs, request.intervalMs);
+
+        if (open === null || open.openedAtMs !== openedAtMs) {
+            if (open !== null) {
+                bars.push(sealBar(open, request));
+            }
+            open = {
+                openedAtMs,
+                openPrice: midPrice,
+                highPrice: midPrice,
+                lowPrice: midPrice,
+                closePrice: midPrice,
+                frameCount: 1,
+                firstFrameAtMs: record.capturedAtMs,
+                lastFrameAtMs: record.capturedAtMs,
+            };
+            continue;
+        }
+
+        open.highPrice = Math.max(open.highPrice, midPrice);
+        open.lowPrice = Math.min(open.lowPrice, midPrice);
+        open.closePrice = midPrice;
+        open.frameCount += 1;
+        open.lastFrameAtMs = record.capturedAtMs;
+    }
+
+    if (open !== null) {
+        bars.push(sealBar(open, request));
+    }
+    return bars;
+}
+
+interface MutableBar {
+    openedAtMs: number;
+    openPrice: number;
+    highPrice: number;
+    lowPrice: number;
+    closePrice: number;
+    frameCount: number;
+    firstFrameAtMs: number;
+    lastFrameAtMs: number;
+}
+
+function sealBar(open: MutableBar, request: BarFoldRequest): PriceBar {
+    return {
+        ...open,
+        closedAtMs: open.openedAtMs + request.intervalMs,
+        expectedFrames: request.expectedFrames,
+        isClosed: open.openedAtMs <= request.closedBeforeMs,
+    };
+}
+
+function alignDown(instantMs: number, intervalMs: number): number {
+    return Math.floor(instantMs / intervalMs) * intervalMs;
+}
+
+function alignUp(instantMs: number, intervalMs: number): number {
+    return Math.ceil(instantMs / intervalMs) * intervalMs;
 }

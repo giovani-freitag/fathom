@@ -17,6 +17,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
 
     'coverage.columnWidth': 'Largura de cada coluna do gráfico',
     'coverage.perColumn': '/col',
+    'coverage.barInterval': 'Largura de cada barra',
     'coverage.gapTitle': 'Trechos sem gravação nesta janela',
     'coverage.gapOne': '{count} lacuna',
     'coverage.gapMany': '{count} lacunas',

@@ -15,6 +15,7 @@ export const EN_DICTIONARY = {
 
     'coverage.columnWidth': 'Width of each chart column',
     'coverage.perColumn': '/col',
+    'coverage.barInterval': 'Width of each bar',
     'coverage.gapTitle': 'Stretches with no recording in this window',
     'coverage.gapOne': '{count} gap',
     'coverage.gapMany': '{count} gaps',

@@ -33,6 +33,7 @@ function buildRequest(overrides: Partial<Parameters<WindowLoader['load']>[0]> = 
         symbol: 'BTCUSDT',
         viewport: VIEWPORT,
         surfaceWidthPx: 1_000,
+        frameIntervalMs: 1_000,
         priceGroupSize: 1,
         ...overrides,
     };

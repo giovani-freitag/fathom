@@ -1,4 +1,4 @@
-import { buildCandleSeries, type Candle } from '../../core/candle-series.ts';
+import type { PriceBar } from '../../../shared/core/price-bar.ts';
 import { RENDER_PALETTE } from '../render-palette.ts';
 import type { PaintContext } from '../render-types.ts';
 
@@ -18,30 +18,28 @@ export class CandlePainter {
      * @param paint - The shared paint context.
      */
     paint(paint: PaintContext): void {
-        const { layout, projector, request } = paint;
-        const candles = buildCandleSeries({
-            frames: request.dataset.frames,
-            fromMs: request.viewport.fromMs,
-            toMs: request.viewport.toMs,
-            plotWidthPx: layout.plotWidth,
-            sampleIntervalMs: request.dataset.sampleIntervalMs,
-        });
-        if (candles.length === 0) {
+        const { projector, request } = paint;
+        const { bars } = request.dataset;
+        // The warm-up prefix is what the averages were seeded from, not what the
+        // reader asked to see; drawing it would show history the window is not
+        // claiming to cover.
+        const drawn = bars.bars.slice(bars.warmupBarsReturned);
+        if (drawn.length === 0) {
             return;
         }
 
         const bodyWidth = Math.max(
             1,
-            projector.timeToX(candles[0]!.closedAtMs)
-                - projector.timeToX(candles[0]!.openedAtMs)
+            projector.timeToX(drawn[0]!.closedAtMs)
+                - projector.timeToX(drawn[0]!.openedAtMs)
                 - CANDLE_GAP_PX,
         );
-        for (const candle of candles) {
-            this.paintCandle(paint, candle, bodyWidth);
+        for (const bar of drawn) {
+            this.paintCandle(paint, bar, bodyWidth);
         }
     }
 
-    private paintCandle(paint: PaintContext, candle: Candle, bodyWidth: number): void {
+    private paintCandle(paint: PaintContext, candle: PriceBar, bodyWidth: number): void {
         const { context, layout, projector } = paint;
         const left = projector.timeToX(candle.openedAtMs);
         if (left + bodyWidth < 0 || left > layout.plotWidth) {

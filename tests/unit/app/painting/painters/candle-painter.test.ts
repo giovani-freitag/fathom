@@ -1,63 +1,94 @@
+import { buildPaintContext, createRecordingContext } from '../../../../mocks/canvas-context.ts';
 import { CandlePainter } from '../../../../../src/app/painting/painters/candle-painter.ts';
 import { describe, expect, it } from 'vitest';
-import type { LiquidityFrame } from '../../../../../src/shared/core/liquidity-frame.ts';
-import { buildPaintContext, createRecordingContext } from '../../../../mocks/canvas-context.ts';
+import type { PriceBar, PriceBarWindow } from '../../../../../src/shared/core/price-bar.ts';
 
-function buildFrame(capturedAtMs: number, midPrice: number): LiquidityFrame {
+const INTERVAL_MS = 60_000;
+
+function buildBar(openedAtMs: number, overrides: Partial<PriceBar> = {}): PriceBar {
     return {
-        capturedAtMs,
-        bestBidPrice: midPrice - 0.5,
-        bestAskPrice: midPrice + 0.5,
-        bids: { lowestBucketIndex: 7_840, quantities: Float32Array.from([5]) },
-        asks: { lowestBucketIndex: 7_850, quantities: Float32Array.from([5]) },
+        openedAtMs,
+        closedAtMs: openedAtMs + INTERVAL_MS,
+        openPrice: 78_500,
+        highPrice: 78_600,
+        lowPrice: 78_400,
+        closePrice: 78_550,
+        expectedFrames: 60,
+        frameCount: 60,
+        isClosed: true,
+        firstFrameAtMs: openedAtMs,
+        lastFrameAtMs: openedAtMs + 59_000,
+        ...overrides,
     };
 }
 
-function paintWith(frames: readonly LiquidityFrame[]) {
+function buildWindow(bars: PriceBar[], warmupBarsReturned = 0): PriceBarWindow {
+    return {
+        instrumentSymbol: 'BTCUSDT',
+        intervalMs: INTERVAL_MS,
+        warmupBarsRequested: warmupBarsReturned,
+        warmupBarsReturned,
+        bars,
+    };
+}
+
+function paintWith(bars: PriceBarWindow) {
     const recording = createRecordingContext();
-    const paint = buildPaintContext(recording, { dataset: { frames } });
-    new CandlePainter().paint(paint);
+    new CandlePainter().paint(buildPaintContext(recording, { dataset: { bars } }));
     return recording;
 }
 
 describe('CandlePainter', () => {
-    it('leaves out a candle whose bin closed before the window opened', () => {
-        const recording = paintWith([buildFrame(1_000_000, 78_500)]);
+    it('draws nothing without bars', () => {
+        expect(paintWith(buildWindow([])).calls).toEqual([]);
+    });
+
+    it('fills a body for each bar', () => {
+        const recording = paintWith(buildWindow([buildBar(1_400_000), buildBar(1_460_000)]));
+
+        expect(recording.callsTo('fillRect').length).toBe(2);
+    });
+
+    it('leaves out a bar that closed before the window opened', () => {
+        const recording = paintWith(buildWindow([buildBar(600_000)]));
 
         expect(recording.callsTo('fillRect')).toEqual([]);
     });
 
-    it('draws nothing without frames', () => {
-        expect(paintWith([]).calls).toEqual([]);
-    });
-
-    it('fills a body for each candle', () => {
-        const recording = paintWith([buildFrame(1_400_000, 78_500)]);
-
-        expect(recording.callsTo('fillRect').length).toBeGreaterThan(0);
-    });
-
     it('strokes a wick between the high and the low', () => {
-        const recording = paintWith([
-            buildFrame(1_400_000, 78_500),
-            buildFrame(1_401_000, 78_900),
-        ]);
+        const recording = paintWith(buildWindow([
+            buildBar(1_400_000, { lowPrice: 78_100, highPrice: 78_900 }),
+        ]));
 
-        expect(recording.callsTo('moveTo').length).toBeGreaterThan(0);
+        const [moveTo, lineTo] = [recording.callsTo('moveTo')[0], recording.callsTo('lineTo')[0]];
+        expect(moveTo?.args[0]).toBe(lineTo?.args[0]);
+        expect(Number(lineTo?.args[1])).toBeGreaterThan(Number(moveTo?.args[1]));
     });
 
-    it('colours a rising candle differently from a falling one', () => {
-        const rising = paintWith([buildFrame(1_400_000, 78_400), buildFrame(1_401_000, 78_900)]);
-        const falling = paintWith([buildFrame(1_400_000, 78_900), buildFrame(1_401_000, 78_400)]);
-        const fillOf = (recording: ReturnType<typeof paintWith>) =>
-            recording.callsTo('fillRect').at(0)?.fillStyle;
+    it('colours a rising bar differently from a falling one', () => {
+        const rising = paintWith(buildWindow([buildBar(1_400_000, { openPrice: 78_400, closePrice: 78_600 })]));
+        const falling = paintWith(buildWindow([buildBar(1_400_000, { openPrice: 78_600, closePrice: 78_400 })]));
 
-        expect(fillOf(rising)).not.toBe(fillOf(falling));
+        expect(rising.callsTo('fillRect')[0]?.fillStyle)
+            .not.toBe(falling.callsTo('fillRect')[0]?.fillStyle);
     });
 
-    it('never collapses a flat candle to nothing', () => {
-        const recording = paintWith([buildFrame(1_400_000, 78_500), buildFrame(1_401_000, 78_500)]);
+    it('never collapses a flat bar to nothing', () => {
+        const recording = paintWith(buildWindow([
+            buildBar(1_400_000, { openPrice: 78_500, closePrice: 78_500 }),
+        ]));
 
-        expect(Number(recording.callsTo('fillRect').at(0)?.args[3])).toBeGreaterThan(0);
+        expect(Number(recording.callsTo('fillRect')[0]?.args[3])).toBeGreaterThan(0);
+    });
+
+    it('does not draw the warm-up the averages were seeded from', () => {
+        // Warm-up is history the window is not claiming to cover; drawing it
+        // would show bars to the left of the range the reader asked for.
+        const recording = paintWith(buildWindow(
+            [buildBar(1_340_000), buildBar(1_400_000), buildBar(1_460_000)],
+            1,
+        ));
+
+        expect(recording.callsTo('fillRect').length).toBe(2);
     });
 });

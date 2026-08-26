@@ -284,10 +284,15 @@ export class ChartController {
         if (state.instrumentSymbol === null) {
             return null;
         }
+        const instrument = state.instruments.find(
+            (candidate) => candidate.instrumentSymbol === state.instrumentSymbol,
+        );
+
         return {
             symbol: state.instrumentSymbol,
             viewport: state.viewport,
             surfaceWidthPx: this.surfaceWidthPx,
+            frameIntervalMs: instrument?.frameIntervalMs ?? state.dataset.sampleIntervalMs,
             priceGroupSize: resolveTradePriceGroupSize(state.viewport, state.dataset.priceBucketSize),
         };
     }
@@ -318,6 +323,7 @@ export class ChartController {
                 clusterPriceBucketSize: loaded.clusterPriceBucketSize,
                 clusterIntervalMs: loaded.clusterIntervalMs,
                 gaps: loaded.gaps,
+                bars: loaded.bars,
                 previousRevision: current.dataset.revision,
                 previousSaturationQuantity: current.dataset.saturationQuantity,
                 previousFloorQuantity: current.dataset.floorQuantity,

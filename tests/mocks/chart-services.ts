@@ -1,3 +1,4 @@
+import { EMPTY_BAR_WINDOW } from '../../src/shared/core/price-bar.ts';
 import type { InstrumentCoverage } from '../../src/shared/core/api-contract.ts';
 import type { LiquidityFrame, LiquidityFrameWindow } from '../../src/shared/core/liquidity-frame.ts';
 import type { HeatmapApiService } from '../../src/app/services/heatmap-api-service.ts';
@@ -37,6 +38,7 @@ export interface ChartServiceMocks {
     readonly fetchFrameWindow: ReturnType<typeof vi.fn>;
     readonly fetchTradeClusters: ReturnType<typeof vi.fn>;
     readonly fetchGaps: ReturnType<typeof vi.fn>;
+    readonly fetchPriceBars: ReturnType<typeof vi.fn>;
     readonly connect: ReturnType<typeof vi.fn>;
     readonly disconnect: ReturnType<typeof vi.fn>;
     readonly writePreferences: ReturnType<typeof vi.fn>;
@@ -64,12 +66,15 @@ export function createChartServiceMocks(
         clusters: [],
     });
     const fetchGaps = vi.fn().mockResolvedValue([]);
+    const fetchPriceBars = vi.fn().mockResolvedValue(EMPTY_BAR_WINDOW);
     const connect = vi.fn();
     const disconnect = vi.fn();
     const writePreferences = vi.fn();
 
     return {
-        api: { fetchInstruments, fetchFrameWindow, fetchTradeClusters, fetchGaps } as unknown as HeatmapApiService,
+        api: {
+            fetchInstruments, fetchFrameWindow, fetchTradeClusters, fetchGaps, fetchPriceBars,
+        } as unknown as HeatmapApiService,
         liveFeed: { connect, disconnect } as unknown as LiveFeedService,
         preferences: {
             read: () => ({ ...DEFAULT_PREFERENCES, ...preferences }),
@@ -79,6 +84,7 @@ export function createChartServiceMocks(
         fetchFrameWindow,
         fetchTradeClusters,
         fetchGaps,
+        fetchPriceBars,
         connect,
         disconnect,
         writePreferences,

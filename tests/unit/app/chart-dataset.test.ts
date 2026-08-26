@@ -1,3 +1,5 @@
+import type { PriceBar, PriceBarWindow } from '../../../src/shared/core/price-bar.ts';
+import { EMPTY_BAR_WINDOW } from '../../../src/shared/core/price-bar.ts';
 import type { LiquidityFrame } from '../../../src/shared/core/liquidity-frame.ts';
 import { describe, expect, it } from 'vitest';
 import {
@@ -6,6 +8,7 @@ import {
     DEFAULT_FLOOR_PERCENTILE,
     DEFAULT_SATURATION_PERCENTILE,
     EMPTY_DATASET,
+    foldFramesIntoBars,
     newestFrameTimestamp,
     recutDataset,
     replaceDataset,
@@ -29,6 +32,7 @@ function buildDataset(...capturedAtMs: number[]) {
         clusterPriceBucketSize: 10,
         clusterIntervalMs: 1_000,
         gaps: [],
+        bars: EMPTY_BAR_WINDOW,
         previousRevision: 0,
         floorPercentile: DEFAULT_FLOOR_PERCENTILE,
         saturationPercentile: DEFAULT_SATURATION_PERCENTILE,
@@ -52,6 +56,7 @@ describe('replaceDataset', () => {
             clusterPriceBucketSize: 10,
             clusterIntervalMs: 1_000,
             gaps: [],
+            bars: EMPTY_BAR_WINDOW,
             previousRevision: 0,
             floorPercentile: DEFAULT_FLOOR_PERCENTILE,
             saturationPercentile: DEFAULT_SATURATION_PERCENTILE,
@@ -150,6 +155,7 @@ describe('appendClusters onto a grouped price grid', () => {
             clusterPriceBucketSize: 50,
             clusterIntervalMs: 60_000,
             gaps: [],
+            bars: EMPTY_BAR_WINDOW,
             previousRevision: 0,
             floorPercentile: DEFAULT_FLOOR_PERCENTILE,
             saturationPercentile: DEFAULT_SATURATION_PERCENTILE,
@@ -208,6 +214,7 @@ describe('replaceDataset saturation stability', () => {
             clusterPriceBucketSize: 10,
             clusterIntervalMs: 1_000,
             gaps: [],
+            bars: EMPTY_BAR_WINDOW,
             previousRevision: 0,
             floorPercentile: DEFAULT_FLOOR_PERCENTILE,
             saturationPercentile: DEFAULT_SATURATION_PERCENTILE,
@@ -253,6 +260,7 @@ describe('recutDataset', () => {
             clusterPriceBucketSize: 10,
             clusterIntervalMs: 1_000,
             gaps: [],
+            bars: EMPTY_BAR_WINDOW,
             previousRevision: 0,
             floorPercentile: DEFAULT_FLOOR_PERCENTILE,
             saturationPercentile: DEFAULT_SATURATION_PERCENTILE,
@@ -301,5 +309,77 @@ describe('recutDataset', () => {
         const dataset = buildSpreadDataset();
 
         expect(recutDataset(dataset, 0.6, 0.99).frames).toBe(dataset.frames);
+    });
+});
+
+describe('foldFramesIntoBars', () => {
+    const INTERVAL_MS = 60_000;
+
+    function buildWindow(bars: PriceBar[]): PriceBarWindow {
+        return {
+            instrumentSymbol: 'BTCUSDT',
+            intervalMs: INTERVAL_MS,
+            warmupBarsRequested: 0,
+            warmupBarsReturned: 0,
+            bars,
+        };
+    }
+
+    function buildBar(openedAtMs: number, lastFrameAtMs: number): PriceBar {
+        return {
+            openedAtMs,
+            closedAtMs: openedAtMs + INTERVAL_MS,
+            openPrice: 100, highPrice: 100, lowPrice: 100, closePrice: 100,
+            expectedFrames: 60, frameCount: 1, isClosed: false,
+            firstFrameAtMs: openedAtMs, lastFrameAtMs,
+        };
+    }
+
+    function buildMidFrame(capturedAtMs: number, midPrice: number): LiquidityFrame {
+        return {
+            capturedAtMs,
+            bestBidPrice: midPrice - 0.5,
+            bestAskPrice: midPrice + 0.5,
+            bids: { lowestBucketIndex: 9, quantities: Float32Array.from([1]) },
+            asks: { lowestBucketIndex: 10, quantities: Float32Array.from([1]) },
+        };
+    }
+
+    it('extends the bar a frame belongs to rather than waiting for a refetch', () => {
+        // A refetch is only scheduled by a gesture, so without this an idle
+        // chart shows bars minutes behind a depth field current to the second.
+        const window = buildWindow([buildBar(60_000, 60_000)]);
+
+        const folded = foldFramesIntoBars(window, [buildMidFrame(61_000, 130)]);
+
+        expect(folded.bars).toHaveLength(1);
+        expect(folded.bars[0]).toMatchObject({ highPrice: 130, closePrice: 130, frameCount: 2 });
+    });
+
+    it('opens the next bar when a frame crosses the boundary', () => {
+        const window = buildWindow([buildBar(60_000, 119_000)]);
+
+        const folded = foldFramesIntoBars(window, [buildMidFrame(120_000, 90)]);
+
+        expect(folded.bars.map((bar) => bar.openedAtMs)).toEqual([60_000, 120_000]);
+    });
+
+    it('ignores a second the bars already hold', () => {
+        const window = buildWindow([buildBar(60_000, 90_000)]);
+
+        expect(foldFramesIntoBars(window, [buildMidFrame(90_000, 500)])).toBe(window);
+    });
+
+    it('keys on the newest frame the bars were built from, not on the loaded columns', () => {
+        // On a wide window the loaded frames are averaged columns; keying on
+        // those would fold the newest column into the bar a second time.
+        const window = buildWindow([buildBar(60_000, 115_000)]);
+
+        const folded = foldFramesIntoBars(window, [
+            buildMidFrame(110_000, 999),
+            buildMidFrame(118_000, 130),
+        ]);
+
+        expect(folded.bars[0]?.highPrice).toBe(130);
     });
 });

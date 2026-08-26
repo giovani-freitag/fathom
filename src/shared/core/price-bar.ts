@@ -49,6 +49,15 @@ export interface PriceBarQuery {
     readonly warmupBars: number;
 }
 
+/** A window that holds nothing, for a chart that has not loaded one yet. */
+export const EMPTY_BAR_WINDOW: PriceBarWindow = {
+    instrumentSymbol: '',
+    intervalMs: 1_000,
+    warmupBarsRequested: 0,
+    warmupBarsReturned: 0,
+    bars: [],
+};
+
 /** How much of a bar's own width was recorded, and whether that is settled yet. */
 export type BarCompleteness = 'forming' | 'partial' | 'whole';
 

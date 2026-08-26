@@ -7,6 +7,7 @@ import {
     type TradeClusterResponse,
 } from '../../shared/core/api-contract.ts';
 import { decodeLiquidityFrameWindow } from '../../shared/codec/heatmap-codec.ts';
+import type { PriceBarQuery, PriceBarWindow } from '../../shared/core/price-bar.ts';
 import { type LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import { type RecordingGap } from '../../shared/core/recording-gap.ts';
 
@@ -116,6 +117,28 @@ export class HeatmapApiService implements HeatmapSource {
             signal,
         );
         return payload.gaps;
+    }
+
+    /**
+     * Bars on a declared interval.
+     *
+     * @param query - Instrument, range, interval, and how much warm-up to read.
+     * @param signal - Aborts the request when the caller loses interest.
+     * @returns The bars, oldest first.
+     * @throws HeatmapApiError when the gateway rejects the request.
+     */
+    fetchPriceBars(query: PriceBarQuery, signal?: AbortSignal): Promise<PriceBarWindow> {
+        return this.requestJson<PriceBarWindow>(
+            API_ROUTES.bars,
+            new URLSearchParams({
+                symbol: query.symbol,
+                fromMs: String(Math.floor(query.fromMs)),
+                toMs: String(Math.floor(query.toMs)),
+                intervalMs: String(Math.floor(query.intervalMs)),
+                warmupBars: String(Math.floor(query.warmupBars)),
+            }),
+            signal,
+        );
     }
 
     private async requestJson<TPayload>(

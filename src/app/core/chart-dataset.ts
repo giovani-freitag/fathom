@@ -1,4 +1,5 @@
 import type { LiquidityFrame, LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
+import { EMPTY_BAR_WINDOW, type PriceBarWindow } from '../../shared/core/price-bar.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
 import { resolveDepthRange } from '../painting/depth-colour-scale.ts';
@@ -44,6 +45,8 @@ export interface ChartDataset {
     readonly frames: readonly LiquidityFrame[];
     readonly clusters: readonly TradeCluster[];
     readonly gaps: readonly RecordingGap[];
+    /** Bars on a declared interval, warm-up included at the front. */
+    readonly bars: PriceBarWindow;
     /**
      * Resting size that reaches the hot end of the ramp.
      */
@@ -63,6 +66,7 @@ export const EMPTY_DATASET: ChartDataset = {
     frames: [],
     clusters: [],
     gaps: [],
+    bars: EMPTY_BAR_WINDOW,
     saturationQuantity: 1,
     floorQuantity: 0,
     revision: 0,
@@ -76,6 +80,7 @@ export interface DatasetReplaceRequest {
     /** Time grid the executions were binned onto, which is coarser than the frames'. */
     readonly clusterIntervalMs: number;
     readonly gaps: readonly RecordingGap[];
+    readonly bars: PriceBarWindow;
     readonly previousRevision: number;
     /** Floor the previous window was drawn with, held to stop a pan recolouring the field. */
     readonly previousFloorQuantity?: number;
@@ -101,6 +106,7 @@ export function replaceDataset(request: DatasetReplaceRequest): ChartDataset {
         frames: request.window.frames,
         clusters: request.clusters,
         gaps: request.gaps,
+        bars: request.bars,
         ...resolveStableDepthRange(request),
         revision: request.previousRevision + 1,
     };
@@ -208,8 +214,68 @@ export function appendFrames(
     return {
         ...dataset,
         frames: [...dataset.frames, ...freshFrames],
+        bars: foldFramesIntoBars(dataset.bars, freshFrames),
         revision: dataset.revision + 1,
     };
+}
+
+/**
+ * Folds newly recorded frames into the bar they belong to.
+ *
+ * The tail delivers raw seconds; a bar is a grid over them. Without this the
+ * bars stand still while the depth field runs on, because a refetch is only
+ * scheduled by a gesture — an idle chart would be minutes behind itself.
+ *
+ * @param window - The bars as they stand.
+ * @param frames - Frames the tail just delivered.
+ * @returns The bars with the newest ones extended, or the original when nothing
+ *          arrived that they did not already hold.
+ */
+export function foldFramesIntoBars(
+    window: PriceBarWindow,
+    frames: readonly LiquidityFrame[],
+): PriceBarWindow {
+    const intervalMs = Math.max(1, window.intervalMs);
+    const newestHeldMs = window.bars[window.bars.length - 1]?.lastFrameAtMs ?? -Infinity;
+    const fresh = frames.filter((frame) => frame.capturedAtMs > newestHeldMs);
+    if (fresh.length === 0) {
+        return window;
+    }
+
+    const bars = [...window.bars];
+    for (const frame of fresh) {
+        const openedAtMs = Math.floor(frame.capturedAtMs / intervalMs) * intervalMs;
+        const midPrice = (frame.bestBidPrice + frame.bestAskPrice) / 2;
+        const last = bars[bars.length - 1];
+
+        if (last === undefined || last.openedAtMs !== openedAtMs) {
+            bars.push({
+                openedAtMs,
+                closedAtMs: openedAtMs + intervalMs,
+                openPrice: midPrice,
+                highPrice: midPrice,
+                lowPrice: midPrice,
+                closePrice: midPrice,
+                expectedFrames: last?.expectedFrames ?? 1,
+                frameCount: 1,
+                isClosed: false,
+                firstFrameAtMs: frame.capturedAtMs,
+                lastFrameAtMs: frame.capturedAtMs,
+            });
+            continue;
+        }
+
+        bars[bars.length - 1] = {
+            ...last,
+            highPrice: Math.max(last.highPrice, midPrice),
+            lowPrice: Math.min(last.lowPrice, midPrice),
+            closePrice: midPrice,
+            frameCount: last.frameCount + 1,
+            lastFrameAtMs: frame.capturedAtMs,
+        };
+    }
+
+    return { ...window, bars };
 }
 
 /**

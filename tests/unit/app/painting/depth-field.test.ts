@@ -1,3 +1,4 @@
+import { EMPTY_BAR_WINDOW } from '../../../../src/shared/core/price-bar.ts';
 import type { LiquidityFrame } from '../../../../src/shared/core/liquidity-frame.ts';
 import { DepthField } from '../../../../src/app/painting/depth-field.ts';
 import type { ChartDataset } from '../../../../src/app/core/chart-dataset.ts';
@@ -26,6 +27,7 @@ function buildDataset(frames: LiquidityFrame[], overrides: Partial<ChartDataset>
         frames,
         clusters: [],
         gaps: [],
+        bars: EMPTY_BAR_WINDOW,
         saturationQuantity: 10,
         floorQuantity: 0,
         revision: 1,

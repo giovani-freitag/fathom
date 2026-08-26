@@ -48,6 +48,12 @@ export function CoverageStrip({ state }: CoverageStripProps): ReactElement {
                 {formatDuration(state.dataset.sampleIntervalMs, translate)}{translate('coverage.perColumn')}
             </span>
 
+            {/* The bar rung is its own resolution now: the depth field follows the
+                surface, and a bar deliberately does not. */}
+            <span className="numeric" title={translate('coverage.barInterval')}>
+                {formatDuration(state.dataset.bars.intervalMs, translate)}
+            </span>
+
             {visibleGapCount > 0 && (
                 <span className="numeric text-amber" title={translate('coverage.gapTitle')}>
                     {translate(

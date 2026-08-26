@@ -1,7 +1,9 @@
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
+import { chooseBarIntervalMs } from './bar-interval.ts';
 import type { ChartViewport } from './chart-viewport.ts';
+import type { PriceBarWindow } from '../../shared/core/price-bar.ts';
 import type { HeatmapSource } from '../../shared/core/heatmap-source.ts';
 
 /** Loaded window is this much wider than the view, so a short pan needs no refetch. */
@@ -16,8 +18,13 @@ const TARGET_TRADE_COLUMNS = 420;
 const MAXIMUM_COLUMNS = 4_000;
 const MINIMUM_COLUMNS = 120;
 
+/** Bars a window shows, and how much history their averages need behind them. */
+const TARGET_BAR_COUNT = 240;
+const WARM_UP_BARS = 461;
+
 export interface LoadedWindow {
     readonly window: LiquidityFrameWindow;
+    readonly bars: PriceBarWindow;
     readonly clusters: readonly TradeCluster[];
     readonly clusterPriceBucketSize: number;
     readonly clusterIntervalMs: number;
@@ -26,6 +33,8 @@ export interface LoadedWindow {
 
 export interface WindowLoadRequest {
     readonly symbol: string;
+    /** The grid the instrument records on; no bar may be finer. */
+    readonly frameIntervalMs: number;
     readonly viewport: ChartViewport;
     readonly surfaceWidthPx: number;
     /** Stored price buckets per returned execution bucket. */
@@ -179,11 +188,21 @@ export class WindowLoader {
             Math.max(MINIMUM_COLUMNS, Math.round(request.surfaceWidthPx * (1 + 2 * OVERSCAN_RATIO))),
         );
 
+        // Chosen from the span alone. The depth field's resolution follows the
+        // surface, and bars must not: the same window on a phone and a desktop
+        // has to answer with the same bars.
+        const barIntervalMs = chooseBarIntervalMs({
+            viewportSpanMs: spanMs,
+            targetBarCount: TARGET_BAR_COUNT,
+            frameIntervalMs: request.frameIntervalMs,
+        });
+
         return {
             fromMs,
             toMs,
             maxColumns,
-            key: `${request.symbol}|${Math.floor(fromMs)}|${Math.ceil(toMs)}|${maxColumns}`,
+            barIntervalMs,
+            key: `${request.symbol}|${Math.floor(fromMs)}|${Math.ceil(toMs)}|${maxColumns}|${barIntervalMs}`,
         };
     }
 
@@ -199,7 +218,7 @@ export class WindowLoader {
             maxColumns: range.maxColumns,
         };
 
-        const [window, tradeResult, gaps] = await Promise.all([
+        const [window, tradeResult, gaps, bars] = await Promise.all([
             this.config.api.fetchFrameWindow(query, signal),
             this.config.api.fetchTradeClusters(
                 {
@@ -211,10 +230,18 @@ export class WindowLoader {
                 signal,
             ),
             this.config.api.fetchGaps(query, signal),
+            this.config.api.fetchPriceBars({
+                symbol: request.symbol,
+                fromMs: range.fromMs,
+                toMs: range.toMs,
+                intervalMs: range.barIntervalMs,
+                warmupBars: WARM_UP_BARS,
+            }, signal),
         ]);
 
         return {
             window,
+            bars,
             clusters: tradeResult.clusters,
             clusterPriceBucketSize: tradeResult.priceBucketSize,
             clusterIntervalMs: tradeResult.sampleIntervalMs,
@@ -227,5 +254,6 @@ interface ResolvedRange {
     readonly fromMs: number;
     readonly toMs: number;
     readonly maxColumns: number;
+    readonly barIntervalMs: number;
     readonly key: string;
 }
