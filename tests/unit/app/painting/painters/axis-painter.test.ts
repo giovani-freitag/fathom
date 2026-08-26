@@ -55,7 +55,7 @@ describe('AxisPainter.paintPriceAxis', () => {
         new AxisPainter().paintPriceAxis(paint);
 
         const ys = recording.callsTo('fillText').map((call) => Number(call.args[2]));
-        expect(ys.every((y) => y >= 0 && y <= paint.layout.plotHeight)).toBe(true);
+        expect(ys.every((y) => y >= 0 && y <= paint.layout.pricePaneHeight)).toBe(true);
     });
 
     it('draws labels inside the axis gutter, not over the plot', () => {

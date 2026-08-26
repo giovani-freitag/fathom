@@ -2,6 +2,12 @@ import {
     DEFAULT_FLOOR_PERCENTILE,
     DEFAULT_SATURATION_PERCENTILE,
 } from '../core/chart-dataset.ts';
+import { INSTANCE_TONES } from '../../shared/core/draw-plan.ts';
+import {
+    type AddedIndicator,
+    chooseInstanceTone,
+    MAXIMUM_ADDED_INDICATORS,
+} from '../../shared/core/indicator-selection.ts';
 import type { Locale } from '../i18n/locale.ts';
 import type { ThemeChoice } from '../core/theme.ts';
 
@@ -16,7 +22,7 @@ export interface ViewerPreferences {
     readonly isCandleOverlayVisible: boolean;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
-    readonly isAverageVisible: boolean;
+    readonly addedIndicators: readonly AddedIndicator[];
     /** Null until the reader picks one, which is how the host's own choice wins. */
     readonly locale: Locale | null;
     readonly themeChoice: ThemeChoice;
@@ -31,7 +37,7 @@ export const DEFAULT_PREFERENCES: ViewerPreferences = {
     isCandleOverlayVisible: true,
     isTradeOverlayVisible: true,
     isVolumeProfileVisible: true,
-    isAverageVisible: false,
+    addedIndicators: [],
     locale: null,
     themeChoice: 'system',
 };
@@ -70,6 +76,7 @@ export class PreferencesService {
             // picture the current control cannot undo.
             colourGain: clampToRange(merged.colourGain, 0.4, 3),
             visibleSpanMs: clampToRange(merged.visibleSpanMs, 30_000, 90 * 24 * 60 * 60 * 1_000),
+            addedIndicators: keepUsableIndicators(merged.addedIndicators),
         };
     }
 
@@ -102,6 +109,70 @@ export class PreferencesService {
             return null;
         }
     }
+}
+
+/**
+ * Keeps the stored indicator set to what the chart can actually draw.
+ *
+ * Everything here crossed a trust boundary: it is JSON the reader could have
+ * edited, and it arrives before anything has validated it. A set that is too
+ * long, or holds a setting that is not a number, would otherwise reach the
+ * arithmetic and stall the first frame.
+ */
+function keepUsableIndicators(stored: unknown): readonly AddedIndicator[] {
+    if (!Array.isArray(stored)) {
+        return [];
+    }
+
+    const seen = new Set<string>();
+    const kept: AddedIndicator[] = [];
+    for (const entry of stored as readonly unknown[]) {
+        if (!isUsableIndicator(entry) || seen.has(entry.instanceId)) {
+            continue;
+        }
+        seen.add(entry.instanceId);
+        kept.push({
+            instanceId: entry.instanceId,
+            indicatorId: entry.indicatorId,
+            settings: keepFiniteSettings(entry.settings),
+            // A set stored before colours existed, or one edited by hand, gets a
+            // free colour rather than a blank one.
+            tone: INSTANCE_TONES.find((tone) => tone === entry.tone) ?? chooseInstanceTone(kept),
+        });
+        if (kept.length === MAXIMUM_ADDED_INDICATORS) {
+            break;
+        }
+    }
+    return kept;
+}
+
+/** The shape a stored entry has before anything has checked its values. */
+interface StoredIndicator {
+    readonly instanceId: string;
+    readonly indicatorId: string;
+    readonly settings: Record<string, unknown>;
+    readonly tone?: unknown;
+}
+
+function isUsableIndicator(entry: unknown): entry is StoredIndicator {
+    if (typeof entry !== 'object' || entry === null) {
+        return false;
+    }
+    const candidate = entry as Record<string, unknown>;
+    return typeof candidate['instanceId'] === 'string'
+        && typeof candidate['indicatorId'] === 'string'
+        && typeof candidate['settings'] === 'object'
+        && candidate['settings'] !== null;
+}
+
+function keepFiniteSettings(settings: Record<string, unknown>): Record<string, number> {
+    const usable: Record<string, number> = {};
+    for (const [name, value] of Object.entries(settings)) {
+        if (typeof value === 'number' && Number.isFinite(value)) {
+            usable[name] = value;
+        }
+    }
+    return usable;
 }
 
 function clampToRange(value: number, minimum: number, maximum: number): number {

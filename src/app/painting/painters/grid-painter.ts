@@ -25,7 +25,7 @@ export class GridPainter {
         for (const timestampMs of paint.timeTicks) {
             const x = Math.round(projector.timeToX(timestampMs)) + 0.5;
             context.moveTo(x, 0);
-            context.lineTo(x, layout.plotHeight);
+            context.lineTo(x, layout.paneStackHeight);
         }
 
         context.stroke();

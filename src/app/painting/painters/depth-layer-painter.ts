@@ -33,7 +33,7 @@ export class DepthLayerPainter {
         // Averaging only helps when buckets are being squeezed below one pixel;
         // when they are larger than a pixel, smoothing blurs the very edges that
         // make a resting wall readable.
-        context.imageSmoothingEnabled = sourceHeight > layout.plotHeight;
+        context.imageSmoothingEnabled = sourceHeight > layout.pricePaneHeight;
         context.drawImage(
             field.canvas,
             sourceX,
@@ -43,7 +43,7 @@ export class DepthLayerPainter {
             0,
             0,
             layout.plotWidth,
-            layout.plotHeight,
+            layout.pricePaneHeight,
         );
     }
 }

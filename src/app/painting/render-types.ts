@@ -1,4 +1,5 @@
 import type { ChartViewport } from '../core/chart-viewport.ts';
+import type { PlotLevel } from '../../shared/core/draw-plan.ts';
 import type { ViewportProjector } from '../core/viewport-projector.ts';
 import type { ChartDataset } from '../core/chart-dataset.ts';
 import type { ResolvedTheme } from '../core/theme.ts';
@@ -30,9 +31,25 @@ export interface RenderRequest {
 /**
  * Where each band of the surface starts and ends, resolved once per paint.
  */
+/** Where one pane sits in the stack, in surface pixels. */
+export interface PaneRect {
+    readonly topY: number;
+    readonly height: number;
+}
+
 export interface ChartLayout {
     readonly plotWidth: number;
-    readonly plotHeight: number;
+    /** Where the price pane ends. Depth, candles and executions live above it. */
+    readonly pricePaneHeight: number;
+    /**
+     * Where every pane ends and the time axis begins.
+     *
+     * Distinct from the price pane because a gap, a grid line and the crosshair
+     * belong to time rather than to price, and so cross the whole stack.
+     */
+    readonly paneStackHeight: number;
+    /** Panes below the price pane, top to bottom. */
+    readonly indicatorPanes: readonly PaneRect[];
     readonly profileX: number;
     readonly profileWidth: number;
     readonly priceAxisX: number;
@@ -43,6 +60,21 @@ export interface ChartLayout {
 /**
  * The shared argument every painter takes.
  */
+/**
+ * One indicator pane, and the range of values it was scaled to.
+ *
+ * Computed once per frame and read by both the layer that draws inside the pane
+ * and the layer that labels the gutter beside it, because a band whose axis
+ * disagrees with its own line is worse than one with no axis at all.
+ */
+export interface PanePlacement {
+    readonly rect: PaneRect;
+    readonly low: number;
+    readonly high: number;
+    /** The thresholds drawn in it, so the gutter can name them. */
+    readonly levels: readonly PlotLevel[];
+}
+
 export interface PaintContext {
     readonly context: CanvasRenderingContext2D;
     readonly layout: ChartLayout;
@@ -57,4 +89,6 @@ export interface PaintContext {
      */
     readonly priceTicks: readonly number[];
     readonly timeTicks: readonly number[];
+    /** The indicator panes, top to bottom, with the range each was scaled to. */
+    readonly panePlacements: readonly PanePlacement[];
 }

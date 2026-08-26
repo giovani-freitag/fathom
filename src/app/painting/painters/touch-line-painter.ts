@@ -31,7 +31,7 @@ export class TouchLinePainter {
 
         const midPrice = (edgeFrame.bestBidPrice + edgeFrame.bestAskPrice) / 2;
         const y = Math.round(projector.priceToY(midPrice)) + 0.5;
-        if (y < 0 || y > layout.plotHeight) {
+        if (y < 0 || y > layout.pricePaneHeight) {
             return;
         }
 

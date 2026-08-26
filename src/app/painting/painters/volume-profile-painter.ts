@@ -67,11 +67,11 @@ export class VolumeProfilePainter {
         }
 
         context.fillStyle = RENDER_PALETTE.profileBackdrop;
-        context.fillRect(layout.profileX, 0, layout.profileWidth, layout.plotHeight);
+        context.fillRect(layout.profileX, 0, layout.profileWidth, layout.pricePaneHeight);
         context.strokeStyle = RENDER_PALETTE.hairline;
         context.beginPath();
         context.moveTo(layout.profileX + 0.5, 0);
-        context.lineTo(layout.profileX + 0.5, layout.plotHeight);
+        context.lineTo(layout.profileX + 0.5, layout.pricePaneHeight);
         context.stroke();
 
         const profile = buildVolumeProfile(paint);
@@ -235,7 +235,7 @@ function buildVolumeProfile(paint: PaintContext): VolumeProfile {
     for (const [bucketIndex, volume] of volumeByBucket) {
         const price = toBucketCentrePrice(bucketIndex, request.dataset.clusterPriceBucketSize);
         const y = projector.priceToY(price);
-        if (y < 0 || y > layout.plotHeight) {
+        if (y < 0 || y > layout.pricePaneHeight) {
             continue;
         }
 

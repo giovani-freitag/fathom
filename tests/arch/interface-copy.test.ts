@@ -24,8 +24,23 @@ const HAS_WORD = /[A-Za-zÀ-ÿ]{2,}/;
  */
 const PROSE_LINE = /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9 ,.!?'’&%—–-]*$/;
 
-/** A valueless JSX attribute, which is a lone lowercase token, not a phrase. */
-const BARE_ATTRIBUTE = /^[a-z]+(?:-[a-z]+)*$/;
+/**
+ * A valueless JSX attribute, which is one token rather than a phrase.
+ *
+ * Written in either casing the platform uses: `aria-hidden` came from HTML and
+ * `autoFocus` from the DOM property it sets.
+ */
+const BARE_ATTRIBUTE = /^(?:[a-z]+(?:-[a-z]+)*|[a-z]+[A-Za-z]*)$/;
+
+/**
+ * A line of code that the prose shape would otherwise accept.
+ *
+ * A statement broken across lines ends mid-expression, and a fragment like
+ * `return indicator.parameters` is letters, spaces and full stops — which is
+ * also what a sentence is. Property access and a leading keyword are what tell
+ * them apart without parsing the file.
+ */
+const CODE_LINE = /^(?:return|const|let|import|export|new|typeof|await|default|case|throw|yield)\b|\.[a-z]/;
 
 /** A phrase written between two tags on one line. */
 const INLINE_JSX_TEXT = /<\/?[A-Za-z][^<>]*>([^<>{}]*[A-Za-zÀ-ÿ]{2,}[^<>{}]*)</;
@@ -96,7 +111,8 @@ function readPhrase(line: string): string | null {
     const isPhrase = PROSE_LINE.test(trimmed)
         && HAS_WORD.test(trimmed)
         && !trimmed.endsWith(',')
-        && !BARE_ATTRIBUTE.test(trimmed);
+        && !BARE_ATTRIBUTE.test(trimmed)
+        && !CODE_LINE.test(trimmed);
     if (isPhrase) {
         return trimmed;
     }

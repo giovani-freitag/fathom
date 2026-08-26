@@ -5,6 +5,7 @@ import { ViewportProjector } from '../../src/app/core/viewport-projector.ts';
 import type { ChartDataset } from '../../src/app/core/chart-dataset.ts';
 import { EMPTY_DATASET } from '../../src/app/core/chart-dataset.ts';
 import { resolveChartLayout } from '../../src/app/painting/chart-layout.ts';
+import { isPriceScale, placePanes } from '../../src/app/painting/pane-projector.ts';
 import type { PaintContext, RenderRequest } from '../../src/app/painting/render-types.ts';
 
 export interface RecordedCall {
@@ -101,10 +102,12 @@ export function buildPaintContext(
     options: PaintContextOptions = {},
 ): PaintContext {
     const viewport = { ...DEFAULT_VIEWPORT, ...options.viewport };
+    const plans = options.plans ?? [];
     const layout = resolveChartLayout({
         cssWidth: options.cssWidth ?? 1_000,
         cssHeight: options.cssHeight ?? 600,
         isVolumeProfileVisible: options.isVolumeProfileVisible ?? false,
+        indicatorPaneCount: plans.filter((plan) => !isPriceScale(plan.scale)).length,
     });
 
     return {
@@ -113,7 +116,7 @@ export function buildPaintContext(
         translate: buildTranslate('en'),
         priceTicks: choosePriceTicks({
             viewport,
-            extentPx: layout.plotHeight,
+            extentPx: layout.pricePaneHeight,
             minimumSpacingPx: options.priceTickSpacingPx ?? 64,
         }),
         timeTicks: chooseTimeTicks({
@@ -121,10 +124,11 @@ export function buildPaintContext(
             extentPx: layout.plotWidth,
             minimumSpacingPx: options.timeTickSpacingPx ?? 96,
         }),
+        panePlacements: placePanes(plans, layout.indicatorPanes),
         projector: new ViewportProjector({
             viewport,
             width: layout.plotWidth,
-            height: layout.plotHeight,
+            height: layout.pricePaneHeight,
         }),
         request: {
             viewport,
@@ -135,7 +139,7 @@ export function buildPaintContext(
             isVolumeProfileVisible: options.isVolumeProfileVisible ?? false,
             pointer: options.pointer ?? null,
             locale: 'en',
-            plans: options.plans ?? [],
+            plans,
             theme: 'dark',
         },
         crosshairY: options.crosshairY ?? options.pointer?.y ?? null,

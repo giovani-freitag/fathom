@@ -73,7 +73,7 @@ export class TradePainter {
             // Culled here rather than clipped by the canvas: a print far outside
             // the price band still costs a path and a fill before it is discarded.
             const margin = RENDER_METRICS.maximumBubbleRadius;
-            if (y < -margin || y > layout.plotHeight + margin) {
+            if (y < -margin || y > layout.pricePaneHeight + margin) {
                 continue;
             }
 

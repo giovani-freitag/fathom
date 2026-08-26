@@ -1,5 +1,5 @@
 import { Radar, RefreshCw, TriangleAlert } from 'lucide-react';
-import { type ReactElement, useCallback, useEffect } from 'react';
+import { type ReactElement, useCallback, useEffect, useRef } from 'react';
 import { resolveRecordedSpanMs } from '../core/viewport-policy.ts';
 import { useKernel } from '../react/kernel-context.ts';
 import { useChartState } from '../react/use-chart-state.ts';
@@ -12,6 +12,9 @@ import { DepthLegend } from './depth-legend.tsx';
 import { SettingsDrawer } from './settings-drawer.tsx';
 import { InstrumentPicker } from './instrument-picker.tsx';
 import { SpanPresets } from './span-presets.tsx';
+import { IndicatorOverlay, IndicatorTrigger } from './indicators/indicator-controls.tsx';
+import { useIndicators } from '../react/use-indicators.ts';
+import { useChartLayout } from '../react/use-chart-layout.ts';
 
 /**
  * The whole product: one chart, and just enough chrome to explain it.
@@ -20,6 +23,11 @@ export function HeatmapPage(): ReactElement {
     const kernel = useKernel();
     const state = useChartState();
     const translate = useTranslate();
+    const indicators = useIndicators();
+    // Measured here rather than read back from the renderer, so the rows placed
+    // over each band are placed by the same arithmetic that drew it.
+    const surfaceRef = useRef<HTMLElement>(null);
+    const surfaceLayout = useChartLayout(surfaceRef);
 
     useEffect(() => {
         void kernel.chart.initialize();
@@ -62,6 +70,7 @@ export function HeatmapPage(): ReactElement {
                         <Radar className="size-4" />
                     </ControlButton>
                 )}
+                <IndicatorTrigger controls={indicators} />
                 <SettingsDrawer
                     recording={kernel.recording}
                     onContractsChanged={() => { void kernel.chart.refreshInstruments(); }}
@@ -70,7 +79,7 @@ export function HeatmapPage(): ReactElement {
                 />
             </header>
 
-            <main className="relative min-h-0 flex-1">
+            <main ref={surfaceRef} className="relative min-h-0 flex-1">
                 <ChartSurface />
 
                 <div className="pointer-events-none absolute left-3 top-3">
@@ -81,6 +90,8 @@ export function HeatmapPage(): ReactElement {
                         instrumentSymbol={state.instrumentSymbol}
                     />
                 </div>
+
+                <IndicatorOverlay controls={indicators} layout={surfaceLayout} />
 
                 {state.phase === 'initialising' && <SurfaceNotice message={translate('page.probing')} translate={translate} />}
                 {state.phase === 'empty' && (

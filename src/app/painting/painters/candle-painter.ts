@@ -65,7 +65,7 @@ export class CandlePainter {
             return;
         }
 
-        const middleY = Math.round(layout.plotHeight / 2) + 0.5;
+        const middleY = Math.round(layout.pricePaneHeight / 2) + 0.5;
         context.strokeStyle = RENDER_PALETTE.gapStroke;
         context.lineWidth = 1;
         context.setLineDash(INCOMPLETE_DASH);

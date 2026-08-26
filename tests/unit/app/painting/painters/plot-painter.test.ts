@@ -6,7 +6,7 @@ import { PlotPainter } from '../../../../../src/app/painting/painters/plot-paint
 
 function buildSeries(overrides: Partial<PlotSeries> = {}): PlotSeries {
     return {
-        label: 'EMA-20',
+        labelKey: 'indicator.ema',
         tone: 'phosphor',
         shape: 'line',
         atMs: Float64Array.from([1_200_000, 1_400_000, 1_600_000]),
@@ -15,11 +15,21 @@ function buildSeries(overrides: Partial<PlotSeries> = {}): PlotSeries {
     };
 }
 
+function buildPlan(overrides: Partial<DrawPlan> = {}): DrawPlan {
+    return {
+        indicatorId: 'ema',
+        labelKey: 'indicator.ema',
+        parameterSummary: '20',
+        scale: { kind: 'price' },
+        series: [buildSeries()],
+        hasConverged: true,
+        ...overrides,
+    };
+}
+
 function paintWith(plan: Partial<DrawPlan>) {
     const recording = createRecordingContext();
-    new PlotPainter().paint(buildPaintContext(recording, {
-        plans: [{ series: [buildSeries()], hasConverged: true, ...plan }],
-    }));
+    new PlotPainter().paintOverPrice(buildPaintContext(recording, { plans: [buildPlan(plan)] }));
     return recording;
 }
 

@@ -1,0 +1,72 @@
+import type { Indicator, IndicatorSettings } from '../../shared/core/draw-plan.ts';
+import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
+import { AVERAGE_CONVERGENCE } from './average-convergence.ts';
+import { AVERAGE_TRUE_RANGE } from './average-true-range.ts';
+import { BOLLINGER_BANDS } from './bollinger-bands.ts';
+import { DONCHIAN_CHANNELS } from './donchian-channels.ts';
+import { EXPONENTIAL_AVERAGE } from './exponential-average.ts';
+import { RELATIVE_STRENGTH } from './relative-strength.ts';
+import { SIMPLE_AVERAGE } from './simple-average.ts';
+import { STOCHASTIC_OSCILLATOR } from './stochastic-oscillator.ts';
+
+/**
+ * Every indicator the build ships with, in the order they are offered.
+ *
+ * Ordered so the ones drawn over the price come first: that is the division a
+ * reader makes when choosing, and it is the one that decides whether adding it
+ * changes the shape of the screen.
+ */
+export const INDICATOR_CATALOGUE: readonly Indicator[] = [
+    SIMPLE_AVERAGE,
+    EXPONENTIAL_AVERAGE,
+    BOLLINGER_BANDS,
+    DONCHIAN_CHANNELS,
+    RELATIVE_STRENGTH,
+    STOCHASTIC_OSCILLATOR,
+    AVERAGE_CONVERGENCE,
+    AVERAGE_TRUE_RANGE,
+];
+
+/**
+ * Looks an indicator up by the id a stored selection refers to.
+ *
+ * @param indicatorId - The id to find.
+ * @returns The indicator, or null when the build no longer ships it.
+ */
+export function findIndicator(indicatorId: string): Indicator | null {
+    return INDICATOR_CATALOGUE.find((indicator) => indicator.id === indicatorId) ?? null;
+}
+
+/**
+ * The starting parameters for a newly added indicator.
+ *
+ * @param indicator - The indicator being added.
+ * @returns Its declared defaults, by parameter name.
+ */
+export function readDefaultSettings(indicator: Indicator): IndicatorSettings {
+    const settings: Record<string, number> = {};
+    for (const parameter of indicator.parameters) {
+        settings[parameter.name] = parameter.defaultValue;
+    }
+    return settings;
+}
+
+/**
+ * The deepest history any added indicator needs behind the drawn window.
+ *
+ * One figure for the whole set because they share a fetch: reading each one's
+ * own depth would mean a request per indicator over the same range.
+ *
+ * @param added - What is on the chart.
+ * @returns Bars to read before the window, and never fewer than one.
+ */
+export function resolveRequiredWarmupBars(added: readonly AddedIndicator[]): number {
+    let deepest = 1;
+    for (const entry of added) {
+        const indicator = findIndicator(entry.indicatorId);
+        if (indicator !== null) {
+            deepest = Math.max(deepest, indicator.resolveWarmupBars(entry.settings));
+        }
+    }
+    return deepest;
+}

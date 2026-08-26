@@ -1,5 +1,6 @@
 import { type AppearanceHost, AppearanceController } from './appearance-controller.ts';
 import { ChartController } from './chart-controller.ts';
+import { createCursorStore } from './cursor-store.ts';
 import type { CollectorEvent } from '../../shared/core/collector-worker-contract.ts';
 import { CollectorWorkerService } from '../services/collector-worker-service.ts';
 import { IndexedDbHeatmapSource } from '../../database/browser/indexed-db-heatmap-source.ts';
@@ -42,6 +43,7 @@ export function createDemoServiceContainer(
 ): DemoServiceContainer {
     const database = new IndexedDbService({ factory: config.factory });
     const api = new IndexedDbHeatmapSource({ database });
+    const cursor = createCursorStore();
     const preferences = new PreferencesService({ storage: config.storage });
 
     // The tail runs inside the collector, so the page asks it to follow a
@@ -78,6 +80,7 @@ export function createDemoServiceContainer(
         database,
         recording,
         chart: new ChartController({ api, liveFeed, preferences }),
+        cursor,
         appearance: new AppearanceController({ preferences, host: config.appearanceHost }),
     };
 }

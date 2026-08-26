@@ -18,9 +18,8 @@ const TARGET_TRADE_COLUMNS = 420;
 const MAXIMUM_COLUMNS = 4_000;
 const MINIMUM_COLUMNS = 120;
 
-/** Bars a window shows, and how much history their averages need behind them. */
+/** Bars a window shows. */
 const TARGET_BAR_COUNT = 240;
-const WARM_UP_BARS = 461;
 
 export interface LoadedWindow {
     readonly window: LiquidityFrameWindow;
@@ -39,6 +38,8 @@ export interface WindowLoadRequest {
     readonly surfaceWidthPx: number;
     /** Stored price buckets per returned execution bucket. */
     readonly priceGroupSize: number;
+    /** Bars to read before the window, for whatever indicator needs the most. */
+    readonly warmupBars: number;
 }
 
 export interface WindowLoaderConfig {
@@ -57,6 +58,7 @@ export class WindowLoader {
     private loadedFromMs = 0;
     private loadedToMs = 0;
     private loadedSampleIntervalMs = Number.POSITIVE_INFINITY;
+    private loadedWarmupBars = 0;
     private lastRequestedKey = '';
     private reloadTimer: ReturnType<typeof setTimeout> | null = null;
     private inFlight: AbortController | null = null;
@@ -103,6 +105,7 @@ export class WindowLoader {
             this.loadedFromMs = range.fromMs;
             this.loadedToMs = range.toMs;
             this.loadedSampleIntervalMs = loaded.window.sampleIntervalMs;
+            this.loadedWarmupBars = request.warmupBars;
             this.config.onLoaded(loaded);
         } catch (error) {
             this.lastRequestedKey = '';
@@ -137,6 +140,7 @@ export class WindowLoader {
         this.loadedFromMs = 0;
         this.loadedToMs = 0;
         this.loadedSampleIntervalMs = Number.POSITIVE_INFINITY;
+        this.loadedWarmupBars = 0;
         this.lastRequestedKey = '';
     }
 
@@ -166,7 +170,12 @@ export class WindowLoader {
         // Half is the point where one stored column already covers two pixels;
         // refetching before that trades a round trip for detail nobody can see.
         const isTooCoarse = requiredSampleMs < this.loadedSampleIntervalMs / 2;
-        return isOutsideLoaded || isTooCoarse;
+
+        // An indicator added after the fetch may reach further back than the
+        // window holds. Seeding it from what is there draws a line that looks
+        // converged and is not.
+        const isShallow = request.warmupBars > this.loadedWarmupBars;
+        return isOutsideLoaded || isTooCoarse || isShallow;
     }
 
     private handleReloadDue(): void {
@@ -235,7 +244,7 @@ export class WindowLoader {
                 fromMs: range.fromMs,
                 toMs: range.toMs,
                 intervalMs: range.barIntervalMs,
-                warmupBars: WARM_UP_BARS,
+                warmupBars: request.warmupBars,
             }, signal),
         ]);
 

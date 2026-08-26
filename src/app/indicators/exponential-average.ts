@@ -1,9 +1,26 @@
-import type { DrawPlan, Indicator, IndicatorInput } from '../../shared/core/draw-plan.ts';
+import {
+    type DrawPlan,
+    type Indicator,
+    type IndicatorInput,
+    type IndicatorParameter,
+    type IndicatorSettings,
+    type PlotScale,
+    readSetting,
+} from '../../shared/core/draw-plan.ts';
+import {
+    collectInstants,
+    createBlankValues,
+    findContinuousSegments,
+    resolveExponentialWeight,
+} from './series-math.ts';
 
-export interface ExponentialAverageConfig {
-    /** Bars the average is smoothed over. */
-    readonly periodBars: number;
-}
+const PERIOD_BARS: IndicatorParameter = {
+    name: 'periodBars',
+    kind: 'integer',
+    defaultValue: 20,
+    minimum: 2,
+    maximum: 400,
+};
 
 /**
  * Bars of warm-up an average of this period needs before it has converged.
@@ -20,45 +37,59 @@ export function resolveWarmupBars(periodBars: number): number {
  * The exponential moving average of the bar close.
  */
 export class ExponentialAverage implements Indicator {
-    readonly id: string;
-    readonly warmupBars: number;
+    readonly id = 'ema';
+    readonly labelKey = 'indicator.ema';
+    readonly scale: PlotScale = { kind: 'price' };
+    readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS];
 
-    private readonly periodBars: number;
-
-    constructor(config: ExponentialAverageConfig) {
-        this.periodBars = Math.max(1, Math.floor(config.periodBars));
-        this.id = `ema-${this.periodBars}`;
-        this.warmupBars = resolveWarmupBars(this.periodBars);
+    /**
+     * Bars needed before the window for the seed to have washed out.
+     *
+     * @param settings - The reader's parameter values.
+     * @returns The bar count.
+     */
+    resolveWarmupBars(settings: IndicatorSettings): number {
+        return resolveWarmupBars(readSetting(settings, PERIOD_BARS));
     }
 
     /**
      * Smooths the closes of a window into one line.
      *
-     * @param input - The bars, and how many of them are warm-up.
-     * @returns One line, breaking wherever a bucket is missing.
+     * @param input - The bars, the warm-up count, and the parameters.
+     * @returns One line, restarting wherever the recording was interrupted.
      */
     compute(input: IndicatorInput): DrawPlan {
         const bars = input.bars.bars;
-        const atMs = new Float64Array(bars.length);
-        const value = new Float64Array(bars.length);
-        const weight = 2 / (this.periodBars + 1);
-        let average = Number.NaN;
+        const periodBars = readSetting(input.settings, PERIOD_BARS);
+        const weight = resolveExponentialWeight(periodBars);
+        const value = createBlankValues(bars.length);
 
-        for (let index = 0; index < bars.length; index += 1) {
-            const bar = bars[index]!;
-            atMs[index] = bar.closedAtMs;
-            // A hole in the recording restarts the average rather than carrying
-            // one across time nobody saw. Smoothing over a gap invents a trend.
-            const isContinuous = index === 0 || bar.openedAtMs === bars[index - 1]!.closedAtMs;
-            average = Number.isNaN(average) || !isContinuous
-                ? bar.closePrice
-                : average + weight * (bar.closePrice - average);
-            value[index] = average;
+        for (const segment of findContinuousSegments(bars)) {
+            let average = bars[segment.startIndex]!.closePrice;
+            for (let index = segment.startIndex; index < segment.endIndex; index += 1) {
+                const closePrice = bars[index]!.closePrice;
+                average = index === segment.startIndex
+                    ? closePrice
+                    : average + weight * (closePrice - average);
+                value[index] = average;
+            }
         }
 
         return {
-            series: [{ label: this.id.toUpperCase(), tone: 'phosphor', shape: 'line', atMs, value }],
-            hasConverged: input.warmupBarCount >= this.warmupBars,
+            indicatorId: this.id,
+            labelKey: this.labelKey,
+            parameterSummary: String(periodBars),
+            scale: this.scale,
+            series: [{
+                labelKey: this.labelKey,
+                tone: 'phosphor',
+                shape: 'line',
+                atMs: collectInstants(bars),
+                value,
+            }],
+            hasConverged: input.warmupBarCount >= resolveWarmupBars(periodBars),
         };
     }
 }
+
+export const EXPONENTIAL_AVERAGE = new ExponentialAverage();

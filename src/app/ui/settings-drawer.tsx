@@ -190,13 +190,6 @@ export function SettingsDrawer({ state, onChange, recording, onContractsChanged 
                         />
 
                         <SettingToggle
-                            label={translate('settings.average')}
-                            description={translate('settings.averageHelp')}
-                            isOn={state.isAverageVisible}
-                            onToggle={(isAverageVisible) => { onChange({ isAverageVisible }); }}
-                        />
-
-                        <SettingToggle
                             label={translate('settings.volumeProfile')}
                             description={translate('settings.volumeProfileHelp')}
                             isOn={state.isVolumeProfileVisible}

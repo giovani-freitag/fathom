@@ -39,6 +39,8 @@
     --color-bid: #2bd4a8;
     --color-ask: #ff5c72;
     --color-amber: #ffb454;
+    --color-violet: #b48ef7;
+    --color-cyan: #57c7ff;
 }
 
 :root,
@@ -79,6 +81,8 @@
     --color-bid: #0d9670;
     --color-ask: #d32741;
     --color-amber: #a86a00;
+    --color-violet: #6d3fd4;
+    --color-cyan: #0f6fb5;
 }
 
 html,

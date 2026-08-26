@@ -1,0 +1,165 @@
+import { INSTANCE_TONES, type IndicatorSettings, type PlotTone } from './draw-plan.ts';
+
+/**
+ * One indicator a reader has added, with the parameters they chose.
+ *
+ * Carries an instance id of its own so the same indicator can be added twice at
+ * different settings — a fast average and a slow one is the ordinary case, not
+ * an edge one.
+ */
+export interface AddedIndicator {
+    readonly instanceId: string;
+    readonly indicatorId: string;
+    readonly settings: IndicatorSettings;
+    /**
+     * What this copy is drawn in, so two of the same indicator can be told apart.
+     *
+     * Carried by the copy rather than by the indicator, because the thing that
+     * needs distinguishing is which of two identical averages a line belongs to,
+     * and the indicator has no idea there are two.
+     */
+    readonly tone: PlotTone;
+}
+
+/** How many an added set may hold, so a stored preference cannot stall a session. */
+export const MAXIMUM_ADDED_INDICATORS = 8;
+
+/**
+ * Mints an id for a newly added indicator.
+ *
+ * Derived from what is already added rather than from a clock, so the same
+ * sequence of actions produces the same document whenever it is replayed.
+ *
+ * @param indicatorId - The indicator being added.
+ * @param added - What is already on the chart.
+ * @returns An id no member of `added` is using.
+ */
+export function mintInstanceId(
+    indicatorId: string,
+    added: readonly AddedIndicator[],
+): string {
+    const taken = new Set(added.map((entry) => entry.instanceId));
+    for (let ordinal = 1; ; ordinal += 1) {
+        const candidate = `${indicatorId}-${ordinal}`;
+        if (!taken.has(candidate)) {
+            return candidate;
+        }
+    }
+}
+
+/**
+ * Adds an indicator at its declared defaults.
+ *
+ * @param added - What is already on the chart.
+ * @param indicatorId - The indicator to add.
+ * @param settings - Its starting parameters.
+ * @returns The new set, unchanged once it is full.
+ */
+export function withIndicatorAdded(
+    added: readonly AddedIndicator[],
+    indicatorId: string,
+    settings: IndicatorSettings,
+): readonly AddedIndicator[] {
+    if (added.length >= MAXIMUM_ADDED_INDICATORS) {
+        return added;
+    }
+    return [...added, {
+        instanceId: mintInstanceId(indicatorId, added),
+        indicatorId,
+        settings,
+        tone: chooseInstanceTone(added),
+    }];
+}
+
+/**
+ * Picks a colour nothing on the chart is already using.
+ *
+ * @param added - What is already on the chart.
+ * @returns A free tone, or the next in rotation once every one is taken.
+ */
+export function chooseInstanceTone(added: readonly AddedIndicator[]): PlotTone {
+    const taken = new Set(added.map((entry) => entry.tone));
+    return INSTANCE_TONES.find((tone) => !taken.has(tone))
+        ?? INSTANCE_TONES[added.length % INSTANCE_TONES.length]!;
+}
+
+/**
+ * Changes what one added indicator is drawn in.
+ *
+ * @param added - What is on the chart.
+ * @param instanceId - Which copy to recolour.
+ * @param tone - Its new colour.
+ * @returns The new set, in the order it was already in.
+ */
+export function withIndicatorRecoloured(
+    added: readonly AddedIndicator[],
+    instanceId: string,
+    tone: PlotTone,
+): readonly AddedIndicator[] {
+    return added.map((entry) => (
+        entry.instanceId === instanceId ? { ...entry, tone } : entry
+    ));
+}
+
+/**
+ * Drops one added indicator.
+ *
+ * @param added - What is on the chart.
+ * @param instanceId - Which copy to drop.
+ * @returns The new set.
+ */
+export function withIndicatorRemoved(
+    added: readonly AddedIndicator[],
+    instanceId: string,
+): readonly AddedIndicator[] {
+    return added.filter((entry) => entry.instanceId !== instanceId);
+}
+
+/**
+ * Changes one parameter of one added indicator.
+ *
+ * @param added - What is on the chart.
+ * @param instanceId - Which copy to retune.
+ * @param name - The parameter to change.
+ * @param value - Its new value.
+ * @returns The new set, in the order it was already in.
+ */
+export function withIndicatorRetuned(
+    added: readonly AddedIndicator[],
+    instanceId: string,
+    name: string,
+    value: number,
+): readonly AddedIndicator[] {
+    return added.map((entry) => (
+        entry.instanceId === instanceId
+            ? { ...entry, settings: { ...entry.settings, [name]: value } }
+            : entry
+    ));
+}
+
+/**
+ * Puts a removed indicator back where it was.
+ *
+ * At its old position rather than at the end, because the order decides which
+ * band an indicator is drawn in: restoring to the end would move every other
+ * oscillator up a pane, which is not what undoing a removal means.
+ *
+ * @param added - What is on the chart.
+ * @param entry - The indicator to restore.
+ * @param index - Where it sat before it was removed.
+ * @returns The new set.
+ */
+export function withIndicatorRestored(
+    added: readonly AddedIndicator[],
+    entry: AddedIndicator,
+    index: number,
+): readonly AddedIndicator[] {
+    if (added.length >= MAXIMUM_ADDED_INDICATORS
+        || added.some((existing) => existing.instanceId === entry.instanceId)) {
+        return added;
+    }
+
+    const restored = [...added];
+    restored.splice(Math.min(Math.max(index, 0), added.length), 0, entry);
+    return restored;
+}

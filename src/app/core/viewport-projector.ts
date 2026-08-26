@@ -55,6 +55,16 @@ export class ViewportProjector {
     }
 
     /**
+     * The vertical position a value sits at, reading it as a price.
+     *
+     * @param value - A price.
+     * @returns A y in surface pixels.
+     */
+    valueToY(value: number): number {
+        return this.priceToY(value);
+    }
+
+    /**
      * Price at a vertical position.
      *
      * @param y - The y coordinate.

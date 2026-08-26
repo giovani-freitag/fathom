@@ -35,6 +35,7 @@ function buildRequest(overrides: Partial<Parameters<WindowLoader['load']>[0]> = 
         surfaceWidthPx: 1_000,
         frameIntervalMs: 1_000,
         priceGroupSize: 1,
+        warmupBars: 1,
         ...overrides,
     };
 }

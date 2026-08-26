@@ -1,6 +1,5 @@
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
 import type { DrawPlan } from '../../shared/core/draw-plan.ts';
-import { ExponentialAverage } from '../indicators/exponential-average.ts';
 import type { LiveMessage } from '../../shared/core/live-message.ts';
 import type { TranslationKey } from '../i18n/dictionaries/en.ts';
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
@@ -32,12 +31,15 @@ import {
     resolveViewportBounds,
 } from './viewport-policy.ts';
 import { type LoadedWindow, WindowLoader, type WindowLoadRequest } from './window-loader.ts';
+import {
+    findIndicator,
+    resolveRequiredWarmupBars,
+} from '../indicators/indicator-catalogue.ts';
+import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
+import { isPlanWithinBudget, recolourPlan } from '../../shared/core/draw-plan.ts';
 
 /** How often the instrument listing and its coverage are re-read. */
 const COVERAGE_REFRESH_MS = 5_000;
-
-/** The one indicator the chart ships with, until a reader can add their own. */
-const AVERAGE = new ExponentialAverage({ periodBars: 20 });
 
 export type ChartPhase = 'initialising' | 'ready' | 'empty' | 'failed';
 
@@ -61,7 +63,7 @@ export interface ChartState {
     readonly isCandleOverlayVisible: boolean;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
-    readonly isAverageVisible: boolean;
+    readonly addedIndicators: readonly AddedIndicator[];
     /** What the indicators produced for the window on screen. */
     readonly plans: readonly DrawPlan[];
 }
@@ -90,7 +92,6 @@ export type ChartSettingsPatch = Partial<
         | 'isCandleOverlayVisible'
         | 'isTradeOverlayVisible'
         | 'isVolumeProfileVisible'
-        | 'isAverageVisible'
     >
 >;
 
@@ -274,13 +275,53 @@ export class ChartController {
      * arithmetic it was meant to move off the thread.
      */
     private computePlans(state: ChartState): readonly DrawPlan[] {
-        if (!state.isAverageVisible) {
-            return [];
+        const plans: DrawPlan[] = [];
+        for (const entry of state.addedIndicators) {
+            const indicator = findIndicator(entry.indicatorId);
+            if (indicator === null) {
+                continue;
+            }
+            const plan = indicator.compute({
+                bars: state.dataset.bars,
+                warmupBarCount: state.dataset.bars.warmupBarsReturned,
+                settings: entry.settings,
+            });
+            // Rejected whole rather than clipped. A plan over budget is a bug in
+            // whoever produced it, and drawing part of one shows the reader a
+            // claim its author never made.
+            if (isPlanWithinBudget(plan)) {
+                plans.push({ ...recolourPlan(plan, entry.tone), instanceId: entry.instanceId });
+            }
         }
-        return [AVERAGE.compute({
-            bars: state.dataset.bars,
-            warmupBarCount: state.dataset.bars.warmupBarsReturned,
-        })];
+        return plans;
+    }
+
+    /**
+     * Revises the set of indicators on the chart.
+     *
+     * Takes a revision rather than a replacement because the caller's idea of
+     * the current set is one render old: two additions in the same frame would
+     * each append to the same stale list, and the second would land on top of
+     * the first instead of after it.
+     *
+     * @param revise - Given the set in force, returns the set to put in its place.
+     */
+    updateIndicators(
+        revise: (current: readonly AddedIndicator[]) => readonly AddedIndicator[],
+    ): void {
+        const before = resolveRequiredWarmupBars(this.store.read().addedIndicators);
+        this.store.update((state) => {
+            const next = { ...state, addedIndicators: revise(state.addedIndicators) };
+            return { ...next, plans: this.computePlans(next) };
+        });
+        this.persistPreferences();
+
+        // A deeper indicator needs history the loaded window does not hold, and
+        // seeding from what is there would draw a converged-looking line that is
+        // not one.
+        if (resolveRequiredWarmupBars(this.store.read().addedIndicators) > before) {
+            void this.loadWindow();
+        }
     }
 
     private choosePreferredInstrument(
@@ -321,6 +362,7 @@ export class ChartController {
             surfaceWidthPx: this.surfaceWidthPx,
             frameIntervalMs: instrument?.frameIntervalMs ?? state.dataset.sampleIntervalMs,
             priceGroupSize: resolveTradePriceGroupSize(state.viewport, state.dataset.priceBucketSize),
+            warmupBars: resolveRequiredWarmupBars(state.addedIndicators),
         };
     }
 
@@ -462,7 +504,7 @@ export class ChartController {
             isCandleOverlayVisible: state.isCandleOverlayVisible,
             isTradeOverlayVisible: state.isTradeOverlayVisible,
             isVolumeProfileVisible: state.isVolumeProfileVisible,
-            isAverageVisible: state.isAverageVisible,
+            addedIndicators: state.addedIndicators,
         });
     }
 
@@ -504,7 +546,7 @@ function buildInitialState(preferences: ViewerPreferences): ChartState {
         isCandleOverlayVisible: preferences.isCandleOverlayVisible,
         isTradeOverlayVisible: preferences.isTradeOverlayVisible,
         isVolumeProfileVisible: preferences.isVolumeProfileVisible,
-        isAverageVisible: preferences.isAverageVisible,
+        addedIndicators: preferences.addedIndicators,
         plans: [],
     };
 }

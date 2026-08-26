@@ -388,16 +388,16 @@ describe('ChartGestureController tracking', () => {
     it('moves the chart vertically as far as the finger', () => {
         const { surface } = buildHarness();
         const priceSpan = VIEWPORT.highPrice - VIEWPORT.lowPrice;
-        const plotHeight = resolveChartLayout({
+        const pricePaneHeight = resolveChartLayout({
             cssWidth: surface.width,
             cssHeight: surface.height,
             isVolumeProfileVisible: true,
-        }).plotHeight;
+        }).pricePaneHeight;
 
         dragBy(surface, 0, 50);
 
         const moved = (surface.published.at(-1)?.viewport.lowPrice ?? 0) - VIEWPORT.lowPrice;
-        expect(moved).toBeCloseTo((50 / plotHeight) * priceSpan, 6);
+        expect(moved).toBeCloseTo((50 / pricePaneHeight) * priceSpan, 6);
     });
 
     it('keeps the instant under the wheel where it was', () => {

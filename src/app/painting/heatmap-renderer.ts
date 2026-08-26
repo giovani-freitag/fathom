@@ -16,6 +16,8 @@ import { TradePainter } from './painters/trade-painter.ts';
 import { VolumeProfilePainter } from './painters/volume-profile-painter.ts';
 import { RENDER_METRICS } from './render-palette.ts';
 import type { ChartLayout, PaintContext, RenderRequest } from './render-types.ts';
+import type { DrawPlan } from '../../shared/core/draw-plan.ts';
+import { countPanedPlans, placePanes } from './pane-projector.ts';
 
 /** Retina beyond this buys nothing visible and costs four times the fill rate. */
 const MAXIMUM_PIXEL_RATIO = 2;
@@ -121,6 +123,7 @@ export class HeatmapRenderer {
             cssWidth: this.cssWidth,
             cssHeight: this.cssHeight,
             isVolumeProfileVisible: request.isVolumeProfileVisible,
+            indicatorPaneCount: countPanedPlans(request.plans),
         });
 
         this.paintDepthLayer(request);
@@ -162,17 +165,24 @@ export class HeatmapRenderer {
         const { request } = paint;
         paint.context.clearRect(0, 0, this.cssWidth, this.cssHeight);
 
-        // Clipped to the region the data layers own, and this is the containment
-        // rather than a rule each painter is trusted to follow. It is what makes
-        // it safe to draw a plan somebody else produced: a plan whose vertices
-        // run to the edges of the world still cannot reach the axis gutters.
+        // Clipped rather than trusted, and clipped twice. The outer bound keeps
+        // any layer out of the axis gutters; the inner one keeps everything that
+        // reads as a price inside the pane that has a price axis. Without the
+        // second, a candle at the edge of the band draws down through an
+        // oscillator and reads as part of it.
         paint.context.save();
         paint.context.beginPath();
-        paint.context.rect(0, 0, paint.layout.priceAxisX, paint.layout.plotHeight);
+        paint.context.rect(0, 0, paint.layout.priceAxisX, paint.layout.paneStackHeight);
         paint.context.clip();
 
+        // A gap and the time grid belong to time, so they cross every band.
         this.gapPainter.paint(paint);
         this.gridPainter.paint(paint);
+
+        paint.context.save();
+        paint.context.beginPath();
+        paint.context.rect(0, 0, paint.layout.priceAxisX, paint.layout.pricePaneHeight);
+        paint.context.clip();
         if (request.isVolumeProfileVisible) {
             this.volumeProfilePainter.paint(paint);
         }
@@ -182,9 +192,11 @@ export class HeatmapRenderer {
         if (request.isTradeOverlayVisible) {
             this.tradePainter.paint(paint);
         }
-        // Last of the data layers: an indicator is drawn over what it describes.
-        this.plotPainter.paint(paint);
+        // Last of the price layers: an indicator is drawn over what it describes.
+        this.plotPainter.paintOverPrice(paint);
+        paint.context.restore();
 
+        this.plotPainter.paintInPanes(paint);
         paint.context.restore();
     }
 
@@ -220,15 +232,16 @@ export class HeatmapRenderer {
             projector: new ViewportProjector({
                 viewport: request.viewport,
                 width: this.layout.plotWidth,
-                height: this.layout.plotHeight,
+                height: this.layout.pricePaneHeight,
             }),
             request,
             crosshairY: this.resolveCrosshairY(request),
             priceTicks: choosePriceTicks({
                 viewport: request.viewport,
-                extentPx: this.layout.plotHeight,
+                extentPx: this.layout.pricePaneHeight,
                 minimumSpacingPx: PRICE_LABEL_SPACING_PX,
             }),
+            panePlacements: placePanes(request.plans, this.layout.indicatorPanes),
             timeTicks: chooseTimeTicks({
                 viewport: request.viewport,
                 extentPx: this.layout.plotWidth,
@@ -239,7 +252,7 @@ export class HeatmapRenderer {
 
     private resolveCrosshairY(request: RenderRequest): number | null {
         const pointer = request.pointer;
-        if (pointer === null || pointer.x > this.layout.plotWidth || pointer.y > this.layout.plotHeight) {
+        if (pointer === null || pointer.x > this.layout.plotWidth || pointer.y > this.layout.pricePaneHeight) {
             return null;
         }
         return pointer.y;
@@ -271,6 +284,10 @@ export class HeatmapRenderer {
  * chart keeps showing what it drew before. A field added that the layers do not
  * read costs a repaint that changes no pixels.
  */
+function describePlan(plan: DrawPlan): string {
+    return `${plan.indicatorId}:${plan.parameterSummary}:${plan.hasConverged}`;
+}
+
 function describeOverlayState(request: RenderRequest, layout: ChartLayout): string {
     const { viewport, dataset } = request;
 
@@ -282,13 +299,14 @@ function describeOverlayState(request: RenderRequest, layout: ChartLayout): stri
         viewport.lowPrice,
         viewport.highPrice,
         layout.plotWidth,
-        layout.plotHeight,
+        layout.paneStackHeight,
+        layout.pricePaneHeight,
         request.isCandleOverlayVisible,
         request.isTradeOverlayVisible,
         request.isVolumeProfileVisible,
-        // A plan appearing or leaving does not move the dataset, so the toggle has
-        // to be in the key itself.
-        request.plans.length,
+        // A plan appearing, leaving or being retuned does not move the dataset,
+        // so what the plans are has to be in the key itself.
+        request.plans.map(describePlan).join(','),
         request.theme,
         // The volume profile writes sizes, which every language groups its own way.
         request.locale,
