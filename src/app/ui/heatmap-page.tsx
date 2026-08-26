@@ -12,6 +12,7 @@ import { CoverageStrip } from './coverage-strip.tsx';
 import { listDrawnOverlays } from '../indicators/layer-contributions.ts';
 import { SettingsDrawer } from './settings-drawer.tsx';
 import { InstrumentPicker } from './instrument-picker.tsx';
+import { IntervalPicker } from './interval-picker.tsx';
 import { SpanPresets } from './span-presets.tsx';
 import { IndicatorOverlay, IndicatorTrigger } from './indicators/indicator-controls.tsx';
 import { useIndicators } from '../react/use-indicators.ts';
@@ -61,6 +62,12 @@ export function HeatmapPage(): ReactElement {
     }, [handleSpanSelect, kernel]);
 
     const recordedSpanMs = resolveRecordedSpanMs(state.instruments, state.instrumentSymbol);
+    // The grid the contract is recorded on, not the one this window happens to
+    // be sampled at: sampling coarsens as the view widens, and the rungs a
+    // reader may pick must not come and go with the zoom.
+    const recordedIntervalMs = state.instruments.find(
+        (instrument) => instrument.instrumentSymbol === state.instrumentSymbol,
+    )?.frameIntervalMs ?? 1_000;
 
     return (
         <div className="flex h-dvh flex-col bg-abyss-900 pt-[env(safe-area-inset-top)]">
@@ -69,6 +76,13 @@ export function HeatmapPage(): ReactElement {
                     instruments={state.instruments}
                     selectedSymbol={state.instrumentSymbol}
                     onSelect={(symbol) => { kernel.chart.selectInstrument(symbol); }}
+                />
+
+                <IntervalPicker
+                    chosen={state.barIntervalMs}
+                    effectiveMs={state.dataset.bars.intervalMs}
+                    frameIntervalMs={recordedIntervalMs}
+                    onSelect={(intervalMs) => { kernel.chart.selectBarInterval(intervalMs); }}
                 />
 
                 <div className="min-w-0 flex-1 overflow-hidden">

@@ -50,30 +50,58 @@ export function followLiveEdge(viewport: ChartViewport, dataset: ChartDataset): 
     return { ...viewport, fromMs: viewport.fromMs + (newestMs - viewport.toMs), toMs: newestMs };
 }
 
-/**
- * Recentres the price axis once the book has left the screen entirely.
- *
- * @param viewport - The viewport to correct.
- * @param dataset - The window holding the newest touch.
- * @returns The recentred viewport, or the original when the touch is on screen.
- */
-export function followTouchPrice(viewport: ChartViewport, dataset: ChartDataset): ChartViewport {
-    const newestFrame = dataset.frames[dataset.frames.length - 1];
-    if (newestFrame === undefined) {
-        return viewport;
-    }
-
-    const touchPrice = (newestFrame.bestBidPrice + newestFrame.bestAskPrice) / 2;
-    if (touchPrice >= viewport.lowPrice && touchPrice <= viewport.highPrice) {
-        return viewport;
-    }
-
-    const halfSpan = (viewport.highPrice - viewport.lowPrice) / 2;
-    return { ...viewport, lowPrice: touchPrice - halfSpan, highPrice: touchPrice + halfSpan };
-}
-
 /** Clear space above and below a price range framed on the price itself. */
 const PRICE_FRAME_PADDING = 0.15;
+
+export interface DrawnPriceLayers {
+    readonly isDepthVisible: boolean;
+    readonly isCandleOverlayVisible: boolean;
+}
+
+/**
+ * Moves the price axis until it holds everything being drawn.
+ *
+ * The band keeps its size unless what is drawn needs more, so the depth map
+ * stays as readable as the reader last left it and the axis does not creep
+ * wider every hour the market walks. It is only moved when something drawn has
+ * left it — a market that walked off the top, or a window widened over a
+ * stretch the price has since travelled away from.
+ *
+ * @param viewport - The viewport to correct.
+ * @param dataset - The window holding the touch and the bars.
+ * @param drawn - Which layers are on the chart, since only those need holding.
+ * @returns The moved viewport, or the original when everything already fits.
+ */
+export function followDrawnPrice(
+    viewport: ChartViewport,
+    dataset: ChartDataset,
+    drawn: DrawnPriceLayers,
+): ChartViewport {
+    let low = Number.POSITIVE_INFINITY;
+    let high = Number.NEGATIVE_INFINITY;
+
+    const newestFrame = dataset.frames[dataset.frames.length - 1];
+    if (drawn.isDepthVisible && newestFrame !== undefined) {
+        const touchPrice = (newestFrame.bestBidPrice + newestFrame.bestAskPrice) / 2;
+        low = touchPrice;
+        high = touchPrice;
+    }
+    if (drawn.isCandleOverlayVisible) {
+        for (const bar of dataset.bars.bars.slice(dataset.bars.warmupBarsReturned)) {
+            low = Math.min(low, bar.lowPrice);
+            high = Math.max(high, bar.highPrice);
+        }
+    }
+
+    if (low > high || (low >= viewport.lowPrice && high <= viewport.highPrice)) {
+        return viewport;
+    }
+
+    const padding = Math.max((high - low) * PRICE_FRAME_PADDING, high * Number.EPSILON, 1e-8);
+    const span = Math.max(viewport.highPrice - viewport.lowPrice, high - low + 2 * padding);
+    const middle = (low + high) / 2;
+    return { ...viewport, lowPrice: middle - span / 2, highPrice: middle + span / 2 };
+}
 
 /**
  * Frames the price axis on what is being drawn, for the first window of a session.

@@ -156,6 +156,24 @@ derivable from the execution grid to within a hundredth of a percent, so this is
 a choice: the mid is what the recording is of, and it is defined in every second
 the collector saw, including the ones nothing traded in.
 
+## How long a bar covers
+
+A bar is fitted to the window by default: the span presets already put a
+readable number of bars on the screen, and most readers never want to think
+about it. Naming a rung pins it, and pinning changes what zooming means —
+afterwards the zoom changes how many bars are seen rather than how much each one
+covers, which is what a reader comparing two windows means.
+
+Naming a rung widens the window to hold a run of them. Left alone, asking for an
+hourly bar on a quarter-hour window draws one bar the width of the screen, which
+is a true picture of nothing. Nothing finer than the recording is offered: a bar
+under the grid the collector wrote would be claiming detail nobody captured.
+
+The price axis holds whatever is drawn. It keeps the size the reader left it on
+— an axis that crept wider every hour would read differently by noon — and moves
+only when something drawn has left it: a market that walked off the top, or a
+window widened over a stretch the price has since travelled away from.
+
 ## A folder is a layer
 
 Everything one layer is lives in `src/app/indicators/<layer>/`: the arithmetic

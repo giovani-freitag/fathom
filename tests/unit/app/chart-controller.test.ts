@@ -1,5 +1,5 @@
 import { ChartController } from '../../../src/app/core/chart-controller.ts';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { EN_DICTIONARY } from '../../../src/app/i18n/dictionaries/en.ts';
 import {
     buildFrame,
@@ -449,5 +449,48 @@ describe('ChartController readiness', () => {
 
         expect(controller.store.read().phase).toBe('ready');
         expect(mocks.fetchFrameWindow).not.toHaveBeenCalled();
+    });
+});
+
+describe('ChartController.selectBarInterval', () => {
+    it('refetches on the rung the reader named', async () => {
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+
+        controller.selectBarInterval(3_600_000);
+        await vi.waitFor(() => {
+            const asked = mocks.fetchPriceBars.mock.calls.at(-1)?.[0] as { intervalMs: number };
+            expect(asked.intervalMs).toBe(3_600_000);
+        });
+
+        expect(controller.store.read().barIntervalMs).toBe(3_600_000);
+    });
+
+    it('widens the window so a run of the named rung fits on it', async () => {
+        // Left as it was, an hourly bar on a quarter-hour window is one bar the
+        // width of the screen: a true picture of nothing.
+        const controller = buildController();
+        await controller.initialize();
+        const before = controller.store.read().viewport;
+
+        controller.selectBarInterval(3_600_000);
+
+        const after = controller.store.read().viewport;
+        expect(after.toMs - after.fromMs).toBeGreaterThan(before.toMs - before.fromMs);
+    });
+
+    it('hands the choice back to the window when the reader clears it', async () => {
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        controller.selectBarInterval(3_600_000);
+
+        controller.selectBarInterval(null);
+
+        expect(controller.store.read().barIntervalMs).toBeNull();
+        expect(mocks.writePreferences).toHaveBeenCalledWith(
+            expect.objectContaining({ barIntervalMs: null }),
+        );
     });
 });

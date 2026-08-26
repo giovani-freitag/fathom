@@ -25,7 +25,7 @@ import {
 } from './chart-dataset.ts';
 import {
     followLiveEdge,
-    followTouchPrice,
+    followDrawnPrice,
     frameOnBook,
     resolveTradePriceGroupSize,
     resolveViewportBounds,
@@ -40,6 +40,7 @@ import {
     findIndicator,
     resolveRequiredWarmupBars,
 } from '../indicators/indicator-catalogue.ts';
+import { type BarIntervalMs, TARGET_BAR_COUNT } from './bar-interval.ts';
 import { type LayerSettings, resolveFieldSettings } from '../indicators/field-layers.ts';
 import { type AddedIndicator, resolveBandKey } from '../../shared/core/indicator-selection.ts';
 import { isPlanWithinBudget, recolourPlan } from '../../shared/core/draw-plan.ts';
@@ -69,6 +70,8 @@ export interface ChartState {
     /** False leaves a plain price chart, with no book behind it. */
     readonly isDepthVisible: boolean;
     readonly isCandleOverlayVisible: boolean;
+    /** The bar rung the reader named, or null while the window decides. */
+    readonly barIntervalMs: BarIntervalMs | null;
     /** What each drawn layer is tuned to, for the parts that paint them. */
     readonly layerSettings: LayerSettings;
     readonly isTradeOverlayVisible: boolean;
@@ -238,6 +241,34 @@ export class ChartController {
     }
 
     /**
+     * Adopts the bar rung the reader named, or hands the choice back to the window.
+     *
+     * @param barIntervalMs - A rung of the ladder, or null to fit the window.
+     */
+    selectBarInterval(barIntervalMs: BarIntervalMs | null): void {
+        const current = this.store.read();
+        if (current.barIntervalMs === barIntervalMs) {
+            return;
+        }
+
+        this.store.update((state) => ({ ...state, barIntervalMs }));
+        if (barIntervalMs === null) {
+            this.persistPreferences();
+            void this.loadWindow();
+            return;
+        }
+
+        // Widened to hold a readable run of them. Left as it was, naming an
+        // hourly bar on a quarter-hour window draws one bar the width of the
+        // screen, which is a true picture of nothing.
+        const toMs = current.viewport.toMs;
+        this.applyView({
+            viewport: { ...current.viewport, fromMs: toMs - barIntervalMs * TARGET_BAR_COUNT, toMs },
+            surfaceWidthPx: this.surfaceWidthPx,
+        });
+    }
+
+    /**
      * Adopts a viewport produced by a gesture and schedules any refetch it needs.
      *
      * @param request - The requested viewport and the surface it was measured on.
@@ -367,6 +398,7 @@ export class ChartController {
             frameIntervalMs: instrument?.frameIntervalMs ?? state.dataset.sampleIntervalMs,
             priceGroupSize: resolveTradePriceGroupSize(state.viewport, state.dataset.priceBucketSize),
             warmupBars: resolveRequiredWarmupBars(state.addedIndicators),
+            barIntervalMs: state.barIntervalMs,
             sources: resolveWindowSources(state),
         };
     }
@@ -480,7 +512,13 @@ export class ChartController {
         }
 
         const onLiveEdge = followLiveEdge(state.viewport, dataset);
-        return state.isFollowingPrice ? followTouchPrice(onLiveEdge, dataset) : onLiveEdge;
+        if (!state.isFollowingPrice) {
+            return onLiveEdge;
+        }
+        return followDrawnPrice(onLiveEdge, dataset, {
+            isDepthVisible: state.isDepthVisible,
+            isCandleOverlayVisible: state.isCandleOverlayVisible,
+        });
     }
 
     /**
@@ -504,6 +542,7 @@ export class ChartController {
             instrumentSymbol: state.instrumentSymbol ?? 'BTCUSDT',
             visibleSpanMs: state.viewport.toMs - state.viewport.fromMs,
             addedIndicators: state.addedIndicators,
+            barIntervalMs: state.barIntervalMs,
         });
     }
 
@@ -573,6 +612,7 @@ function buildInitialState(preferences: ViewerPreferences): ChartState {
         failureKey: null,
         instruments: [],
         instrumentSymbol: null,
+        barIntervalMs: preferences.barIntervalMs,
         viewport: {
             fromMs: nowMs - preferences.visibleSpanMs,
             toMs: nowMs,

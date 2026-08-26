@@ -7,6 +7,7 @@ import {
     MAXIMUM_STORED_INDICATORS,
     withIndicatorAdded,
 } from '../../shared/core/indicator-selection.ts';
+import { BAR_INTERVALS_MS, type BarIntervalMs } from '../core/bar-interval.ts';
 import { type Locale, resolveLocale } from '../i18n/locale.ts';
 import { THEME_CHOICES, type ThemeChoice } from '../core/theme.ts';
 
@@ -19,6 +20,8 @@ export interface ViewerPreferences {
     readonly schemaVersion: number;
     readonly instrumentSymbol: string;
     readonly visibleSpanMs: number;
+    /** The bar rung the reader named, or null while the window decides. */
+    readonly barIntervalMs: BarIntervalMs | null;
     /**
      * Everything on the chart, host layers and indicators alike.
      *
@@ -37,6 +40,7 @@ export const DEFAULT_PREFERENCES: ViewerPreferences = {
     instrumentSymbol: 'BTCUSDT',
     visibleSpanMs: 15 * 60 * 1_000,
     addedIndicators: buildDefaultLayers(),
+    barIntervalMs: null,
     locale: null,
     themeChoice: 'system',
 };
@@ -83,6 +87,9 @@ export class PreferencesService {
             // interface down on the first phrase it tries to render.
             locale: merged.locale === null ? null : resolveLocale([String(merged.locale)]),
             themeChoice: THEME_CHOICES.find((choice) => choice === merged.themeChoice) ?? 'system',
+            // A rung the build no longer offers reads as no choice at all,
+            // which is the state a chart works in anyway.
+            barIntervalMs: BAR_INTERVALS_MS.find((rung) => rung === merged.barIntervalMs) ?? null,
         };
     }
 

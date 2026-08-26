@@ -36,6 +36,7 @@ function buildRequest(overrides: Partial<Parameters<WindowLoader['load']>[0]> = 
         frameIntervalMs: 1_000,
         priceGroupSize: 1,
         warmupBars: 1,
+        barIntervalMs: null,
         sources: ['frames', 'trades'] as readonly WindowSource[],
         ...overrides,
     };

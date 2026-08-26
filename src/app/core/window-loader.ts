@@ -1,7 +1,7 @@
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
-import { chooseBarIntervalMs } from './bar-interval.ts';
+import { type BarIntervalMs, resolveBarIntervalMs, TARGET_BAR_COUNT } from './bar-interval.ts';
 import type { ChartViewport } from './chart-viewport.ts';
 import type { PriceBarWindow } from '../../shared/core/price-bar.ts';
 import type { HeatmapSource, TradeClusterResult } from '../../shared/core/heatmap-source.ts';
@@ -19,7 +19,6 @@ const MAXIMUM_COLUMNS = 4_000;
 const MINIMUM_COLUMNS = 120;
 
 /** Bars a window shows. */
-const TARGET_BAR_COUNT = 240;
 
 export interface LoadedWindow {
     readonly window: LiquidityFrameWindow;
@@ -40,6 +39,8 @@ export interface WindowLoadRequest {
     readonly priceGroupSize: number;
     /** Bars to read before the window, for whatever indicator needs the most. */
     readonly warmupBars: number;
+    /** The rung the reader named, or null to let the window decide. */
+    readonly barIntervalMs: BarIntervalMs | null;
     /**
      * What something on the chart is going to read.
      *
@@ -222,7 +223,7 @@ export class WindowLoader {
         // Chosen from the span alone. The depth field's resolution follows the
         // surface, and bars must not: the same window on a phone and a desktop
         // has to answer with the same bars.
-        const barIntervalMs = chooseBarIntervalMs({
+        const barIntervalMs = resolveBarIntervalMs(request.barIntervalMs, {
             viewportSpanMs: spanMs,
             targetBarCount: TARGET_BAR_COUNT,
             frameIntervalMs: request.frameIntervalMs,

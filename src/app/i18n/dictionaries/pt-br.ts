@@ -116,6 +116,8 @@ export const PT_BR_DICTIONARY: Dictionary = {
 
     'legend.book': 'book',
 
+    'interval.auto': 'Auto · {interval}',
+    'interval.label': 'Intervalo da barra',
     'readout.open': 'A',
     'readout.high': 'M',
     'readout.low': 'm',

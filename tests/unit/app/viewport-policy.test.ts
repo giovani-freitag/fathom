@@ -2,7 +2,7 @@ import type { InstrumentCoverage } from '../../../src/shared/core/api-contract.t
 import { type ChartDataset, EMPTY_DATASET } from '../../../src/app/core/chart-dataset.ts';
 import {
     followLiveEdge,
-    followTouchPrice,
+    followDrawnPrice,
     frameOnBook,
     resolveRecordedSpanMs,
     resolveTradePriceGroupSize,
@@ -31,6 +31,13 @@ const INSTRUMENT: InstrumentCoverage = {
 
 function datasetWith(...frames: ReturnType<typeof buildFrame>[]) {
     return { ...EMPTY_DATASET, priceBucketSize: 10, frames };
+}
+
+function barsSpanning(lowPrice: number, highPrice: number) {
+    return {
+        ...EMPTY_DATASET.bars,
+        bars: [{ ...FLAT_BAR, lowPrice, highPrice, openPrice: lowPrice, closePrice: highPrice }],
+    };
 }
 
 describe('resolveViewportBounds', () => {
@@ -99,33 +106,73 @@ describe('followLiveEdge', () => {
     });
 });
 
-describe('followTouchPrice', () => {
+const BOOK_ONLY = { isDepthVisible: true, isCandleOverlayVisible: false };
+
+describe('followDrawnPrice', () => {
     it('leaves the axis alone while the touch is on screen', () => {
-        expect(followTouchPrice(VIEWPORT, datasetWith(buildFrame(1_500_000, 78_500)))).toBe(VIEWPORT);
+        const dataset = datasetWith(buildFrame(1_500_000, 78_500));
+
+        expect(followDrawnPrice(VIEWPORT, dataset, BOOK_ONLY)).toBe(VIEWPORT);
     });
 
     it('recentres on a touch that walked off the top', () => {
-        const followed = followTouchPrice(VIEWPORT, datasetWith(buildFrame(1_500_000, 80_000)));
+        const dataset = datasetWith(buildFrame(1_500_000, 80_000));
+
+        const followed = followDrawnPrice(VIEWPORT, dataset, BOOK_ONLY);
 
         expect((followed.lowPrice + followed.highPrice) / 2).toBeCloseTo(80_000, 6);
     });
 
     it('recentres on a touch that walked off the bottom', () => {
-        const followed = followTouchPrice(VIEWPORT, datasetWith(buildFrame(1_500_000, 70_000)));
+        const dataset = datasetWith(buildFrame(1_500_000, 70_000));
+
+        const followed = followDrawnPrice(VIEWPORT, dataset, BOOK_ONLY);
 
         expect((followed.lowPrice + followed.highPrice) / 2).toBeCloseTo(70_000, 6);
     });
 
     it('keeps the price span when it recentres', () => {
-        const followed = followTouchPrice(VIEWPORT, datasetWith(buildFrame(1_500_000, 80_000)));
+        // The band the reader left the depth map on is the band it stays on;
+        // an axis that crept wider every hour would read differently by noon.
+        const dataset = datasetWith(buildFrame(1_500_000, 80_000));
+
+        const followed = followDrawnPrice(VIEWPORT, dataset, BOOK_ONLY);
 
         expect(followed.highPrice - followed.lowPrice).toBe(1_000);
     });
 
     it('leaves the time axis untouched', () => {
-        const followed = followTouchPrice(VIEWPORT, datasetWith(buildFrame(1_500_000, 80_000)));
+        const dataset = datasetWith(buildFrame(1_500_000, 80_000));
+
+        const followed = followDrawnPrice(VIEWPORT, dataset, BOOK_ONLY);
 
         expect([followed.fromMs, followed.toMs]).toEqual([VIEWPORT.fromMs, VIEWPORT.toMs]);
+    });
+
+    it('reaches a bar that the band does not, widening only as far as it must', () => {
+        // Widening the window over a stretch the price has since travelled away
+        // from otherwise draws candles nobody can see.
+        const dataset = {
+            ...datasetWith(buildFrame(1_500_000, 78_500)),
+            bars: barsSpanning(76_000, 78_600),
+        };
+
+        const followed = followDrawnPrice(VIEWPORT, dataset, {
+            isDepthVisible: true,
+            isCandleOverlayVisible: true,
+        });
+
+        expect(followed.lowPrice).toBeLessThan(76_000);
+        expect(followed.highPrice).toBeGreaterThan(78_600);
+    });
+
+    it('ignores bars on a chart that is not drawing them', () => {
+        const dataset = {
+            ...datasetWith(buildFrame(1_500_000, 78_500)),
+            bars: barsSpanning(76_000, 78_600),
+        };
+
+        expect(followDrawnPrice(VIEWPORT, dataset, BOOK_ONLY)).toBe(VIEWPORT);
     });
 });
 

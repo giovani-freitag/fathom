@@ -114,6 +114,8 @@ export const EN_DICTIONARY = {
 
     'legend.book': 'book',
 
+    'interval.auto': 'Auto · {interval}',
+    'interval.label': 'Bar interval',
     'readout.open': 'O',
     'readout.high': 'H',
     'readout.low': 'L',
