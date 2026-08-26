@@ -1,34 +1,42 @@
 import type { ChartState } from '../core/chart-controller.ts';
-import { formatDuration, formatFixed } from '../core/formatting.ts';
-import { resolveRecordedSpanMs } from '../core/viewport-policy.ts';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { Dialog } from 'radix-ui';
 import type { ReactElement } from 'react';
 import { AboutPanel } from './about-panel.tsx';
+import type { IndicatorControls } from '../react/use-indicators.ts';
+import { LayerAccordion } from './indicators/layer-accordion.tsx';
 import { AppearanceControls } from './appearance-controls.tsx';
 import { ControlButton } from './control-button.tsx';
-import type { RecordingControl } from '../../shared/core/recording-control.ts';
-import { RecordingPanel } from './recording-panel.tsx';
 import { useAppearance, useTranslate } from '../react/use-appearance.ts';
 import { useKernel } from '../react/kernel-context.ts';
 
 interface SettingsDrawerProps {
     readonly state: ChartState;
-    /** Absent when the page is its own collector and there is nothing to supervise. */
-    readonly recording: RecordingControl | null;
-    readonly onContractsChanged: () => void;
+    readonly controls: IndicatorControls;
+    readonly isOpen: boolean;
+    readonly onOpenChange: (isOpen: boolean) => void;
+    /** The layer to open onto, or null to open onto nothing. */
+    readonly expandedLayer: string | null;
+    readonly onExpandedLayerChange: (instanceId: string | null) => void;
 }
 
 /**
  * Everything a reader can change, in one drawer.
  */
-export function SettingsDrawer({ state, recording, onContractsChanged }: SettingsDrawerProps): ReactElement {
+export function SettingsDrawer({
+    state,
+    controls,
+    isOpen,
+    onOpenChange,
+    expandedLayer,
+    onExpandedLayerChange,
+}: SettingsDrawerProps): ReactElement {
     const kernel = useKernel();
     const translate = useTranslate();
     const appearance = useAppearance();
 
     return (
-        <Dialog.Root>
+        <Dialog.Root open={isOpen} onOpenChange={onOpenChange}>
             <Dialog.Trigger asChild>
                 <ControlButton aria-label={translate('settings.open')}>
                     <SlidersHorizontal className="size-4" />
@@ -62,6 +70,16 @@ export function SettingsDrawer({ state, recording, onContractsChanged }: Setting
 
                     <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
                         <span className="block text-xs text-ink-300">
+                            {translate('indicators.title')}
+                        </span>
+                        <LayerAccordion
+                            controls={controls}
+                            state={state}
+                            expanded={expandedLayer}
+                            onExpandedChange={onExpandedLayerChange}
+                        />
+
+                        <span className="block border-t border-hairline pt-5 text-xs text-ink-300">
                             {translate('settings.appearance')}
                         </span>
                         <AppearanceControls
@@ -73,36 +91,6 @@ export function SettingsDrawer({ state, recording, onContractsChanged }: Setting
                             onSelectTheme={(themeChoice) => { kernel.appearance.selectTheme(themeChoice); }}
                         />
 
-                        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-hairline pt-4 text-[11px]">
-                            <dt className="text-ink-500">{translate('settings.recordedSoFar')}</dt>
-                            <dd className="numeric text-right text-ink-100">
-                                {formatDuration(resolveRecordedSpanMs(state.instruments, state.instrumentSymbol), translate)}
-                            </dd>
-                            <dt className="text-ink-500">{translate('settings.resolution')}</dt>
-                            <dd className="numeric text-right text-ink-300">
-                                {translate('settings.perColumn', { value: formatDuration(state.dataset.sampleIntervalMs, translate) })}
-                            </dd>
-                            <dt className="text-ink-500">{translate('settings.priceBand')}</dt>
-                            <dd className="numeric text-right text-ink-300">
-                                {translate('settings.perRow', { value: state.dataset.priceBucketSize })}
-                            </dd>
-                            <dt className="text-ink-500">{translate('settings.columnsLoaded')}</dt>
-                            <dd className="numeric text-right text-ink-300">{formatFixed(state.dataset.frames.length, 0)}</dd>
-                            <dt className="text-ink-500">{translate('settings.gapsInWindow')}</dt>
-                            <dd className="numeric text-right text-ink-300">{formatFixed(state.dataset.gaps.length, 0)}</dd>
-                        </dl>
-
-                        {recording === null ? null : (
-                            <RecordingPanel
-                                recording={recording}
-                                onContractsChanged={onContractsChanged}
-                                translate={translate}
-                            />
-                        )}
-
-                        <p className="text-[11px] leading-relaxed text-ink-500">
-                            {translate('settings.backfillNote')}
-                        </p>
 
                         <AboutPanel translate={translate} />
                     </div>

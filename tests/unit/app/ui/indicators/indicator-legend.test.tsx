@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import { type ReactElement } from 'react';
 import {
@@ -18,6 +18,9 @@ const SMA_FAST: AddedIndicator = {
 const SMA_SLOW: AddedIndicator = {
     instanceId: 'sma-2', indicatorId: 'sma', settings: { periodBars: 200 }, tone: 'amber',
 };
+const CANDLES: AddedIndicator = {
+    instanceId: 'candles-1', indicatorId: 'candles', settings: {}, tone: 'ink',
+};
 const RSI: AddedIndicator = {
     instanceId: 'rsi-1', indicatorId: 'rsi', settings: { periodBars: 14 }, tone: 'violet',
 };
@@ -29,8 +32,10 @@ const LAYOUT = resolveChartLayout({
     indicatorPaneCount: 1,
 });
 
+const onOpenSettings = vi.fn<(instanceId: string) => void>();
+
 function Harness(): ReactElement {
-    return <IndicatorLegend controls={useIndicators()} layout={LAYOUT} />;
+    return <IndicatorLegend controls={useIndicators()} layout={LAYOUT} onOpenSettings={onOpenSettings} />;
 }
 
 function renderLegend(added: readonly AddedIndicator[]): IndicatorKernel {
@@ -40,6 +45,8 @@ function renderLegend(added: readonly AddedIndicator[]): IndicatorKernel {
 }
 
 describe('IndicatorLegend', () => {
+    beforeEach(() => { onOpenSettings.mockClear(); });
+
     it('tells two copies of one indicator apart by what the reader chose', () => {
         // Same name, same shape on the chart. Without the parameters and the
         // colour there is nothing on screen that says which line is which.
@@ -108,22 +115,20 @@ describe('IndicatorLegend', () => {
         expect(kernel.readAdded().map((entry) => entry.instanceId)).toEqual(['rsi-1']);
     });
 
-    it('retunes the copy whose settings were opened, not its twin', () => {
+    it('sends tuning somewhere with room for it, naming the copy that asked', () => {
         renderLegend([SMA_FAST, SMA_SLOW]);
 
         fireEvent.click(screen.getAllByRole('button', { name: 'Settings' })[1]!);
-        fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '50' } });
 
-        expect(screen.getByText('50')).toBeDefined();
-        expect(screen.getByText('20')).toBeDefined();
+        expect(onOpenSettings).toHaveBeenCalledWith('sma-2');
     });
 
-    it('recolours one copy without touching the other', () => {
-        const kernel = renderLegend([SMA_FAST, SMA_SLOW]);
+    it('offers nothing to open on a layer with nothing to be told', () => {
+        // A control that opens onto an empty panel teaches a reader that opening
+        // is not worth it.
+        renderLegend([CANDLES]);
 
-        fireEvent.click(screen.getAllByRole('button', { name: 'Settings' })[0]!);
-        fireEvent.click(screen.getByRole('button', { name: 'cyan' }));
-
-        expect(kernel.readAdded().map((entry) => entry.tone)).toEqual(['cyan', 'amber']);
+        expect(screen.queryByRole('button', { name: 'Settings' })).toBeNull();
+        expect(screen.getByRole('button', { name: 'Remove' })).toBeDefined();
     });
 });

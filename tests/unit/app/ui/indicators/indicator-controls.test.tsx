@@ -16,7 +16,7 @@ function TriggerHarness(): ReactElement {
 }
 
 function OverlayHarness(): ReactElement {
-    return <IndicatorOverlay controls={useIndicators()} layout={EMPTY_LAYOUT} />;
+    return <IndicatorOverlay controls={useIndicators()} layout={EMPTY_LAYOUT} onOpenSettings={() => undefined} />;
 }
 
 describe('IndicatorTrigger', () => {

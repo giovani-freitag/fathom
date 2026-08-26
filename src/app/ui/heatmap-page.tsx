@@ -1,5 +1,5 @@
 import { Radar, RefreshCw, TriangleAlert } from 'lucide-react';
-import { type ReactElement, useCallback, useEffect, useRef } from 'react';
+import { type ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { resolveRecordedSpanMs } from '../core/viewport-policy.ts';
 import { useKernel } from '../react/kernel-context.ts';
 import { useChartState } from '../react/use-chart-state.ts';
@@ -28,6 +28,15 @@ export function HeatmapPage(): ReactElement {
     // over each band are placed by the same arithmetic that drew it.
     const surfaceRef = useRef<HTMLElement>(null);
     const surfaceLayout = useChartLayout(surfaceRef);
+    // The drawer is where a layer is configured, so a row on the chart has to be
+    // able to open it onto itself rather than carrying a panel of its own.
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [expandedLayer, setExpandedLayer] = useState<string | null>(null);
+
+    const handleOpenSettings = useCallback((instanceId: string) => {
+        setExpandedLayer(instanceId);
+        setIsDrawerOpen(true);
+    }, []);
 
     useEffect(() => {
         void kernel.chart.initialize();
@@ -72,9 +81,12 @@ export function HeatmapPage(): ReactElement {
                 )}
                 <IndicatorTrigger controls={indicators} />
                 <SettingsDrawer
-                    recording={kernel.recording}
-                    onContractsChanged={() => { void kernel.chart.refreshInstruments(); }}
                     state={state}
+                    controls={indicators}
+                    isOpen={isDrawerOpen}
+                    onOpenChange={setIsDrawerOpen}
+                    expandedLayer={expandedLayer}
+                    onExpandedLayerChange={setExpandedLayer}
                 />
             </header>
 
@@ -90,7 +102,11 @@ export function HeatmapPage(): ReactElement {
                     />}
                 </div>
 
-                <IndicatorOverlay controls={indicators} layout={surfaceLayout} />
+                <IndicatorOverlay
+                    controls={indicators}
+                    layout={surfaceLayout}
+                    onOpenSettings={handleOpenSettings}
+                />
 
                 {state.phase === 'initialising' && <SurfaceNotice message={translate('page.probing')} translate={translate} />}
                 {state.phase === 'empty' && (

@@ -145,3 +145,20 @@ body {
         transition-duration: 0.01ms !important;
     }
 }
+
+/* Radix reports the panel's height as a variable, which is what lets a section
+   that has never been opened animate to a height nobody measured. */
+@keyframes accordion-down {
+    from { height: 0; }
+    to { height: var(--radix-accordion-content-height); }
+}
+
+@keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height); }
+    to { height: 0; }
+}
+
+@theme {
+    --animate-accordion-down: accordion-down 180ms ease-out;
+    --animate-accordion-up: accordion-up 160ms ease-in;
+}

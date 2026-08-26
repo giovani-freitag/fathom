@@ -54,15 +54,16 @@ export function IndicatorTrigger({ controls }: IndicatorTriggerProps): ReactElem
 interface IndicatorOverlayProps {
     readonly controls: IndicatorControls;
     readonly layout: ChartLayout;
+    readonly onOpenSettings: (instanceId: string) => void;
 }
 
 /**
  * Everything the chart itself says about the indicators on it.
  */
-export function IndicatorOverlay({ controls, layout }: IndicatorOverlayProps): ReactElement {
+export function IndicatorOverlay({ controls, layout, onOpenSettings }: IndicatorOverlayProps): ReactElement {
     return (
         <>
-            <IndicatorLegend controls={controls} layout={layout} />
+            <IndicatorLegend controls={controls} layout={layout} onOpenSettings={onOpenSettings} />
             <div className="pointer-events-none absolute bottom-3 left-3">
                 <RemovalNotice controls={controls} />
             </div>

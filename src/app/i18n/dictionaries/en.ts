@@ -184,6 +184,7 @@ export const EN_DICTIONARY = {
     'about.releasedOn': 'Released {date}',
     'about.unreleased': 'Built from the working tree',
 
+    'settings.recordingIsGlobal': 'Recording belongs to the machine, not to this chart. Taking the book off stops drawing it and nothing else.',
     'settings.backfillNote': 'Windows longer than what has been recorded are disabled. The chart only covers the time recording was on — an order book cannot be recovered after the fact.',
 
     'recording.reading': 'Reading what is being recorded…',

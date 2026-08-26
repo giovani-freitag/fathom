@@ -186,6 +186,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'about.releasedOn': 'Publicado em {date}',
     'about.unreleased': 'Compilado a partir da árvore de trabalho',
 
+    'settings.recordingIsGlobal': 'A gravação é da máquina, não deste gráfico. Tirar o livro da tela para de desenhá-lo e nada mais.',
     'settings.backfillNote': 'Janelas maiores que o tempo já gravado ficam desabilitadas. O gráfico só cobre o período em que a gravação esteve ligada — um livro de ofertas não pode ser recuperado depois.',
 
     'recording.reading': 'Lendo o que está sendo gravado…',

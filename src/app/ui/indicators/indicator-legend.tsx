@@ -1,4 +1,3 @@
-import { Popover } from 'radix-ui';
 import { Combine, Eye, EyeOff, Settings2, Split, X } from 'lucide-react';
 import type { ReactElement } from 'react';
 import type { DrawPlan, PlotTone } from '../../../shared/core/draw-plan.ts';
@@ -13,7 +12,6 @@ import { findChartLayer } from '../../indicators/indicator-catalogue.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
 import { groupPanedPlans, needsOwnBand } from '../../painting/pane-projector.ts';
 import type { ChartLayout } from '../../painting/render-types.ts';
-import { IndicatorParameters } from './indicator-parameters.tsx';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
 import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts';
 import { useChartState } from '../../react/use-chart-state.ts';
@@ -30,6 +28,7 @@ const PANE_ROW_TOP_PX = 3;
 interface IndicatorLegendProps {
     readonly controls: IndicatorControls;
     readonly layout: ChartLayout;
+    readonly onOpenSettings: (instanceId: string) => void;
 }
 
 /**
@@ -40,7 +39,7 @@ interface IndicatorLegendProps {
  * they have to leave the chart to reach is one they retune less often than they
  * would like to.
  */
-export function IndicatorLegend({ controls, layout }: IndicatorLegendProps): ReactElement {
+export function IndicatorLegend({ controls, layout, onOpenSettings }: IndicatorLegendProps): ReactElement {
     const plans = useChartState().plans;
     const planFor = new Map(plans.map((plan) => [plan.instanceId, plan]));
     const bands = groupPanedPlans(plans);
@@ -65,6 +64,7 @@ export function IndicatorLegend({ controls, layout }: IndicatorLegendProps): Rea
                         added={added}
                         plan={planFor.get(added.instanceId) ?? null}
                         controls={controls}
+                        onOpenSettings={onOpenSettings}
                     />
                 ))}
             </ul>
@@ -87,6 +87,7 @@ export function IndicatorLegend({ controls, layout }: IndicatorLegendProps): Rea
                                     added={added}
                                     plan={plan}
                                     controls={controls}
+                                    onOpenSettings={onOpenSettings}
                                     banding={resolveBanding(band, bands[index - 1] ?? null, plan)}
                                 />
                             );
@@ -186,11 +187,12 @@ interface LegendRowProps {
     /** Absent while the indicator is being kept without being drawn. */
     readonly plan: DrawPlan | null;
     readonly controls: IndicatorControls;
+    readonly onOpenSettings: (instanceId: string) => void;
     /** Absent for a row drawn over the price, which shares the price's scale already. */
     readonly banding?: RowBanding;
 }
 
-function LegendRow({ added, plan, controls, banding }: LegendRowProps): ReactElement | null {
+function LegendRow({ added, plan, controls, onOpenSettings, banding }: LegendRowProps): ReactElement | null {
     const translate = useTranslate();
     const layer = findChartLayer(added.indicatorId);
     if (layer === null) {
@@ -200,6 +202,10 @@ function LegendRow({ added, plan, controls, banding }: LegendRowProps): ReactEle
     // The depth map has a ramp of its own, and the candles have two colours
     // that mean something. Neither takes an identity colour.
     const isTinted = findFieldLayer(added.indicatorId) === null;
+    const isBook = added.indicatorId === 'depth';
+    // A control that opens onto nothing teaches a reader that opening is not
+    // worth it, so a layer with nothing to tell it does not offer one.
+    const isTunable = layer.parameters.length > 0 || isBook;
 
     const isHidden = added.isHidden === true;
     const hasSettled = plan === null || plan.hasConverged;
@@ -261,29 +267,16 @@ function LegendRow({ added, plan, controls, banding }: LegendRowProps): ReactEle
                     </button>
                 )}
 
-                <Popover.Root>
-                    <Popover.Trigger
+                {isTunable && (
+                    <button
+                        type="button"
                         aria-label={translate('indicators.tune')}
+                        onClick={() => { onOpenSettings(added.instanceId); }}
                         className="grid size-6 place-items-center rounded text-ink-500 hover:bg-abyss-700 hover:text-ink-100"
                     >
                         <Settings2 className="size-3.5" />
-                    </Popover.Trigger>
-                    <Popover.Portal>
-                        <Popover.Content
-                            sideOffset={6}
-                            align="start"
-                            className="z-50 w-56 rounded-lg border border-hairline bg-abyss-800 p-3 shadow-2xl shadow-black/60"
-                        >
-                            <IndicatorParameters
-                                indicator={layer}
-                                hasTone={isTinted}
-                                added={added}
-                                onRetune={(name, value) => { controls.retune(added.instanceId, name, value); }}
-                                onRecolour={(tone) => { controls.recolour(added.instanceId, tone); }}
-                            />
-                        </Popover.Content>
-                    </Popover.Portal>
-                </Popover.Root>
+                    </button>
+                )}
 
                 <button
                     type="button"
