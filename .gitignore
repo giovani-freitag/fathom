@@ -1,6 +1,7 @@
 node_modules/
 dist/
 coverage/
+!.github/badges/
 *.tsbuildinfo
 
 .env
