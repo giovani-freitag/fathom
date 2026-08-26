@@ -129,6 +129,52 @@ the width of the window. Past the point where a window holds more seconds than
 the budget allows columns, asking for ten times the history costs almost nothing
 more — which is the property that makes a week as affordable to open as an hour.
 
+## Bars
+
+A bar is not a fold of the frames the chart already holds. Those are sampled to
+fit a surface — one column per plot pixel — so binning them makes the bar a
+property of the browser window: the same viewport on a phone and on a desktop
+produced bars several times apart, and an average over them would have differed
+between two screens showing the same thing.
+
+So bars come from a declared interval against the archive, on a closed ladder of
+rungs chosen from the viewport's span alone. Above a minute the archive holds
+them pre-grouped; below it, a scan that names only the two price columns answers
+directly — and on a columnar chunk that scan never fetches the depth arrays at
+all, which is why it needs no aggregate of its own.
+
+Every bar carries what built it: how many frames a whole bucket of its width
+holds, how many actually landed, and whether the bucket can still grow. Those
+three facts are the difference between a bar the collector missed seconds of, a
+bar still being written, and a whole one — and without them a chart draws all
+three identically and claims continuous price through time nothing was recorded
+in. A bucket with no frames at all is omitted rather than zero-filled, and the
+stretch it left is marked.
+
+They are bars of the **book mid**, not of a traded price. A traded close is
+derivable from the execution grid to within a hundredth of a percent, so this is
+a choice: the mid is what the recording is of, and it is defined in every second
+the collector saw, including the ones nothing traded in.
+
+## Indicators
+
+An indicator is a pure function from bars to vertices **in data space**. It never
+receives a drawing context and never converts a value to a pixel — the host owns
+that function, so panning re-projects a plan it already holds instead of asking
+the indicator for a new one. That is what keeps whoever wrote it off the gesture
+path entirely, and it is the property that will make it safe to run one nobody
+here wrote.
+
+The data layers are painted inside a clip, and the clip is the containment: a
+plan whose vertices run to the edges of the world still cannot reach the axis
+gutters. Enforcing it in the renderer rather than trusting each painter is what
+makes the guarantee worth anything.
+
+A plan says whether it converged. An average asks for warm-up bars ahead of the
+window, the archive answers with what it could supply, and a series seeded from
+less than it wanted is drawn dashed — because a seeded average looks exactly
+like a settled one.
+
 ## Executions
 
 Executions arrive already aggregated onto the same grid as the frames: the

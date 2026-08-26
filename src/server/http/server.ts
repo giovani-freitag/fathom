@@ -120,7 +120,9 @@ export class Server {
             max: REQUEST_BUDGET.maximumRequestsPerMinute,
             timeWindow: REQUEST_BUDGET.windowMs,
         });
-        void app.register(cors, { origin: true });
+        // Methods named rather than left open: the API reads and accepts two
+        // settings, and nothing else should be reachable by preflight.
+        void app.register(cors, { origin: true, methods: ['GET', 'PUT', 'OPTIONS'] });
         // The frame window is served as octet-stream, which mime-db marks as
         // incompressible; without this the largest response on the API is the one
         // that ships uncompressed.
