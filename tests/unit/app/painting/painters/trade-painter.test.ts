@@ -161,15 +161,19 @@ describe('TradePainter stability under a drag', () => {
 
     it('keeps a bubble the size it was when a bigger one scrolls into view', () => {
         // Scaled against what is visible, one whale entering the window resizes
-        // every other bubble on screen at once.
+        // every other bubble on screen at once. The whale starts outside the
+        // default range and the drag brings it in; the ordinary print beside it
+        // is inside throughout and must not move.
         const clusters = [
             buildCluster({ executedAtMs: 1_500_000, buyQuantity: 1 }),
-            buildCluster({ executedAtMs: 1_050_000, buyQuantity: 900 }),
+            buildCluster({ executedAtMs: 950_000, buyQuantity: 900 }),
         ];
 
         const before = bubblesAt(clusters, 0);
         const after = bubblesAt(clusters, -120_000);
 
+        expect(before).toHaveLength(1);
+        expect(after).toHaveLength(2);
         expect(after[0]).toBe(before[0]);
     });
 });

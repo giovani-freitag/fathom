@@ -5,7 +5,7 @@ import { createIndicatorKernel, renderWithKernel } from '../../../../mocks/indic
 import type { AddedIndicator } from '../../../../../src/shared/core/indicator-selection.ts';
 import { IndicatorOverlay, IndicatorTrigger } from '../../../../../src/app/ui/indicators/indicator-controls.tsx';
 import { EMPTY_LAYOUT } from '../../../../../src/app/painting/chart-layout.ts';
-import { useIndicators } from '../../../../../src/app/react/use-indicators.ts';
+import { type IndicatorControls, useIndicators } from '../../../../../src/app/react/use-indicators.ts';
 
 const EMA: AddedIndicator = {
     instanceId: 'ema-1', indicatorId: 'ema', settings: { periodBars: 50 }, tone: 'amber',
@@ -44,6 +44,48 @@ describe('IndicatorTrigger', () => {
         fireEvent.click(screen.getByRole('button', { name: /Donchian/ }));
 
         expect(kernel.readAdded().map((entry) => entry.indicatorId)).toEqual(['donchian']);
+    });
+});
+
+describe('adding twice before a render', () => {
+    it('lands both, though neither call has seen the other', () => {
+        // Where the bug was: the handler read the set from the render it was
+        // created in, so two additions in one frame both appended to the same
+        // stale list and the second landed on top of the first.
+        const kernel = createIndicatorKernel();
+        let controls: IndicatorControls | null = null;
+
+        function Probe(): null {
+            controls = useIndicators();
+            return null;
+        }
+
+        renderWithKernel(kernel, <Probe />);
+        act(() => {
+            controls!.add('ema');
+            controls!.add('rsi');
+        });
+
+        expect(kernel.readAdded().map((entry) => entry.indicatorId)).toEqual(['ema', 'rsi']);
+    });
+
+    it('lands three of one indicator, each as its own copy', () => {
+        const kernel = createIndicatorKernel();
+        let controls: IndicatorControls | null = null;
+
+        function Probe(): null {
+            controls = useIndicators();
+            return null;
+        }
+
+        renderWithKernel(kernel, <Probe />);
+        act(() => {
+            controls!.add('rsi');
+            controls!.add('rsi');
+            controls!.add('rsi');
+        });
+
+        expect(kernel.readAdded().map((entry) => entry.instanceId)).toEqual(['rsi-1', 'rsi-2', 'rsi-3']);
     });
 });
 
