@@ -37,9 +37,10 @@ A chart with no book still has volume, which is what a reader expects.
 The book's card is smaller and says only what the book is: how it is cut, what
 crossed it, where that landed, and what feeds it.
 
-Stored preferences carry: a reader who had the volume switched on inside the book
-gets it back as an entry of its own, tuned the way they had tuned it. The switch
-is spent in the same read.
+Stored preferences carry, and everyone is handed the entry — including a reader
+whose switch reads off. It was off unless they went and found it, so the stored
+answer says what the default was rather than what they decided. However they had
+it tuned is kept, and removing it is one click.
 
 Volume is now repeatable — two copies, one total and one split, are addable. That
 follows from the catalogue rather than being designed for.

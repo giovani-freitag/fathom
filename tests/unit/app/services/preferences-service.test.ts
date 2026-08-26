@@ -132,7 +132,9 @@ describe('PreferencesService indicators', () => {
         expect(added[0]?.settings['showVolume']).toBeUndefined();
     });
 
-    it('spends the switch for a reader who had turned the volume off', () => {
+    it('hands the volume even to a reader whose switch reads off', () => {
+        // The switch was off unless they went and found it, so an answer of off
+        // says what the default was rather than what they decided.
         const service = new PreferencesService({
             storage: buildStorage({
                 schemaVersion: 3,
@@ -145,7 +147,7 @@ describe('PreferencesService indicators', () => {
             }),
         });
 
-        expect(service.read().addedIndicators.map((entry) => entry.indicatorId)).toEqual(['depth']);
+        expect(service.read().addedIndicators.map((entry) => entry.indicatorId)).toEqual(['depth', 'volume']);
     });
 
     it('survives storage holding something that is not JSON', () => {

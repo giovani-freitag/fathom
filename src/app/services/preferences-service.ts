@@ -136,18 +136,19 @@ function buildDefaultLayers(): readonly AddedIndicator[] {
 /**
  * Carries a document written while how much traded was a switch inside the book.
  *
- * A bar carries its own volume, so the reading never needed the book; a reader
- * who had it on keeps it, as the entry of its own it should always have been.
+ * Everyone is handed the entry, including a reader whose switch reads off: it
+ * was off unless they went and found it, so the answer says what the default was
+ * rather than what they decided. However they had it tuned is kept.
  *
  * @param stored - The set as the document holds it.
- * @returns The set with the book's volume switch spent.
+ * @returns The set with the book's volume switch spent for an entry of its own.
  */
 function liftVolumeOutOfTheBook(stored: readonly AddedIndicator[]): readonly AddedIndicator[] {
     // Nothing here has been validated yet: it is JSON the reader could have
     // edited, and an entry that is not an object at all reaches this first.
     const book = stored.find((entry) => isSettled(entry) && entry.indicatorId === 'depth');
     const carried = stored.map(withoutVolumeSettings);
-    if (book === undefined || book.settings['showVolume'] === false) {
+    if (book === undefined) {
         return carried;
     }
     return withIndicatorAdded(
