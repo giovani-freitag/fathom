@@ -1,6 +1,7 @@
 {
   "name": "fathom",
   "version": "0.3.0",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "description": "Order book liquidity heat map — records resting depth every second, because book history cannot be backfilled.",

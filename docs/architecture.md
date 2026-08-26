@@ -156,6 +156,29 @@ derivable from the execution grid to within a hundredth of a percent, so this is
 a choice: the mid is what the recording is of, and it is defined in every second
 the collector saw, including the ones nothing traded in.
 
+## Nothing anybody has to display
+
+This chart is given away under MIT, and so is everything it ships: two hundred
+packages, all of them MIT, ISC, BSD, Blue Oak or 0BSD, and not one NOTICE file
+among them.
+
+That is the reason there is no charting library underneath. The one library that
+would deliver this experience is Apache-2.0 with an attribution notice, and
+Apache-2.0 makes a NOTICE travel with every redistribution — so adopting it
+would put somebody else's name on the chart of every person who took this one.
+A chart offered as an alternative to a hosted one, that then makes every reader
+display that host's link, is not an alternative.
+
+The engine is the price of that, and it is already paid: scales, ticks,
+crosshair, panes, gestures and painters are about a fifth of the front end. What
+no permissive library sells — the drawn tools, the book itself — was never
+purchasable at any licence.
+
+An architecture test holds the promise rather than a one-off audit: a shipped
+dependency under anything conditional, or carrying a NOTICE, fails the suite.
+Development tooling is exempt, because a bundler's licence puts no condition on
+what it built.
+
 ## Room after the newest bar
 
 The live edge is kept a few bars ahead of the newest one. Pressed against the
