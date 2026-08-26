@@ -26,6 +26,15 @@ export interface AddedIndicator {
      * band that is not being read stops taking room from the price.
      */
     readonly isHidden?: boolean;
+    /**
+     * Which band it is drawn in, where several share one.
+     *
+     * Absent means a band of its own. Two readings on the same scale — the same
+     * oscillator at two periods, most often — say nothing to each other in
+     * separate bands with separate ranges, which is the whole reason for having
+     * two of them.
+     */
+    readonly bandKey?: string;
 }
 
 /** How many an added set may hold, so a stored preference cannot stall a session. */
@@ -187,4 +196,40 @@ export function withIndicatorVisibility(
     return added.map((entry) => (
         entry.instanceId === instanceId ? { ...entry, isHidden } : entry
     ));
+}
+
+/**
+ * The band an added indicator is drawn in.
+ *
+ * @param entry - The indicator.
+ * @returns Its band, which is its own unless it was put in another.
+ */
+export function resolveBandKey(entry: AddedIndicator): string {
+    return entry.bandKey ?? entry.instanceId;
+}
+
+/**
+ * Moves one indicator into another's band, or back into a band of its own.
+ *
+ * @param added - What is on the chart.
+ * @param instanceId - Which copy to move.
+ * @param bandKey - The band to join, or null to leave it alone in one.
+ * @returns The new set, in the order it was already in.
+ */
+export function withIndicatorBanded(
+    added: readonly AddedIndicator[],
+    instanceId: string,
+    bandKey: string | null,
+): readonly AddedIndicator[] {
+    return added.map((entry) => {
+        if (entry.instanceId !== instanceId) {
+            return entry;
+        }
+        if (bandKey === null) {
+            const rest = { ...entry };
+            delete (rest as { bandKey?: string }).bandKey;
+            return rest;
+        }
+        return { ...entry, bandKey };
+    });
 }

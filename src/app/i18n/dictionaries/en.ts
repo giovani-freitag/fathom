@@ -32,6 +32,14 @@ export const EN_DICTIONARY = {
     'indicator.atr': 'ATR',
     'indicator.atr.help': 'How far price has been travelling per bar',
 
+    'indicator.volume': 'Volume',
+    'indicator.volume.help': 'How much changed hands in each bar',
+    'indicator.volume.bought': 'Bought',
+    'indicator.volume.sold': 'Sold',
+    'parameter.mode': 'Show',
+    'mode.total': 'Total',
+    'mode.sides': 'Split by side',
+
     'parameter.periodBars': 'Bars',
     'parameter.deviations': 'Deviations',
     'parameter.fastBars': 'Fast',
@@ -60,6 +68,8 @@ export const EN_DICTIONARY = {
     'indicators.undo': 'Undo',
     'indicators.hide': 'Hide',
     'indicators.show': 'Show',
+    'indicators.mergeBand': 'Put in the band above',
+    'indicators.splitBand': 'Give it a band of its own',
     'indicators.remove': 'Remove',
     'indicators.tune': 'Settings',
     'indicators.full': 'The chart is holding as many as it can draw',

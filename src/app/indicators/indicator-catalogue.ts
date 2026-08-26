@@ -8,6 +8,7 @@ import { EXPONENTIAL_AVERAGE } from './exponential-average.ts';
 import { RELATIVE_STRENGTH } from './relative-strength.ts';
 import { SIMPLE_AVERAGE } from './simple-average.ts';
 import { STOCHASTIC_OSCILLATOR } from './stochastic-oscillator.ts';
+import { VOLUME } from './volume.ts';
 
 /**
  * Every indicator the build ships with, in the order they are offered.
@@ -25,6 +26,7 @@ export const INDICATOR_CATALOGUE: readonly Indicator[] = [
     STOCHASTIC_OSCILLATOR,
     AVERAGE_CONVERGENCE,
     AVERAGE_TRUE_RANGE,
+    VOLUME,
 ];
 
 /**

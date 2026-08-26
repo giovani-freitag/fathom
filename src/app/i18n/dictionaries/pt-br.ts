@@ -34,6 +34,14 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'indicator.atr': 'ATR',
     'indicator.atr.help': 'O quanto o preço tem andado por barra',
 
+    'indicator.volume': 'Volume',
+    'indicator.volume.help': 'O quanto mudou de mãos em cada barra',
+    'indicator.volume.bought': 'Comprado',
+    'indicator.volume.sold': 'Vendido',
+    'parameter.mode': 'Mostrar',
+    'mode.total': 'Total',
+    'mode.sides': 'Separado por lado',
+
     'parameter.periodBars': 'Barras',
     'parameter.deviations': 'Desvios',
     'parameter.fastBars': 'Rápida',
@@ -62,6 +70,8 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'indicators.undo': 'Desfazer',
     'indicators.hide': 'Ocultar',
     'indicators.show': 'Mostrar',
+    'indicators.mergeBand': 'Pôr na faixa acima',
+    'indicators.splitBand': 'Dar faixa própria',
     'indicators.remove': 'Remover',
     'indicators.tune': 'Ajustes',
     'indicators.full': 'O gráfico já tem quantos consegue desenhar',

@@ -214,9 +214,20 @@ describe('LiquidityQueryService bar sources', () => {
         service = new LiquidityQueryService({ postgres: { selectRows } as unknown as PostgresService });
     });
 
+    /**
+     * The statement that read the book, of the several a bar fetch runs.
+     */
     async function sourceFor(intervalMs: number): Promise<string> {
         await service.fetchPriceBars({ symbol: 'BTCUSDT', fromMs: 0, toMs: 10 * intervalMs, intervalMs, warmupBars: 0 });
-        return asked[asked.length - 1]!.statement;
+        return asked.find((ask) => ask.statement.includes('close_price'))!.statement;
+    }
+
+    /**
+     * The statement that read the executions.
+     */
+    async function volumeSourceFor(intervalMs: number): Promise<string> {
+        await service.fetchPriceBars({ symbol: 'BTCUSDT', fromMs: 0, toMs: 10 * intervalMs, intervalMs, warmupBars: 0 });
+        return asked.find((ask) => ask.statement.includes('buy_volume'))!.statement;
     }
 
     it('scans the frames themselves below a minute, where nothing holds bars yet', async () => {
@@ -229,6 +240,25 @@ describe('LiquidityQueryService bar sources', () => {
 
     it('climbs to the hourly grid rather than folding sixty times as many rows', async () => {
         expect(await sourceFor(14_400_000)).toContain('FROM book_bar_hour');
+    });
+
+    it('reads what traded from the execution grid, not from the book', async () => {
+        // The book says where price was; it has no idea how much changed hands
+        // there. The two are stored apart and rolled up apart.
+        const statement = await volumeSourceFor(300_000);
+
+        expect(statement).toContain('FROM trade_cluster_minute');
+        expect(statement).toContain('sum(buy_quantity)');
+    });
+
+    it('lets each side pick the coarsest grid it has, rather than tying them together', async () => {
+        // Below a minute the book has to be scanned raw, but the executions were
+        // already rolled up to the second when they were written.
+        const book = await sourceFor(15_000);
+        const volume = await volumeSourceFor(15_000);
+
+        expect(book).toContain('FROM liquidity_frame');
+        expect(volume).toContain('FROM trade_cluster');
     });
 
     it('folds a coarser bar without losing what a finer one knew', async () => {

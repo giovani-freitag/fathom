@@ -277,14 +277,39 @@ export class LiquidityQueryService {
         const toMs = alignUp(query.toMs, intervalMs);
 
         const source = selectBarSource(intervalMs);
-        const rows = await this.postgres.selectRows<PriceBarRow>(
-            source.nativeIntervalMs === 0 ? RAW_BAR_STATEMENT : rolledBarStatement(source),
-            [query.symbol, new Date(fromMs), new Date(toMs), intervalMs / MILLISECONDS_PER_SECOND],
+        const parameters = [
+            query.symbol,
+            new Date(fromMs),
+            new Date(toMs),
+            intervalMs / MILLISECONDS_PER_SECOND,
+        ];
+
+        // Two scans rather than a join. The book and the executions are stored
+        // apart and rolled up apart, so each picks the coarsest grid its own
+        // side has; a join would tie both to whichever grid the other needed.
+        const [rows, volumeRows] = await Promise.all([
+            this.postgres.selectRows<PriceBarRow>(
+                source.nativeIntervalMs === 0 ? RAW_BAR_STATEMENT : rolledBarStatement(source),
+                parameters,
+            ),
+            this.postgres.selectRows<BarVolumeRow>(
+                volumeStatement(selectTradeSource(intervalMs)),
+                parameters,
+            ),
+        ]);
+        const volumeByBucket = new Map(
+            volumeRows.map((row) => [row.bucket_start.getTime(), row]),
         );
 
         const expectedFrames = Math.max(1, Math.round(intervalMs / grid.frameIntervalMs));
         const closedBeforeMs = Date.now() - intervalMs;
-        const bars = rows.map((row) => toPriceBar(row, intervalMs, expectedFrames, closedBeforeMs));
+        const bars = rows.map((row) => toPriceBar({
+            row,
+            volume: volumeByBucket.get(row.bucket_start.getTime()) ?? null,
+            intervalMs,
+            expectedFrames,
+            closedBeforeMs,
+        }));
         const drawnFromMs = alignDown(query.fromMs, intervalMs);
 
         return {
@@ -393,6 +418,34 @@ function rolledBarStatement(source: BarSource): string {
         LIMIT ${BAR_BUDGET.maximumBars}`;
 }
 
+interface BarVolumeRow {
+    bucket_start: Date;
+    buy_volume: number;
+    sell_volume: number;
+    trade_count: number;
+}
+
+/**
+ * What changed hands in each bucket, summed across every price band.
+ *
+ * The price bands are what the heat map needs and what a bar does not: a bar
+ * says how much traded in a stretch of time, not where in the book it traded.
+ */
+function volumeStatement(source: TradeSource): string {
+    return `SELECT
+            time_bucket(make_interval(secs => $4), executed_at) AS bucket_start,
+            sum(buy_quantity)::double precision                 AS buy_volume,
+            sum(sell_quantity)::double precision                AS sell_volume,
+            sum(trade_count)::int                               AS trade_count
+        FROM ${source.table}
+        WHERE instrument_symbol = $1
+          AND executed_at >= $2::timestamptz
+          AND executed_at < $3::timestamptz
+        GROUP BY 1
+        ORDER BY 1
+        LIMIT ${BAR_BUDGET.maximumBars}`;
+}
+
 /**
  * The coarsest grid no finer than the interval asked for.
  */
@@ -414,12 +467,22 @@ function alignUp(instantMs: number, intervalMs: number): number {
     return Math.ceil(instantMs / intervalMs) * intervalMs;
 }
 
-function toPriceBar(
-    row: PriceBarRow,
-    intervalMs: number,
-    expectedFrames: number,
-    closedBeforeMs: number,
-): PriceBar {
+interface PriceBarAssembly {
+    readonly row: PriceBarRow;
+    /** Absent for a bucket the book was recorded through with nobody trading. */
+    readonly volume: BarVolumeRow | null;
+    readonly intervalMs: number;
+    readonly expectedFrames: number;
+    readonly closedBeforeMs: number;
+}
+
+function toPriceBar({
+    row,
+    volume,
+    intervalMs,
+    expectedFrames,
+    closedBeforeMs,
+}: PriceBarAssembly): PriceBar {
     const openedAtMs = row.bucket_start.getTime();
     return {
         openedAtMs,
@@ -428,6 +491,9 @@ function toPriceBar(
         highPrice: row.high_price,
         lowPrice: row.low_price,
         closePrice: row.close_price,
+        buyVolume: volume?.buy_volume ?? 0,
+        sellVolume: volume?.sell_volume ?? 0,
+        tradeCount: volume?.trade_count ?? 0,
         expectedFrames,
         frameCount: row.frame_count,
         isClosed: openedAtMs <= closedBeforeMs,

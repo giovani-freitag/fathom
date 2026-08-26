@@ -1,12 +1,14 @@
 import type { PriceBar, PriceBarWindow } from '../../../src/shared/core/price-bar.ts';
 import { EMPTY_BAR_WINDOW } from '../../../src/shared/core/price-bar.ts';
 import type { LiquidityFrame } from '../../../src/shared/core/liquidity-frame.ts';
+import type { TradeCluster } from '../../../src/shared/core/trade-cluster.ts';
 import { describe, expect, it } from 'vitest';
 import {
     appendClusters,
     appendFrames,
     DEFAULT_FLOOR_PERCENTILE,
     DEFAULT_SATURATION_PERCENTILE,
+    type ChartDataset,
     EMPTY_DATASET,
     foldFramesIntoBars,
     newestFrameTimestamp,
@@ -330,6 +332,7 @@ describe('foldFramesIntoBars', () => {
             openedAtMs,
             closedAtMs: openedAtMs + INTERVAL_MS,
             openPrice: 100, highPrice: 100, lowPrice: 100, closePrice: 100,
+            buyVolume: 0, sellVolume: 0, tradeCount: 0,
             expectedFrames: 60, frameCount: 1, isClosed: false,
             firstFrameAtMs: openedAtMs, lastFrameAtMs,
         };
@@ -381,5 +384,62 @@ describe('foldFramesIntoBars', () => {
         ]);
 
         expect(folded.bars[0]?.highPrice).toBe(130);
+    });
+});
+
+describe('appendClusters volume', () => {
+    const INTERVAL_MS = 60_000;
+
+    function buildCluster(executedAtMs: number, buyQuantity: number, sellQuantity: number): TradeCluster {
+        return {
+            executedAtMs,
+            priceBucketIndex: 1,
+            buyQuantity,
+            sellQuantity,
+            tradeCount: 3,
+            largestTradeQuantity: buyQuantity,
+        };
+    }
+
+    function buildDataset(isClosed: boolean): ChartDataset {
+        const bar: PriceBar = {
+            openedAtMs: 60_000,
+            closedAtMs: 60_000 + INTERVAL_MS,
+            openPrice: 100, highPrice: 100, lowPrice: 100, closePrice: 100,
+            buyVolume: 5, sellVolume: 1, tradeCount: 10,
+            expectedFrames: 60, frameCount: 60, isClosed,
+            firstFrameAtMs: 60_000, lastFrameAtMs: 119_000,
+        };
+        return {
+            ...EMPTY_DATASET,
+            bars: { instrumentSymbol: 'BTCUSDT', intervalMs: INTERVAL_MS, warmupBarsRequested: 0, warmupBarsReturned: 0, bars: [bar] },
+        };
+    }
+
+    it('brings the bar still being built up to date with what just traded', () => {
+        const dataset = buildDataset(false);
+
+        const next = appendClusters(dataset, [buildCluster(90_000, 2, 3)]);
+
+        expect(next.bars.bars[0]?.buyVolume).toBe(7);
+        expect(next.bars.bars[0]?.sellVolume).toBe(4);
+    });
+
+    it('leaves a closed bar with what the archive counted for it', () => {
+        // A cluster arriving late for a bar the archive already answered for
+        // would otherwise be counted a second time.
+        const dataset = buildDataset(true);
+
+        const next = appendClusters(dataset, [buildCluster(90_000, 2, 3)]);
+
+        expect(next.bars.bars[0]?.buyVolume).toBe(5);
+    });
+
+    it('ignores what traded outside the bar being built', () => {
+        const dataset = buildDataset(false);
+
+        const next = appendClusters(dataset, [buildCluster(500_000, 2, 3)]);
+
+        expect(next.bars.bars[0]?.buyVolume).toBe(5);
     });
 });

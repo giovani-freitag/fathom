@@ -108,6 +108,13 @@ export interface DrawPlan {
      * controls over a plan have to reach the one copy they belong to.
      */
     readonly instanceId?: string;
+    /**
+     * Which band it shares, stamped by the host rather than the author.
+     *
+     * An indicator has no idea what else is on the chart, and whether two
+     * readings belong side by side is the reader's judgement, not its own.
+     */
+    readonly bandKey?: string;
     readonly labelKey: string;
     /** The parameters that produced it, as the legend shows them. */
     readonly parameterSummary: string;

@@ -6,6 +6,9 @@ export interface BarOptions {
     readonly highPrice?: number;
     readonly lowPrice?: number;
     readonly openPrice?: number;
+    readonly buyVolume?: number;
+    readonly sellVolume?: number;
+    readonly tradeCount?: number;
 }
 
 /**
@@ -24,6 +27,9 @@ export function buildBar(openedAtMs: number, closePrice: number, options: BarOpt
         highPrice: options.highPrice ?? closePrice,
         lowPrice: options.lowPrice ?? closePrice,
         closePrice,
+        buyVolume: options.buyVolume ?? 0,
+        sellVolume: options.sellVolume ?? 0,
+        tradeCount: options.tradeCount ?? 0,
         expectedFrames: 60,
         frameCount: 60,
         isClosed: true,

@@ -102,7 +102,7 @@ function ChoiceField({ parameter, value, onChange }: ChoiceFieldProps): ReactEle
             >
                 {parameter.choices.map((choice) => (
                     <option key={choice} value={choice}>
-                        {translateLabel(translate, `source.${choice}`)}
+                        {translateLabel(translate, `${parameter.name}.${choice}`)}
                     </option>
                 ))}
             </select>

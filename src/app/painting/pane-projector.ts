@@ -85,7 +85,12 @@ export function resolvePlanRange(plan: DrawPlan): ValueRange {
     }
 
     const padding = Math.max((observed.high - observed.low) * AUTOMATIC_RANGE_PADDING, Number.EPSILON);
-    return { low: observed.low - padding, high: observed.high + padding };
+    return {
+        // Head-room below nought would read as a negative quantity on the axis,
+        // which is not a thing a size can be.
+        low: observed.low >= 0 ? Math.max(0, observed.low - padding) : observed.low - padding,
+        high: observed.high + padding,
+    };
 }
 
 /**
@@ -129,13 +134,43 @@ export function isPriceScale(scale: PlotScale | undefined): boolean {
 }
 
 /**
- * How many plans need a band of their own, which is what sizes the pane stack.
+ * The plans that need a band, gathered into the bands they share.
+ *
+ * Bands come out in the order their first member was added, so moving one
+ * indicator into another's band does not shuffle the rest of the stack.
+ *
+ * @param plans - What the indicators produced for the window on screen.
+ * @returns One group per band, top to bottom.
+ */
+export function groupPanedPlans(plans: readonly DrawPlan[]): readonly (readonly DrawPlan[])[] {
+    const bands = new Map<string, DrawPlan[]>();
+
+    plans.forEach((plan, index) => {
+        if (isPriceScale(plan.scale)) {
+            return;
+        }
+        // A plan nobody stamped stands alone. Falling back to the indicator's
+        // own id would merge two copies of it that were never put together.
+        const key = plan.bandKey ?? plan.instanceId ?? `plan-${index}`;
+        const band = bands.get(key);
+        if (band === undefined) {
+            bands.set(key, [plan]);
+            return;
+        }
+        band.push(plan);
+    });
+
+    return [...bands.values()];
+}
+
+/**
+ * How many bands the stack needs.
  *
  * @param plans - What the indicators produced for the window on screen.
  * @returns The pane count.
  */
 export function countPanedPlans(plans: readonly DrawPlan[]): number {
-    return plans.filter((plan) => !isPriceScale(plan.scale)).length;
+    return groupPanedPlans(plans).length;
 }
 
 /**
@@ -150,18 +185,32 @@ export function placePanes(
     panes: readonly PaneRect[],
 ): readonly PanePlacement[] {
     const placements: PanePlacement[] = [];
-    let paneIndex = 0;
 
-    for (const plan of plans) {
-        if (isPriceScale(plan.scale)) {
-            continue;
-        }
-        const rect = panes[paneIndex];
-        paneIndex += 1;
+    groupPanedPlans(plans).forEach((band, index) => {
+        const rect = panes[index];
         if (rect !== undefined) {
-            placements.push({ rect, ...resolvePlanRange(plan), levels: plan.levels ?? [] });
+            placements.push({ rect, ...resolveBandRange(band), levels: band.flatMap((plan) => plan.levels ?? []) });
         }
-    }
+    });
 
     return placements;
+}
+
+/**
+ * The range a band is scaled to, covering everything drawn in it.
+ *
+ * Two readings sharing a band have to share its scale, or the comparison the
+ * reader put them together for is between two different rulers.
+ */
+function resolveBandRange(band: readonly DrawPlan[]): ValueRange {
+    let low = Number.POSITIVE_INFINITY;
+    let high = Number.NEGATIVE_INFINITY;
+
+    for (const plan of band) {
+        const range = resolvePlanRange(plan);
+        low = Math.min(low, range.low);
+        high = Math.max(high, range.high);
+    }
+
+    return low > high ? { low: 0, high: 1 } : { low, high };
 }

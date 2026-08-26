@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import {
     MAXIMUM_ADDED_INDICATORS,
     withIndicatorAdded,
+    withIndicatorBanded,
     withIndicatorRemoved,
     withIndicatorRecoloured,
     withIndicatorRestored,
@@ -22,6 +23,7 @@ export interface IndicatorControls {
     readonly retune: (instanceId: string, name: string, value: number | string) => void;
     readonly recolour: (instanceId: string, tone: PlotTone) => void;
     readonly setVisibility: (instanceId: string, isHidden: boolean) => void;
+    readonly setBand: (instanceId: string, bandKey: string | null) => void;
     /** How many copies of each indicator are on the chart, by indicator id. */
     readonly addedCounts: ReadonlyMap<string, number>;
     /** The last removal, until it is undone or another change lands. */
@@ -91,6 +93,12 @@ export function useIndicators(): IndicatorControls {
         );
     }, [kernel]);
 
+    const setBand = useCallback((instanceId: string, bandKey: string | null) => {
+        kernel.chart.updateIndicators(
+            (current) => withIndicatorBanded(current, instanceId, bandKey),
+        );
+    }, [kernel]);
+
     const addedCounts = useMemo(() => {
         const counts = new Map<string, number>();
         for (const entry of added) {
@@ -108,8 +116,9 @@ export function useIndicators(): IndicatorControls {
         retune,
         recolour,
         setVisibility,
+        setBand,
         lastRemoved: removal?.entry ?? null,
         undoRemoval,
         forgetRemoval,
-    }), [added, addedCounts, add, remove, retune, recolour, setVisibility, removal, undoRemoval, forgetRemoval]);
+    }), [added, addedCounts, add, remove, retune, recolour, setVisibility, setBand, removal, undoRemoval, forgetRemoval]);
 }

@@ -8,9 +8,13 @@ import {
 } from '../../../../src/app/painting/pane-projector.ts';
 import type { DrawPlan, PlotScale } from '../../../../src/shared/core/draw-plan.ts';
 
+let minted = 0;
+
 function buildPlan(scale: PlotScale, values: readonly number[], levels: readonly number[] = []): DrawPlan {
+    minted += 1;
     return {
         indicatorId: 'test',
+        instanceId: `test-${minted}`,
         labelKey: 'indicator.rsi',
         parameterSummary: '14',
         scale,
@@ -129,5 +133,34 @@ describe('countPanedPlans', () => {
         ];
 
         expect(countPanedPlans(plans)).toBe(2);
+    });
+
+    it('counts a shared band once, however many are drawn in it', () => {
+        const first = buildPlan({ kind: 'fixed', low: 0, high: 100 }, [40]);
+        const plans = [first, { ...buildPlan({ kind: 'fixed', low: 0, high: 100 }, [60]), bandKey: first.instanceId! }];
+
+        expect(countPanedPlans(plans)).toBe(1);
+    });
+});
+
+describe('a shared band', () => {
+    it('scales to cover everything drawn in it', () => {
+        // Two readings side by side against different rulers is not a comparison.
+        const first = buildPlan({ kind: 'auto' }, [0, 10]);
+        const second = { ...buildPlan({ kind: 'auto' }, [0, 90]), bandKey: first.instanceId! };
+
+        const placements = placePanes([first, second], [{ topY: 400, height: 100 }]);
+
+        expect(placements).toHaveLength(1);
+        expect(placements[0]!.high).toBeGreaterThanOrEqual(90);
+    });
+
+    it('keeps every threshold drawn in it, whichever member asked for one', () => {
+        const first = buildPlan({ kind: 'fixed', low: 0, high: 100 }, [40], [70, 30]);
+        const second = { ...buildPlan({ kind: 'fixed', low: 0, high: 100 }, [60], [50]), bandKey: first.instanceId! };
+
+        const placements = placePanes([first, second], [{ topY: 400, height: 100 }]);
+
+        expect(placements[0]!.levels.map((level) => level.value)).toEqual([70, 30, 50]);
     });
 });

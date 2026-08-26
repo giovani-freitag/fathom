@@ -256,6 +256,9 @@ export function foldFramesIntoBars(
                 highPrice: midPrice,
                 lowPrice: midPrice,
                 closePrice: midPrice,
+                buyVolume: 0,
+                sellVolume: 0,
+                tradeCount: 0,
                 expectedFrames: last?.expectedFrames ?? 1,
                 frameCount: 1,
                 isClosed: false,
@@ -331,6 +334,7 @@ export function appendClusters(
 
     return {
         ...dataset,
+        bars: absorbIntoFormingBar(dataset.bars, freshClusters),
         clusters: [...dataset.clusters, ...freshClusters],
         revision: dataset.revision + 1,
     };
@@ -370,5 +374,49 @@ export function recutDataset(
         floorQuantity: measured.floorQuantity,
         saturationQuantity: measured.saturationQuantity,
         revision: dataset.revision + 1,
+    };
+}
+
+/**
+ * Adds what has just traded to the bar still being built.
+ *
+ * Only the forming bar. A closed bar carries what the archive counted for it,
+ * and a cluster arriving late for one of those would be counted twice.
+ *
+ * @param window - The bars on screen.
+ * @param clusters - Executions that have just arrived.
+ * @returns The window, with the forming bar's volume brought up to date.
+ */
+function absorbIntoFormingBar(
+    window: PriceBarWindow,
+    clusters: readonly TradeCluster[],
+): PriceBarWindow {
+    const forming = window.bars[window.bars.length - 1];
+    if (forming === undefined || forming.isClosed) {
+        return window;
+    }
+
+    let buyVolume = forming.buyVolume;
+    let sellVolume = forming.sellVolume;
+    let tradeCount = forming.tradeCount;
+    let hasChanged = false;
+
+    for (const cluster of clusters) {
+        if (cluster.executedAtMs < forming.openedAtMs || cluster.executedAtMs >= forming.closedAtMs) {
+            continue;
+        }
+        buyVolume += cluster.buyQuantity;
+        sellVolume += cluster.sellQuantity;
+        tradeCount += cluster.tradeCount;
+        hasChanged = true;
+    }
+
+    if (!hasChanged) {
+        return window;
+    }
+
+    return {
+        ...window,
+        bars: [...window.bars.slice(0, -1), { ...forming, buyVolume, sellVolume, tradeCount }],
     };
 }

@@ -35,7 +35,7 @@ import {
     findIndicator,
     resolveRequiredWarmupBars,
 } from '../indicators/indicator-catalogue.ts';
-import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
+import { type AddedIndicator, resolveBandKey } from '../../shared/core/indicator-selection.ts';
 import { isPlanWithinBudget, recolourPlan } from '../../shared/core/draw-plan.ts';
 
 /** How often the instrument listing and its coverage are re-read. */
@@ -292,7 +292,11 @@ export class ChartController {
             // whoever produced it, and drawing part of one shows the reader a
             // claim its author never made.
             if (isPlanWithinBudget(plan)) {
-                plans.push({ ...recolourPlan(plan, entry.tone), instanceId: entry.instanceId });
+                plans.push({
+                    ...recolourPlan(plan, entry.tone),
+                    instanceId: entry.instanceId,
+                    bandKey: resolveBandKey(entry),
+                });
             }
         }
         return plans;

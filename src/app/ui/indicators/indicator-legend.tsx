@@ -1,5 +1,5 @@
 import { Popover } from 'radix-ui';
-import { Eye, EyeOff, Settings2, X } from 'lucide-react';
+import { Combine, Eye, EyeOff, Settings2, Split, X } from 'lucide-react';
 import type { ReactElement } from 'react';
 import type { DrawPlan, PlotTone } from '../../../shared/core/draw-plan.ts';
 import { readChoice, readSetting, readValueAt } from '../../../shared/core/draw-plan.ts';
@@ -7,7 +7,7 @@ import type { Indicator } from '../../../shared/core/draw-plan.ts';
 import { formatFixed } from '../../core/formatting.ts';
 import { useCursorInstant } from '../../react/use-cursor-instant.ts';
 import { findIndicator } from '../../indicators/indicator-catalogue.ts';
-import { isPriceScale } from '../../painting/pane-projector.ts';
+import { groupPanedPlans, isPriceScale } from '../../painting/pane-projector.ts';
 import type { ChartLayout } from '../../painting/render-types.ts';
 import { IndicatorParameters } from './indicator-parameters.tsx';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
@@ -39,7 +39,7 @@ interface IndicatorLegendProps {
 export function IndicatorLegend({ controls, layout }: IndicatorLegendProps): ReactElement {
     const plans = useChartState().plans;
     const planFor = new Map(plans.map((plan) => [plan.instanceId, plan]));
-    const inPanes = plans.filter((plan) => !isPriceScale(plan.scale));
+    const bands = groupPanedPlans(plans);
 
     // Rows come from what was added rather than from what was drawn, so an
     // indicator that is being kept without being drawn still has the control
@@ -65,16 +65,28 @@ export function IndicatorLegend({ controls, layout }: IndicatorLegendProps): Rea
                 ))}
             </ul>
 
-            {inPanes.map((plan, index) => {
+            {bands.map((band, index) => {
                 const pane = layout.indicatorPanes[index];
-                const added = controls.added.find((entry) => entry.instanceId === plan.instanceId);
-                return pane === undefined || added === undefined ? null : (
+                return pane === undefined ? null : (
                     <ul
-                        key={plan.instanceId}
-                        className="absolute"
+                        key={band[0]!.instanceId}
+                        className="absolute flex flex-col items-start gap-1"
                         style={{ left: ROWS_LEFT_PX, top: pane.topY + PANE_ROW_TOP_PX }}
                     >
-                        <LegendRow added={added} plan={plan} controls={controls} />
+                        {band.map((plan) => {
+                            const added = controls.added.find(
+                                (entry) => entry.instanceId === plan.instanceId,
+                            );
+                            return added === undefined ? null : (
+                                <LegendRow
+                                    key={plan.instanceId}
+                                    added={added}
+                                    plan={plan}
+                                    controls={controls}
+                                    banding={resolveBanding(band, bands[index - 1] ?? null, plan)}
+                                />
+                            );
+                        })}
                     </ul>
                 );
             })}
@@ -135,14 +147,46 @@ function resolveReadoutDigits(value: number): number {
     return size >= 1 ? 2 : 4;
 }
 
+/** What a row may do about which band it is drawn in. */
+interface RowBanding {
+    /** The band it could join, or null when there is none it belongs with. */
+    readonly joinable: string | null;
+    /** True when it is already sharing, so it can be given one of its own. */
+    readonly isSharing: boolean;
+}
+
+/**
+ * Which band move a row can offer.
+ *
+ * Only a band on the same kind of scale is offered. Two readings put together
+ * have to share one ruler, and squashing a nought-to-hundred reading in beside
+ * a signed one leaves both unreadable.
+ */
+function resolveBanding(
+    band: readonly DrawPlan[],
+    above: readonly DrawPlan[] | null,
+    plan: DrawPlan,
+): RowBanding {
+    const isSharing = band.length > 1;
+    const neighbour = above?.[0];
+    const isCompatible = neighbour !== undefined && neighbour.scale.kind === plan.scale.kind;
+
+    return {
+        joinable: isCompatible ? neighbour.bandKey ?? neighbour.instanceId ?? null : null,
+        isSharing,
+    };
+}
+
 interface LegendRowProps {
     readonly added: AddedIndicator;
     /** Absent while the indicator is being kept without being drawn. */
     readonly plan: DrawPlan | null;
     readonly controls: IndicatorControls;
+    /** Absent for a row drawn over the price, which shares the price's scale already. */
+    readonly banding?: RowBanding;
 }
 
-function LegendRow({ added, plan, controls }: LegendRowProps): ReactElement | null {
+function LegendRow({ added, plan, controls, banding }: LegendRowProps): ReactElement | null {
     const translate = useTranslate();
     const indicator = findIndicator(added.indicatorId);
     if (indicator === null) {
@@ -182,6 +226,27 @@ function LegendRow({ added, plan, controls }: LegendRowProps): ReactElement | nu
                 >
                     {isHidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                 </button>
+
+                {banding?.isSharing === true && (
+                    <button
+                        type="button"
+                        aria-label={translate('indicators.splitBand')}
+                        onClick={() => { controls.setBand(added.instanceId, null); }}
+                        className="grid size-6 place-items-center rounded text-ink-500 hover:bg-abyss-700 hover:text-ink-100"
+                    >
+                        <Split className="size-3.5" />
+                    </button>
+                )}
+                {banding?.joinable !== null && banding?.joinable !== undefined && (
+                    <button
+                        type="button"
+                        aria-label={translate('indicators.mergeBand')}
+                        onClick={() => { controls.setBand(added.instanceId, banding.joinable); }}
+                        className="grid size-6 place-items-center rounded text-ink-500 hover:bg-abyss-700 hover:text-ink-100"
+                    >
+                        <Combine className="size-3.5" />
+                    </button>
+                )}
 
                 <Popover.Root>
                     <Popover.Trigger
@@ -255,7 +320,7 @@ function describeChosenSource(
         if (chosen !== null && chosen !== parameter.defaultValue) {
             return (
                 <span className="text-xs text-ink-500">
-                    {translateLabel(translate, `source.${chosen}`).toLowerCase()}
+                    {translateLabel(translate, `${parameter.name}.${chosen}`).toLowerCase()}
                 </span>
             );
         }

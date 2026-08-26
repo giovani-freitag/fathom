@@ -189,6 +189,18 @@ close, one of the other three corners, or one of the conventional blends of
 them. Everything else — the channel of extremes, the range of a bar, where a
 close sits inside a range — reads the bar's own extent and has no such choice.
 
+A bar also carries what changed hands inside it, and by which side crossed the
+spread. That comes from the executions rather than from the book, so it is read
+with a scan of its own: the two are stored apart and rolled up apart, and a join
+would tie each to whichever grid the other happened to need. A bucket the book
+was recorded through with nobody trading counts as nothing traded, which is a
+different fact from a bucket that was never recorded.
+
+Knowing the side is what the archive has that a tape of prints does not, so
+volume is offered both ways: the total, which is what a reader expects to see,
+and the two sides drawn against each other from nought, where a bar of eight
+bought and two sold no longer looks like its opposite.
+
 Every indicator restarts at a break in the recording rather than carrying state
 across it. Smoothing through unrecorded time invents a trend, and once it is a
 line on a screen it is indistinguishable from a real one. The rule is testable
@@ -213,6 +225,16 @@ anything.
 
 Gaps and the time grid are the exception, and deliberately so: they belong to
 time rather than to price, so they cross every band.
+
+### Sharing a band
+
+Each reading that needs a band gets one of its own, and any of them can be moved
+into another's. That move is the whole reason for having two copies of one
+oscillator: the same reading at a fast and a slow period says nothing when the
+two sit in separate bands against separate ranges, and everything when they sit
+on one ruler and cross each other. A band scales to cover everything drawn in
+it, and only a band on the same kind of scale is offered — squashing a
+nought-to-hundred reading in beside a signed one leaves both unreadable.
 
 ### Telling two apart
 

@@ -6,7 +6,7 @@ import {
     type PlotSeries,
     type PlotTone,
 } from '../../../shared/core/draw-plan.ts';
-import { isPriceScale, PaneProjector, type ValueProjector } from '../pane-projector.ts';
+import { groupPanedPlans, isPriceScale, PaneProjector, type ValueProjector } from '../pane-projector.ts';
 import { RENDER_PALETTE } from '../render-palette.ts';
 import type { PaintContext, PanePlacement, PaneRect } from '../render-types.ts';
 
@@ -57,20 +57,18 @@ export class PlotPainter {
      * @param paint - The shared paint context.
      */
     paintInPanes(paint: PaintContext): void {
-        let paneIndex = 0;
-        for (const plan of paint.request.plans) {
+        groupPanedPlans(paint.request.plans).forEach((band, index) => {
+            const placement = paint.panePlacements[index];
+            if (placement === undefined) {
+                return;
+            }
             // Rejected whole rather than clipped: half a series is a different
             // claim than the one its author made.
-            if (!isPlanWithinBudget(plan) || isPriceScale(plan.scale)) {
-                continue;
+            const drawable = band.filter((plan) => isPlanWithinBudget(plan));
+            if (drawable.length > 0) {
+                this.paintPane(paint, drawable, placement);
             }
-
-            const placement = paint.panePlacements[paneIndex];
-            paneIndex += 1;
-            if (placement !== undefined) {
-                this.paintInPane(paint, plan, placement);
-            }
-        }
+        });
     }
 
     /**
@@ -86,7 +84,14 @@ export class PlotPainter {
     /**
      * Draws a plan in its own band of the stack, on a scale of its own.
      */
-    private paintInPane(paint: PaintContext, plan: DrawPlan, placement: PanePlacement): void {
+    /**
+     * Draws one band of the stack, and everything sharing it, on one scale.
+     */
+    private paintPane(
+        paint: PaintContext,
+        band: readonly DrawPlan[],
+        placement: PanePlacement,
+    ): void {
         const rect = placement.rect;
         const projector = new PaneProjector(placement);
         const { context } = paint;
@@ -99,12 +104,16 @@ export class PlotPainter {
         context.clip();
 
         this.paintPaneFrame(paint, rect);
-        for (const level of plan.levels ?? []) {
-            this.paintLevel(paint, level, projector);
+        for (const plan of band) {
+            for (const level of plan.levels ?? []) {
+                this.paintLevel(paint, level, projector);
+            }
         }
-        this.paintBands(paint, plan, projector);
-        for (const series of plan.series) {
-            this.paintSeries(paint, series, plan, projector);
+        for (const plan of band) {
+            this.paintBands(paint, plan, projector);
+            for (const series of plan.series) {
+                this.paintSeries(paint, series, plan, projector);
+            }
         }
 
         context.restore();
