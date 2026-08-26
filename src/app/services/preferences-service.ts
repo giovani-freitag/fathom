@@ -144,6 +144,11 @@ function keepUsableIndicators(stored: unknown): readonly AddedIndicator[] {
             // free colour rather than a blank one.
             tone: INSTANCE_TONES.find((tone) => tone === entry.tone) ?? chooseInstanceTone(kept),
             ...(entry.isHidden === true ? { isHidden: true } : {}),
+            // Kept only when it names an entry that survived, so a band cannot
+            // point at an indicator this build dropped or the trim discarded.
+            ...(typeof entry.bandKey === 'string' && seen.has(entry.bandKey)
+                ? { bandKey: entry.bandKey }
+                : {}),
         });
         if (kept.length === MAXIMUM_ADDED_INDICATORS) {
             break;
@@ -159,6 +164,7 @@ interface StoredIndicator {
     readonly settings: Record<string, unknown>;
     readonly tone?: unknown;
     readonly isHidden?: unknown;
+    readonly bandKey?: unknown;
 }
 
 function isUsableIndicator(entry: unknown): entry is StoredIndicator {

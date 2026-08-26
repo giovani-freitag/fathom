@@ -131,3 +131,28 @@ describe('PreferencesService appearance', () => {
         expect(readAppearance({ themeChoice: 'light' }).themeChoice).toBe('light');
     });
 });
+
+describe('PreferencesService bands', () => {
+    it('keeps two readings in the band the reader put them in', () => {
+        const added = readIndicators({
+            addedIndicators: [
+                { instanceId: 'rsi-1', indicatorId: 'rsi', settings: {}, tone: 'phosphor' },
+                { instanceId: 'rsi-2', indicatorId: 'rsi', settings: {}, tone: 'amber', bandKey: 'rsi-1' },
+            ],
+        });
+
+        expect(added[1]?.bandKey).toBe('rsi-1');
+    });
+
+    it('drops a band that names nothing on the chart', () => {
+        // The named indicator may have been trimmed away, or never stored at
+        // all; a band pointing at nothing would strand its member alone.
+        const added = readIndicators({
+            addedIndicators: [
+                { instanceId: 'rsi-1', indicatorId: 'rsi', settings: {}, tone: 'phosphor', bandKey: 'ghost-9' },
+            ],
+        });
+
+        expect(added[0]?.bandKey).toBeUndefined();
+    });
+});
