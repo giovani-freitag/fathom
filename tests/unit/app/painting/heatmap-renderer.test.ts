@@ -45,6 +45,7 @@ function buildRequest(overrides: Partial<RenderRequest> = {}): RenderRequest {
         isVolumeProfileVisible: true,
         pointer: { x: 300, y: 200 },
         locale: 'en',
+        plans: [],
         theme: 'dark',
         ...overrides,
     };
@@ -118,6 +119,36 @@ describe('HeatmapRenderer layering', () => {
         const drawnOnce = surface.overlay.calls.length;
 
         surface.renderer.render(buildRequest({ isCandleOverlayVisible: false }));
+
+        expect(surface.overlay.calls.length).toBeGreaterThan(drawnOnce);
+    });
+});
+
+describe('HeatmapRenderer containment', () => {
+    it('clips the data layers to the region they own', () => {
+        // The containment for a plan somebody else produced: vertices running to
+        // the edges of the world still cannot reach the axis gutters. It is
+        // enforced here rather than trusted to each painter.
+        const surface = buildSurface();
+
+        surface.renderer.render(buildRequest());
+
+        const clipped = surface.overlay.calls.findIndex((call) => call.method === 'clip');
+        const restored = surface.overlay.calls.findIndex((call) => call.method === 'restore');
+        expect(clipped).toBeGreaterThanOrEqual(0);
+        expect(restored).toBeGreaterThan(clipped);
+    });
+
+    it('repaints the data layers when an indicator appears', () => {
+        // A plan arriving does not move the dataset, so the held layer would
+        // otherwise keep showing a chart without it.
+        const surface = buildSurface();
+        surface.renderer.render(buildRequest());
+        const drawnOnce = surface.overlay.calls.length;
+
+        surface.renderer.render(buildRequest({
+            plans: [{ series: [], hasConverged: true }],
+        }));
 
         expect(surface.overlay.calls.length).toBeGreaterThan(drawnOnce);
     });

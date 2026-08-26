@@ -85,6 +85,8 @@ export const EN_DICTIONARY = {
     'settings.aggressorsHelp': 'Bubbles for orders that crossed the spread',
     'settings.volumeProfile': 'Volume profile',
     'settings.volumeProfileHelp': 'Traded volume per price band',
+    'settings.average': 'Moving average',
+    'settings.averageHelp': 'Exponential average of the bar close, over twenty bars',
     'settings.recordedSoFar': 'Recorded so far',
     'settings.resolution': 'Resolution',
     'settings.perColumn': '{value} per column',

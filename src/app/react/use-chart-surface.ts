@@ -47,6 +47,7 @@ export function useChartSurface(): ChartSurfaceHandles {
             isCandleOverlayVisible: state.isCandleOverlayVisible,
             isTradeOverlayVisible: state.isTradeOverlayVisible,
             isVolumeProfileVisible: state.isVolumeProfileVisible,
+            plans: state.plans,
             pointer: pointerRef.current,
             locale: appearance.locale,
             theme: appearance.resolvedTheme,

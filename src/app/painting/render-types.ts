@@ -2,6 +2,7 @@ import type { ChartViewport } from '../core/chart-viewport.ts';
 import type { ViewportProjector } from '../core/viewport-projector.ts';
 import type { ChartDataset } from '../core/chart-dataset.ts';
 import type { ResolvedTheme } from '../core/theme.ts';
+import type { DrawPlan } from '../../shared/core/draw-plan.ts';
 import type { Locale } from '../i18n/locale.ts';
 import type { Translate } from '../i18n/translator.ts';
 
@@ -20,6 +21,8 @@ export interface RenderRequest {
     readonly isVolumeProfileVisible: boolean;
     readonly pointer: PointerReadout | null;
     readonly locale: Locale;
+    /** What the indicators produced for this window, already computed. */
+    readonly plans: readonly DrawPlan[];
     /** Named rather than read from the palette, which is mutated in place. */
     readonly theme: ResolvedTheme;
 }

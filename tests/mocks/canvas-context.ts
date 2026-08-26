@@ -25,6 +25,7 @@ const RECORDED_METHODS = [
     'clearRect', 'fillRect', 'strokeRect', 'beginPath', 'moveTo', 'lineTo',
     'stroke', 'arc', 'fill', 'setLineDash', 'fillText', 'drawImage',
     'putImageData', 'save', 'restore', 'closePath', 'roundRect', 'setTransform',
+    'rect', 'clip',
 ] as const;
 
 /**
@@ -79,6 +80,7 @@ export interface PaintContextOptions {
     readonly dataset?: Partial<ChartDataset>;
     readonly viewport?: Partial<ChartViewport>;
     readonly pointer?: RenderRequest['pointer'];
+    readonly plans?: RenderRequest['plans'];
     readonly crosshairY?: number | null;
     readonly isVolumeProfileVisible?: boolean;
     readonly cssWidth?: number;
@@ -133,6 +135,7 @@ export function buildPaintContext(
             isVolumeProfileVisible: options.isVolumeProfileVisible ?? false,
             pointer: options.pointer ?? null,
             locale: 'en',
+            plans: options.plans ?? [],
             theme: 'dark',
         },
         crosshairY: options.crosshairY ?? options.pointer?.y ?? null,

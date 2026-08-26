@@ -1,4 +1,6 @@
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
+import type { DrawPlan } from '../../shared/core/draw-plan.ts';
+import { ExponentialAverage } from '../indicators/exponential-average.ts';
 import type { LiveMessage } from '../../shared/core/live-message.ts';
 import type { TranslationKey } from '../i18n/dictionaries/en.ts';
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
@@ -34,6 +36,9 @@ import { type LoadedWindow, WindowLoader, type WindowLoadRequest } from './windo
 /** How often the instrument listing and its coverage are re-read. */
 const COVERAGE_REFRESH_MS = 5_000;
 
+/** The one indicator the chart ships with, until a reader can add their own. */
+const AVERAGE = new ExponentialAverage({ periodBars: 20 });
+
 export type ChartPhase = 'initialising' | 'ready' | 'empty' | 'failed';
 
 export interface ChartState {
@@ -56,6 +61,9 @@ export interface ChartState {
     readonly isCandleOverlayVisible: boolean;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
+    readonly isAverageVisible: boolean;
+    /** What the indicators produced for the window on screen. */
+    readonly plans: readonly DrawPlan[];
 }
 
 export interface ChartControllerConfig {
@@ -82,6 +90,7 @@ export type ChartSettingsPatch = Partial<
         | 'isCandleOverlayVisible'
         | 'isTradeOverlayVisible'
         | 'isVolumeProfileVisible'
+        | 'isAverageVisible'
     >
 >;
 
@@ -251,9 +260,27 @@ export class ChartController {
     updateSettings(patch: ChartSettingsPatch): void {
         this.store.update((state) => {
             const next = { ...state, ...patch };
-            return hasMovedACut(state, next) ? { ...next, dataset: recut(next) } : next;
+            const recutState = hasMovedACut(state, next) ? { ...next, dataset: recut(next) } : next;
+            return { ...recutState, plans: this.computePlans(recutState) };
         });
         this.persistPreferences();
+    }
+
+    /**
+     * Runs the indicators over the window on screen.
+     *
+     * Inline and synchronous because these are ours: moving a first-party
+     * indicator to a worker costs more in copying the bars across than the
+     * arithmetic it was meant to move off the thread.
+     */
+    private computePlans(state: ChartState): readonly DrawPlan[] {
+        if (!state.isAverageVisible) {
+            return [];
+        }
+        return [AVERAGE.compute({
+            bars: state.dataset.bars,
+            warmupBarCount: state.dataset.bars.warmupBarsReturned,
+        })];
     }
 
     private choosePreferredInstrument(
@@ -330,14 +357,15 @@ export class ChartController {
                 floorPercentile: current.depthFloorPercentile,
                 saturationPercentile: current.depthSaturationPercentile,
             });
-            return {
+            const next = {
                 ...current,
                 isLoadingWindow: false,
-                phase: dataset.frames.length === 0 ? 'empty' : 'ready',
+                phase: (dataset.frames.length === 0 ? 'empty' : 'ready') as ChartPhase,
                 failureKey: null,
                 dataset,
                 viewport: this.framePriceRange(current.viewport, dataset),
             };
+            return { ...next, plans: this.computePlans(next) };
         });
     }
 
@@ -361,7 +389,8 @@ export class ChartController {
             if (dataset === state.dataset) {
                 return state;
             }
-            return { ...state, dataset, viewport: this.advanceViewport(state, dataset) };
+            const next = { ...state, dataset, viewport: this.advanceViewport(state, dataset) };
+            return { ...next, plans: this.computePlans(next) };
         });
     }
 
@@ -433,6 +462,7 @@ export class ChartController {
             isCandleOverlayVisible: state.isCandleOverlayVisible,
             isTradeOverlayVisible: state.isTradeOverlayVisible,
             isVolumeProfileVisible: state.isVolumeProfileVisible,
+            isAverageVisible: state.isAverageVisible,
         });
     }
 
@@ -474,6 +504,8 @@ function buildInitialState(preferences: ViewerPreferences): ChartState {
         isCandleOverlayVisible: preferences.isCandleOverlayVisible,
         isTradeOverlayVisible: preferences.isTradeOverlayVisible,
         isVolumeProfileVisible: preferences.isVolumeProfileVisible,
+        isAverageVisible: preferences.isAverageVisible,
+        plans: [],
     };
 }
 

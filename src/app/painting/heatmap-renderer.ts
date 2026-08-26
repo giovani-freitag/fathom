@@ -11,6 +11,7 @@ import { DepthLayerPainter } from './painters/depth-layer-painter.ts';
 import { GapPainter } from './painters/gap-painter.ts';
 import { GridPainter } from './painters/grid-painter.ts';
 import { TouchLinePainter } from './painters/touch-line-painter.ts';
+import { PlotPainter } from './painters/plot-painter.ts';
 import { TradePainter } from './painters/trade-painter.ts';
 import { VolumeProfilePainter } from './painters/volume-profile-painter.ts';
 import { RENDER_METRICS } from './render-palette.ts';
@@ -57,6 +58,7 @@ export class HeatmapRenderer {
     private readonly volumeProfilePainter = new VolumeProfilePainter();
     private readonly candlePainter = new CandlePainter();
     private readonly tradePainter = new TradePainter();
+    private readonly plotPainter = new PlotPainter();
     private readonly axisPainter = new AxisPainter();
     private readonly touchLinePainter: TouchLinePainter;
     private readonly crosshairPainter: CrosshairPainter;
@@ -160,6 +162,15 @@ export class HeatmapRenderer {
         const { request } = paint;
         paint.context.clearRect(0, 0, this.cssWidth, this.cssHeight);
 
+        // Clipped to the region the data layers own, and this is the containment
+        // rather than a rule each painter is trusted to follow. It is what makes
+        // it safe to draw a plan somebody else produced: a plan whose vertices
+        // run to the edges of the world still cannot reach the axis gutters.
+        paint.context.save();
+        paint.context.beginPath();
+        paint.context.rect(0, 0, paint.layout.priceAxisX, paint.layout.plotHeight);
+        paint.context.clip();
+
         this.gapPainter.paint(paint);
         this.gridPainter.paint(paint);
         if (request.isVolumeProfileVisible) {
@@ -171,6 +182,10 @@ export class HeatmapRenderer {
         if (request.isTradeOverlayVisible) {
             this.tradePainter.paint(paint);
         }
+        // Last of the data layers: an indicator is drawn over what it describes.
+        this.plotPainter.paint(paint);
+
+        paint.context.restore();
     }
 
     /**
@@ -271,6 +286,9 @@ function describeOverlayState(request: RenderRequest, layout: ChartLayout): stri
         request.isCandleOverlayVisible,
         request.isTradeOverlayVisible,
         request.isVolumeProfileVisible,
+        // A plan appearing or leaving does not move the dataset, so the toggle has
+        // to be in the key itself.
+        request.plans.length,
         request.theme,
         // The volume profile writes sizes, which every language groups its own way.
         request.locale,

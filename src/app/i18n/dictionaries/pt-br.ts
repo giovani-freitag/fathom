@@ -87,6 +87,8 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'settings.aggressorsHelp': 'Bolhas para ordens que atravessaram o spread',
     'settings.volumeProfile': 'Perfil de volume',
     'settings.volumeProfileHelp': 'Volume negociado por faixa de preço',
+    'settings.average': 'Média móvel',
+    'settings.averageHelp': 'Média exponencial do fechamento da barra, sobre vinte barras',
     'settings.recordedSoFar': 'Gravado até agora',
     'settings.resolution': 'Resolução',
     'settings.perColumn': '{value} por coluna',

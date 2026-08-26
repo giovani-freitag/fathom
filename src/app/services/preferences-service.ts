@@ -16,6 +16,7 @@ export interface ViewerPreferences {
     readonly isCandleOverlayVisible: boolean;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
+    readonly isAverageVisible: boolean;
     /** Null until the reader picks one, which is how the host's own choice wins. */
     readonly locale: Locale | null;
     readonly themeChoice: ThemeChoice;
@@ -30,6 +31,7 @@ export const DEFAULT_PREFERENCES: ViewerPreferences = {
     isCandleOverlayVisible: true,
     isTradeOverlayVisible: true,
     isVolumeProfileVisible: true,
+    isAverageVisible: false,
     locale: null,
     themeChoice: 'system',
 };
