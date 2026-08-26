@@ -201,6 +201,12 @@ volume is offered both ways: the total, which is what a reader expects to see,
 and the two sides drawn against each other from nought, where a bar of eight
 bought and two sold no longer looks like its opposite.
 
+The two are drawn in different places, and the placement follows from the
+reading rather than from the indicator. A total is one direction and belongs in
+a strip along the floor of the price pane: it costs the price no height, only
+some of the floor, and it is held back enough that the depth map underneath
+still reads. A split is two directions and needs room, so it takes a band.
+
 Every indicator restarts at a break in the recording rather than carrying state
 across it. Smoothing through unrecorded time invents a trend, and once it is a
 line on a screen it is indistinguishable from a real one. The rule is testable
@@ -211,9 +217,13 @@ what would be drawn if the bars before it had never existed.
 
 A quantity that is not a price cannot share an axis with one. An oscillator
 bounded to nought and a hundred, plotted against a price axis, is a flat line at
-the bottom of the screen. So a plan declares its scale, and anything that is not
-a price is given a band of its own below the chart, with its own range and its
-own two labels in the gutter.
+the bottom of the screen. So a plan declares its scale, and one that names
+neither the price nor a strip along its floor is given a band of its own below
+the chart, with its own range and its own two labels in the gutter.
+
+Not being a price and needing a band are separate questions, and keeping them
+separate is what lets a reading sit on the floor of the price pane on a scale of
+its own without the stack growing to hold it.
 
 The stack is what the containment is built around. The outer clip keeps every
 layer out of the axis gutters. An inner clip keeps everything that reads as a

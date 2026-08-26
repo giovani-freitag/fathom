@@ -28,7 +28,13 @@ const MODE: ChoiceParameter = {
 export class Volume implements Indicator {
     readonly id = 'volume';
     readonly labelKey = 'indicator.volume';
-    readonly scale: PlotScale = { kind: 'auto' };
+    /**
+     * A strip along the floor of the price pane.
+     *
+     * Where a reader expects to find it, and it costs the price no height —
+     * only some of the floor it was not reading anyway.
+     */
+    readonly scale: PlotScale = { kind: 'overlay', heightRatio: 0.2 };
     readonly parameters: readonly IndicatorParameter[] = [MODE];
 
     /**
@@ -57,8 +63,9 @@ export class Volume implements Indicator {
             indicatorId: this.id,
             labelKey: this.labelKey,
             parameterSummary: '',
-            // A split reads as a balance, so its band is centred on nought and a
-            // buy and a sell of the same size are the same height.
+            // Split, it reads as a balance rather than a size, so it is centred
+            // on nought and given a band: two directions need room, and a strip
+            // along the floor has none to give.
             scale: isSplit ? { kind: 'symmetric' } : this.scale,
             series: isSplit ? buildSplit(bars, atMs) : [buildTotal(bars, atMs)],
             levels: isSplit ? [{ value: 0, tone: 'muted' }] : [],

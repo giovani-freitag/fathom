@@ -1,7 +1,7 @@
 import { type ReactElement, useMemo, useState } from 'react';
 import type { Indicator } from '../../../shared/core/draw-plan.ts';
 import { INDICATOR_CATALOGUE } from '../../indicators/indicator-catalogue.ts';
-import { isPriceScale } from '../../painting/pane-projector.ts';
+import { needsOwnBand } from '../../painting/pane-projector.ts';
 import { Search } from 'lucide-react';
 import { useTranslate } from '../../react/use-appearance.ts';
 import { translateLabel } from '../../i18n/translator.ts';
@@ -24,8 +24,8 @@ export function IndicatorPalette({ onAdd, isFull, addedCounts, hasAutoFocus = fa
     const [query, setQuery] = useState('');
     const matches = useMemo(() => findMatches(query, translate), [query, translate]);
 
-    const overPrice = matches.filter((indicator) => isPriceScale(indicator.scale));
-    const ownPane = matches.filter((indicator) => !isPriceScale(indicator.scale));
+    const overPrice = matches.filter((indicator) => !needsOwnBand(indicator.scale));
+    const ownPane = matches.filter((indicator) => needsOwnBand(indicator.scale));
 
     return (
         <div className="flex w-72 flex-col gap-2">

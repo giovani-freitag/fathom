@@ -86,12 +86,21 @@ export interface PlotLevel {
 /**
  * Which vertical scale a plan is drawn against.
  *
- * `price` puts it over the chart. The rest give it a pane of its own, because a
- * quantity that is not a price cannot share an axis with one: an oscillator
- * bounded to 0..100 plotted against a price axis is a flat line at the bottom.
+ * `price` puts it over the chart on the price's own axis. `overlay` puts it
+ * along the bottom of the same pane on a scale of its own. The rest give it a
+ * band, because a quantity that is not a price cannot share an axis with one:
+ * an oscillator bounded to 0..100 plotted against a price axis is a flat line
+ * at the bottom of the screen.
  */
 export type PlotScale =
     | { readonly kind: 'price' }
+    /**
+     * A strip along the bottom of the price pane, on a scale of its own.
+     *
+     * For a reading that belongs beside the price without being one and without
+     * being worth a band: it costs the price no height, only some of its floor.
+     */
+    | { readonly kind: 'overlay'; readonly heightRatio: number }
     | { readonly kind: 'auto' }
     | { readonly kind: 'fixed'; readonly low: number; readonly high: number }
     | { readonly kind: 'symmetric' };

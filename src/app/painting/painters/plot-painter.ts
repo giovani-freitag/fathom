@@ -6,7 +6,14 @@ import {
     type PlotSeries,
     type PlotTone,
 } from '../../../shared/core/draw-plan.ts';
-import { groupPanedPlans, isPriceScale, PaneProjector, type ValueProjector } from '../pane-projector.ts';
+import {
+    groupPanedPlans,
+    needsOwnBand,
+    PaneProjector,
+    resolveOverlayRect,
+    resolvePlanRange,
+    type ValueProjector,
+} from '../pane-projector.ts';
 import { RENDER_PALETTE } from '../render-palette.ts';
 import type { PaintContext, PanePlacement, PaneRect } from '../render-types.ts';
 
@@ -29,6 +36,9 @@ const LEVEL_DASH = [2, 4];
 /** How much of a fill's colour survives, so what is under a band stays legible. */
 const BAND_ALPHA = 0.1;
 
+/** How much of a floor strip survives, so the depth map under it still reads. */
+const FLOOR_STRIP_ALPHA = 0.55;
+
 
 /**
  * Draws the plans indicators produced, each against the scale it asked for.
@@ -45,10 +55,36 @@ export class PlotPainter {
      */
     paintOverPrice(paint: PaintContext): void {
         for (const plan of paint.request.plans) {
-            if (isPlanWithinBudget(plan) && isPriceScale(plan.scale)) {
-                this.paintPlanOverPrice(paint, plan);
+            if (!isPlanWithinBudget(plan) || needsOwnBand(plan.scale)) {
+                continue;
             }
+            const strip = resolveOverlayRect(plan.scale, paint.layout.pricePaneHeight);
+            if (strip === null) {
+                this.paintPlanOverPrice(paint, plan, paint.projector);
+                continue;
+            }
+            this.paintAlongTheFloor(paint, plan, strip);
         }
+    }
+
+    /**
+     * Draws a plan in a strip along the floor of the price pane.
+     *
+     * Held back so what it covers still reads: the strip sits over the depth
+     * map, and a reading that hides the liquidity it sits on has taken more
+     * than it gave.
+     */
+    private paintAlongTheFloor(paint: PaintContext, plan: DrawPlan, strip: PaneRect): void {
+        const { context } = paint;
+        context.save();
+        context.globalAlpha = FLOOR_STRIP_ALPHA;
+        context.beginPath();
+        context.rect(0, strip.topY, paint.layout.plotWidth, strip.height);
+        context.clip();
+
+        this.paintPlanOverPrice(paint, plan, new PaneProjector({ rect: strip, ...resolvePlanRange(plan) }));
+
+        context.restore();
     }
 
     /**
@@ -74,10 +110,14 @@ export class PlotPainter {
     /**
      * Draws a plan that shares the price axis with what it describes.
      */
-    private paintPlanOverPrice(paint: PaintContext, plan: DrawPlan): void {
-        this.paintBands(paint, plan, paint.projector);
+    private paintPlanOverPrice(
+        paint: PaintContext,
+        plan: DrawPlan,
+        projector: ValueProjector,
+    ): void {
+        this.paintBands(paint, plan, projector);
         for (const series of plan.series) {
-            this.paintSeries(paint, series, plan, paint.projector);
+            this.paintSeries(paint, series, plan, projector);
         }
     }
 

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
     countPanedPlans,
     isPriceScale,
+    needsOwnBand,
+    resolveOverlayRect,
     PaneProjector,
     placePanes,
     resolvePlanRange,
@@ -113,6 +115,41 @@ describe('placePanes', () => {
         ];
 
         expect(placePanes(plans, [{ topY: 400, height: 100 }])).toHaveLength(1);
+    });
+});
+
+describe('needsOwnBand', () => {
+    it('grows the stack only for a reading that has nowhere else to go', () => {
+        expect(needsOwnBand({ kind: 'auto' })).toBe(true);
+        expect(needsOwnBand({ kind: 'fixed', low: 0, high: 100 })).toBe(true);
+        expect(needsOwnBand({ kind: 'symmetric' })).toBe(true);
+    });
+
+    it('costs the price no height for a reading drawn along its floor', () => {
+        // The distinction the price pane depends on: not being a price is not
+        // the same as needing a band taken out of it.
+        expect(needsOwnBand({ kind: 'price' })).toBe(false);
+        expect(needsOwnBand({ kind: 'overlay', heightRatio: 0.2 })).toBe(false);
+        expect(needsOwnBand(undefined)).toBe(false);
+    });
+});
+
+describe('resolveOverlayRect', () => {
+    it('lays the strip along the floor of the price pane', () => {
+        const strip = resolveOverlayRect({ kind: 'overlay', heightRatio: 0.2 }, 500);
+
+        expect(strip).toEqual({ topY: 400, height: 100 });
+    });
+
+    it('refuses to let a strip eat the pane it is drawn in', () => {
+        const greedy = resolveOverlayRect({ kind: 'overlay', heightRatio: 5 }, 500);
+
+        expect(greedy!.height).toBeLessThanOrEqual(250);
+    });
+
+    it('has nothing to lay out for a plan that asked for no strip', () => {
+        expect(resolveOverlayRect({ kind: 'auto' }, 500)).toBeNull();
+        expect(resolveOverlayRect(undefined, 500)).toBeNull();
     });
 });
 

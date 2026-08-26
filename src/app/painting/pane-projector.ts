@@ -134,6 +134,37 @@ export function isPriceScale(scale: PlotScale | undefined): boolean {
 }
 
 /**
+ * Whether a plan needs a band of the stack to itself.
+ *
+ * Distinct from not being a price: a reading drawn along the floor of the price
+ * pane is not on the price's axis either, and still costs the price no height.
+ *
+ * @param scale - The plan's declared scale.
+ * @returns True when the stack has to grow to hold it.
+ */
+export function needsOwnBand(scale: PlotScale | undefined): boolean {
+    return scale !== undefined && scale.kind !== 'price' && scale.kind !== 'overlay';
+}
+
+/**
+ * The strip along the floor of the price pane a plan was given.
+ *
+ * @param scale - The plan's declared scale.
+ * @param pricePaneHeight - How tall the price pane is.
+ * @returns The strip, or null when the plan asked for no such thing.
+ */
+export function resolveOverlayRect(
+    scale: PlotScale | undefined,
+    pricePaneHeight: number,
+): PaneRect | null {
+    if (scale === undefined || scale.kind !== 'overlay') {
+        return null;
+    }
+    const height = pricePaneHeight * Math.min(Math.max(scale.heightRatio, 0.05), 0.5);
+    return { topY: pricePaneHeight - height, height };
+}
+
+/**
  * The plans that need a band, gathered into the bands they share.
  *
  * Bands come out in the order their first member was added, so moving one
@@ -146,7 +177,7 @@ export function groupPanedPlans(plans: readonly DrawPlan[]): readonly (readonly 
     const bands = new Map<string, DrawPlan[]>();
 
     plans.forEach((plan, index) => {
-        if (isPriceScale(plan.scale)) {
+        if (!needsOwnBand(plan.scale)) {
             return;
         }
         // A plan nobody stamped stands alone. Falling back to the indicator's

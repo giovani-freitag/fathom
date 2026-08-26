@@ -7,7 +7,7 @@ import type { Indicator } from '../../../shared/core/draw-plan.ts';
 import { formatFixed } from '../../core/formatting.ts';
 import { useCursorInstant } from '../../react/use-cursor-instant.ts';
 import { findIndicator } from '../../indicators/indicator-catalogue.ts';
-import { groupPanedPlans, isPriceScale } from '../../painting/pane-projector.ts';
+import { groupPanedPlans, needsOwnBand } from '../../painting/pane-projector.ts';
 import type { ChartLayout } from '../../painting/render-types.ts';
 import { IndicatorParameters } from './indicator-parameters.tsx';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
@@ -46,7 +46,7 @@ export function IndicatorLegend({ controls, layout }: IndicatorLegendProps): Rea
     // that brings it back.
     const overPrice = controls.added.filter((entry) => {
         const plan = planFor.get(entry.instanceId);
-        return plan === undefined || isPriceScale(plan.scale);
+        return plan === undefined || !needsOwnBand(plan.scale);
     });
 
     return (

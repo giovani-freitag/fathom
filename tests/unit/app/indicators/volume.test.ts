@@ -48,3 +48,15 @@ describe('Volume', () => {
         expect(compute('total').hasConverged).toBe(true);
     });
 });
+
+describe('where volume is drawn', () => {
+    it('lies along the floor of the price pane, costing it no height', () => {
+        // What a reader expects to find, and where it takes only the floor it
+        // was not reading anyway.
+        expect(compute('total').scale).toEqual({ kind: 'overlay', heightRatio: 0.2 });
+    });
+
+    it('takes a band once it is showing two directions, which a strip has no room for', () => {
+        expect(compute('sides').scale).toEqual({ kind: 'symmetric' });
+    });
+});
