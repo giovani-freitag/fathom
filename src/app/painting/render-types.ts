@@ -1,4 +1,5 @@
 import type { ChartViewport } from '../core/chart-viewport.ts';
+import type { LayerSettings } from '../indicators/field-layers.ts';
 import type { PlotLevel } from '../../shared/core/draw-plan.ts';
 import type { ViewportProjector } from '../core/viewport-projector.ts';
 import type { ChartDataset } from '../core/chart-dataset.ts';
@@ -20,6 +21,13 @@ export interface RenderRequest {
     /** False leaves a plain price chart, with no book behind it. */
     readonly isDepthVisible: boolean;
     readonly isCandleOverlayVisible: boolean;
+    /**
+     * What each drawn layer is tuned to, by the id it was added under.
+     *
+     * Carried rather than unpacked: how a layer is tuned is its own vocabulary,
+     * and a host that named the knobs would have to learn every layer's.
+     */
+    readonly layerSettings: LayerSettings;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
     readonly pointer: PointerReadout | null;

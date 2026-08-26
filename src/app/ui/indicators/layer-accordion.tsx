@@ -5,7 +5,7 @@ import type { ChartState } from '../../core/chart-controller.ts';
 import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts';
 import { readSetting, type Tunable } from '../../../shared/core/draw-plan.ts';
 import { findChartLayer, findIndicator } from '../../indicators/indicator-catalogue.ts';
-import { findLayerContribution } from '../../indicators/layer-contributions.ts';
+import { findLayerContribution, isLayerTunable } from '../../indicators/layer-contributions.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
 import { IndicatorParameters } from './indicator-parameters.tsx';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
@@ -82,7 +82,7 @@ function LayerRow({ added, controls, state }: LayerRowProps): ReactElement | nul
     const isHidden = added.isHidden === true;
     // A layer with nothing to tell it has nothing to open onto, and a control
     // that opens onto nothing teaches a reader that opening is not worth it.
-    const isTunable = layer.parameters.length > 0 || Panel !== undefined;
+    const isTunable = isLayerTunable(layer);
 
     return (
         <Accordion.Item

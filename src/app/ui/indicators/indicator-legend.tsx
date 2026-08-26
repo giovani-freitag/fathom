@@ -7,7 +7,7 @@ import { formatFixed } from '../../core/formatting.ts';
 import { useCursorInstant } from '../../react/use-cursor-instant.ts';
 import { findChartLayer } from '../../indicators/indicator-catalogue.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
-import { findLayerContribution } from '../../indicators/layer-contributions.ts';
+import { findLayerContribution, isLayerTunable } from '../../indicators/layer-contributions.ts';
 import { groupPanedPlans, needsOwnBand } from '../../painting/pane-projector.ts';
 import type { ChartLayout } from '../../painting/render-types.ts';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
@@ -210,10 +210,7 @@ function LegendRow({ added, plan, state, controls, onOpenSettings, banding }: Le
     const isTinted = findFieldLayer(added.indicatorId) === null;
     const contribution = findLayerContribution(added.indicatorId);
     const Readout = contribution?.Readout;
-    const hasPanel = contribution?.Panel !== undefined;
-    // A control that opens onto nothing teaches a reader that opening is not
-    // worth it, so a layer with nothing to tell it does not offer one.
-    const isTunable = layer.parameters.length > 0 || hasPanel;
+    const isTunable = isLayerTunable(layer);
 
     const isHidden = added.isHidden === true;
     const hasSettled = plan === null || plan.hasConverged;

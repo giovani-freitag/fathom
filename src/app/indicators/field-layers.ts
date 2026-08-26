@@ -1,7 +1,7 @@
 import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
-import type { FieldLayer } from '../../shared/core/draw-plan.ts';
+import type { FieldLayer, IndicatorSettings } from '../../shared/core/draw-plan.ts';
 import { type BookSettings, BOOK_LAYER, readBookSettings } from './book/book.ts';
-import { CANDLES_LAYER } from './candles/candles.ts';
+import { type CandleSettings, CANDLES_LAYER, readCandleSettings } from './candles/candles.ts';
 
 /**
  * The layers the chart draws itself, in the order they are offered.
@@ -12,8 +12,11 @@ import { CANDLES_LAYER } from './candles/candles.ts';
 export const FIELD_LAYERS: readonly FieldLayer[] = [BOOK_LAYER, CANDLES_LAYER];
 
 /** What the layers currently on the chart amount to, for the parts that draw them. */
-export interface FieldSettings extends BookSettings {
-    readonly isCandleOverlayVisible: boolean;
+/** What each drawn layer is tuned to, by the id it was added under. */
+export type LayerSettings = Readonly<Record<string, IndicatorSettings>>;
+
+export interface FieldSettings extends BookSettings, CandleSettings {
+    readonly layerSettings: LayerSettings;
 }
 
 /**
@@ -32,7 +35,8 @@ export function resolveFieldSettings(added: readonly AddedIndicator[]): FieldSet
 
     return {
         ...readBookSettings(drawn.get(BOOK_LAYER.id)),
-        isCandleOverlayVisible: drawn.has(CANDLES_LAYER.id),
+        ...readCandleSettings(drawn.get(CANDLES_LAYER.id)),
+        layerSettings: Object.fromEntries(drawn),
     };
 }
 

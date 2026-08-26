@@ -58,14 +58,14 @@ describe('LayerAccordion', () => {
         expect(screen.queryByRole('spinbutton')).toBeNull();
     });
 
-    it('offers nothing to open on a layer with nothing to be told', () => {
+    it('opens a host layer onto the knobs it declares', () => {
         renderAccordion([CANDLES]);
 
         const trigger = screen.getByRole('button', { name: /Candles/ });
-        expect(trigger.hasAttribute('disabled')).toBe(true);
+        expect(trigger.hasAttribute('disabled')).toBe(false);
     });
 
-    it('still lets a layer with no settings be hidden and dropped', () => {
+    it('still lets a host layer be hidden and dropped', () => {
         const kernel = renderAccordion([CANDLES]);
 
         fireEvent.click(screen.getByRole('button', { name: 'Hide' }));

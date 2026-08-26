@@ -45,6 +45,7 @@ function buildRequest(overrides: Partial<RenderRequest> = {}): RenderRequest {
         isCandleOverlayVisible: true,
         isTradeOverlayVisible: true,
         isVolumeProfileVisible: true,
+        layerSettings: {},
         pointer: { x: 300, y: 200 },
         locale: 'en',
         plans: [],

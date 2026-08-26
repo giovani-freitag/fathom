@@ -40,7 +40,7 @@ import {
     findIndicator,
     resolveRequiredWarmupBars,
 } from '../indicators/indicator-catalogue.ts';
-import { resolveFieldSettings } from '../indicators/field-layers.ts';
+import { type LayerSettings, resolveFieldSettings } from '../indicators/field-layers.ts';
 import { type AddedIndicator, resolveBandKey } from '../../shared/core/indicator-selection.ts';
 import { isPlanWithinBudget, recolourPlan } from '../../shared/core/draw-plan.ts';
 
@@ -69,6 +69,8 @@ export interface ChartState {
     /** False leaves a plain price chart, with no book behind it. */
     readonly isDepthVisible: boolean;
     readonly isCandleOverlayVisible: boolean;
+    /** What each drawn layer is tuned to, for the parts that paint them. */
+    readonly layerSettings: LayerSettings;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
     /** Whether the book's own traded volume is drawn, and how. */

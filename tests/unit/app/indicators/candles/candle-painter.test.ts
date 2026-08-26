@@ -36,9 +36,12 @@ function buildWindow(bars: PriceBar[], warmupBarsReturned = 0): PriceBarWindow {
     };
 }
 
-function paintWith(bars: PriceBarWindow) {
+function paintWith(bars: PriceBarWindow, candleStyle = 'candles') {
     const recording = createRecordingContext();
-    new CandlePainter().paint(buildPaintContext(recording, { dataset: { bars } }));
+    new CandlePainter().paint(buildPaintContext(recording, {
+        dataset: { bars },
+        layerSettings: { candles: { candleStyle } },
+    }));
     return recording;
 }
 
@@ -144,5 +147,42 @@ describe('CandlePainter and what each bar was built from', () => {
 
         expect(recording.callsTo('setLineDash').every((call) =>
             Array.isArray(call.args[0]) && (call.args[0] as number[]).length === 0)).toBe(true);
+    });
+});
+
+describe('CandlePainter styles', () => {
+    const WINDOW = buildWindow([buildBar(1_000_000), buildBar(1_060_000, { closePrice: 78_450 })]);
+
+    it('leaves a rising body open when candles are hollow', () => {
+        // The same claim the forming bar makes about itself, turned on
+        // direction: a reader picks one reading of hollow, never both at once.
+        const recording = paintWith(WINDOW, 'hollow');
+
+        expect(recording.callsTo('fillRect').length).toBe(1);
+        expect(recording.callsTo('strokeRect').length).toBe(1);
+    });
+
+    it('draws two ticks and no body at all as bars', () => {
+        const recording = paintWith(WINDOW, 'bars');
+
+        expect(recording.callsTo('fillRect')).toEqual([]);
+        expect(recording.callsTo('strokeRect')).toEqual([]);
+    });
+
+    it('draws one run through the closes as a line', () => {
+        // One path for the whole window rather than one per bar: a track is a
+        // shape, and a shape drawn in segments is not one.
+        const recording = paintWith(WINDOW, 'line');
+
+        expect(recording.callsTo('beginPath').length).toBe(1);
+        expect(recording.callsTo('moveTo').length).toBe(1);
+        expect(recording.callsTo('fillRect')).toEqual([]);
+    });
+
+    it('fills beneath the run as an area, and still draws the run', () => {
+        const recording = paintWith(WINDOW, 'area');
+
+        expect(recording.callsTo('fill').length).toBe(1);
+        expect(recording.callsTo('stroke').length).toBeGreaterThan(0);
     });
 });

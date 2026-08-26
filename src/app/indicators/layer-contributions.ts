@@ -5,6 +5,7 @@ import { CandleReadout } from './candles/candle-readout.tsx';
 import { CANDLES_LAYER } from './candles/candles.ts';
 import type { ChartState } from '../core/chart-controller.ts';
 import type { ComponentType } from 'react';
+import type { FieldLayer, Indicator } from '../../shared/core/draw-plan.ts';
 import { DepthLegend } from './book/depth-legend.tsx';
 
 /** What a layer puts into the shell beyond the plan or the pixels it draws. */
@@ -68,4 +69,17 @@ export function listDrawnOverlays(added: readonly AddedIndicator[]): readonly Dr
         drawn.push({ instanceId: entry.instanceId, Overlay });
     }
     return drawn;
+}
+
+/**
+ * Whether a layer has anything to open onto.
+ *
+ * A control that opens onto an empty panel teaches a reader that opening is not
+ * worth it, so a layer with nothing to be told does not offer one.
+ *
+ * @param layer - The layer as the build ships it.
+ * @returns True when it declares a knob or brought a panel.
+ */
+export function isLayerTunable(layer: Indicator | FieldLayer): boolean {
+    return layer.parameters.length > 0 || findLayerContribution(layer.id)?.Panel !== undefined;
 }

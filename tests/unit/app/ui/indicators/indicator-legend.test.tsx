@@ -123,12 +123,10 @@ describe('IndicatorLegend', () => {
         expect(onOpenSettings).toHaveBeenCalledWith('sma-2');
     });
 
-    it('offers nothing to open on a layer with nothing to be told', () => {
-        // A control that opens onto an empty panel teaches a reader that opening
-        // is not worth it.
+    it('offers a way into the knobs a host layer declares', () => {
         renderLegend([CANDLES]);
 
-        expect(screen.queryByRole('button', { name: 'Settings' })).toBeNull();
+        expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined();
         expect(screen.getByRole('button', { name: 'Remove' })).toBeDefined();
     });
 });
