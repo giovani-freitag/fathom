@@ -21,10 +21,16 @@ jobs:
       # Reads the conventional-commit subjects since the last tag, keeps a
       # release pull request up to date with the version and changelog they
       # imply, and tags the commit when that request is merged.
+      #
+      # Configured through files rather than the `release-type` input because
+      # `bump-minor-pre-major` lives only there: while this is under 1.0.0, a
+      # breaking change is a minor bump, which is what the version was started
+      # at 0.x to mean.
       - id: release
         uses: googleapis/release-please-action@v4
         with:
-          release-type: node
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
 
       # A release published with GITHUB_TOKEN does not start another workflow —
       # GitHub refuses to let a run trigger a run. `repository_dispatch` is the
