@@ -191,7 +191,16 @@ export interface ChoiceParameter {
     readonly choices: readonly string[];
 }
 
-export type IndicatorParameter = NumericParameter | ChoiceParameter;
+/**
+ * A knob that is either on or off.
+ */
+export interface ToggleParameter {
+    readonly name: string;
+    readonly kind: 'toggle';
+    readonly defaultValue: boolean;
+}
+
+export type IndicatorParameter = NumericParameter | ChoiceParameter | ToggleParameter;
 
 /** Anything with knobs a reader can turn, whoever draws it. */
 export interface Tunable {
@@ -199,7 +208,7 @@ export interface Tunable {
 }
 
 /** Parameter values by name. */
-export type IndicatorSettings = Readonly<Record<string, number | string>>;
+export type IndicatorSettings = Readonly<Record<string, number | string | boolean>>;
 
 export interface IndicatorInput {
     readonly bars: PriceBarWindow;
@@ -271,6 +280,18 @@ export function readSetting(settings: IndicatorSettings, parameter: NumericParam
     const wanted = typeof chosen === 'number' ? chosen : parameter.defaultValue;
     const clamped = Math.min(parameter.maximum, Math.max(parameter.minimum, wanted));
     return parameter.kind === 'integer' ? Math.round(clamped) : clamped;
+}
+
+/**
+ * Reads a switch, falling back to what the indicator declared.
+ *
+ * @param settings - Values the reader chose.
+ * @param parameter - The knob being read.
+ * @returns Whether it is on.
+ */
+export function readToggle(settings: IndicatorSettings, parameter: ToggleParameter): boolean {
+    const chosen = settings[parameter.name];
+    return typeof chosen === 'boolean' ? chosen : parameter.defaultValue;
 }
 
 /**

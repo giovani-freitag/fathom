@@ -21,11 +21,11 @@ const CANDLES: AddedIndicator = {
     instanceId: 'candles-1', indicatorId: 'candles', settings: {}, tone: 'ink',
 };
 
-function renderDrawer(added: readonly AddedIndicator[]): void {
+function renderDrawer(added: readonly AddedIndicator[], openOn: string | null = null): void {
     const kernel = createIndicatorKernel(added);
 
     function Harness(): ReactElement {
-        const [expanded, setExpanded] = useState<string | null>(null);
+        const [expanded, setExpanded] = useState<string | null>(openOn);
         return (
             <SettingsDrawer
                 state={STATE}
@@ -42,25 +42,28 @@ function renderDrawer(added: readonly AddedIndicator[]): void {
 }
 
 describe('SettingsDrawer', () => {
-    it('keeps the recording controls when the book is not being drawn', async () => {
-        // Kept inside the book's own section, taking the book off the chart took
-        // the only control over a collector that goes on writing to disk. An
-        // order book that stopped being recorded cannot be recovered afterwards.
-        renderDrawer([CANDLES]);
+    it('keeps the recording controls with the book they are the instrument of', async () => {
+        renderDrawer([BOOK, CANDLES], 'depth-1');
 
         expect(await screen.findByRole('slider', { name: 'Storage ceiling' })).toBeDefined();
+        expect(screen.getByText(/The collector runs whether or not/)).toBeDefined();
     });
 
     it('offers them once, not once per layer on the chart', async () => {
-        renderDrawer([BOOK, CANDLES]);
+        renderDrawer([BOOK, CANDLES], 'depth-1');
 
         expect(await screen.findAllByRole('slider', { name: 'Storage ceiling' })).toHaveLength(1);
     });
 
-    it('says plainly whose the recording is', () => {
-        renderDrawer([CANDLES]);
+    it('never lets the book be taken away, because the collector would go with it', () => {
+        // A control that disappears with its layer is a collector nobody can
+        // stop, and an order book that stopped being recorded cannot be
+        // recovered afterwards. It is hidden instead, which leaves the same
+        // chart behind.
+        renderDrawer([BOOK, CANDLES]);
 
-        expect(screen.getByText(/Recording belongs to the machine/)).toBeDefined();
+        expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(1);
+        expect(screen.getAllByRole('button', { name: 'Hide' })).toHaveLength(2);
     });
 
     it('lists what is on the chart', () => {

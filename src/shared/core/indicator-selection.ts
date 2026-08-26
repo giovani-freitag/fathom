@@ -164,7 +164,7 @@ export function withIndicatorRetuned(
     added: readonly AddedIndicator[],
     instanceId: string,
     name: string,
-    value: number | string,
+    value: number | string | boolean,
 ): readonly AddedIndicator[] {
     return added.map((entry) => (
         entry.instanceId === instanceId

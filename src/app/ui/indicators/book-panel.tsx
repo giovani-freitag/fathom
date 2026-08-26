@@ -1,7 +1,9 @@
 import type { ReactElement } from 'react';
 import type { ChartState } from '../../core/chart-controller.ts';
 import { formatDuration, formatFixed } from '../../core/formatting.ts';
+import { RecordingPanel } from '../recording-panel.tsx';
 import { resolveRecordedSpanMs } from '../../core/viewport-policy.ts';
+import { useKernel } from '../../react/kernel-context.ts';
 import { useTranslate } from '../../react/use-appearance.ts';
 
 interface BookPanelProps {
@@ -9,18 +11,20 @@ interface BookPanelProps {
 }
 
 /**
- * What the book being drawn is made of.
+ * The book: what it is made of, and what is making it.
  *
  * How far back it goes, the grid it was written on, how much of it is loaded
  * and where it has holes. All of it answers one question — what am I looking
  * at — which is why it sits with the layer that draws it rather than in a
  * drawer of its own.
  *
- * What is deliberately not here is the recording. That belongs to the machine
- * and outlives any layer: put here, taking the book off the chart would take
- * the only control over a collector that keeps writing to disk.
+ * The recording is here because it is the same thing seen from the other end —
+ * what is being captured is what this draws. It is safe here only because the
+ * book cannot be taken off the list, just hidden: a control that went away with
+ * its layer would be a collector nobody could stop.
  */
 export function BookPanel({ state }: BookPanelProps): ReactElement {
+    const kernel = useKernel();
     const translate = useTranslate();
 
     return (
@@ -43,6 +47,22 @@ export function BookPanel({ state }: BookPanelProps): ReactElement {
                 <dt className="text-ink-500">{translate('settings.gapsInWindow')}</dt>
                 <dd className="numeric text-right text-ink-300">{formatFixed(state.dataset.gaps.length, 0)}</dd>
             </dl>
+
+            {kernel.recording === null ? null : (
+                <div className="space-y-3 border-t border-hairline pt-3">
+                    <RecordingPanel
+                        recording={kernel.recording}
+                        onContractsChanged={() => { void kernel.chart.refreshInstruments(); }}
+                        translate={translate}
+                    />
+                    <p className="text-[11px] leading-relaxed text-ink-500">
+                        {translate('settings.recordingIsGlobal')}
+                    </p>
+                    <p className="text-[11px] leading-relaxed text-ink-500">
+                        {translate('settings.backfillNote')}
+                    </p>
+                </div>
+            )}
 
         </div>
     );

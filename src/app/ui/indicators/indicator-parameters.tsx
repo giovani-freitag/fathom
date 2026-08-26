@@ -1,6 +1,7 @@
 import type { ChoiceParameter, IndicatorParameter, NumericParameter, Tunable } from '../../../shared/core/draw-plan.ts';
 import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts';
-import { INSTANCE_TONES, readChoice, readSetting } from '../../../shared/core/draw-plan.ts';
+import { INSTANCE_TONES, readChoice, readSetting, readToggle } from '../../../shared/core/draw-plan.ts';
+import { Switch } from 'radix-ui';
 import type { PlotTone } from '../../../shared/core/draw-plan.ts';
 import { formatFixed } from '../../core/formatting.ts';
 import { RangeField } from '../range-field.tsx';
@@ -14,7 +15,7 @@ interface IndicatorParametersProps {
     /** False for a layer the host draws in colours that already mean something. */
     readonly hasTone?: boolean;
     readonly added: AddedIndicator;
-    readonly onRetune: (name: string, value: number | string) => void;
+    readonly onRetune: (name: string, value: number | string | boolean) => void;
     readonly onRecolour: (tone: PlotTone) => void;
 }
 
@@ -71,7 +72,7 @@ export function IndicatorParameters({
 interface ParameterControlProps {
     readonly parameter: IndicatorParameter;
     readonly added: AddedIndicator;
-    readonly onRetune: (name: string, value: number | string) => void;
+    readonly onRetune: (name: string, value: number | string | boolean) => void;
 }
 
 /**
@@ -92,6 +93,16 @@ function ParameterControl({ parameter, added, onRetune }: ParameterControlProps)
                 label={label}
                 value={readChoice(added.settings, parameter)}
                 onChange={(value) => { onRetune(parameter.name, value); }}
+            />
+        );
+    }
+
+    if (parameter.kind === 'toggle') {
+        return (
+            <ToggleField
+                label={label}
+                isOn={readToggle(added.settings, parameter)}
+                onChange={(isOn) => { onRetune(parameter.name, isOn); }}
             />
         );
     }
@@ -134,6 +145,30 @@ function describeValue(parameter: NumericParameter, value: number): string {
         return `${formatFixed(percent, Number.isInteger(percent) ? 0 : 1)}%`;
     }
     return formatFixed(value, 2);
+}
+
+interface ToggleFieldProps {
+    readonly label: string;
+    readonly isOn: boolean;
+    readonly onChange: (isOn: boolean) => void;
+}
+
+/**
+ * A part of a layer that is either drawn or not.
+ */
+function ToggleField({ label, isOn, onChange }: ToggleFieldProps): ReactElement {
+    return (
+        <label className="flex items-center justify-between gap-4">
+            <span className="text-xs text-ink-300">{label}</span>
+            <Switch.Root
+                checked={isOn}
+                onCheckedChange={onChange}
+                className="relative h-5 w-9 shrink-0 rounded-full bg-abyss-600 outline-none transition-colors data-[state=checked]:bg-phosphor/70"
+            >
+                <Switch.Thumb className="block size-4 translate-x-0.5 rounded-full bg-ink-100 transition-transform data-[state=checked]:translate-x-4" />
+            </Switch.Root>
+        </label>
+    );
 }
 
 interface ChoiceFieldProps {

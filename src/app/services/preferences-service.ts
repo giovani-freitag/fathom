@@ -13,7 +13,7 @@ import { THEME_CHOICES, type ThemeChoice } from '../core/theme.ts';
 const STORAGE_KEY = 'fathom.preferences.v1';
 
 /** Bumped when a stored document has to be read differently than it was written. */
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 export interface ViewerPreferences {
     readonly schemaVersion: number;
@@ -147,6 +147,9 @@ function migrateLayers(
     if ((raw.schemaVersion ?? 0) >= SCHEMA_VERSION) {
         return merged.addedIndicators;
     }
+    if ((raw.schemaVersion ?? 0) === 2) {
+        return foldReadingsIntoTheBook(raw.addedIndicators ?? []);
+    }
 
     const legacy = raw as Record<string, unknown>;
     const wanted = FIELD_LAYERS.filter((layer) => legacy[LEGACY_FLAGS[layer.id] ?? ''] !== false);
@@ -163,6 +166,47 @@ function migrateLayers(
     // The document's own list, not the merged one: merging over the defaults
     // hands an old document the very layers this is deciding about.
     return [...carried, ...(raw.addedIndicators ?? [])];
+}
+
+/** What each reading of the book used to be, before it was a switch inside it. */
+const FOLDED_READINGS: Record<string, string> = {
+    executions: 'showExecutions',
+    profile: 'showProfile',
+    volume: 'showVolume',
+};
+
+/**
+ * Folds the readings of the book back into the book.
+ *
+ * They were rows of their own, and a reader who turned one off meant it. The
+ * switches default to on, so leaving them out would hand back a drawing the
+ * reader had dismissed.
+ *
+ * @param stored - The set as the previous version wrote it.
+ * @returns The set with each reading carried as a switch on the book.
+ */
+function foldReadingsIntoTheBook(stored: readonly AddedIndicator[]): readonly AddedIndicator[] {
+    const entries: readonly AddedIndicator[] = Array.isArray(stored) ? stored : [];
+    const folded: Record<string, number | string | boolean> = {};
+
+    for (const name of Object.values(FOLDED_READINGS)) {
+        folded[name] = false;
+    }
+    for (const entry of entries) {
+        const name = FOLDED_READINGS[entry.indicatorId];
+        if (name !== undefined) {
+            folded[name] = entry.isHidden !== true;
+        }
+        if (entry.indicatorId === 'volume' && typeof entry.settings['mode'] === 'string') {
+            folded['volumeMode'] = entry.settings['mode'];
+        }
+    }
+
+    return entries
+        .filter((entry) => FOLDED_READINGS[entry.indicatorId] === undefined)
+        .map((entry) => (entry.indicatorId === 'depth'
+            ? { ...entry, settings: { ...entry.settings, ...folded } }
+            : entry));
 }
 
 /** The flag each host layer used to be, before it was a member of the list. */
@@ -261,11 +305,14 @@ function isUsableIndicator(entry: unknown): entry is StoredIndicator {
         && candidate['settings'] !== null;
 }
 
-function keepFiniteSettings(settings: Record<string, unknown>): Record<string, number | string> {
-    const usable: Record<string, number | string> = {};
+function keepFiniteSettings(
+    settings: Record<string, unknown>,
+): Record<string, number | string | boolean> {
+    const usable: Record<string, number | string | boolean> = {};
     for (const [name, value] of Object.entries(settings)) {
         const isUsable = (typeof value === 'number' && Number.isFinite(value))
-            || (typeof value === 'string' && value.length <= 32);
+            || (typeof value === 'string' && value.length <= 32)
+            || typeof value === 'boolean';
         if (isUsable) {
             usable[name] = value;
         }

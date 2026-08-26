@@ -1,5 +1,13 @@
 import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
-import { type IndicatorParameter, type NumericParameter, readSetting } from '../../shared/core/draw-plan.ts';
+import {
+    type ChoiceParameter,
+    type IndicatorParameter,
+    type NumericParameter,
+    readChoice,
+    readSetting,
+    readToggle,
+    type ToggleParameter,
+} from '../../shared/core/draw-plan.ts';
 import { DEPTH_CUT_RANGE } from '../core/chart-dataset.ts';
 
 /**
@@ -19,7 +27,7 @@ export interface FieldLayer {
     readonly parameters: readonly IndicatorParameter[];
 }
 
-export type FieldLayerId = 'depth' | 'candles' | 'executions' | 'profile';
+export type FieldLayerId = 'depth' | 'candles';
 
 const COLOUR_GAIN: NumericParameter = {
     name: 'colourGain',
@@ -48,18 +56,44 @@ const SATURATION_PERCENTILE: NumericParameter = {
     step: DEPTH_CUT_RANGE.saturationStep,
 };
 
+const SHOW_EXECUTIONS: ToggleParameter = { name: 'showExecutions', kind: 'toggle', defaultValue: true };
+const SHOW_PROFILE: ToggleParameter = { name: 'showProfile', kind: 'toggle', defaultValue: true };
+const SHOW_VOLUME: ToggleParameter = { name: 'showVolume', kind: 'toggle', defaultValue: false };
+
+const VOLUME_MODE: ChoiceParameter = {
+    name: 'volumeMode',
+    kind: 'choice',
+    defaultValue: 'total',
+    choices: ['total', 'sides'],
+};
+
 /**
  * The layers the chart can draw from the recording itself.
  *
- * Offered beside the indicators because a reader choosing what to look at is
- * making one decision, not two. Taking the depth map off leaves a plain candle
- * chart, which is a thing somebody might genuinely want.
+ * Two, not five. Everything that reads the recorded book — the executions that
+ * crossed it, how much of them there was, where in the price they landed — is
+ * the book seen another way, and belongs with it rather than beside it. What
+ * feeds it belongs there too: which contracts are written and how much room
+ * they may take.
+ *
+ * The candles stay apart because they are the price, and a chart of the price
+ * with nothing else on it is a thing somebody wants.
  */
 export const FIELD_LAYERS: readonly FieldLayer[] = [
-    { id: 'depth', labelKey: 'layer.depth', parameters: [COLOUR_GAIN, FLOOR_PERCENTILE, SATURATION_PERCENTILE] },
+    {
+        id: 'depth',
+        labelKey: 'layer.depth',
+        parameters: [
+            COLOUR_GAIN,
+            FLOOR_PERCENTILE,
+            SATURATION_PERCENTILE,
+            SHOW_EXECUTIONS,
+            SHOW_PROFILE,
+            SHOW_VOLUME,
+            VOLUME_MODE,
+        ],
+    },
     { id: 'candles', labelKey: 'layer.candles', parameters: [] },
-    { id: 'executions', labelKey: 'layer.executions', parameters: [] },
-    { id: 'profile', labelKey: 'layer.profile', parameters: [] },
 ];
 
 /** What the layers currently on the chart amount to, for the parts that draw them. */
@@ -68,6 +102,8 @@ export interface FieldSettings {
     readonly isCandleOverlayVisible: boolean;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
+    readonly isBookVolumeVisible: boolean;
+    readonly bookVolumeMode: string;
     readonly colourGain: number;
     readonly depthFloorPercentile: number;
     readonly depthSaturationPercentile: number;
@@ -88,14 +124,19 @@ export function resolveFieldSettings(added: readonly AddedIndicator[]): FieldSet
         .map((entry) => [entry.indicatorId, entry.settings]));
     const depth = drawn.get('depth');
 
+    const book = depth ?? {};
     return {
         isDepthVisible: depth !== undefined,
         isCandleOverlayVisible: drawn.has('candles'),
-        isTradeOverlayVisible: drawn.has('executions'),
-        isVolumeProfileVisible: drawn.has('profile'),
-        colourGain: readSetting(depth ?? {}, COLOUR_GAIN),
-        depthFloorPercentile: readSetting(depth ?? {}, FLOOR_PERCENTILE),
-        depthSaturationPercentile: readSetting(depth ?? {}, SATURATION_PERCENTILE),
+        // Everything read off the recording is drawn only while the book it was
+        // read from is, because it is the same layer seen another way.
+        isTradeOverlayVisible: depth !== undefined && readToggle(book, SHOW_EXECUTIONS),
+        isVolumeProfileVisible: depth !== undefined && readToggle(book, SHOW_PROFILE),
+        isBookVolumeVisible: depth !== undefined && readToggle(book, SHOW_VOLUME),
+        bookVolumeMode: readChoice(book, VOLUME_MODE),
+        colourGain: readSetting(book, COLOUR_GAIN),
+        depthFloorPercentile: readSetting(book, FLOOR_PERCENTILE),
+        depthSaturationPercentile: readSetting(book, SATURATION_PERCENTILE),
     };
 }
 

@@ -197,9 +197,11 @@ describe('ChartController layers', () => {
         const controller = buildController();
         await controller.initialize();
 
-        controller.updateIndicators(
-            (current) => current.filter((entry) => entry.indicatorId !== 'profile'),
-        );
+        controller.updateIndicators((current) => current.map((entry) => (
+            entry.indicatorId === 'depth'
+                ? { ...entry, settings: { ...entry.settings, showProfile: false } }
+                : entry
+        )));
 
         expect(controller.store.read().isVolumeProfileVisible).toBe(false);
     });
@@ -236,13 +238,13 @@ describe('ChartController layers', () => {
         await controller.initialize();
 
         controller.updateIndicators(
-            (current) => current.filter((entry) => entry.indicatorId !== 'profile'),
+            (current) => current.filter((entry) => entry.indicatorId !== 'candles'),
         );
 
         expect(mocks.writePreferences).toHaveBeenCalledWith(
             expect.objectContaining({
                 addedIndicators: expect.not.arrayContaining([
-                    expect.objectContaining({ indicatorId: 'profile' }),
+                    expect.objectContaining({ indicatorId: 'candles' }),
                 ]),
             }),
         );

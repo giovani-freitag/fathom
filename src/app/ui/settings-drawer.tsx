@@ -5,7 +5,6 @@ import type { ReactElement } from 'react';
 import { AboutPanel } from './about-panel.tsx';
 import type { IndicatorControls } from '../react/use-indicators.ts';
 import { LayerAccordion } from './indicators/layer-accordion.tsx';
-import { RecordingPanel } from './recording-panel.tsx';
 import { AppearanceControls } from './appearance-controls.tsx';
 import { ControlButton } from './control-button.tsx';
 import { useAppearance, useTranslate } from '../react/use-appearance.ts';
@@ -88,22 +87,6 @@ export function SettingsDrawer({
                             order book that stopped being recorded cannot be
                             recovered afterwards.
                         */}
-                        {kernel.recording !== null && (
-                            <div className="space-y-4 border-t border-hairline pt-5">
-                                <RecordingPanel
-                                    recording={kernel.recording}
-                                    onContractsChanged={() => { void kernel.chart.refreshInstruments(); }}
-                                    translate={translate}
-                                />
-                                <p className="text-[11px] leading-relaxed text-ink-500">
-                                    {translate('settings.recordingIsGlobal')}
-                                </p>
-                                <p className="text-[11px] leading-relaxed text-ink-500">
-                                    {translate('settings.backfillNote')}
-                                </p>
-                            </div>
-                        )}
-
                         <span className="block border-t border-hairline pt-5 text-xs text-ink-300">
                             {translate('settings.appearance')}
                         </span>

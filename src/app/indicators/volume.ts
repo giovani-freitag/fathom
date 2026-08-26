@@ -11,6 +11,12 @@ import {
 import { collectInstants, createBlankValues } from './series-math.ts';
 import type { PriceBar } from '../../shared/core/price-bar.ts';
 
+/**
+ * How much is shown.
+ *
+ * Declared here and turned in the book's own card: how much traded is the
+ * recording seen another way, so it is tuned where the recording is.
+ */
 const MODE: ChoiceParameter = {
     name: 'mode',
     kind: 'choice',

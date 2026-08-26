@@ -111,7 +111,7 @@ describe('what a reader can put on the chart', () => {
         // they are drawn, which is the host's problem rather than the reader's.
         const offered = CHART_LAYERS.map((layer) => layer.id);
 
-        expect(offered.slice(0, 4)).toEqual(['depth', 'candles', 'executions', 'profile']);
+        expect(offered.slice(0, 2)).toEqual(['depth', 'candles']);
         expect(offered).toContain('rsi');
     });
 
@@ -121,13 +121,44 @@ describe('what a reader can put on the chart', () => {
         expect(findChartLayer('nothing-like-that')).toBeNull();
     });
 
-    it('leaves a plain price chart when the book is taken off', () => {
+    it('leaves a plain price chart when the book is not drawn', () => {
         const settings = resolveFieldSettings([
             { instanceId: 'candles-1', indicatorId: 'candles', settings: {}, tone: 'ink' },
         ]);
 
         expect(settings.isDepthVisible).toBe(false);
         expect(settings.isCandleOverlayVisible).toBe(true);
+    });
+
+    it('carries every reading of the book on the book itself', () => {
+        // Executions, the profile and the traded volume are the recording seen
+        // other ways. They are switches on the layer that draws it, not rows of
+        // their own beside it.
+        const settings = resolveFieldSettings([
+            {
+                instanceId: 'depth-1',
+                indicatorId: 'depth',
+                settings: { showExecutions: false, showProfile: true, showVolume: true, volumeMode: 'sides' },
+                tone: 'muted',
+            },
+        ]);
+
+        expect(settings.isTradeOverlayVisible).toBe(false);
+        expect(settings.isVolumeProfileVisible).toBe(true);
+        expect(settings.isBookVolumeVisible).toBe(true);
+        expect(settings.bookVolumeMode).toBe('sides');
+    });
+
+    it('draws none of them once the book itself is not drawn', () => {
+        // They read the recording the book draws; without it they are readings
+        // of nothing.
+        const settings = resolveFieldSettings([
+            { instanceId: 'depth-1', indicatorId: 'depth', settings: {}, tone: 'muted', isHidden: true },
+        ]);
+
+        expect(settings.isTradeOverlayVisible).toBe(false);
+        expect(settings.isVolumeProfileVisible).toBe(false);
+        expect(settings.isBookVolumeVisible).toBe(false);
     });
 
     it('stops drawing a layer that is hidden, and keeps how it was tuned', () => {

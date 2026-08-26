@@ -17,7 +17,7 @@ function buildStorage(stored: unknown): Storage {
 
 function readIndicators(stored: Record<string, unknown>): ReturnType<PreferencesService['read']>['addedIndicators'] {
     return new PreferencesService({
-        storage: buildStorage({ schemaVersion: 2, ...stored }),
+        storage: buildStorage({ schemaVersion: 3, ...stored }),
     }).read().addedIndicators;
 }
 
@@ -107,7 +107,7 @@ describe('PreferencesService indicators', () => {
 
         expect(service.read().addedIndicators).toEqual(DEFAULT_PREFERENCES.addedIndicators);
         expect(DEFAULT_PREFERENCES.addedIndicators.map((entry) => entry.indicatorId))
-            .toEqual(['depth', 'candles', 'executions', 'profile']);
+            .toEqual(['depth', 'candles']);
     });
 
     it('survives storage holding something that is not JSON', () => {

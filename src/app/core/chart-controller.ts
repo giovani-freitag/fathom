@@ -36,6 +36,7 @@ import {
     resolveRequiredWarmupBars,
 } from '../indicators/indicator-catalogue.ts';
 import { resolveFieldSettings } from '../indicators/field-layers.ts';
+import { VOLUME } from '../indicators/volume.ts';
 import { type AddedIndicator, resolveBandKey } from '../../shared/core/indicator-selection.ts';
 import { isPlanWithinBudget, recolourPlan } from '../../shared/core/draw-plan.ts';
 
@@ -66,6 +67,9 @@ export interface ChartState {
     readonly isCandleOverlayVisible: boolean;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
+    /** Whether the book's own traded volume is drawn, and how. */
+    readonly isBookVolumeVisible: boolean;
+    readonly bookVolumeMode: string;
     readonly addedIndicators: readonly AddedIndicator[];
     /** What the indicators produced for the window on screen. */
     readonly plans: readonly DrawPlan[];
@@ -277,7 +281,36 @@ export class ChartController {
                 });
             }
         }
+
+        const bookVolume = this.computeBookVolume(state);
+        if (bookVolume !== null) {
+            plans.push(bookVolume);
+        }
         return plans;
+    }
+
+    /**
+     * The volume the recorded book traded, where the reader asked for it.
+     *
+     * Produced from the book's own settings rather than from an entry of its
+     * own: how much changed hands is the recording seen another way, and it is
+     * turned on in the same card the recording is.
+     */
+    private computeBookVolume(state: ChartState): DrawPlan | null {
+        const book = state.addedIndicators.find((entry) => entry.indicatorId === 'depth');
+        if (book === undefined || !state.isBookVolumeVisible) {
+            return null;
+        }
+
+        const plan = VOLUME.compute({
+            bars: state.dataset.bars,
+            warmupBarCount: state.dataset.bars.warmupBarsReturned,
+            settings: { mode: state.bookVolumeMode },
+        });
+        const instanceId = `${book.instanceId}-volume`;
+        return isPlanWithinBudget(plan)
+            ? { ...plan, instanceId, bandKey: instanceId, tuning: state.bookVolumeMode }
+            : null;
     }
 
     /**

@@ -111,14 +111,21 @@ function LayerRow({ added, controls, state }: LayerRowProps): ReactElement | nul
                 >
                     {isHidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                 </button>
-                <button
-                    type="button"
-                    aria-label={translate('indicators.remove')}
-                    onClick={() => { controls.remove(added.instanceId); }}
-                    className="grid size-8 shrink-0 place-items-center rounded text-ink-500 hover:bg-abyss-700 hover:text-ask"
-                >
-                    <X className="size-3.5" />
-                </button>
+                {/*
+                    The book holds what is being recorded, and a control that
+                    goes away with it is a collector nobody can stop. It is
+                    hidden instead, which leaves the same chart behind.
+                */}
+                {!isBook && (
+                    <button
+                        type="button"
+                        aria-label={translate('indicators.remove')}
+                        onClick={() => { controls.remove(added.instanceId); }}
+                        className="grid size-8 shrink-0 place-items-center rounded text-ink-500 hover:bg-abyss-700 hover:text-ask"
+                    >
+                        <X className="size-3.5" />
+                    </button>
+                )}
             </div>
 
             <Accordion.Content className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">

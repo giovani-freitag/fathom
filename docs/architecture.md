@@ -164,10 +164,18 @@ They are the same decision written twice, and the flags were the worse half: the
 could not be tuned beside what they drew, hidden for a moment, or reasoned about
 as a set.
 
-They are now members of the same list. Taking the book off leaves a plain candle
-chart, which is a thing somebody might genuinely want, and the depth map's own
-knobs — its intensity and its two cuts — live in the same panel as an average's
-period rather than in a drawer that covers the chart while you turn them.
+They are now members of the same list, and the list is short, because most of
+what looked like separate layers was the book seen another way. The executions
+that crossed it, how much of them there was, and where in the price they landed
+are all read from the same recording, so they are switches on the book rather
+than rows beside it. What feeds it sits there too: which contracts are written
+and how much room they may take. The collector is the book's instrument, not a
+requirement of the product, and its controls belong with the thing it serves.
+
+Hiding the book leaves a plain candle chart, which is a thing somebody might
+genuinely want. Removing it is not offered: a control that went away with its
+layer would be a collector nobody could stop, and an order book that stopped
+being recorded cannot be recovered afterwards.
 
 What they do not share is how they are drawn. An indicator is arithmetic over
 bars and returns vertices; the depth map is a picture of hundreds of thousands

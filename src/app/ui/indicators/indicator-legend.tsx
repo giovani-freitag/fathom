@@ -305,10 +305,13 @@ function resolveNameClasses(isHidden: boolean, hasSettled: boolean): string {
  * The parameters of an indicator that is not currently drawing a plan to read them from.
  */
 function summariseSettings(layer: Tunable, added: AddedIndicator): string {
-    return layer.parameters
-        .filter((parameter) => parameter.kind !== 'choice')
-        .map((parameter) => String(readSetting(added.settings, parameter)))
-        .join(' · ');
+    const figures: string[] = [];
+    for (const parameter of layer.parameters) {
+        if (parameter.kind === 'integer' || parameter.kind === 'decimal') {
+            figures.push(String(readSetting(added.settings, parameter)));
+        }
+    }
+    return figures.join(' · ');
 }
 
 /**

@@ -9,7 +9,6 @@ import { EXPONENTIAL_AVERAGE } from './exponential-average.ts';
 import { RELATIVE_STRENGTH } from './relative-strength.ts';
 import { SIMPLE_AVERAGE } from './simple-average.ts';
 import { STOCHASTIC_OSCILLATOR } from './stochastic-oscillator.ts';
-import { VOLUME } from './volume.ts';
 
 /**
  * Every indicator the build ships with, in the order they are offered.
@@ -27,7 +26,6 @@ export const INDICATOR_CATALOGUE: readonly Indicator[] = [
     STOCHASTIC_OSCILLATOR,
     AVERAGE_CONVERGENCE,
     AVERAGE_TRUE_RANGE,
-    VOLUME,
 ];
 
 /**
@@ -59,7 +57,7 @@ export function findChartLayer(layerId: string): Indicator | FieldLayer | null {
  * @returns Its declared defaults, by parameter name.
  */
 export function readLayerDefaults(layer: Indicator | FieldLayer): IndicatorSettings {
-    const settings: Record<string, number | string> = {};
+    const settings: Record<string, number | string | boolean> = {};
     for (const parameter of layer.parameters) {
         settings[parameter.name] = parameter.defaultValue;
     }

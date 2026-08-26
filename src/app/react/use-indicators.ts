@@ -21,7 +21,7 @@ export interface IndicatorControls {
     readonly isFull: boolean;
     readonly add: (indicatorId: string) => void;
     readonly remove: (instanceId: string) => void;
-    readonly retune: (instanceId: string, name: string, value: number | string) => void;
+    readonly retune: (instanceId: string, name: string, value: number | string | boolean) => void;
     readonly recolour: (instanceId: string, tone: PlotTone) => void;
     readonly setVisibility: (instanceId: string, isHidden: boolean) => void;
     readonly setBand: (instanceId: string, bandKey: string | null) => void;
@@ -86,7 +86,7 @@ export function useIndicators(): IndicatorControls {
 
     const forgetRemoval = useCallback(() => { setRemoval(null); }, []);
 
-    const retune = useCallback((instanceId: string, name: string, value: number | string) => {
+    const retune = useCallback((instanceId: string, name: string, value: number | string | boolean) => {
         kernel.chart.updateIndicators(
             (current) => withIndicatorRetuned(current, instanceId, name, value),
         );
