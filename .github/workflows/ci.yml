@@ -1,6 +1,8 @@
 name: ci
 
 on:
+  push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -16,6 +18,9 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # Written to only by the badge step, and only on the default branch.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -38,6 +43,14 @@ jobs:
       - name: Report coverage
         if: always()
         run: node scripts/report-coverage.mjs >> "$GITHUB_STEP_SUMMARY"
+
+      # Only from the branch the badge speaks for: a pull request measuring its
+      # own coverage must not overwrite what the README claims about main.
+      - name: Publish the coverage badge
+        if: github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/publish-coverage-badge.sh
 
       - name: Keep the coverage report
         if: always()

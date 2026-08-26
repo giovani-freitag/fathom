@@ -20,7 +20,7 @@
   ·
   <img alt="TimescaleDB" src="https://img.shields.io/badge/TimescaleDB-hypertable-fdb515">
   ·
-  <img alt="Coverage" src="https://img.shields.io/badge/coverage-%E2%89%A560%25-2bd4a8">
+  <img alt="Coverage" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fgiovani-freitag%2Ffathom%2Fbadges%2Fcoverage.json">
 </p>
 
 <p align="center">
