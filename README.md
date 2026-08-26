@@ -20,7 +20,7 @@
   ·
   <img alt="TimescaleDB" src="https://img.shields.io/badge/TimescaleDB-hypertable-fdb515">
   ·
-  <img alt="Tests" src="https://img.shields.io/badge/tests-500-2bd4a8">
+  <img alt="Coverage" src="https://img.shields.io/badge/coverage-%E2%89%A560%25-2bd4a8">
 </p>
 
 <p align="center">

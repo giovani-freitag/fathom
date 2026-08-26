@@ -1,0 +1,62 @@
+name: ci
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+# A superseded push has nothing worth finishing: the branch it checked no
+# longer exists in the form it was checking.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # The floor lives in vitest.config.ts, so it is the same number whether
+      # the suite is run here or by hand.
+      - name: Test and measure coverage
+        run: npm run test:coverage
+
+      - name: Report coverage
+        if: always()
+        run: node scripts/report-coverage.mjs >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage
+          retention-days: 14
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build the served bundle
+        run: npm run build
+      - name: Build the demo bundle
+        run: npm run build:demo
