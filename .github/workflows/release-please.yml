@@ -59,6 +59,12 @@ jobs:
       - if: steps.release.outputs.release_created == 'true'
         run: npm run test:coverage
 
+      # Writes coverage/badge.json, which the step below publishes. Measuring
+      # and rendering are separate scripts so the same table can be read on a
+      # laptop; the workflow has to ask for both.
+      - if: steps.release.outputs.release_created == 'true'
+        run: npm run coverage:report
+
       - if: steps.release.outputs.release_created == 'true'
         name: Record the coverage of the release
         uses: actions/github-script@v7
