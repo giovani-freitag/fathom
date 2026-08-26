@@ -1,5 +1,7 @@
-import { findClusterAt, findFrameNearest } from '../../core/dataset-lookup.ts';
+import { findBarAt, findClusterAt, findFrameNearest } from '../../core/dataset-lookup.ts';
+import { classifyBar } from '../../../shared/core/price-bar.ts';
 import {
+    formatDuration,
     formatPrice,
     formatQuantity,
     formatReadoutMoment,
@@ -107,6 +109,7 @@ export class CrosshairPainter {
         if (!paint.layout.isCompact) {
             lines.push(this.describeDistance(paint, frame, bucketPrice));
         }
+        lines.push(this.describeBar(paint, timestampMs));
         lines.push(...this.describeTrades(paint, price, timestampMs));
 
         this.paintReadoutBox(paint, lines, pointer);
@@ -159,6 +162,34 @@ export class CrosshairPainter {
                 delta: formatSignedPrice(delta),
                 percent: formatSignedPercent(delta / midPrice),
             }),
+            colour: RENDER_PALETTE.inkMuted,
+        };
+    }
+
+    /**
+     * How much of the bar under the cursor was actually recorded.
+     */
+    private describeBar(paint: PaintContext, timestampMs: number): ReadoutLine {
+        const interval = formatDuration(paint.request.dataset.bars.intervalMs, paint.translate);
+        const bar = findBarAt(paint.request.dataset, timestampMs);
+        if (bar === null) {
+            return { label: paint.translate('coverage.gapTitle'), colour: RENDER_PALETTE.amber };
+        }
+
+        const completeness = classifyBar(bar);
+        if (completeness === 'partial') {
+            return {
+                label: paint.translate('readout.barPartial', {
+                    interval, frames: bar.frameCount, expected: bar.expectedFrames,
+                }),
+                colour: RENDER_PALETTE.amber,
+            };
+        }
+        return {
+            label: paint.translate(
+                completeness === 'forming' ? 'readout.barForming' : 'readout.barWhole',
+                { interval },
+            ),
             colour: RENDER_PALETTE.inkMuted,
         };
     }

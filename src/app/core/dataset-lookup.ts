@@ -1,3 +1,4 @@
+import type { PriceBar } from '../../shared/core/price-bar.ts';
 import type { LiquidityFrame } from '../../shared/core/liquidity-frame.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
 import type { ChartDataset } from './chart-dataset.ts';
@@ -84,4 +85,17 @@ export function findClusterAt(
         }
     }
     return nearest;
+}
+
+/**
+ * The bar covering an instant, or null when no bucket holds it.
+ *
+ * @param dataset - The window on screen.
+ * @param timestampMs - The instant the cursor is over.
+ * @returns The bar, or null where nothing was recorded.
+ */
+export function findBarAt(dataset: ChartDataset, timestampMs: number): PriceBar | null {
+    return dataset.bars.bars.find(
+        (bar) => timestampMs >= bar.openedAtMs && timestampMs < bar.closedAtMs,
+    ) ?? null;
 }
