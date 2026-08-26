@@ -1,6 +1,7 @@
 import type { LiveFeed, LiveFeedSubscription } from './live-feed.ts';
 export type { LiveFeedStatus, LiveFeedSubscription } from './live-feed.ts';
-import { API_ROUTES, type LiveTextMessage } from '../../shared/core/api-contract.ts';
+import { API_ROUTES } from '../../shared/core/api-contract.ts';
+import type { LiveMessage } from '../../shared/core/live-message.ts';
 import { decodeLiquidityFrameWindow } from '../../shared/codec/heatmap-codec.ts';
 
 const INITIAL_RECONNECT_DELAY_MS = 1_000;
@@ -117,18 +118,21 @@ export class LiveFeedService implements LiveFeed {
         }
     }
 
+    /**
+     * Turns a binary frame back into the message every driver speaks.
+     */
     private deliverFrames(buffer: ArrayBuffer): void {
         const window = decodeLiquidityFrameWindow(buffer);
         const newestFrame = window.frames[window.frames.length - 1];
         if (newestFrame !== undefined) {
             this.newestFrameMs = Math.max(this.newestFrameMs, newestFrame.capturedAtMs);
         }
-        this.subscription?.onFrames(window);
+        this.subscription?.onMessage({ kind: 'frames', window });
     }
 
     private deliverText(payload: string): void {
         try {
-            this.subscription?.onText(JSON.parse(payload) as LiveTextMessage);
+            this.subscription?.onMessage(JSON.parse(payload) as LiveMessage);
         } catch {
             // A malformed text frame is not worth tearing the socket down for.
         }

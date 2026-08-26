@@ -213,6 +213,28 @@ export function appendFrames(
 }
 
 /**
+ * Merges a gap the tail just reported into a dataset.
+ *
+ * @param dataset - The snapshot to extend.
+ * @param gap - The stretch that went unrecorded.
+ * @returns The extended snapshot, or the original when it is already known.
+ */
+export function appendGap(dataset: ChartDataset, gap: RecordingGap): ChartDataset {
+    const isKnown = dataset.gaps.some(
+        (existing) => existing.gapStartedAtMs === gap.gapStartedAtMs,
+    );
+    if (isKnown) {
+        return dataset;
+    }
+
+    return {
+        ...dataset,
+        gaps: [...dataset.gaps, gap].sort((left, right) => left.gapStartedAtMs - right.gapStartedAtMs),
+        revision: dataset.revision + 1,
+    };
+}
+
+/**
  * Merges newly streamed executions into a dataset.
  *
  * @param dataset - The snapshot to extend.

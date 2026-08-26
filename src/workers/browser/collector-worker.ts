@@ -7,7 +7,10 @@ import type { CollectorWorkerScope } from './worker-scope.ts';
 import { DEMO_CATALOGUE, readDemoConfiguration, resolveFrameCapacity } from './demo-collector-configuration.ts';
 import { describeError } from '../core/collector-log.ts';
 import { IndexedDbLiquidityArchive } from '../../database/browser/indexed-db-liquidity-archive.ts';
+import { IndexedDbLiveTailSource } from '../../database/browser/indexed-db-live-tail-source.ts';
 import { IndexedDbService } from '../../database/browser/indexed-db-service.ts';
+import { LiveTail } from '../../shared/core/live-tail.ts';
+import { NotifyingLiquidityArchive } from '../../database/services/notifying-liquidity-archive.ts';
 import { openBrowserMarketDataSocket } from './browser-market-data-socket.ts';
 
 /**
@@ -22,6 +25,17 @@ const RECONCILE_INTERVAL_MS = 3_000;
  * that the reader can see should not outlive their patience.
  */
 const STALL_TIMEOUT_MS = 45_000;
+
+/** Frames one catch-up carries, so a long stall does not arrive as one flood. */
+const MAXIMUM_FRAMES_PER_CATCH_UP = 120;
+
+/**
+ * How often a tail catches up on its own.
+ *
+ * A backstop, not the clock: a write nudges the tail directly. This closes the
+ * window when the page was throttled and missed one.
+ */
+const TAIL_BACKSTOP_MS = 5_000;
 
 const scope = self as unknown as CollectorWorkerScope;
 
@@ -38,6 +52,9 @@ const { instrumentSymbol, priceBucketSize, frameIntervalMs, ...shared } =
 const database = new IndexedDbService({ factory: scope.indexedDB ?? null });
 
 let supervisor: CollectorSupervisor | null = null;
+let tail: LiveTail | null = null;
+let tailSymbol: string | null = null;
+let tailBackstop: ReturnType<typeof setInterval> | null = null;
 
 /**
  * Opens the archive and brings up whatever this browser chose to record.
@@ -55,12 +72,18 @@ async function start(): Promise<void> {
         return;
     }
 
-    const archive = new IndexedDbLiquidityArchive({
+    const store = new IndexedDbLiquidityArchive({
         database,
         frameCapacity: await resolveFrameCapacity(scope.navigator),
     });
+    // The write side is wrapped so a landed write can tell the tail to catch
+    // up. It is the same signal the gateway gets from the database; here the
+    // writer and the reader are one worker, so it is a call rather than a wire.
+    const archive = new NotifyingLiquidityArchive({ archive: store, onWritten: handleArchiveWritten });
     const control = new BrowserRecordingControl({
-        archive,
+        // The concrete store: pruning is its own operation, not one a writer
+        // announces, and the wrapper deliberately carries only the write side.
+        archive: store,
         database,
         estimateStorage: () => scope.navigator.storage?.estimate() ?? Promise.resolve({}),
         // A link may name a contract the catalogue does not, so it is offered too.
@@ -90,9 +113,55 @@ async function start(): Promise<void> {
 }
 
 async function stop(): Promise<void> {
+    unsubscribe();
     await supervisor?.stop();
     supervisor = null;
     announce('stopped');
+}
+
+/**
+ * Follows one contract for the page, from the instant it already holds.
+ */
+function subscribe(instrumentSymbol: string, afterMs: number): void {
+    unsubscribe();
+    tailSymbol = instrumentSymbol;
+    tail = new LiveTail({
+        source: new IndexedDbLiveTailSource({ database }),
+        instrumentSymbol,
+        afterMs,
+        maxFramesPerPoll: MAXIMUM_FRAMES_PER_CATCH_UP,
+        deliver: (message) => { post({ kind: 'live', message }); },
+    });
+
+    tail.announce(priceBucketSizeOf(instrumentSymbol));
+    void tail.advance();
+    tailBackstop = setInterval(() => { void tail?.advance(); }, TAIL_BACKSTOP_MS);
+}
+
+function unsubscribe(): void {
+    tail?.stop();
+    tail = null;
+    tailSymbol = null;
+    if (tailBackstop !== null) {
+        clearInterval(tailBackstop);
+        tailBackstop = null;
+    }
+}
+
+/**
+ * Catches the tail up when the contract it follows has just grown.
+ */
+function handleArchiveWritten(writtenSymbol: string): void {
+    if (writtenSymbol === tailSymbol) {
+        void tail?.advance();
+    }
+}
+
+/** The grid a contract records on, from the catalogue the worker was given. */
+function priceBucketSizeOf(symbol: string): number {
+    const offered = withRequested(instrumentSymbol, priceBucketSize, frameIntervalMs)
+        .find((contract) => contract.instrumentSymbol === symbol);
+    return offered?.priceBucketSize ?? priceBucketSize;
 }
 
 /** The catalogue, with a link-requested contract added if it is not already in it. */
@@ -108,8 +177,17 @@ function withRequested(symbol: string, priceBucketSize: number, frameIntervalMs:
 }
 
 scope.addEventListener('message', (event: MessageEvent<CollectorCommand>) => {
-    if (event.data.kind === 'start') {
+    const command = event.data;
+    if (command.kind === 'start') {
         void start();
+        return;
+    }
+    if (command.kind === 'subscribe') {
+        subscribe(command.instrumentSymbol, command.afterMs);
+        return;
+    }
+    if (command.kind === 'unsubscribe') {
+        unsubscribe();
         return;
     }
     void stop();

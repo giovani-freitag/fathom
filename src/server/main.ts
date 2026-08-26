@@ -6,6 +6,8 @@ import {
     readGatewayConfiguration,
 } from './core/gateway-configuration.ts';
 import { Server } from './http/server.ts';
+import { PostgresLiveTailSource } from './services/postgres-live-tail-source.ts';
+import { RECORDING_CHANNEL } from '../database/core/recording-channel.ts';
 import { LiveTailService } from './services/live-tail-service.ts';
 
 const DATABASE_POOL_SIZE = 8;
@@ -21,7 +23,7 @@ const postgres = new PostgresService({
 const query = new LiquidityQueryService({ postgres });
 const control = new RecordingControlService({ postgres });
 const liveTail = new LiveTailService({
-    query,
+    source: new PostgresLiveTailSource({ query }),
     pollIntervalMs: LIVE_TAIL_SETTINGS.pollIntervalMs,
     maxFramesPerPoll: LIVE_TAIL_SETTINGS.maxFramesPerPoll,
     maximumSubscriptions: LIVE_TAIL_SETTINGS.maximumSubscriptions,
@@ -53,6 +55,11 @@ process.on('SIGTERM', () => void shutDown());
 // every five seconds until the database answers.
 try {
     await postgres.connect();
+    // Followed before the first viewer arrives, so no tail is left waiting on
+    // its own interval for a write that had already been announced.
+    await postgres.listen(RECORDING_CHANNEL, (instrumentSymbol) => {
+        liveTail.nudge(instrumentSymbol);
+    });
     await server.start();
     process.stdout.write(`Fathom gateway listening on http://${configuration.host}:${configuration.port}\n`);
     process.stdout.write(server.isGuarded

@@ -45,6 +45,23 @@ export class CollectorWorkerService {
         this.worker = null;
     }
 
+    /**
+     * Asks the collector to follow one contract for this page.
+     *
+     * @param instrumentSymbol - Which contract.
+     * @param afterMs - Newest instant the page already holds.
+     */
+    subscribe(instrumentSymbol: string, afterMs: number): void {
+        this.send({ kind: 'subscribe', instrumentSymbol, afterMs });
+    }
+
+    /**
+     * Asks the collector to stop following. Safe in any state.
+     */
+    unsubscribe(): void {
+        this.send({ kind: 'unsubscribe' });
+    }
+
     private send(command: CollectorCommand): void {
         this.worker?.postMessage(command);
     }

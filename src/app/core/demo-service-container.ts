@@ -1,4 +1,3 @@
-import { ArchiveLiveFeedService } from '../services/archive-live-feed-service.ts';
 import { type AppearanceHost, AppearanceController } from './appearance-controller.ts';
 import { ChartController } from './chart-controller.ts';
 import type { CollectorEvent } from '../../shared/core/collector-worker-contract.ts';
@@ -9,6 +8,7 @@ import { DEMO_CATALOGUE } from '../../workers/browser/demo-collector-configurati
 import { IndexedDbLiquidityArchive } from '../../database/browser/indexed-db-liquidity-archive.ts';
 import { IndexedDbService } from '../../database/browser/indexed-db-service.ts';
 import { PreferencesService } from '../services/preferences-service.ts';
+import { WorkerLiveFeedService } from '../services/worker-live-feed-service.ts';
 import type { ServiceContainer } from './service-container.ts';
 
 /** A visitor should see something moving quickly, so the first window is short. */
@@ -42,9 +42,23 @@ export function createDemoServiceContainer(
 ): DemoServiceContainer {
     const database = new IndexedDbService({ factory: config.factory });
     const api = new IndexedDbHeatmapSource({ database });
-    const liveFeed = new ArchiveLiveFeedService({ source: api });
     const preferences = new PreferencesService({ storage: config.storage });
-    const collector = new CollectorWorkerService({ onEvent: config.onCollectorEvent });
+
+    // The tail runs inside the collector, so the page asks it to follow a
+    // contract and then only listens — the same shape as the socket driver,
+    // where the tail runs inside the gateway.
+    const liveFeed = new WorkerLiveFeedService({
+        subscribe: (instrumentSymbol, afterMs) => {
+            collector.subscribe(instrumentSymbol, afterMs);
+        },
+        unsubscribe: () => { collector.unsubscribe(); },
+    });
+    const collector = new CollectorWorkerService({
+        onEvent: (event) => {
+            liveFeed.handleCollectorEvent(event);
+            config.onCollectorEvent(event);
+        },
+    });
 
     // The page's own view of the same choice the worker reads: both go through
     // the store, because a Worker cannot see local storage and a page cannot

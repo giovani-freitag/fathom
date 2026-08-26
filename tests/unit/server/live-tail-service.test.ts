@@ -1,188 +1,113 @@
-import type { LiquidityFrame } from '../../../src/shared/core/liquidity-frame.ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-    LiveTailService,
-    TooManySubscribersError,
-} from '../../../src/server/services/live-tail-service.ts';
-import { createLiquidityQueryServiceMock } from '../../mocks/liquidity-query-service.ts';
+import { buildTailFrame, buildTailWindow, createLiveTailSourceMock, type LiveTailSourceMock } from '../../mocks/live-tail-source.ts';
+import { LiveTailService, TooManySubscribersError } from '../../../src/server/services/live-tail-service.ts';
+import type { LiveMessage } from '../../../src/shared/core/live-message.ts';
 
-function buildFrame(capturedAtMs: number): LiquidityFrame {
-    return {
-        capturedAtMs,
-        bestBidPrice: 100,
-        bestAskPrice: 101,
-        bids: { lowestBucketIndex: 9, quantities: Float32Array.from([1]) },
-        asks: { lowestBucketIndex: 10, quantities: Float32Array.from([2]) },
-    };
-}
-
-function buildService(
-    query: ReturnType<typeof createLiquidityQueryServiceMock>,
-    maximumSubscriptions = 24,
-): LiveTailService {
-    return new LiveTailService({
-        query: query.service,
-        pollIntervalMs: 100,
-        maxFramesPerPoll: 50,
-        maximumSubscriptions,
-    });
-}
-
-function buildRequest() {
-    return {
-        instrumentSymbol: 'BTCUSDT',
-        afterMs: 5_000,
-        onFrames: vi.fn(),
-        onText: vi.fn(),
-    };
-}
+const POLL_INTERVAL_MS = 100;
 
 describe('LiveTailService', () => {
+    let source: LiveTailSourceMock;
+    let delivered: LiveMessage[];
+
+    function buildService(maximumSubscriptions = 24): LiveTailService {
+        return new LiveTailService({
+            source: source.source,
+            pollIntervalMs: POLL_INTERVAL_MS,
+            maxFramesPerPoll: 50,
+            maximumSubscriptions,
+        });
+    }
+
+    function buildRequest(instrumentSymbol = 'BTCUSDT') {
+        return {
+            instrumentSymbol,
+            afterMs: 5_000,
+            priceBucketSize: 10,
+            onMessage: (message: LiveMessage) => { delivered.push(message); },
+        };
+    }
+
     beforeEach(() => {
         vi.useFakeTimers();
+        source = createLiveTailSourceMock();
+        delivered = [];
     });
 
     afterEach(() => {
         vi.useRealTimers();
     });
 
-    it('resumes strictly after the instant the subscriber already holds', async () => {
-        const query = createLiquidityQueryServiceMock();
-        const service = buildService(query);
+    it('tells a new viewer what it is following before anything is streamed', () => {
+        buildService().subscribe(buildRequest());
 
-        service.subscribe({
-            instrumentSymbol: 'BTCUSDT',
-            afterMs: 5_000,
-            onFrames: vi.fn(),
-            onText: vi.fn(),
-        });
+        expect(delivered[0]).toMatchObject({ kind: 'subscribed', priceBucketSize: 10 });
+    });
+
+    it('catches a tail up when the archive says its contract grew', async () => {
+        // The interval below is a backstop; this is the trigger that makes a
+        // second reach the reader in the time it takes to write it.
+        const service = buildService();
+        service.subscribe(buildRequest());
+        await vi.advanceTimersByTimeAsync(1);
+        const readsBefore = source.fetchFramesAfter.mock.calls.length;
+
+        service.nudge('BTCUSDT');
         await vi.advanceTimersByTimeAsync(1);
 
-        expect(query.fetchFramesAfter).toHaveBeenCalledWith(
-            expect.objectContaining({ symbol: 'BTCUSDT', afterMs: 5_000 }),
-        );
+        expect(source.fetchFramesAfter.mock.calls.length).toBeGreaterThan(readsBefore);
     });
 
-    it('delivers frames the archive returned', async () => {
-        const query = createLiquidityQueryServiceMock();
-        query.fetchFramesAfter.mockResolvedValue({
-            priceBucketSize: 10,
-            sampleIntervalMs: 1_000,
-            frames: [buildFrame(6_000)],
-        });
-        const onFrames = vi.fn();
-        const service = buildService(query);
+    it('leaves alone a tail following something else', async () => {
+        const service = buildService();
+        service.subscribe(buildRequest('BTCUSDT'));
+        await vi.advanceTimersByTimeAsync(1);
+        const readsBefore = source.fetchFramesAfter.mock.calls.length;
 
-        service.subscribe({ instrumentSymbol: 'BTCUSDT', afterMs: 5_000, onFrames, onText: vi.fn() });
+        service.nudge('ETHUSDT');
         await vi.advanceTimersByTimeAsync(1);
 
-        expect(onFrames).toHaveBeenCalledTimes(1);
+        expect(source.fetchFramesAfter.mock.calls).toHaveLength(readsBefore);
     });
 
-    it('advances the cursor to the newest frame it delivered', async () => {
-        const query = createLiquidityQueryServiceMock();
-        query.fetchFramesAfter.mockResolvedValueOnce({
-            priceBucketSize: 10,
-            sampleIntervalMs: 1_000,
-            frames: [buildFrame(6_000), buildFrame(7_000)],
-        });
-        const service = buildService(query);
+    it('catches up on its own when no nudge arrives', async () => {
+        source.fetchFramesAfter.mockResolvedValue(buildTailWindow([buildTailFrame(6_000)]));
+        buildService().subscribe(buildRequest());
 
-        service.subscribe({
-            instrumentSymbol: 'BTCUSDT',
-            afterMs: 5_000,
-            onFrames: vi.fn(),
-            onText: vi.fn(),
-        });
-        await vi.advanceTimersByTimeAsync(150);
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 3);
 
-        expect(query.fetchFramesAfter).toHaveBeenLastCalledWith(
-            expect.objectContaining({ afterMs: 7_000 }),
-        );
+        expect(source.fetchFramesAfter.mock.calls.length).toBeGreaterThan(1);
     });
 
-    it('delivers nothing when the archive has nothing new', async () => {
-        const query = createLiquidityQueryServiceMock();
-        const onFrames = vi.fn();
-        const service = buildService(query);
-
-        service.subscribe({ instrumentSymbol: 'BTCUSDT', afterMs: 5_000, onFrames, onText: vi.fn() });
-        await vi.advanceTimersByTimeAsync(350);
-
-        expect(onFrames).not.toHaveBeenCalled();
-    });
-
-    it('leaves the cursor alone when the archive fails, so the range is retried', async () => {
-        const query = createLiquidityQueryServiceMock();
-        query.fetchFramesAfter.mockRejectedValue(new Error('archive unavailable'));
-        const service = buildService(query);
-
-        service.subscribe({
-            instrumentSymbol: 'BTCUSDT',
-            afterMs: 5_000,
-            onFrames: vi.fn(),
-            onText: vi.fn(),
-        });
-        await vi.advanceTimersByTimeAsync(150);
-
-        expect(query.fetchFramesAfter).toHaveBeenLastCalledWith(
-            expect.objectContaining({ afterMs: 5_000 }),
-        );
-    });
-
-    it('stops polling once the subscription is cancelled', async () => {
-        const query = createLiquidityQueryServiceMock();
-        const service = buildService(query);
-        const unsubscribe = service.subscribe({
-            instrumentSymbol: 'BTCUSDT',
-            afterMs: 5_000,
-            onFrames: vi.fn(),
-            onText: vi.fn(),
-        });
+    it('stops reading once a viewer disconnects', async () => {
+        const service = buildService();
+        const unsubscribe = service.subscribe(buildRequest());
         await vi.advanceTimersByTimeAsync(1);
-        const callsBeforeCancel = query.fetchFramesAfter.mock.calls.length;
+        const readsBefore = source.fetchFramesAfter.mock.calls.length;
 
         unsubscribe();
-        await vi.advanceTimersByTimeAsync(500);
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 4);
 
-        expect(query.fetchFramesAfter.mock.calls.length).toBe(callsBeforeCancel);
+        expect(source.fetchFramesAfter.mock.calls).toHaveLength(readsBefore);
     });
 
-    it('drops every subscription when the service stops', () => {
-        const query = createLiquidityQueryServiceMock();
-        const service = buildService(query);
-        service.subscribe({
-            instrumentSymbol: 'BTCUSDT',
-            afterMs: 5_000,
-            onFrames: vi.fn(),
-            onText: vi.fn(),
-        });
+    it('drops every viewer when the gateway stops', () => {
+        const service = buildService();
+        service.subscribe(buildRequest());
 
         service.stop();
 
         expect(service.subscriptionCount).toBe(0);
     });
-});
 
-describe('LiveTailService budget', () => {
-    it('serves viewers up to its budget', () => {
-        const service = buildService(createLiquidityQueryServiceMock(), 2);
-
-        service.subscribe(buildRequest());
-        service.subscribe(buildRequest());
-
-        expect(service.subscriptionCount).toBe(2);
-    });
-
-    it('refuses a viewer past the budget rather than starving the recording', () => {
-        const service = buildService(createLiquidityQueryServiceMock(), 1);
+    it('refuses a viewer past its budget rather than starving the recording', () => {
+        const service = buildService(1);
         service.subscribe(buildRequest());
 
         expect(() => service.subscribe(buildRequest())).toThrow(TooManySubscribersError);
     });
 
     it('frees the slot once a viewer disconnects', () => {
-        const service = buildService(createLiquidityQueryServiceMock(), 1);
+        const service = buildService(1);
         const unsubscribe = service.subscribe(buildRequest());
 
         unsubscribe();

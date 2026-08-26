@@ -61,21 +61,24 @@ describe('LiveSocketBridge', () => {
         });
     });
 
-    it('tells the reader what it subscribed to before anything is streamed', async () => {
+    it('passes the grid on, so the tail can announce what it is following', () => {
         buildBridge().start();
 
-        expect(JSON.parse(socket.sent[0] as string)).toMatchObject({
-            kind: 'subscribed', instrumentSymbol: 'BTCUSDT', priceBucketSize: 10,
-        });
-        await Promise.resolve();
+        expect(subscribe).toHaveBeenCalledWith(expect.objectContaining({
+            instrumentSymbol: 'BTCUSDT', afterMs: 1_000, priceBucketSize: 10,
+        }));
     });
 
-    it('sends frames as bytes and everything else as text', () => {
+    it('writes a window of frames as bytes and every other message as text', () => {
+        // Two typed arrays a column, which JSON would send as digits; the type
+        // is one either way, so only the encoding differs.
         buildBridge().start();
 
-        subscription!.onFrames(buildWindow([buildFrame(2_000)]));
+        subscription!.onMessage({ kind: 'frames', window: buildWindow([buildFrame(2_000)]) });
+        subscription!.onMessage({ kind: 'stalled', lastFrameAtMs: 2_000 });
 
-        expect(Buffer.isBuffer(socket.sent[1])).toBe(true);
+        expect(Buffer.isBuffer(socket.sent[0])).toBe(true);
+        expect(JSON.parse(socket.sent[1] as string)).toMatchObject({ kind: 'stalled' });
     });
 
     it('refuses the socket rather than throwing when the tail will not take it', () => {
@@ -105,7 +108,7 @@ describe('LiveSocketBridge', () => {
         const sentBefore = socket.sent.length;
         socket.setReadyState(3);
 
-        subscription!.onFrames(buildWindow([buildFrame(2_000)]));
+        subscription!.onMessage({ kind: 'frames', window: buildWindow([buildFrame(2_000)]) });
 
         expect(socket.sent).toHaveLength(sentBefore);
     });

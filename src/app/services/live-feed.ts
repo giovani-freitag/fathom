@@ -1,5 +1,4 @@
-import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
-import type { LiveTextMessage } from '../../shared/core/api-contract.ts';
+import type { LiveMessage } from '../../shared/core/live-message.ts';
 
 export type LiveFeedStatus = 'idle' | 'connecting' | 'streaming' | 'reconnecting' | 'refused';
 
@@ -7,8 +6,8 @@ export interface LiveFeedSubscription {
     readonly instrumentSymbol: string;
     /** Newest frame already held; the tail resumes strictly after it. */
     readonly afterMs: number;
-    readonly onFrames: (window: LiquidityFrameWindow) => void;
-    readonly onText: (message: LiveTextMessage) => void;
+    /** Every driver delivers the same type, whatever carried it. */
+    readonly onMessage: (message: LiveMessage) => void;
     readonly onStatusChanged: (status: LiveFeedStatus) => void;
 }
 

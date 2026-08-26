@@ -1,8 +1,7 @@
-import { type LiveTextMessage } from '../../shared/core/api-contract.ts';
 import { encodeLiquidityFrameWindow } from '../../shared/codec/heatmap-codec.ts';
-import { type LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
-import type { WebSocket } from '@fastify/websocket';
+import type { LiveMessage } from '../../shared/core/live-message.ts';
 import type { LiveTailService, Unsubscribe } from './live-tail-service.ts';
+import type { WebSocket } from '@fastify/websocket';
 
 export interface LiveSocketBridgeConfig {
     readonly socket: WebSocket;
@@ -21,13 +20,12 @@ export class LiveSocketBridge {
 
     constructor(config: LiveSocketBridgeConfig) {
         this.config = config;
-        this.handleFrames = this.handleFrames.bind(this);
-        this.handleText = this.handleText.bind(this);
+        this.handleMessage = this.handleMessage.bind(this);
         this.handleSocketClose = this.handleSocketClose.bind(this);
     }
 
     /**
-     * Announces the subscription and begins forwarding.
+     * Subscribes the socket to the tail and begins forwarding.
      */
     start(): void {
         this.config.socket.on('close', this.handleSocketClose);
@@ -37,19 +35,12 @@ export class LiveSocketBridge {
             this.unsubscribe = this.config.liveTail.subscribe({
                 instrumentSymbol: this.config.instrumentSymbol,
                 afterMs: this.config.afterMs,
-                onFrames: this.handleFrames,
-                onText: this.handleText,
+                priceBucketSize: this.config.priceBucketSize,
+                onMessage: this.handleMessage,
             });
         } catch (error) {
             this.config.socket.close(1013, describeRefusal(error));
-            return;
         }
-
-        this.handleText({
-            kind: 'subscribed',
-            instrumentSymbol: this.config.instrumentSymbol,
-            priceBucketSize: this.config.priceBucketSize,
-        });
     }
 
     /**
@@ -62,15 +53,19 @@ export class LiveSocketBridge {
         this.unsubscribe = null;
     }
 
-    private handleFrames(window: LiquidityFrameWindow): void {
+    /**
+     * Writes one message, in whichever form the wire carries it best.
+     *
+     * A window of frames is two typed arrays per column, which JSON would send
+     * as digits; every other message is a handful of fields, which the codec
+     * would need a case for. The type is one either way.
+     */
+    private handleMessage(message: LiveMessage): void {
         if (!this.isSocketWritable()) {
             return;
         }
-        this.config.socket.send(Buffer.from(encodeLiquidityFrameWindow(window)));
-    }
-
-    private handleText(message: LiveTextMessage): void {
-        if (!this.isSocketWritable()) {
+        if (message.kind === 'frames') {
+            this.config.socket.send(Buffer.from(encodeLiquidityFrameWindow(message.window)));
             return;
         }
         this.config.socket.send(JSON.stringify(message));

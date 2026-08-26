@@ -42,6 +42,8 @@ export interface ChartServiceMocks {
     readonly writePreferences: ReturnType<typeof vi.fn>;
     /** The subscription the controller opened, so a test can push live frames. */
     lastSubscription: () => LiveFeedSubscription | undefined;
+    /** Hands the chart a window the way a tail would. */
+    deliverFrames: (window: LiquidityFrameWindow) => void;
 }
 
 /**
@@ -81,5 +83,9 @@ export function createChartServiceMocks(
         disconnect,
         writePreferences,
         lastSubscription: () => connect.mock.calls.at(-1)?.[0] as LiveFeedSubscription | undefined,
+        deliverFrames: (window: LiquidityFrameWindow) => {
+            const subscription = connect.mock.calls.at(-1)?.[0] as LiveFeedSubscription | undefined;
+            subscription?.onMessage({ kind: 'frames', window });
+        },
     };
 }

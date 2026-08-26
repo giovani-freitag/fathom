@@ -1,6 +1,5 @@
-import type { LiveTextMessage } from '../../shared/core/api-contract.ts';
-import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
-import type { LiquidityQueryService } from '../../database/services/liquidity-query-service.ts';
+import { LiveTail, type LiveTailSource } from '../../shared/core/live-tail.ts';
+import type { LiveMessage } from '../../shared/core/live-message.ts';
 
 export type Unsubscribe = () => void;
 
@@ -8,12 +7,18 @@ export interface LiveTailSubscriptionRequest {
     readonly instrumentSymbol: string;
     /** Newest frame the client already holds; the tail resumes after it. */
     readonly afterMs: number;
-    readonly onFrames: (window: LiquidityFrameWindow) => void;
-    readonly onText: (message: LiveTextMessage) => void;
+    readonly priceBucketSize: number;
+    readonly onMessage: (message: LiveMessage) => void;
 }
 
 export interface LiveTailServiceConfig {
-    readonly query: LiquidityQueryService;
+    readonly source: LiveTailSource;
+    /**
+     * How often a tail catches up on its own.
+     *
+     * A backstop rather than the clock: the archive nudges the gateway when it
+     * writes, and this is what closes the window if a notification is missed.
+     */
     readonly pollIntervalMs: number;
     readonly maxFramesPerPoll: number;
     readonly maximumSubscriptions: number;
@@ -27,12 +32,18 @@ export class TooManySubscribersError extends Error {
     }
 }
 
+interface RunningTail {
+    readonly instrumentSymbol: string;
+    readonly tail: LiveTail;
+    readonly timer: NodeJS.Timeout;
+}
+
 /**
  * Streams newly recorded history to connected viewers.
  */
 export class LiveTailService {
     private readonly config: LiveTailServiceConfig;
-    private readonly subscriptions = new Set<LiveTailSubscription>();
+    private readonly running = new Set<RunningTail>();
 
     constructor(config: LiveTailServiceConfig) {
         this.config = config;
@@ -41,130 +52,67 @@ export class LiveTailService {
     /**
      * Starts tailing for one viewer.
      *
-     * @param request - Instrument, resume point, and the two delivery callbacks.
+     * @param request - Instrument, resume point, and where messages go.
      * @returns A canceller; calling it twice is safe.
      * @throws TooManySubscribersError when the tail budget is already spent.
      */
     subscribe(request: LiveTailSubscriptionRequest): Unsubscribe {
-        if (this.subscriptions.size >= this.config.maximumSubscriptions) {
+        if (this.running.size >= this.config.maximumSubscriptions) {
             throw new TooManySubscribersError(this.config.maximumSubscriptions);
         }
 
-        const subscription = new LiveTailSubscription(request, this.config);
-        this.subscriptions.add(subscription);
-        subscription.start();
+        const tail = new LiveTail({
+            source: this.config.source,
+            instrumentSymbol: request.instrumentSymbol,
+            afterMs: request.afterMs,
+            maxFramesPerPoll: this.config.maxFramesPerPoll,
+            deliver: request.onMessage,
+        });
 
-        return () => {
-            subscription.stop();
-            this.subscriptions.delete(subscription);
-        };
+        const timer = setInterval(() => { void tail.advance(); }, this.config.pollIntervalMs);
+        timer.unref();
+
+        const entry: RunningTail = { instrumentSymbol: request.instrumentSymbol, tail, timer };
+        this.running.add(entry);
+
+        tail.announce(request.priceBucketSize);
+        void tail.advance();
+
+        return () => { this.release(entry); };
+    }
+
+    /**
+     * Catches up every tail following an instrument.
+     *
+     * Called when the archive says it has written something, which is what
+     * turns the interval above into a backstop rather than the only trigger.
+     *
+     * @param instrumentSymbol - The contract that just grew.
+     */
+    nudge(instrumentSymbol: string): void {
+        for (const entry of this.running) {
+            if (entry.instrumentSymbol === instrumentSymbol) {
+                void entry.tail.advance();
+            }
+        }
     }
 
     /**
      * Stops every tail, for shutdown.
      */
     stop(): void {
-        for (const subscription of this.subscriptions) {
-            subscription.stop();
+        for (const entry of [...this.running]) {
+            this.release(entry);
         }
-        this.subscriptions.clear();
     }
 
     get subscriptionCount(): number {
-        return this.subscriptions.size;
-    }
-}
-
-/**
- * One viewer's tail.
- */
-class LiveTailSubscription {
-    private readonly request: LiveTailSubscriptionRequest;
-    private readonly config: LiveTailServiceConfig;
-
-    private frameCursorMs: number;
-    private tradeCursorMs: number;
-    private pollTimer: NodeJS.Timeout | null = null;
-    private isPolling = false;
-    private wasStopped = false;
-
-    constructor(request: LiveTailSubscriptionRequest, config: LiveTailServiceConfig) {
-        this.request = request;
-        this.config = config;
-        this.frameCursorMs = request.afterMs;
-        this.tradeCursorMs = request.afterMs;
-        this.handlePollDue = this.handlePollDue.bind(this);
+        return this.running.size;
     }
 
-    start(): void {
-        this.pollTimer = setInterval(this.handlePollDue, this.config.pollIntervalMs);
-        this.pollTimer.unref();
-        this.handlePollDue();
-    }
-
-    stop(): void {
-        this.wasStopped = true;
-        if (this.pollTimer !== null) {
-            clearInterval(this.pollTimer);
-            this.pollTimer = null;
-        }
-    }
-
-    private handlePollDue(): void {
-        void this.poll();
-    }
-
-    private async poll(): Promise<void> {
-        if (this.isPolling || this.wasStopped) {
-            return;
-        }
-        this.isPolling = true;
-        try {
-            await this.pushFrames();
-            await this.pushTradeClusters();
-        } catch {
-            // A transient archive failure is not worth closing the socket over;
-            // the cursors did not advance, so the next tick retries the same range.
-        } finally {
-            this.isPolling = false;
-        }
-    }
-
-    private async pushFrames(): Promise<void> {
-        const window = await this.config.query.fetchFramesAfter({
-            symbol: this.request.instrumentSymbol,
-            afterMs: this.frameCursorMs,
-            maxFrames: this.config.maxFramesPerPoll,
-        });
-
-        const newestFrame = window.frames[window.frames.length - 1];
-        if (newestFrame === undefined || this.wasStopped) {
-            return;
-        }
-
-        this.frameCursorMs = newestFrame.capturedAtMs;
-        this.request.onFrames(window);
-    }
-
-    private async pushTradeClusters(): Promise<void> {
-        const untilMs = this.frameCursorMs;
-        if (untilMs <= this.tradeCursorMs) {
-            return;
-        }
-
-        const window = await this.config.query.fetchTradeClusters({
-            symbol: this.request.instrumentSymbol,
-            fromMs: this.tradeCursorMs,
-            toMs: untilMs + 1,
-            maxColumns: this.config.maxFramesPerPoll,
-            priceGroupSize: 1,
-            minimumQuantity: 0,
-            maxClusters: 5_000,
-        });
-
-        this.tradeCursorMs = untilMs;
-        if (window.clusters.length > 0 && !this.wasStopped) {
-            this.request.onText({ kind: 'trade-clusters', clusters: window.clusters });
-        }
+    private release(entry: RunningTail): void {
+        entry.tail.stop();
+        clearInterval(entry.timer);
+        this.running.delete(entry);
     }
 }

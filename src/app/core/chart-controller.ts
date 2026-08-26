@@ -1,4 +1,5 @@
-import type { InstrumentCoverage, LiveTextMessage } from '../../shared/core/api-contract.ts';
+import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
+import type { LiveMessage } from '../../shared/core/live-message.ts';
 import type { TranslationKey } from '../i18n/dictionaries/en.ts';
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import {
@@ -14,6 +15,7 @@ import type { PreferencesService, ViewerPreferences } from '../services/preferen
 import {
     appendClusters,
     appendFrames,
+    appendGap,
     type ChartDataset,
     EMPTY_DATASET,
     newestFrameTimestamp,
@@ -98,8 +100,7 @@ export class ChartController {
 
     constructor(config: ChartControllerConfig) {
         this.config = config;
-        this.handleLiveFrames = this.handleLiveFrames.bind(this);
-        this.handleLiveText = this.handleLiveText.bind(this);
+        this.handleLiveMessage = this.handleLiveMessage.bind(this);
         this.handleLiveStatus = this.handleLiveStatus.bind(this);
         this.handleWindowLoaded = this.handleWindowLoaded.bind(this);
         this.handleLoadingChanged = this.handleLoadingChanged.bind(this);
@@ -343,8 +344,7 @@ export class ChartController {
         this.config.liveFeed.connect({
             instrumentSymbol: state.instrumentSymbol,
             afterMs: newestFrameTimestamp(state.dataset) ?? Date.now(),
-            onFrames: this.handleLiveFrames,
-            onText: this.handleLiveText,
+            onMessage: this.handleLiveMessage,
             onStatusChanged: this.handleLiveStatus,
         });
     }
@@ -359,14 +359,30 @@ export class ChartController {
         });
     }
 
-    private handleLiveText(message: LiveTextMessage): void {
-        if (message.kind !== 'trade-clusters') {
+    /**
+     * Takes one message from whichever tail is feeding this chart.
+     */
+    private handleLiveMessage(message: LiveMessage): void {
+        if (message.kind === 'frames') {
+            this.handleLiveFrames(message.window);
             return;
         }
-        this.store.update((state) => ({
-            ...state,
-            dataset: appendClusters(state.dataset, message.clusters),
-        }));
+        if (message.kind === 'trade-clusters') {
+            this.store.update((state) => ({
+                ...state,
+                dataset: appendClusters(state.dataset, message.clusters),
+            }));
+            return;
+        }
+        if (message.kind === 'gap') {
+            // A stretch that went unrecorded while the reader was watching. It
+            // used to reach the chart only on a reload, which showed the window
+            // as continuous until then.
+            this.store.update((state) => ({
+                ...state,
+                dataset: appendGap(state.dataset, message.gap),
+            }));
+        }
     }
 
     private handleLiveStatus(liveStatus: LiveFeedStatus): void {

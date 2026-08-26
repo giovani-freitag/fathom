@@ -2,6 +2,8 @@ import { CollectorSupervisor } from './collector-supervisor.ts';
 import { openNodeCollectorLog } from './transport/node-collector-log.ts';
 import { describeError } from './core/collector-log.ts';
 import { LiquidityArchiveService } from '../database/services/liquidity-archive-service.ts';
+import { NotifyingLiquidityArchive } from '../database/services/notifying-liquidity-archive.ts';
+import { RECORDING_CHANNEL } from '../database/core/recording-channel.ts';
 import { openNodeMarketDataSocket } from './transport/node-market-data-socket.ts';
 import { PostgresService } from '../database/postgres/postgres-service.ts';
 import { readCollectorConfiguration, readDatabaseUrl, readLogFilePath } from './collector-environment.ts';
@@ -35,7 +37,18 @@ const control = new RecordingControlService({ postgres });
 
 const supervisor = new CollectorSupervisor({
     control,
-    archive: new LiquidityArchiveService({ postgres }),
+    // Announced through the archive itself, which is the one place that knows
+    // a write landed. The gateway is listening, so a second reaches a reader in
+    // the time it takes to store it rather than on their next interval.
+    archive: new NotifyingLiquidityArchive({
+        archive: new LiquidityArchiveService({ postgres }),
+        onWritten: (instrumentSymbol) => {
+            // Deliberately unawaited and unreported: a reader that misses a
+            // nudge catches up on its own, and a write must not be held up by
+            // the telling of it.
+            void postgres.notify(RECORDING_CHANNEL, instrumentSymbol).catch(() => undefined);
+        },
+    }),
     openSocket: openNodeMarketDataSocket,
     log,
     shared,

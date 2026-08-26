@@ -28,9 +28,15 @@ export class PostgresQueryError extends Error {
 /**
  * The only place the PostgreSQL driver is used.
  */
+interface ChannelListener {
+    readonly client: pg.PoolClient;
+    readonly onNotification: (payload: string) => void;
+}
+
 export class PostgresService {
     private readonly config: PostgresServiceConfig;
     private connectionPool: pg.Pool | null = null;
+    private readonly listeners = new Map<string, ChannelListener>();
     private wasClosed = false;
 
     constructor(config: PostgresServiceConfig) {
@@ -80,6 +86,11 @@ export class PostgresService {
         if (connectionPool === null) {
             return;
         }
+        for (const listener of this.listeners.values()) {
+            listener.client.release(true);
+        }
+        this.listeners.clear();
+
         connectionPool.off('error', this.handlePoolError);
         await connectionPool.end().catch(() => undefined);
     }
@@ -122,6 +133,60 @@ export class PostgresService {
             return result.rowCount ?? 0;
         } catch (error) {
             throw new PostgresQueryError(describeFailure(statement, error), { cause: error });
+        }
+    }
+
+    /**
+     * Announces something on a channel, for whoever is listening.
+     *
+     * @param channel - The channel name.
+     * @param payload - What to say, under eight kilobytes.
+     * @throws PostgresQueryError when the service is not connected.
+     */
+    async notify(channel: string, payload: string): Promise<void> {
+        await this.execute('SELECT pg_notify($1, $2)', [channel, payload]);
+    }
+
+    /**
+     * Follows a channel until the service closes.
+     *
+     * @param channel - The channel name.
+     * @param onNotification - Called with each payload, in arrival order.
+     * @throws PostgresQueryError when the service is not connected.
+     */
+    async listen(channel: string, onNotification: (payload: string) => void): Promise<void> {
+        const pool = this.requireConnectionPool();
+        // A dedicated client, not a pooled checkout: a LISTEN belongs to the
+        // connection that issued it, and a client handed back to the pool stops
+        // hearing anything without saying so.
+        const client = await pool.connect();
+        this.listeners.set(channel, { client, onNotification });
+
+        client.on('notification', (notification) => {
+            if (notification.channel === channel) {
+                onNotification(notification.payload ?? '');
+            }
+        });
+        client.on('error', () => { void this.relisten(channel); });
+        await client.query(`LISTEN ${pg.escapeIdentifier(channel)}`);
+    }
+
+    /**
+     * Opens a fresh connection for a channel whose own has died.
+     */
+    private async relisten(channel: string): Promise<void> {
+        const listener = this.listeners.get(channel);
+        this.listeners.delete(channel);
+        if (listener === undefined || this.wasClosed) {
+            return;
+        }
+        listener.client.release(true);
+
+        try {
+            await this.listen(channel, listener.onNotification);
+        } catch {
+            // The pool is down, which the next write will report anyway. The
+            // readers fall back to their own interval until it answers again.
         }
     }
 

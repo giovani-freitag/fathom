@@ -149,7 +149,7 @@ describe('ChartController live tail', () => {
         const controller = buildController(mocks);
         await controller.initialize();
 
-        mocks.lastSubscription()?.onFrames(buildWindow([buildFrame(1_600_000)]));
+        mocks.deliverFrames(buildWindow([buildFrame(1_600_000)]));
 
         expect(controller.store.read().dataset.frames.length).toBe(2);
     });
@@ -160,7 +160,7 @@ describe('ChartController live tail', () => {
         await controller.initialize();
         const before = controller.store.read().viewport.toMs;
 
-        mocks.lastSubscription()?.onFrames(buildWindow([buildFrame(before + 30_000)]));
+        mocks.deliverFrames(buildWindow([buildFrame(before + 30_000)]));
 
         expect(controller.store.read().viewport.toMs).toBeGreaterThan(before);
     });
@@ -176,7 +176,7 @@ describe('ChartController live tail', () => {
         });
         const before = controller.store.read().viewport.toMs;
 
-        mocks.lastSubscription()?.onFrames(buildWindow([buildFrame(before + 30_000)]));
+        mocks.deliverFrames(buildWindow([buildFrame(before + 30_000)]));
 
         expect(controller.store.read().viewport.toMs).toBe(before);
     });
@@ -298,7 +298,7 @@ describe('ChartController price following', () => {
         await controller.initialize();
         const before = controller.store.read().viewport;
 
-        mocks.lastSubscription()?.onFrames(buildWindow([buildFrame(before.toMs + 1_000, 79_000)]));
+        mocks.deliverFrames(buildWindow([buildFrame(before.toMs + 1_000, 79_000)]));
 
         expect(controller.store.read().viewport.lowPrice).toBe(before.lowPrice);
     });
@@ -309,7 +309,7 @@ describe('ChartController price following', () => {
         await controller.initialize();
         const before = controller.store.read().viewport;
 
-        mocks.lastSubscription()?.onFrames(buildWindow([buildFrame(before.toMs + 1_000, 90_000)]));
+        mocks.deliverFrames(buildWindow([buildFrame(before.toMs + 1_000, 90_000)]));
 
         const after = controller.store.read().viewport;
         expect(90_000 > after.lowPrice && 90_000 < after.highPrice).toBe(true);
@@ -321,7 +321,7 @@ describe('ChartController price following', () => {
         await controller.initialize();
         const before = controller.store.read().viewport;
 
-        mocks.lastSubscription()?.onFrames(buildWindow([buildFrame(before.toMs + 1_000, 90_000)]));
+        mocks.deliverFrames(buildWindow([buildFrame(before.toMs + 1_000, 90_000)]));
 
         const after = controller.store.read().viewport;
         expect(after.highPrice - after.lowPrice).toBeCloseTo(before.highPrice - before.lowPrice, 6);
@@ -338,7 +338,7 @@ describe('ChartController price following', () => {
             isFollowingPrice: false,
         });
 
-        mocks.lastSubscription()?.onFrames(buildWindow([buildFrame(parked.toMs + 1_000, 90_000)]));
+        mocks.deliverFrames(buildWindow([buildFrame(parked.toMs + 1_000, 90_000)]));
 
         expect(controller.store.read().viewport.lowPrice).toBe(60_000);
     });
@@ -354,7 +354,7 @@ describe('ChartController price following', () => {
         });
         const before = controller.store.read().viewport;
 
-        mocks.lastSubscription()?.onFrames(buildWindow([buildFrame(before.toMs + 1_000, 90_000)]));
+        mocks.deliverFrames(buildWindow([buildFrame(before.toMs + 1_000, 90_000)]));
 
         expect(controller.store.read().viewport.lowPrice).toBe(before.lowPrice);
     });

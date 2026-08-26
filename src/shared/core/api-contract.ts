@@ -67,8 +67,3 @@ export interface HealthResponse {
 /**
  * Messages the live socket sends as text.
  */
-export type LiveTextMessage =
-    | { readonly kind: 'subscribed'; readonly instrumentSymbol: string; readonly priceBucketSize: number }
-    | { readonly kind: 'trade-clusters'; readonly clusters: readonly TradeCluster[] }
-    | { readonly kind: 'gap'; readonly gap: RecordingGap }
-    | { readonly kind: 'stalled'; readonly lastFrameAtMs: number | null };

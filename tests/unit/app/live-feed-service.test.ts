@@ -49,8 +49,7 @@ function buildSubscription(statuses: LiveFeedStatus[]) {
     return {
         instrumentSymbol: 'BTCUSDT',
         afterMs: 1_000,
-        onFrames: vi.fn(),
-        onText: vi.fn(),
+        onMessage: vi.fn(),
         onStatusChanged: (status: LiveFeedStatus) => statuses.push(status),
     };
 }
