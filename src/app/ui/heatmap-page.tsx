@@ -68,6 +68,10 @@ export function HeatmapPage(): ReactElement {
     const drawings = useDrawings();
     const surfaceRef = useRef<HTMLElement>(null);
     const isWide = useIsViewportAtLeast('lg');
+    // The presets are eight targets in a row; below this there is no room for
+    // them beside everything else, and a bar that wraps to two lines has
+    // stopped being a bar. Folded, they take the width of one control.
+    const hasRoomForPresets = useIsViewportAtLeast('xl');
     // The drawer is where a layer is configured, so a row on the chart has to be
     // able to open it onto itself rather than carrying a panel of its own.
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -141,7 +145,14 @@ export function HeatmapPage(): ReactElement {
 
     return (
         <div className="flex h-dvh flex-col bg-abyss-900 pt-[env(safe-area-inset-top)]">
-            {isWide && <ChartHeader {...chartControls} drawings={drawings} settings={settings} />}
+            {isWide && (
+                <ChartHeader
+                    {...chartControls}
+                    drawings={drawings}
+                    settings={settings}
+                    hasRoomForPresets={hasRoomForPresets}
+                />
+            )}
             <main ref={surfaceRef} className="relative min-h-0 flex-1">
                 <ChartSurface />
 

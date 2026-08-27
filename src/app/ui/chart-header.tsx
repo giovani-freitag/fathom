@@ -5,7 +5,6 @@ import type { ReactElement, ReactNode } from 'react';
 import { DockPopover } from './dock-popover.tsx';
 import { LayerPanel } from './indicators/layer-panel.tsx';
 import { Select } from './select.tsx';
-import { useIsViewportAtLeast } from '../react/use-viewport-width.ts';
 import { useTranslate } from '../react/use-appearance.ts';
 
 const ICON_SIZE_PX = 18;
@@ -13,6 +12,14 @@ const ICON_SIZE_PX = 18;
 export interface ChartHeaderProps extends ChartDockProps {
     /** The drawer trigger, which the page owns because it owns the drawer. */
     readonly settings: ReactNode;
+    /**
+     * Whether the bar can lay the span presets out rather than fold them.
+     *
+     * Handed down rather than read here: the page is where the room is measured
+     * for every layout that answers to it, and a component that asks the window
+     * about itself is one that cannot be drawn twice at two widths.
+     */
+    readonly hasRoomForPresets: boolean;
 }
 
 /**
@@ -30,10 +37,6 @@ export interface ChartHeaderProps extends ChartDockProps {
 export function ChartHeader(props: ChartHeaderProps): ReactElement {
     const translate = useTranslate();
     const { time } = props;
-    // The presets are eight targets in a row; below this there is no room for
-    // them beside everything else, and a bar that wraps to two lines has stopped
-    // being a bar. Folded, they cost a press and take the width of one control.
-    const hasRoomForPresets = useIsViewportAtLeast('xl');
 
     return (
         <header className="flex shrink-0 items-center gap-2 border-b border-hairline px-3 py-2">
@@ -56,7 +59,7 @@ export function ChartHeader(props: ChartHeaderProps): ReactElement {
             />
 
             <SpanControl
-                isCollapsed={!hasRoomForPresets}
+                isCollapsed={!props.hasRoomForPresets}
                 activeSpanMs={time.visibleSpanMs}
                 recordedSpanMs={time.recordedSpanMs}
                 onSelect={time.onSpanSelect}
