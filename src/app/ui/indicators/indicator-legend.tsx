@@ -1,15 +1,14 @@
-import { ChevronDown, Combine, Eye, EyeOff, Layers, Settings2, Split, X } from 'lucide-react';
+import { ChevronDown, Layers } from 'lucide-react';
 import { memo, type ReactElement } from 'react';
 import type { DrawPlan, PlotTone } from '../../../shared/core/draw-plan.ts';
 import { readChoice, readSetting, readValueAt } from '../../../shared/core/draw-plan.ts';
 import type { Tunable } from '../../../shared/core/draw-plan.ts';
 import { formatFixed } from '../../core/formatting.ts';
-import { IconButton } from '../icon-button.tsx';
 import { useCursorInstant } from '../../react/use-cursor-instant.ts';
 import { useKernel } from '../../react/kernel-context.ts';
 import { findChartLayer } from '../../indicators/indicator-catalogue.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
-import { findLayerContribution, isLayerTunable } from '../../indicators/layer-contributions.ts';
+import { findLayerContribution } from '../../indicators/layer-contributions.ts';
 import { groupPanedPlans, needsOwnBand } from '../../painting/pane-projector.ts';
 import type { ChartLayout } from '../../painting/render-types.ts';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
@@ -39,12 +38,15 @@ interface IndicatorLegendProps {
 }
 
 /**
- * Names each indicator at the top of the band it is drawn in.
+ * Names each indicator at the top of the band it is drawn in, and says what it
+ * reads there.
  *
  * Beside what it describes rather than behind a settings screen: the reader
- * comparing a reading against the price is looking at the price, and a control
- * they have to leave the chart to reach is one they retune less often than they
- * would like to.
+ * comparing a reading against the price is looking at the price.
+ *
+ * What it *says* only. The four things a reader does to a layer were repeated
+ * along every row, at a size of their own, over the very data they were about;
+ * they are one panel away now, all the same size, in the dock.
  */
 export function IndicatorLegend({ controls, layout, onOpenSettings }: IndicatorLegendProps): ReactElement {
     const plans = useChartSlice(readPlans);
@@ -211,7 +213,7 @@ interface LegendRowProps {
     readonly banding?: RowBanding;
 }
 
-function LegendRowContent({ added, plan, controls, onOpenSettings, banding }: LegendRowProps): ReactElement | null {
+function LegendRowContent({ added, plan }: LegendRowProps): ReactElement | null {
     const translate = useTranslate();
     const layer = findChartLayer(added.indicatorId);
     if (layer === null) {
@@ -223,7 +225,6 @@ function LegendRowContent({ added, plan, controls, onOpenSettings, banding }: Le
     const isTinted = findFieldLayer(added.indicatorId) === null;
     const contribution = findLayerContribution(added.indicatorId);
     const Readout = contribution?.Readout;
-    const isTunable = isLayerTunable(layer);
 
     const isHidden = added.isHidden === true;
     const hasSettled = plan === null || plan.hasConverged;
@@ -250,58 +251,6 @@ function LegendRowContent({ added, plan, controls, onOpenSettings, banding }: Le
             {plan !== null && <CursorValues plan={plan} />}
             {Readout !== undefined && !isHidden && <Readout />}
 
-            {/*
-                Half-lit at rest rather than hidden. A control that only exists
-                on hover is one a first-time reader never learns is there, and
-                one a finger cannot reach at all.
-            */}
-            <span className="flex items-center gap-0.5 opacity-40 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-                <IconButton
-                    isCompact
-                    label={translate(isHidden ? 'indicators.show' : 'indicators.hide')}
-                    onClick={() => { controls.setVisibility(added.instanceId, !isHidden); }}
-                >
-                    {isHidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                </IconButton>
-
-                {banding?.isSharing === true && (
-                    <IconButton
-                        isCompact
-                        label={translate('indicators.splitBand')}
-                        onClick={() => { controls.setBand(added.instanceId, null); }}
-                    >
-                        <Split className="size-3.5" />
-                    </IconButton>
-                )}
-                {banding?.joinable !== null && banding?.joinable !== undefined && (
-                    <IconButton
-                        isCompact
-                        label={translate('indicators.mergeBand')}
-                        onClick={() => { controls.setBand(added.instanceId, banding.joinable); }}
-                    >
-                        <Combine className="size-3.5" />
-                    </IconButton>
-                )}
-
-                {isTunable && (
-                    <IconButton
-                        isCompact
-                        label={translate('indicators.tune')}
-                        onClick={() => { onOpenSettings(added.instanceId); }}
-                    >
-                        <Settings2 className="size-3.5" />
-                    </IconButton>
-                )}
-
-                <IconButton
-                    isCompact
-                    tone="destructive"
-                    label={translate('indicators.remove')}
-                    onClick={() => { controls.remove(added.instanceId); }}
-                >
-                    <X className="size-3.5" />
-                </IconButton>
-            </span>
         </li>
     );
 }

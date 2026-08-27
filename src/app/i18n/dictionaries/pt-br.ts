@@ -96,6 +96,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
 
     'indicators.title': 'Indicadores',
     'indicators.open': 'Indicadores',
+    'indicators.onTheChart': 'No gráfico',
     'indicators.search': 'Buscar',
     'indicators.noMatch': 'Nada com esse nome',
     'indicators.none': 'Nenhum ainda',

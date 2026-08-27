@@ -1,12 +1,11 @@
 import { PanelSection } from './panel-section.tsx';
-import { SlidersHorizontal, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { Dialog } from 'radix-ui';
 import { memo, type ReactElement } from 'react';
 import { AboutPanel } from './about-panel.tsx';
 import type { IndicatorControls } from '../react/use-indicators.ts';
 import { LayerAccordion } from './indicators/layer-accordion.tsx';
 import { AppearanceControls } from './appearance-controls.tsx';
-import { DOCK_BUTTON_CLASSES, DOCK_RESTING_CLASSES } from './dock-popover.tsx';
 import { useAppearance, useTranslate } from '../react/use-appearance.ts';
 import { useChartState } from '../react/use-chart-state.ts';
 import { useKernel } from '../react/kernel-context.ts';
@@ -41,9 +40,9 @@ function SettingsDrawerShell({
                     type="button"
                     aria-label={translate('settings.open')}
                     title={translate('settings.open')}
-                    className={`${DOCK_BUTTON_CLASSES} ${DOCK_RESTING_CLASSES}`}
+                    className="pointer-events-auto grid size-9 shrink-0 place-items-center rounded-lg border border-hairline bg-abyss-800/95 text-ink-400 shadow-lg backdrop-blur transition-colors hover:border-hairline-bright hover:text-ink-100"
                 >
-                    <SlidersHorizontal className="size-[18px]" />
+                    <Menu className="size-[18px]" />
                 </button>
             </Dialog.Trigger>
 

@@ -94,6 +94,7 @@ export const EN_DICTIONARY = {
 
     'indicators.title': 'Indicators',
     'indicators.open': 'Indicators',
+    'indicators.onTheChart': 'On the chart',
     'indicators.search': 'Search',
     'indicators.noMatch': 'Nothing by that name',
     'indicators.none': 'None yet',

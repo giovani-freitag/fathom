@@ -25,6 +25,11 @@ interface DockPopoverProps {
     readonly children: ReactNode;
     /** Highlighted while it holds something other than its default. */
     readonly isActive?: boolean;
+    /** Set to open it from somewhere else, such as a keyboard chord. */
+    readonly isOpen?: boolean;
+    readonly onOpenChange?: (isOpen: boolean) => void;
+    /** Shown on hover, where a chord that opens it can be named. */
+    readonly title?: string;
 }
 
 /**
@@ -39,14 +44,20 @@ export function DockPopover({
     trigger,
     children,
     isActive = false,
+    isOpen,
+    onOpenChange,
+    title,
 }: DockPopoverProps): ReactElement {
     return (
-        <Popover.Root>
+        <Popover.Root
+            {...isOpen === undefined ? {} : { open: isOpen }}
+            {...onOpenChange === undefined ? {} : { onOpenChange }}
+        >
             <Popover.Trigger asChild>
                 <button
                     type="button"
                     aria-label={label}
-                    title={label}
+                    title={title ?? label}
                     className={`${DOCK_BUTTON_CLASSES} ${isActive ? DOCK_ACTIVE_CLASSES : DOCK_RESTING_CLASSES}`}
                 >
                     {trigger}

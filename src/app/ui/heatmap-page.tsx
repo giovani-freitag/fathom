@@ -128,9 +128,18 @@ export function HeatmapPage(): ReactElement {
                     either drawn on the chart or answered by a control. */}
                 <ChartAlert />
 
-                {/* Whatever the layers on the chart put over it. The page
-                    mounts them without knowing which layer any of them is. */}
-                <div className="pointer-events-none absolute left-3 top-3">
+                {/* The way into everything a reader can change, and whatever
+                    the layers on the chart put over it. The page mounts those
+                    without knowing which layer any of them is. */}
+                <div className="pointer-events-none absolute left-3 top-3 flex items-start gap-2">
+                    <SettingsDrawer
+                        controls={indicators}
+                        isOpen={isDrawerOpen}
+                        onOpenChange={setIsDrawerOpen}
+                        expandedLayer={expandedLayer}
+                        onExpandedLayerChange={setExpandedLayer}
+                    />
+
                     {listDrawnOverlays(addedIndicators).map(({ instanceId, Overlay }) => (
                         <Overlay key={instanceId} />
                     ))}
@@ -178,15 +187,7 @@ export function HeatmapPage(): ReactElement {
                             onIntervalSelect: handleIntervalSelect,
                             ...columnSummary === null ? {} : { columnSummary },
                         }}
-                        settings={(
-                            <SettingsDrawer
-                                controls={indicators}
-                                isOpen={isDrawerOpen}
-                                onOpenChange={setIsDrawerOpen}
-                                expandedLayer={expandedLayer}
-                                onExpandedLayerChange={setExpandedLayer}
-                            />
-                        )}
+                        onOpenLayerSettings={handleOpenSettings}
                     />
                 </div>
 

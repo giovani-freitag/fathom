@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { ChartDock, type ChartDockProps } from '../../../../src/app/ui/chart-dock.tsx';
 import { DrawingActions } from '../../../../src/app/ui/drawing-actions.tsx';
 import type { DrawingControls } from '../../../../src/app/react/use-drawings.ts';
@@ -53,8 +53,8 @@ function renderDock(overrides: Partial<DrawingControls> = {}): Pressed {
     const props: ChartDockProps = {
         drawings: controls,
         indicators: {
-            addedIndicators: [],
-            addedCounts: {},
+            added: [],
+            addedCounts: new Map<string, number>(),
             isFull: false,
             add: () => undefined,
             remove: () => undefined,
@@ -64,7 +64,7 @@ function renderDock(overrides: Partial<DrawingControls> = {}): Pressed {
             dismissRemoval: () => undefined,
             removed: null,
         } as unknown as IndicatorControls,
-        settings: <button type="button" aria-label="Settings" />,
+        onOpenLayerSettings: () => undefined,
         instruments: [INSTRUMENT],
         instrumentSymbol: 'BTCUSDT',
         onInstrumentSelect: () => undefined,
@@ -113,10 +113,10 @@ describe('ChartDock', () => {
         expect(control('instrument.label').textContent).toContain('BTC');
     });
 
-    it('carries the drawer that used to sit in a header', () => {
+    it('carries a way into what is already on the chart', () => {
         renderDock();
 
-        expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy();
+        expect(control('indicators.onTheChart')).toBeTruthy();
     });
 
     it('says how much time is on screen without being opened', () => {
@@ -244,5 +244,24 @@ describe('DrawingActions', () => {
         renderDock({ selectedId: 'level', selectedTone: 'cyan' });
 
         expect(screen.getByRole('button', { name: 'cyan' }).getAttribute('aria-pressed')).toBe('true');
+    });
+
+});
+
+describe('ChartDock opening the catalogue', () => {
+    it('answers the chord a reader expects a palette to answer', () => {
+        // The catalogue moved into the dock and the chord stayed behind with the
+        // control it used to hang off, which nothing mounts any more.
+        renderDock();
+
+        fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+
+        expect(screen.getByRole('searchbox')).toBeTruthy();
+    });
+
+    it('names the chord where a reader would look for it', () => {
+        renderDock();
+
+        expect(control('indicators.open').getAttribute('title')).toMatch(/Indicators · (⌘K|Ctrl K)/);
     });
 });

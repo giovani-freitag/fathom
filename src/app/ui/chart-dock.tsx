@@ -1,5 +1,5 @@
-import { ChartSpline, Coins, Minus, MousePointer2, Square, TrendingUp } from 'lucide-react';
-import type { ComponentType, ReactElement, ReactNode } from 'react';
+import { ChartSpline, Coins, Layers, Minus, MousePointer2, Square, TrendingUp } from 'lucide-react';
+import { type ComponentType, type ReactElement, useCallback, useEffect, useState } from 'react';
 import type { BarIntervalMs } from '../core/bar-interval.ts';
 import {
     DOCK_ACTIVE_CLASSES,
@@ -13,6 +13,7 @@ import type { DrawingControls } from '../react/use-drawings.ts';
 import { formatDuration } from '../core/formatting.ts';
 import type { IndicatorControls } from '../react/use-indicators.ts';
 import { IndicatorPalette } from './indicators/indicator-palette.tsx';
+import { LayerList } from './indicators/layer-list.tsx';
 import { InstrumentPicker } from './instrument-picker.tsx';
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
 import { IntervalPicker } from './interval-picker.tsx';
@@ -45,8 +46,8 @@ export interface ChartDockProps {
     readonly instrumentSymbol: string | null;
     readonly onInstrumentSelect: (instrumentSymbol: string) => void;
     readonly time: TimeControls;
-    /** The drawer trigger, which the page owns because it owns the drawer. */
-    readonly settings: ReactNode;
+    /** Opens the drawer onto one layer, which the page owns because it owns it. */
+    readonly onOpenLayerSettings: (instanceId: string) => void;
 }
 
 /** Everything the two time questions need, asked in one place. */
@@ -72,6 +73,10 @@ export interface TimeControls {
 export function ChartDock(props: ChartDockProps): ReactElement {
     const translate = useTranslate();
     const { drawings } = props;
+    const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+    const openPalette = useCallback(() => { setIsPaletteOpen(true); }, []);
+
+    useOpenShortcut(openPalette);
 
     return (
         <div
@@ -110,7 +115,13 @@ export function ChartDock(props: ChartDockProps): ReactElement {
                 <TimePanel time={props.time} />
             </DockPopover>
 
-            <DockPopover label={translate('indicators.open')} trigger={<ChartSpline size={ICON_SIZE_PX} />}>
+            <DockPopover
+                label={translate('indicators.open')}
+                title={translate('indicators.openWith', { shortcut: readShortcutLabel() })}
+                isOpen={isPaletteOpen}
+                onOpenChange={setIsPaletteOpen}
+                trigger={<ChartSpline size={ICON_SIZE_PX} />}
+            >
                 <IndicatorPalette
                     onAdd={props.indicators.add}
                     isFull={props.indicators.isFull}
@@ -119,7 +130,14 @@ export function ChartDock(props: ChartDockProps): ReactElement {
                 />
             </DockPopover>
 
-            {props.settings}
+            <DockPopover
+                label={translate('indicators.onTheChart')}
+                trigger={<Layers size={ICON_SIZE_PX} />}
+            >
+                <div className="w-64">
+                    <LayerList controls={props.indicators} onOpenSettings={props.onOpenLayerSettings} />
+                </div>
+            </DockPopover>
 
             <Divider />
 
@@ -231,4 +249,28 @@ function shortenSymbol(instrumentSymbol: string | null): string {
     }
     const quote = QUOTE_SUFFIXES.find((suffix) => instrumentSymbol.endsWith(suffix));
     return quote === undefined ? instrumentSymbol : instrumentSymbol.slice(0, -quote.length);
+}
+
+/**
+ * The chord this platform's readers reach for to open a palette.
+ */
+function readShortcutLabel(): string {
+    const isApple = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent);
+    return isApple ? '⌘K' : 'Ctrl K';
+}
+
+/**
+ * Opens the catalogue on the chord a reader expects a palette to answer.
+ */
+function useOpenShortcut(onOpen: () => void): void {
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent): void => {
+            if (event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                onOpen();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => { window.removeEventListener('keydown', handleKeyDown); };
+    }, [onOpen]);
 }

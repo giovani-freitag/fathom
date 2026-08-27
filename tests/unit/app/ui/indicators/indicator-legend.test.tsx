@@ -18,9 +18,6 @@ const SMA_FAST: AddedIndicator = {
 const SMA_SLOW: AddedIndicator = {
     instanceId: 'sma-2', indicatorId: 'sma', settings: { periodBars: 200 }, tone: 'amber',
 };
-const CANDLES: AddedIndicator = {
-    instanceId: 'candles-1', indicatorId: 'candles', settings: {}, tone: 'ink',
-};
 const RSI: AddedIndicator = {
     instanceId: 'rsi-1', indicatorId: 'rsi', settings: { periodBars: 14 }, tone: 'violet',
 };
@@ -87,18 +84,6 @@ describe('IndicatorLegend', () => {
         expect(screen.getByText(/^\d{1,3}\.\d{2}$/).textContent).toBe(atNewestBar);
     });
 
-    it('keeps a hidden indicator listed, with the control that brings it back', () => {
-        // Hiding is not removing: the parameters survive, and the way back has
-        // to be on the row rather than in the catalogue.
-        const hidden = { ...RSI, isHidden: true };
-        const kernel = renderLegend([SMA_FAST, hidden]);
-
-        expect(screen.getByRole('button', { name: 'Show' })).toBeDefined();
-
-        fireEvent.click(screen.getByRole('button', { name: 'Show' }));
-        expect(kernel.readAdded()[1]?.isHidden).toBe(false);
-    });
-
     it('gives a hidden indicator no band, so it stops taking room from the price', () => {
         renderLegend([{ ...RSI, isHidden: true }]);
 
@@ -110,28 +95,6 @@ describe('IndicatorLegend', () => {
         expect(tops.size).toBe(1);
     });
 
-    it('drops the indicator the reader dismissed and leaves its neighbour', () => {
-        const kernel = renderLegend([SMA_FAST, RSI]);
-
-        fireEvent.click(screen.getAllByRole('button', { name: 'Remove' })[0]!);
-
-        expect(kernel.readAdded().map((entry) => entry.instanceId)).toEqual(['rsi-1']);
-    });
-
-    it('sends tuning somewhere with room for it, naming the copy that asked', () => {
-        renderLegend([SMA_FAST, SMA_SLOW]);
-
-        fireEvent.click(screen.getAllByRole('button', { name: 'Settings' })[1]!);
-
-        expect(onOpenSettings).toHaveBeenCalledWith('sma-2');
-    });
-
-    it('offers a way into the knobs a host layer declares', () => {
-        renderLegend([CANDLES]);
-
-        expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined();
-        expect(screen.getByRole('button', { name: 'Remove' })).toBeDefined();
-    });
 });
 
 describe('IndicatorLegend folded away', () => {

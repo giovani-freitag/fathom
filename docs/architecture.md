@@ -589,8 +589,15 @@ long as the page is open — and most of what is down there is opened once and
 closed again.
 
 Which is what makes it hold so much. Each question the chart is about — which
-contract, how much time is on screen, what is drawn over it, and everything in
-the settings drawer — is one target that opens a panel above itself.
+contract, how much time is on screen, what may be added to it, and what is on it
+already — is one target that opens a panel above itself. The way into everything
+else is a single control floating at the top corner.
+
+The rows over the chart carry no controls at all. The same four actions —
+hide, split, tune, remove — used to be repeated along every one of them, at a
+size of their own, over the very data they were about. A row says what its layer
+*reads*; the panel is where a reader acts on it, and every control in it is the
+same size as every other.
 
 There is no header at all. What one used to report, the chart already answers:
 gaps are drawn on the chart, so counting them again is a second telling; live or
