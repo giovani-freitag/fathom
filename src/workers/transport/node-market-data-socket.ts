@@ -1,6 +1,6 @@
 import type { MarketDataSocket } from '../core/market-data-socket.ts';
 import WebSocket from 'ws';
-import { delay } from '../core/delay.ts';
+import { delay } from '../../shared/core/timers.ts';
 
 /** How long a polite close is given before the socket is torn down. */
 const CLOSE_GRACE_MS = 2_000;

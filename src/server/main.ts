@@ -12,6 +12,7 @@ import { LiveTailService } from './services/live-tail-service.ts';
 
 const DATABASE_POOL_SIZE = 8;
 const DATABASE_STATEMENT_TIMEOUT_MS = 30_000;
+const DATABASE_CHANNEL_RETRY_DELAY_MS = 5_000;
 
 const configuration = readGatewayConfiguration();
 
@@ -19,6 +20,7 @@ const postgres = new PostgresService({
     connectionString: configuration.databaseUrl,
     maximumPoolSize: DATABASE_POOL_SIZE,
     statementTimeoutMs: DATABASE_STATEMENT_TIMEOUT_MS,
+    channelRetryDelayMs: DATABASE_CHANNEL_RETRY_DELAY_MS,
 });
 const query = new LiquidityQueryService({ postgres });
 const control = new RecordingControlService({ postgres });

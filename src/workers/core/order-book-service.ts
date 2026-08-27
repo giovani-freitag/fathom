@@ -1,5 +1,4 @@
-import { releaseTimerFromEventLoop, type TimerHandle } from './collector-timers.ts';
-import { delay } from './delay.ts';
+import { delay, releaseTimerFromEventLoop, type TimerHandle } from '../../shared/core/timers.ts';
 import type { DepthDiff, DepthSnapshot, OrderBookReading } from './depth-types.ts';
 import { OrderBookState } from './order-book-state.ts';
 

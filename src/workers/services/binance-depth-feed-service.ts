@@ -1,4 +1,4 @@
-import { releaseTimerFromEventLoop, type TimerHandle } from '../core/collector-timers.ts';
+import { releaseTimerFromEventLoop, type TimerHandle } from '../../shared/core/timers.ts';
 import { describeError } from '../core/collector-log.ts';
 import type { DepthDiff, DepthSnapshot, ExecutedTrade } from '../core/depth-types.ts';
 import type { MarketDataSocket, MarketDataSocketFactory } from '../core/market-data-socket.ts';

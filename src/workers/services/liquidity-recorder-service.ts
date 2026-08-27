@@ -1,4 +1,4 @@
-import { releaseTimerFromEventLoop, type TimerHandle } from '../core/collector-timers.ts';
+import { releaseTimerFromEventLoop, type TimerHandle } from '../../shared/core/timers.ts';
 import { type LiquidityFrame } from '../../shared/core/liquidity-frame.ts';
 import { floorToInterval } from '../../shared/core/price-bucket.ts';
 import type { LiquidityArchive } from '../../database/services/liquidity-archive.ts';

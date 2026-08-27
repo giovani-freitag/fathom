@@ -13,6 +13,7 @@ import { WRITE_SETTINGS } from './core/collector-configuration.ts';
 /** One writer per recorded contract, plus headroom for a retry and the control reads. */
 const DATABASE_POOL_SIZE = 8;
 const DATABASE_STATEMENT_TIMEOUT_MS = 30_000;
+const DATABASE_CHANNEL_RETRY_DELAY_MS = 5_000;
 
 /** How often the enabled set and the disk budget are re-read. */
 const RECONCILE_INTERVAL_MS = 15_000;
@@ -32,6 +33,7 @@ const postgres = new PostgresService({
     connectionString: readDatabaseUrl(),
     maximumPoolSize: DATABASE_POOL_SIZE,
     statementTimeoutMs: DATABASE_STATEMENT_TIMEOUT_MS,
+    channelRetryDelayMs: DATABASE_CHANNEL_RETRY_DELAY_MS,
 });
 const control = new RecordingControlService({ postgres });
 

@@ -5,7 +5,7 @@ import { describeError } from './core/collector-log.ts';
 import type { RecordedContract, RecordingControl } from '../shared/core/recording-control.ts';
 import type { LiquidityArchive } from '../database/services/liquidity-archive.ts';
 import type { MarketDataSocketFactory } from './core/market-data-socket.ts';
-import { releaseTimerFromEventLoop, type TimerHandle } from './core/collector-timers.ts';
+import { releaseTimerFromEventLoop, type TimerHandle } from '../shared/core/timers.ts';
 
 export interface CollectorSupervisorConfig {
     readonly control: RecordingControl;

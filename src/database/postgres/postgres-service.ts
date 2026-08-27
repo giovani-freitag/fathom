@@ -1,3 +1,4 @@
+import { delay } from '../../shared/core/timers.ts';
 import { parseQuantityLiteral } from './postgres-row-mapping.ts';
 import pg from 'pg';
 
@@ -15,6 +16,8 @@ export interface PostgresServiceConfig {
     readonly connectionString: string;
     readonly maximumPoolSize: number;
     readonly statementTimeoutMs: number;
+    /** How long to wait before following a dropped channel again. */
+    readonly channelRetryDelayMs: number;
 }
 
 /** Raised when the database rejects or cannot serve a statement. */
@@ -87,7 +90,7 @@ export class PostgresService {
             return;
         }
         for (const listener of this.listeners.values()) {
-            listener.client.release(true);
+            this.discardClient(listener.client);
         }
         this.listeners.clear();
 
@@ -160,15 +163,29 @@ export class PostgresService {
         // connection that issued it, and a client handed back to the pool stops
         // hearing anything without saying so.
         const client = await pool.connect();
-        this.listeners.set(channel, { client, onNotification });
 
         client.on('notification', (notification) => {
             if (notification.channel === channel) {
                 onNotification(notification.payload ?? '');
             }
         });
+
+        try {
+            await client.query(`LISTEN ${pg.escapeIdentifier(channel)}`);
+        } catch (error) {
+            this.discardClient(client);
+            throw new PostgresQueryError(describeFailure(`LISTEN ${channel}`, error), { cause: error });
+        }
+
         client.on('error', () => { void this.relisten(channel); });
-        await client.query(`LISTEN ${pg.escapeIdentifier(channel)}`);
+
+        // A channel followed twice would otherwise leave the first connection
+        // checked out for good, and the pool has only so many to hand out.
+        const replaced = this.listeners.get(channel);
+        if (replaced !== undefined) {
+            this.discardClient(replaced.client);
+        }
+        this.listeners.set(channel, { client, onNotification });
     }
 
     /**
@@ -177,17 +194,43 @@ export class PostgresService {
     private async relisten(channel: string): Promise<void> {
         const listener = this.listeners.get(channel);
         this.listeners.delete(channel);
-        if (listener === undefined || this.wasClosed) {
+        if (listener === undefined || this.hasBeenClosed()) {
             return;
         }
-        listener.client.release(true);
+        this.discardClient(listener.client);
 
-        try {
-            await this.listen(channel, listener.onNotification);
-        } catch {
-            // The pool is down, which the next write will report anyway. The
-            // readers fall back to their own interval until it answers again.
+        // Nothing else ever follows a channel again, so giving up after one
+        // attempt means the process hears nothing more on it for as long as it
+        // runs, and every reader silently falls back to its own interval.
+        while (!this.hasBeenClosed()) {
+            try {
+                await this.listen(channel, listener.onNotification);
+                return;
+            } catch {
+                await delay(this.config.channelRetryDelayMs);
+            }
         }
+    }
+
+    /**
+     * Whether the service was closed, read fresh rather than assumed across an await.
+     *
+     * @returns True once `close` has been called.
+     */
+    private hasBeenClosed(): boolean {
+        return this.wasClosed;
+    }
+
+    /**
+     * Hands a connection back destroyed, deaf to whatever it says on the way out.
+     *
+     * @param client - The connection to let go of.
+     */
+    private discardClient(client: pg.PoolClient): void {
+        // Its own error event would otherwise arrive during the release and be
+        // read as a channel to follow again.
+        client.removeAllListeners();
+        client.release(true);
     }
 
     private requireConnectionPool(): pg.Pool {
