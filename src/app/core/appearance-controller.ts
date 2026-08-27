@@ -9,6 +9,8 @@ export interface AppearanceState {
     readonly locale: Locale;
     readonly themeChoice: ThemeChoice;
     readonly resolvedTheme: ResolvedTheme;
+    /** Whether the rows over the price are folded behind their own control. */
+    readonly isLegendCollapsed: boolean;
 }
 
 /** The browser handles the appearance is expressed through. */
@@ -45,6 +47,7 @@ export class AppearanceController {
                 locale,
                 themeChoice: stored.themeChoice,
                 resolvedTheme: resolveTheme(stored.themeChoice, config.host?.darkQuery.matches ?? true),
+                isLegendCollapsed: stored.isLegendCollapsed,
             },
         });
     }
@@ -94,6 +97,16 @@ export class AppearanceController {
         this.store.update((state) => ({ ...state, themeChoice, resolvedTheme }));
         this.paintTheme(resolvedTheme);
         this.config.preferences.write({ themeChoice });
+    }
+
+    /**
+     * Folds the rows over the price away, or brings them back.
+     *
+     * @param isLegendCollapsed - Whether to fold them.
+     */
+    setLegendCollapsed(isLegendCollapsed: boolean): void {
+        this.store.update((state) => ({ ...state, isLegendCollapsed }));
+        this.config.preferences.write({ isLegendCollapsed });
     }
 
     private paintTheme(theme: ResolvedTheme): void {

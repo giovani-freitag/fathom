@@ -1,4 +1,4 @@
-import { Combine, Eye, EyeOff, Settings2, Split, X } from 'lucide-react';
+import { ChevronDown, Combine, Eye, EyeOff, Layers, Settings2, Split, X } from 'lucide-react';
 import { memo, type ReactElement } from 'react';
 import type { DrawPlan, PlotTone } from '../../../shared/core/draw-plan.ts';
 import { readChoice, readSetting, readValueAt } from '../../../shared/core/draw-plan.ts';
@@ -6,6 +6,7 @@ import type { Tunable } from '../../../shared/core/draw-plan.ts';
 import { formatFixed } from '../../core/formatting.ts';
 import { IconButton } from '../icon-button.tsx';
 import { useCursorInstant } from '../../react/use-cursor-instant.ts';
+import { useKernel } from '../../react/kernel-context.ts';
 import { findChartLayer } from '../../indicators/indicator-catalogue.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
 import { findLayerContribution, isLayerTunable } from '../../indicators/layer-contributions.ts';
@@ -18,13 +19,16 @@ import type { ChartState } from '../../core/chart-controller.ts';
 /** Declared once so the subscription is the same one on every render. */
 const readPlans = (state: ChartState): readonly DrawPlan[] => state.plans;
 import { useChartSlice } from '../../react/use-chart-state.ts';
-import { useTranslate } from '../../react/use-appearance.ts';
+import { useAppearance, useTranslate } from '../../react/use-appearance.ts';
 import { translateLabel } from '../../i18n/translator.ts';
 import type { Translate } from '../../i18n/translator.ts';
 import { ToneSwatch } from './tone-swatch.tsx';
 
 /** Clear space under the depth key, where the price pane's own rows start. */
 const PRICE_ROWS_TOP_PX = 44;
+
+/** Room the fold control takes above the rows it folds. */
+const FOLD_HEIGHT_PX = 26;
 const ROWS_LEFT_PX = 12;
 const PANE_ROW_TOP_PX = 3;
 
@@ -44,6 +48,7 @@ interface IndicatorLegendProps {
  */
 export function IndicatorLegend({ controls, layout, onOpenSettings }: IndicatorLegendProps): ReactElement {
     const plans = useChartSlice(readPlans);
+    const { isLegendCollapsed: isCollapsed } = useAppearance();
     const planFor = new Map(plans.map((plan) => [plan.instanceId, plan]));
     const bands = groupPanedPlans(plans);
 
@@ -57,9 +62,17 @@ export function IndicatorLegend({ controls, layout, onOpenSettings }: IndicatorL
 
     return (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-            <ul
+            <div
                 className="absolute flex flex-col items-start gap-1"
                 style={{ left: ROWS_LEFT_PX, top: PRICE_ROWS_TOP_PX }}
+            >
+                <LegendFold count={overPrice.length} />
+            </div>
+
+            <ul
+                className="absolute flex flex-col items-start gap-1"
+                style={{ left: ROWS_LEFT_PX, top: PRICE_ROWS_TOP_PX + FOLD_HEIGHT_PX }}
+                hidden={isCollapsed}
             >
                 {overPrice.map((added) => (
                     <LegendRow
@@ -347,3 +360,32 @@ function describeChosenSource(
  * name, tuning and controls are unchanged has nothing to redraw.
  */
 const LegendRow = memo(LegendRowContent);
+
+/**
+ * Folds the rows over the price away, and says how many are folded.
+ *
+ * A run of rows whose widths follow whatever each one has to say is a ragged
+ * edge over the chart, and the chart is the thing being read. Folded, what is on
+ * it is still countable without being in the way.
+ */
+function LegendFold({ count }: { readonly count: number }): ReactElement {
+    const kernel = useKernel();
+    const translate = useTranslate();
+    const { isLegendCollapsed } = useAppearance();
+
+    return (
+        <button
+            type="button"
+            aria-expanded={!isLegendCollapsed}
+            aria-label={translate(isLegendCollapsed ? 'legend.expand' : 'legend.collapse')}
+            onClick={() => { kernel.appearance.setLegendCollapsed(!isLegendCollapsed); }}
+            className="pointer-events-auto flex items-center gap-1.5 rounded border border-transparent bg-abyss-900/70 px-2 py-1 text-ink-500 backdrop-blur-sm transition-colors hover:border-hairline hover:text-ink-100"
+        >
+            <Layers className="size-3.5" />
+            <span className="numeric text-[11px]">{count}</span>
+            <ChevronDown
+                className={`size-3 transition-transform ${isLegendCollapsed ? '' : 'rotate-180'}`}
+            />
+        </button>
+    );
+}

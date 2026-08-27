@@ -33,6 +33,8 @@ export interface ViewerPreferences {
     /** Null until the reader picks one, which is how the host's own choice wins. */
     readonly locale: Locale | null;
     readonly themeChoice: ThemeChoice;
+    /** Whether the rows over the price are folded behind their own control. */
+    readonly isLegendCollapsed: boolean;
 }
 
 export const DEFAULT_PREFERENCES: ViewerPreferences = {
@@ -43,6 +45,7 @@ export const DEFAULT_PREFERENCES: ViewerPreferences = {
     barIntervalMs: null,
     locale: null,
     themeChoice: 'system',
+    isLegendCollapsed: false,
 };
 
 export interface PreferencesServiceConfig {
@@ -87,6 +90,7 @@ export class PreferencesService {
             // interface down on the first phrase it tries to render.
             locale: merged.locale === null ? null : resolveLocale([String(merged.locale)]),
             themeChoice: THEME_CHOICES.find((choice) => choice === merged.themeChoice) ?? 'system',
+            isLegendCollapsed: merged.isLegendCollapsed === true,
             // A rung the build no longer offers reads as no choice at all,
             // which is the state a chart works in anyway.
             barIntervalMs: BAR_INTERVALS_MS.find((rung) => rung === merged.barIntervalMs) ?? null,

@@ -12,7 +12,19 @@ import { recolourPlan } from '../../src/shared/core/draw-plan.ts';
 import type { ServiceContainer } from '../../src/app/core/service-container.ts';
 import { buildRun, buildWindow } from './price-bars.ts';
 
-const APPEARANCE = { locale: 'en', themeChoice: 'system', resolvedTheme: 'dark' } as const;
+interface Appearance {
+    readonly locale: string;
+    readonly themeChoice: string;
+    readonly resolvedTheme: string;
+    readonly isLegendCollapsed: boolean;
+}
+
+const APPEARANCE: Appearance = {
+    locale: 'en',
+    themeChoice: 'system',
+    resolvedTheme: 'dark',
+    isLegendCollapsed: false,
+};
 
 /** Enough bars that every shipped indicator has something to say. */
 const BARS = buildWindow(buildRun(300, (index) => 100 + Math.sin(index / 8) * 12));
@@ -34,6 +46,7 @@ export interface IndicatorKernel {
  */
 export function createIndicatorKernel(added: readonly AddedIndicator[] = []): IndicatorKernel {
     const cursor = createCursorStore();
+    const appearance = new ObservableStore<Appearance>({ initialState: APPEARANCE });
     const store = new ObservableStore<ChartState>({
         initialState: buildState(added),
     });
@@ -47,10 +60,15 @@ export function createIndicatorKernel(added: readonly AddedIndicator[] = []): In
             setBudget: () => Promise.resolve(),
             pruneToBudget: () => Promise.resolve(0),
         },
+        // A real store, not a frozen answer: what the interface does with a
+        // look preference is only visible if setting one changes what it reads.
         appearance: {
-            store: { read: () => APPEARANCE, subscribe: () => () => undefined },
+            store: appearance,
             selectLocale: () => undefined,
             selectTheme: () => undefined,
+            setLegendCollapsed: (isLegendCollapsed: boolean) => {
+                appearance.update((state) => ({ ...state, isLegendCollapsed }));
+            },
         },
         chart: {
             store,

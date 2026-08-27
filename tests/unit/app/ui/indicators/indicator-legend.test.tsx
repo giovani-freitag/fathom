@@ -102,9 +102,12 @@ describe('IndicatorLegend', () => {
     it('gives a hidden indicator no band, so it stops taking room from the price', () => {
         renderLegend([{ ...RSI, isHidden: true }]);
 
+        // Every row at the same height is the rule itself: nothing was given a
+        // band of its own, so nothing took height from the price.
         const rows = screen.getAllByRole('listitem');
-        const tops = rows.map((row) => row.parentElement!.style.top);
-        expect(tops.every((top) => top === `${44}px`)).toBe(true);
+        const tops = new Set(rows.map((row) => row.parentElement!.style.top));
+
+        expect(tops.size).toBe(1);
     });
 
     it('drops the indicator the reader dismissed and leaves its neighbour', () => {
@@ -128,5 +131,27 @@ describe('IndicatorLegend', () => {
 
         expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined();
         expect(screen.getByRole('button', { name: 'Remove' })).toBeDefined();
+    });
+});
+
+describe('IndicatorLegend folded away', () => {
+    it('says how many are on the chart without listing them', () => {
+        // A run of rows whose widths follow whatever each has to say is a ragged
+        // edge over the chart, and the chart is the thing being read. Counted
+        // are the ones over the price: an oscillator has a band of its own.
+        renderLegend([SMA_FAST, SMA_SLOW, RSI]);
+
+        const fold = screen.getByRole('button', { name: 'Fold the rows away' });
+
+        expect(fold.textContent).toContain('2');
+        expect(fold.getAttribute('aria-expanded')).toBe('true');
+    });
+
+    it('hides the rows once it is folded, and keeps counting them', () => {
+        const kernel = renderLegend([SMA_FAST, RSI]);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Fold the rows away' }));
+
+        expect(kernel.container.appearance.store.read().isLegendCollapsed).toBe(true);
     });
 });

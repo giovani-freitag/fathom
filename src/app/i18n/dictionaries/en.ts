@@ -116,6 +116,8 @@ export const EN_DICTIONARY = {
     'coverage.gapMany': '{count} gaps',
     'coverage.loading': 'loading…',
 
+    'legend.collapse': 'Fold the rows away',
+    'legend.expand': 'Show what is on the chart',
     'legend.book': 'book',
 
     'interval.auto': 'Auto · {interval}',

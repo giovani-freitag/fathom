@@ -118,6 +118,8 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'coverage.gapMany': '{count} lacunas',
     'coverage.loading': 'carregando…',
 
+    'legend.collapse': 'Recolher as linhas',
+    'legend.expand': 'Mostrar o que está no gráfico',
     'legend.book': 'book',
 
     'interval.auto': 'Auto · {interval}',
