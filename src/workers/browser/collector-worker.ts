@@ -66,11 +66,22 @@ async function start(): Promise<void> {
     announce('starting');
 
     try {
-        await database.open();
+        await bringUpRecording();
     } catch (error) {
+        // Anything that escapes leaves the page on 'starting' for ever, with no
+        // console the reader of a chart is going to open.
+        supervisor = null;
         announce('refused', describeError(error));
-        return;
     }
+}
+
+/**
+ * Opens the archive and starts the supervisor over it.
+ *
+ * @throws Whatever storage, the venue, or the archive refused.
+ */
+async function bringUpRecording(): Promise<void> {
+    await database.open();
 
     const store = new IndexedDbLiquidityArchive({
         database,
@@ -102,19 +113,19 @@ async function start(): Promise<void> {
         readNowMs: () => Date.now(),
     });
 
-    try {
-        await supervisor.start();
-    } catch (error) {
-        supervisor = null;
-        announce('refused', describeError(error));
-        return;
-    }
+    await supervisor.start();
     announce('recording');
 }
 
 async function stop(): Promise<void> {
     unsubscribe();
-    await supervisor?.stop();
+    try {
+        await supervisor?.stop();
+    } catch (error) {
+        // Reported and then let go of: a collector left in place because its own
+        // shutdown failed can never be started again.
+        post({ kind: 'log', level: 'warning', message: `Could not stop cleanly: ${describeError(error)}` });
+    }
     supervisor = null;
     announce('stopped');
 }
