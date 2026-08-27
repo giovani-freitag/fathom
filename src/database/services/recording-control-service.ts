@@ -148,7 +148,7 @@ export class RecordingControlService implements RecordingControl {
                 return dropped;
             }
 
-            const boundary = await this.findOldestChunkEnd();
+            const boundary = await this.findDroppableBoundary();
             if (boundary === null) {
                 return dropped;
             }
@@ -188,16 +188,22 @@ export class RecordingControlService implements RecordingControl {
     }
 
     /**
-     * Where the oldest partition ends, which is the only boundary a drop accepts.
+     * Where the oldest partition ends, when there is a newer one to keep.
+     *
+     * @returns The boundary a drop accepts, or null when nothing may be dropped.
      */
-    private async findOldestChunkEnd(): Promise<Date | null> {
+    private async findDroppableBoundary(): Promise<Date | null> {
+        // Two, so the newest is never the one taken: the newest partition is the
+        // one being written into, and dropping it takes the frames recorded a
+        // second ago with it. The pass after that drops its replacement, so the
+        // archive never keeps anything and nothing says why.
         const rows = await this.postgres.selectRows<OldestChunkRow>(
             `SELECT range_end
              FROM timescaledb_information.chunks
              WHERE hypertable_name = 'liquidity_frame'
              ORDER BY range_start ASC
-             LIMIT 1`,
+             LIMIT 2`,
         );
-        return rows[0]?.range_end ?? null;
+        return rows.length < 2 ? null : rows[0]?.range_end ?? null;
     }
 }

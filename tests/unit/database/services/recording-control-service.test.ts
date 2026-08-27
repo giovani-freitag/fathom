@@ -8,9 +8,22 @@ function buildService(mock: PostgresServiceMock): RecordingControlService {
     return new RecordingControlService({ postgres: mock.service });
 }
 
-/** Answers the budget read with a use that shrinks by one chunk per drop. */
-function stubShrinkingArchive(mock: PostgresServiceMock, usedBytes: number[], chunkEnd: Date): void {
+/** Partition boundaries, oldest first, for an archive of a given size. */
+function buildChunkEnds(count: number): Date[] {
+    return Array.from({ length: count }, (unused, index) => new Date(1_000 * (index + 1)));
+}
+
+/**
+ * An archive whose use shrinks by one reading per partition it loses.
+ *
+ * The partitions really go: a stub that keeps answering with the same one lets
+ * a prune look bounded when what it is doing is dropping the same partition
+ * over and over.
+ */
+function stubShrinkingArchive(mock: PostgresServiceMock, usedBytes: number[], chunkEnds: Date[]): void {
+    const remaining = [...chunkEnds];
     let reading = 0;
+
     mock.selectRows.mockImplementation((statement: string): Promise<unknown[]> => {
         if (statement.includes('recording_budget')) {
             const used = usedBytes[Math.min(reading, usedBytes.length - 1)] ?? 0;
@@ -18,9 +31,16 @@ function stubShrinkingArchive(mock: PostgresServiceMock, usedBytes: number[], ch
             return Promise.resolve([{ maximum_bytes: String(GIGABYTE), used_bytes: String(used) }]);
         }
         if (statement.includes('timescaledb_information.chunks')) {
-            return Promise.resolve([{ range_end: chunkEnd }]);
+            return Promise.resolve(remaining.map((range_end) => ({ range_end })));
         }
         return Promise.resolve([]);
+    });
+
+    mock.execute.mockImplementation((statement: string): Promise<number> => {
+        if (statement.includes('drop_chunks')) {
+            remaining.shift();
+        }
+        return Promise.resolve(0);
     });
 }
 
@@ -32,19 +52,19 @@ describe('RecordingControlService.pruneToBudget', () => {
     });
 
     it('drops nothing while the recording fits', async () => {
-        stubShrinkingArchive(mock, [GIGABYTE - 1], new Date());
+        stubShrinkingArchive(mock, [GIGABYTE - 1], buildChunkEnds(4));
 
         expect(await buildService(mock).pruneToBudget()).toBe(0);
     });
 
     it('drops until the recording fits again', async () => {
-        stubShrinkingArchive(mock, [GIGABYTE * 3, GIGABYTE * 2, GIGABYTE - 1], new Date());
+        stubShrinkingArchive(mock, [GIGABYTE * 3, GIGABYTE * 2, GIGABYTE - 1], buildChunkEnds(4));
 
         expect(await buildService(mock).pruneToBudget()).toBe(2);
     });
 
     it('drops whole partitions rather than deleting rows', async () => {
-        stubShrinkingArchive(mock, [GIGABYTE * 2, GIGABYTE - 1], new Date());
+        stubShrinkingArchive(mock, [GIGABYTE * 2, GIGABYTE - 1], buildChunkEnds(4));
 
         await buildService(mock).pruneToBudget();
 
@@ -57,7 +77,7 @@ describe('RecordingControlService.pruneToBudget', () => {
     });
 
     it('takes both hypertables to the same boundary, so trades never outlive frames', async () => {
-        stubShrinkingArchive(mock, [GIGABYTE * 2, GIGABYTE - 1], new Date());
+        stubShrinkingArchive(mock, [GIGABYTE * 2, GIGABYTE - 1], buildChunkEnds(4));
 
         await buildService(mock).pruneToBudget();
 
@@ -66,6 +86,21 @@ describe('RecordingControlService.pruneToBudget', () => {
             .find((candidate) => candidate.includes('drop_chunks')) ?? '';
         expect([statement.includes('liquidity_frame'), statement.includes('trade_cluster')])
             .toEqual([true, true]);
+    });
+
+    it('keeps the partition it is still recording into', async () => {
+        // Dropped, it takes the frames written a second ago with it, and the
+        // next pass drops the one that replaced it: the archive never keeps
+        // anything and nothing says why.
+        stubShrinkingArchive(mock, [GIGABYTE * 4], buildChunkEnds(1));
+
+        expect(await buildService(mock).pruneToBudget()).toBe(0);
+    });
+
+    it('drops every partition but the one being written to', async () => {
+        stubShrinkingArchive(mock, [GIGABYTE * 4], buildChunkEnds(3));
+
+        expect(await buildService(mock).pruneToBudget()).toBe(2);
     });
 
     it('stops rather than looping when there is nothing left to drop', async () => {
@@ -117,7 +152,7 @@ describe('RecordingControlService and the history it drops', () => {
     it('records the stretch it is about to delete as a gap', async () => {
         // Without this the archive cannot tell a stretch it never saw from one
         // it deleted, and the chart draws straight through both.
-        stubShrinkingArchive(mock, [GIGABYTE * 2, GIGABYTE - 1], new Date());
+        stubShrinkingArchive(mock, [GIGABYTE * 2, GIGABYTE - 1], buildChunkEnds(4));
 
         await buildService(mock).pruneToBudget();
 
@@ -126,7 +161,7 @@ describe('RecordingControlService and the history it drops', () => {
     });
 
     it('records it before the drop, while there is still something to measure', async () => {
-        stubShrinkingArchive(mock, [GIGABYTE * 2, GIGABYTE - 1], new Date());
+        stubShrinkingArchive(mock, [GIGABYTE * 2, GIGABYTE - 1], buildChunkEnds(4));
 
         await buildService(mock).pruneToBudget();
 
@@ -138,7 +173,7 @@ describe('RecordingControlService and the history it drops', () => {
     });
 
     it('widens the gap it already left rather than leaving one per partition', async () => {
-        stubShrinkingArchive(mock, [GIGABYTE * 2, GIGABYTE - 1], new Date());
+        stubShrinkingArchive(mock, [GIGABYTE * 2, GIGABYTE - 1], buildChunkEnds(4));
 
         await buildService(mock).pruneToBudget();
 
@@ -148,7 +183,7 @@ describe('RecordingControlService and the history it drops', () => {
     });
 
     it('leaves nothing behind when the recording already fits', async () => {
-        stubShrinkingArchive(mock, [GIGABYTE - 1], new Date());
+        stubShrinkingArchive(mock, [GIGABYTE - 1], buildChunkEnds(4));
 
         await buildService(mock).pruneToBudget();
 
