@@ -12,7 +12,8 @@ import type { ChartState } from '../core/chart-controller.ts';
 import { ChartSurface } from './chart-surface.tsx';
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
 import { ReturnToLive } from './return-to-live.tsx';
-import { CoverageStrip } from './coverage-strip.tsx';
+import { ChartAlert } from './chart-alert.tsx';
+import { formatDuration } from '../core/formatting.ts';
 import { listDrawnOverlays } from '../indicators/layer-contributions.ts';
 import { SettingsDrawer } from './settings-drawer.tsx';
 import type { BarIntervalMs } from '../core/bar-interval.ts';
@@ -36,6 +37,8 @@ const readBarIntervalMs = (state: ChartState): BarIntervalMs | null => state.bar
 const readBarWindowIntervalMs = (state: ChartState): number => state.dataset.bars.intervalMs;
 const readIsFollowingLive = (state: ChartState): boolean => state.isFollowingLive;
 const readVisibleSpanMs = (state: ChartState): number => state.viewport.toMs - state.viewport.fromMs;
+const readIsDepthVisible = (state: ChartState): boolean => state.isDepthVisible;
+const readSampleIntervalMs = (state: ChartState): number => state.dataset.sampleIntervalMs;
 
 /**
  * The whole product: one chart, and just enough chrome to explain it.
@@ -54,6 +57,8 @@ export function HeatmapPage(): ReactElement {
     const barWindowIntervalMs = useChartSlice(readBarWindowIntervalMs);
     const isFollowingLive = useChartSlice(readIsFollowingLive);
     const visibleSpanMs = useChartSlice(readVisibleSpanMs);
+    const isDepthVisible = useChartSlice(readIsDepthVisible);
+    const sampleIntervalMs = useChartSlice(readSampleIntervalMs);
     const translate = useTranslate();
     const indicators = useIndicators();
     const drawings = useDrawings();
@@ -101,6 +106,11 @@ export function HeatmapPage(): ReactElement {
     }, [handleSpanSelect, kernel]);
 
     const recordedSpanMs = resolveRecordedSpanMs(instruments, instrumentSymbol);
+    // How wide a drawn column of the book is. A chart with no book has no answer
+    // to that rather than an answer of nought.
+    const columnSummary = isDepthVisible
+        ? `${formatDuration(sampleIntervalMs, translate)}${translate('coverage.perColumn')}`
+        : null;
     // The grid the contract is recorded on, not the one this window happens to
     // be sampled at: sampling coarsens as the view widens, and the rungs a
     // reader may pick must not come and go with the zoom.
@@ -110,25 +120,13 @@ export function HeatmapPage(): ReactElement {
 
     return (
         <div className="flex h-dvh flex-col bg-abyss-900 pt-[env(safe-area-inset-top)]">
-            {/* What is left of the header once every control moved to the dock:
-                what the chart is doing, and the one drawer nobody opens twice a
-                session. */}
-            <header className="flex shrink-0 items-center gap-2 border-b border-hairline px-3 py-1.5">
-                <div className="min-w-0 flex-1 overflow-hidden">
-                    <CoverageStrip />
-                </div>
-
-                <SettingsDrawer
-                    controls={indicators}
-                    isOpen={isDrawerOpen}
-                    onOpenChange={setIsDrawerOpen}
-                    expandedLayer={expandedLayer}
-                    onExpandedLayerChange={setExpandedLayer}
-                />
-            </header>
-
             <main ref={surfaceRef} className="relative min-h-0 flex-1">
                 <ChartSurface />
+
+                {/* The one thing the chart has to say for itself, and only when
+                    it has one. Everything the strip up here used to report is
+                    either drawn on the chart or answered by a control. */}
+                <ChartAlert />
 
                 {/* Whatever the layers on the chart put over it. The page
                     mounts them without knowing which layer any of them is. */}
@@ -155,6 +153,14 @@ export function HeatmapPage(): ReactElement {
                     className="pointer-events-none absolute inset-x-0 flex flex-col items-center gap-2 px-2"
                     style={{ bottom: TIME_AXIS_CLEARANCE_PX }}
                 >
+                    {/* Right-aligned above the islands, which on a phone are
+                        as wide as the screen: anywhere beside them collides. */}
+                    {!isFollowingLive && (
+                        <div className="flex w-full justify-end">
+                            <ReturnToLive onReturn={handleReturnToLive} />
+                        </div>
+                    )}
+
                     <DrawingActions controls={drawings} />
                     <ChartDock
                         drawings={drawings}
@@ -170,11 +176,20 @@ export function HeatmapPage(): ReactElement {
                             effectiveIntervalMs: barWindowIntervalMs,
                             frameIntervalMs: recordedIntervalMs,
                             onIntervalSelect: handleIntervalSelect,
+                            ...columnSummary === null ? {} : { columnSummary },
                         }}
+                        settings={(
+                            <SettingsDrawer
+                                controls={indicators}
+                                isOpen={isDrawerOpen}
+                                onOpenChange={setIsDrawerOpen}
+                                expandedLayer={expandedLayer}
+                                onExpandedLayerChange={setExpandedLayer}
+                            />
+                        )}
                     />
                 </div>
 
-                {!isFollowingLive && <ReturnToLive onReturn={handleReturnToLive} />}
 
                 {phase === 'initialising' && <SurfaceNotice message={translate('page.probing')} translate={translate} />}
                 {phase === 'empty' && (

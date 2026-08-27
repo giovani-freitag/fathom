@@ -588,11 +588,17 @@ of their own, because chrome that takes layout costs the chart its height for as
 long as the page is open — and most of what is down there is opened once and
 closed again.
 
-Which is what makes it hold so much. Each of the three questions the chart is
-about — which contract, how much time is on screen, what is drawn over it — is
-one target that opens a panel above itself. The header that used to carry them
-is a status line now: what the chart is doing, and one drawer nobody opens twice
-a session.
+Which is what makes it hold so much. Each question the chart is about — which
+contract, how much time is on screen, what is drawn over it, and everything in
+the settings drawer — is one target that opens a panel above itself.
+
+There is no header at all. What one used to report, the chart already answers:
+gaps are drawn on the chart, so counting them again is a second telling; live or
+in history is said by whether the way back to the live edge is offered; how wide
+a column of the book is belongs beside the time window it is about, and is shown
+there. What is left is the one thing nothing else says — a refetch that failed
+while the window already drawn is still on screen — and that appears as a mark
+over the chart only while it is true.
 
 Beside them are the drawing tools, with the pointer shown as a tool of its own
 so the resting state reads as a choice rather than as nothing being on. Above

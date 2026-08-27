@@ -64,6 +64,7 @@ function renderDock(overrides: Partial<DrawingControls> = {}): Pressed {
             dismissRemoval: () => undefined,
             removed: null,
         } as unknown as IndicatorControls,
+        settings: <button type="button" aria-label="Settings" />,
         instruments: [INSTRUMENT],
         instrumentSymbol: 'BTCUSDT',
         onInstrumentSelect: () => undefined,
@@ -109,7 +110,13 @@ describe('ChartDock', () => {
         // that carries nothing.
         renderDock();
 
-        expect(control('instrument.label').textContent).toBe('BTC');
+        expect(control('instrument.label').textContent).toContain('BTC');
+    });
+
+    it('carries the drawer that used to sit in a header', () => {
+        renderDock();
+
+        expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy();
     });
 
     it('says how much time is on screen without being opened', () => {

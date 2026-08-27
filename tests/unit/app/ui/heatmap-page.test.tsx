@@ -63,7 +63,7 @@ describe('HeatmapPage', () => {
         chart.dispose();
     });
 
-    it('offers the way back where the chart left the live edge, not in the header', async () => {
+    it('offers the way back over the chart, where the eye already is', async () => {
         // A reader who has panned into history is looking at the chart, and the
         // drag that took them there has no obvious undo. The control belongs
         // where their eye already is.
@@ -79,7 +79,16 @@ describe('HeatmapPage', () => {
         });
 
         const back = await screen.findByLabelText('Back to live');
-        expect(container.querySelector('header')?.contains(back)).toBe(false);
+        expect(container.querySelector('main')?.contains(back)).toBe(true);
+        chart.dispose();
+    });
+
+    it('says what the chart is doing nowhere else, because nothing else has to', () => {
+        // Live or in history is answered by whether the way back is offered at
+        // all; a strip repeating it is a line of chrome carried for ever.
+        const { chart, container } = mountPage();
+
+        expect(container.querySelector('header')).toBeNull();
         chart.dispose();
     });
 

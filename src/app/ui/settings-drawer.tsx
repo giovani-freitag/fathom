@@ -6,7 +6,7 @@ import { AboutPanel } from './about-panel.tsx';
 import type { IndicatorControls } from '../react/use-indicators.ts';
 import { LayerAccordion } from './indicators/layer-accordion.tsx';
 import { AppearanceControls } from './appearance-controls.tsx';
-import { ControlButton } from './control-button.tsx';
+import { DOCK_BUTTON_CLASSES, DOCK_RESTING_CLASSES } from './dock-popover.tsx';
 import { useAppearance, useTranslate } from '../react/use-appearance.ts';
 import { useChartState } from '../react/use-chart-state.ts';
 import { useKernel } from '../react/kernel-context.ts';
@@ -37,9 +37,14 @@ function SettingsDrawerShell({
     return (
         <Dialog.Root open={isOpen} onOpenChange={onOpenChange}>
             <Dialog.Trigger asChild>
-                <ControlButton aria-label={translate('settings.open')}>
-                    <SlidersHorizontal className="size-4" />
-                </ControlButton>
+                <button
+                    type="button"
+                    aria-label={translate('settings.open')}
+                    title={translate('settings.open')}
+                    className={`${DOCK_BUTTON_CLASSES} ${DOCK_RESTING_CLASSES}`}
+                >
+                    <SlidersHorizontal className="size-[18px]" />
+                </button>
             </Dialog.Trigger>
 
             <Dialog.Portal>

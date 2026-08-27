@@ -1,5 +1,5 @@
-import { ChartSpline, Minus, MousePointer2, Square, TrendingUp } from 'lucide-react';
-import type { ComponentType, ReactElement } from 'react';
+import { ChartSpline, Coins, Minus, MousePointer2, Square, TrendingUp } from 'lucide-react';
+import type { ComponentType, ReactElement, ReactNode } from 'react';
 import type { BarIntervalMs } from '../core/bar-interval.ts';
 import {
     DOCK_ACTIVE_CLASSES,
@@ -45,6 +45,8 @@ export interface ChartDockProps {
     readonly instrumentSymbol: string | null;
     readonly onInstrumentSelect: (instrumentSymbol: string) => void;
     readonly time: TimeControls;
+    /** The drawer trigger, which the page owns because it owns the drawer. */
+    readonly settings: ReactNode;
 }
 
 /** Everything the two time questions need, asked in one place. */
@@ -56,6 +58,8 @@ export interface TimeControls {
     readonly effectiveIntervalMs: number;
     readonly frameIntervalMs: number;
     readonly onIntervalSelect: (intervalMs: BarIntervalMs | null) => void;
+    /** How wide a drawn column of the book is, or absent when none is drawn. */
+    readonly columnSummary?: string;
 }
 
 /**
@@ -77,15 +81,22 @@ export function ChartDock(props: ChartDockProps): ReactElement {
         >
             <DockPopover
                 label={translate('instrument.label')}
-                trigger={<span className="px-1 text-xs font-semibold">{shortenSymbol(props.instrumentSymbol)}</span>}
+                trigger={(
+                    <span className="flex items-center gap-1 px-1 text-xs font-semibold">
+                        <Coins size={ICON_SIZE_PX} />
+                        {shortenSymbol(props.instrumentSymbol)}
+                    </span>
+                )}
             >
-                <PanelSection title={translate('instrument.label')}>
+                {/* No title: the button it opened from is the title, and a panel
+                    that repeats it is a line the reader has to read twice. */}
+                <div className="w-52">
                     <InstrumentPicker
                         instruments={props.instruments}
                         selectedSymbol={props.instrumentSymbol}
                         onSelect={props.onInstrumentSelect}
                     />
-                </PanelSection>
+                </div>
             </DockPopover>
 
             <DockPopover
@@ -107,6 +118,8 @@ export function ChartDock(props: ChartDockProps): ReactElement {
                     hasAutoFocus
                 />
             </DockPopover>
+
+            {props.settings}
 
             <Divider />
 
@@ -143,7 +156,11 @@ function TimePanel({ time }: { readonly time: TimeControls }): ReactElement {
 
     return (
         <div className="w-60">
-            <PanelSection title={translate('span.label')}>
+            <PanelSection
+                isDivided={false}
+                title={translate('span.label')}
+                {...time.columnSummary === undefined ? {} : { summary: time.columnSummary }}
+            >
                 <SpanPresets
                     activeSpanMs={time.visibleSpanMs}
                     recordedSpanMs={time.recordedSpanMs}
