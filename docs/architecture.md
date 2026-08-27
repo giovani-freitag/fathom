@@ -593,18 +593,22 @@ contract, how much time is on screen, what may be added to it, and what is on it
 already — is one target that opens a panel above itself. The way into everything
 else is a single control floating at the top corner.
 
-The rows over the chart carry no controls at all. The same four actions —
-hide, split, tune, remove — used to be repeated along every one of them, at a
-size of their own, over the very data they were about. A row says what its layer
-*reads*; the panel is where a reader acts on it, and every control in it is the
-same size as every other.
+There are no layer rows over the chart at all. A layer is its name, what it
+reads, and the four things done to it — hide, split, tune, remove — and all
+three used to be spelled out along a row floating over the very data they were
+about, at sizes of their own, one row per layer whether or not it had anything
+to say. All of it is one panel now, in the dock, where every control is the same
+size as every other and what a layer reads sits on a line of its own beneath its
+name, because a reading is wider than the controls beside it.
 
-Which is also what decides whether a row exists. A layer that reads nothing
-there — the book, or anything the reader has hidden — used to take a row anyway,
-for the controls it carried. Now it takes none: a row that is only a name is
-chart nobody can see. The fold counts what was actually drawn, and is offered
-only once there is more than one row to put away, because folding a single row
-saves a line and costs one.
+What the chart still carries is only what a reader cannot get back on their own:
+the colour ramp the depth map is drawn from, and a notice about a layer they
+have just taken off while there is still time to change their mind.
+
+A panel opens onto **choices, not a menu**. A dropdown inside a popover asks for
+two reveals to make one decision; a panel that has already opened has the room
+to show what it is offering, and the one in force is then visible without
+touching anything.
 
 There is no header at all. What one used to report, the chart already answers:
 gaps are drawn on the chart, so counting them again is a second telling; live or
