@@ -156,6 +156,27 @@ derivable from the execution grid to within a hundredth of a percent, so this is
 a choice: the mid is what the recording is of, and it is defined in every second
 the collector saw, including the ones nothing traded in.
 
+## Written once, or written twice differently
+
+Every control repeated in this interface had drifted by the time somebody
+noticed it. Two switches sat in the same panel with knobs of different colours
+travelling different distances, one of them two pixels short of where the
+geometry puts it. The same icon button was spelled out seven times across two
+files in two sizes. Two full-page notices differed only in a width neither could
+justify. Four sentences explaining a control were written in two readings of the
+same intent, one dimmer and tighter than the other.
+
+None of that was a decision. It is what a second copy does while nobody is
+reading both at once.
+
+So a control is a component and a voice is a class: the icon button, the switch
+and the notice are written once; the small capitals over a control and the
+sentence under it are `.field-label` and `.panel-note`, because the places that
+need them lay their contents out differently and what they share is the type,
+not the box. An architecture test fails the suite when the same set of classes
+is spelled out in more than two places, and a sharper one allows exactly one
+switch.
+
 ## One answer to a question asked wrong
 
 Every windowed route refuses the same window on the same terms: a range that
