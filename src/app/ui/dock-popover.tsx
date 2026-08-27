@@ -1,22 +1,10 @@
 import { Popover } from 'radix-ui';
 import type { ReactElement, ReactNode } from 'react';
-
-/**
- * One tap target of a dock, sized for a thumb rather than a cursor.
- *
- * Every control down there is this tall, because the row is reached blind at
- * the bottom of a phone and a target that varies is a target that gets missed.
- */
-export const DOCK_BUTTON_CLASSES =
-    'grid h-10 min-w-10 shrink-0 place-items-center rounded-lg px-1 transition-colors';
-
-export const DOCK_ACTIVE_CLASSES = 'bg-phosphor/15 text-phosphor';
-export const DOCK_RESTING_CLASSES = 'text-ink-400 hover:bg-abyss-700 hover:text-ink-100';
-
-/** The shell every floating island shares, so they read as one family. */
-export const FLOATING_PANEL_CLASSES =
-    'pointer-events-auto flex items-center gap-1 rounded-2xl border border-hairline'
-    + ' bg-abyss-800/95 px-1.5 py-1 shadow-lg backdrop-blur';
+import {
+    CONTROL_ACTIVE_CLASSES,
+    CONTROL_BUTTON_CLASSES,
+    CONTROL_RESTING_CLASSES,
+} from './control-shell.ts';
 
 interface DockPopoverProps {
     readonly label: string;
@@ -61,7 +49,7 @@ export function DockPopover({
                     type="button"
                     aria-label={label}
                     title={title ?? label}
-                    className={`${DOCK_BUTTON_CLASSES} ${isActive ? DOCK_ACTIVE_CLASSES : DOCK_RESTING_CLASSES}`}
+                    className={`${CONTROL_BUTTON_CLASSES} ${isActive ? CONTROL_ACTIVE_CLASSES : CONTROL_RESTING_CLASSES}`}
                 >
                     {trigger}
                 </button>

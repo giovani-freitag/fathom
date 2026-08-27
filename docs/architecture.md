@@ -594,10 +594,15 @@ one lays the same choices out flat.
 Read from a media query rather than switched with a class, because rendering
 both and hiding one would mount two of every dialog behind them.
 
-Where there is room, each layer's reading goes back over the chart, beside what
-it reads about. Where there is not, it is not shown at rest at all: those rows
-are most of a phone's chart, and the panel in the dock says which layers are on
-without covering anything.
+Within a layout there is **one control height**. It had drifted to four in a
+single bar — a select at forty-four beside one at thirty-two, chips at
+forty-four and glyphs at forty — and a row of controls that do the same kind of
+thing at four different heights reads as a row that was assembled rather than
+designed.
+
+Nothing is drawn over the chart but the colour ramp the depth map is read from,
+a mark when a refetch has failed, and a notice about a layer just removed while
+there is still time to change one's mind.
 
 ## Everything a thumb reaches
 
@@ -609,9 +614,19 @@ long as the page is open — and most of what is down there is opened once and
 closed again.
 
 Which is what makes it hold so much. Each question the chart is about — which
-contract, how much time is on screen, what may be added to it, and what is on it
-already — is one target that opens a panel above itself. The way into everything
-else is a single control floating at the top corner.
+contract, how much time is on screen, and what is on it — is one target that
+opens a panel above itself. The way into everything else is a single control
+floating at the top corner.
+
+**Layers live in one place, and nowhere else.** They used to be in three: a
+drawer that listed them, a button that opened the catalogue, and a keyboard
+chord that opened the same catalogue somewhere else — so a reader looking for
+the one they had added had to know which of the three had it. One panel now
+answers all of it: what is on the chart, one way to add another, and one layer's
+own knobs. The catalogue and the knobs take the panel over rather than opening
+on top of it, because each answers the same question the panel was already
+about. The chord is gone: a catalogue of indicators is too particular a thing to
+hold one that every reader's fingers have other uses for.
 
 There are no layer rows over the chart at all. A layer is its name, what it
 reads, and the four things done to it — hide, split, tune, remove — and all

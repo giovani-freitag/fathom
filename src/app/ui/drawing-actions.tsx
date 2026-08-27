@@ -2,7 +2,7 @@ import { Redo2, Trash2, Undo2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { Divider, DockButton } from './chart-dock.tsx';
 import type { DrawingControls } from '../react/use-drawings.ts';
-import { FLOATING_PANEL_CLASSES } from './dock-popover.tsx';
+import { FLOATING_PANEL_CLASSES } from './control-shell.ts';
 import { INSTANCE_TONES, type PlotTone } from '../../shared/core/draw-plan.ts';
 import { useTranslate } from '../react/use-appearance.ts';
 

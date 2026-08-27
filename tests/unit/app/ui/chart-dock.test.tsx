@@ -64,7 +64,6 @@ function renderDock(overrides: Partial<DrawingControls> = {}): Pressed {
             dismissRemoval: () => undefined,
             removed: null,
         } as unknown as IndicatorControls,
-        onOpenLayerSettings: () => undefined,
         instruments: [INSTRUMENT],
         instrumentSymbol: 'BTCUSDT',
         onInstrumentSelect: () => undefined,
@@ -101,7 +100,7 @@ describe('ChartDock', () => {
         expect([
             control('instrument.label'),
             control('dock.time'),
-            control('indicators.open'),
+            control('indicators.onTheChart'),
         ]).toHaveLength(3);
     });
 
@@ -248,20 +247,20 @@ describe('DrawingActions', () => {
 
 });
 
-describe('ChartDock opening the catalogue', () => {
-    it('answers the chord a reader expects a palette to answer', () => {
-        // The catalogue moved into the dock and the chord stayed behind with the
-        // control it used to hang off, which nothing mounts any more.
+describe('ChartDock and the catalogue', () => {
+    it('answers no keyboard chord of its own', () => {
+        // A catalogue of indicators is too particular a thing to hold a chord
+        // every reader's fingers have other uses for.
         renderDock();
 
         fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
 
-        expect(screen.getByRole('searchbox')).toBeTruthy();
+        expect(screen.queryByRole('searchbox')).toBeNull();
     });
 
-    it('names the chord where a reader would look for it', () => {
+    it('offers one way in, which is the panel the layers are already in', () => {
         renderDock();
 
-        expect(control('indicators.open').getAttribute('title')).toMatch(/Indicators · (⌘K|Ctrl K)/);
+        expect(screen.queryByRole('button', { name: EN_DICTIONARY['indicators.open'] })).toBeNull();
     });
 });

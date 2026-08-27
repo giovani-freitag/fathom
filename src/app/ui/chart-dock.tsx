@@ -1,19 +1,18 @@
-import { ChartSpline, Coins, Layers, Minus, MousePointer2, Square, TrendingUp } from 'lucide-react';
-import { type ComponentType, type ReactElement, useCallback, useEffect, useState } from 'react';
+import { Coins, Layers, Minus, MousePointer2, Square, TrendingUp } from 'lucide-react';
+import type { ComponentType, ReactElement } from 'react';
 import { BAR_INTERVALS_MS, type BarIntervalMs } from '../core/bar-interval.ts';
 import {
-    DOCK_ACTIVE_CLASSES,
-    DOCK_BUTTON_CLASSES,
-    DOCK_RESTING_CLASSES,
-    DockPopover,
+    CONTROL_ACTIVE_CLASSES,
+    CONTROL_BUTTON_CLASSES,
+    CONTROL_RESTING_CLASSES,
     FLOATING_PANEL_CLASSES,
-} from './dock-popover.tsx';
+} from './control-shell.ts';
+import { DockPopover } from './dock-popover.tsx';
 import { DRAWING_KINDS, type DrawingKind } from '../../shared/core/drawing.ts';
 import type { DrawingControls } from '../react/use-drawings.ts';
 import { formatDuration } from '../core/formatting.ts';
 import type { IndicatorControls } from '../react/use-indicators.ts';
-import { IndicatorPalette } from './indicators/indicator-palette.tsx';
-import { LayerList } from './indicators/layer-list.tsx';
+import { LayerPanel } from './indicators/layer-panel.tsx';
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
 import { ChoiceGrid } from './choice-grid.tsx';
 import { PanelSection } from './panel-section.tsx';
@@ -50,8 +49,6 @@ export interface ChartDockProps {
     readonly instrumentSymbol: string | null;
     readonly onInstrumentSelect: (instrumentSymbol: string) => void;
     readonly time: TimeControls;
-    /** Opens the drawer onto one layer, which the page owns because it owns it. */
-    readonly onOpenLayerSettings: (instanceId: string) => void;
 }
 
 /** Everything the two time questions need, asked in one place. */
@@ -77,10 +74,6 @@ export interface TimeControls {
 export function ChartDock(props: ChartDockProps): ReactElement {
     const translate = useTranslate();
     const { drawings, hasChartControls = true } = props;
-    const [isPaletteOpen, setIsPaletteOpen] = useState(false);
-    const openPalette = useCallback(() => { setIsPaletteOpen(true); }, []);
-
-    useOpenShortcut(openPalette);
 
     return (
         <div
@@ -127,29 +120,10 @@ export function ChartDock(props: ChartDockProps): ReactElement {
                     </DockPopover>
 
                     <DockPopover
-                        label={translate('indicators.open')}
-                        title={translate('indicators.openWith', { shortcut: readShortcutLabel() })}
-                        isOpen={isPaletteOpen}
-                        onOpenChange={setIsPaletteOpen}
-                        trigger={<ChartSpline size={ICON_SIZE_PX} />}
-                    >
-                        <IndicatorPalette
-                            onAdd={props.indicators.add}
-                            isFull={props.indicators.isFull}
-                            addedCounts={props.indicators.addedCounts}
-                            hasAutoFocus
-                        />
-                    </DockPopover>
-
-                    <DockPopover
                         label={translate('indicators.onTheChart')}
                         trigger={<Layers size={ICON_SIZE_PX} />}
                     >
-                        {/* Wide enough for a reading: a row that truncates its own
-                        figures is a row that has to be opened somewhere else. */}
-                        <div className="w-[min(21rem,calc(100vw-3rem))]">
-                            <LayerList controls={props.indicators} onOpenSettings={props.onOpenLayerSettings} />
-                        </div>
+                        <LayerPanel controls={props.indicators} />
                     </DockPopover>
 
                     <Divider />
@@ -158,6 +132,27 @@ export function ChartDock(props: ChartDockProps): ReactElement {
 
 
 
+            <DrawingTools drawings={drawings} />
+        </div>
+    );
+}
+
+interface DrawingToolsProps {
+    readonly drawings: DrawingControls;
+}
+
+/**
+ * The pointer and every mark it can be swapped for.
+ *
+ * Written once because a bar and a dock offer the same four things: the pointer
+ * shown as a tool of its own, so the resting state reads as a choice rather
+ * than as nothing being on.
+ */
+export function DrawingTools({ drawings }: DrawingToolsProps): ReactElement {
+    const translate = useTranslate();
+
+    return (
+        <>
             <DockButton
                 label={translate('drawing.select')}
                 isActive={drawings.armedTool === null}
@@ -179,7 +174,7 @@ export function ChartDock(props: ChartDockProps): ReactElement {
                     </DockButton>
                 );
             })}
-        </div>
+        </>
     );
 }
 
@@ -264,7 +259,7 @@ export function DockButton({
             aria-pressed={isActive}
             disabled={isDisabled}
             onClick={onPress}
-            className={`${DOCK_BUTTON_CLASSES} ${isActive ? DOCK_ACTIVE_CLASSES : DOCK_RESTING_CLASSES} disabled:opacity-30`}
+            className={`${CONTROL_BUTTON_CLASSES} ${isActive ? CONTROL_ACTIVE_CLASSES : CONTROL_RESTING_CLASSES} disabled:opacity-30`}
         >
             {children}
         </button>
@@ -283,28 +278,4 @@ function shortenSymbol(instrumentSymbol: string | null): string {
     }
     const quote = QUOTE_SUFFIXES.find((suffix) => instrumentSymbol.endsWith(suffix));
     return quote === undefined ? instrumentSymbol : instrumentSymbol.slice(0, -quote.length);
-}
-
-/**
- * The chord this platform's readers reach for to open a palette.
- */
-function readShortcutLabel(): string {
-    const isApple = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent);
-    return isApple ? '⌘K' : 'Ctrl K';
-}
-
-/**
- * Opens the catalogue on the chord a reader expects a palette to answer.
- */
-function useOpenShortcut(onOpen: () => void): void {
-    useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent): void => {
-            if (event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey)) {
-                event.preventDefault();
-                onOpen();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => { window.removeEventListener('keydown', handleKeyDown); };
-    }, [onOpen]);
 }

@@ -14,8 +14,6 @@ import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
 import { ReturnToLive } from './return-to-live.tsx';
 import { ChartAlert } from './chart-alert.tsx';
 import { ChartHeader } from './chart-header.tsx';
-import { ChartLegend } from './indicators/chart-legend.tsx';
-import { useChartLayout } from '../react/use-chart-layout.ts';
 import { useIsWideViewport } from '../react/use-viewport-width.ts';
 import { formatDuration } from '../core/formatting.ts';
 import { listDrawnOverlays } from '../indicators/layer-contributions.ts';
@@ -66,17 +64,11 @@ export function HeatmapPage(): ReactElement {
     const indicators = useIndicators();
     const drawings = useDrawings();
     const surfaceRef = useRef<HTMLElement>(null);
-    const surfaceLayout = useChartLayout(surfaceRef);
     const isWide = useIsWideViewport();
     // The drawer is where a layer is configured, so a row on the chart has to be
     // able to open it onto itself rather than carrying a panel of its own.
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-    const [expandedLayer, setExpandedLayer] = useState<string | null>(null);
 
-    const handleOpenSettings = useCallback((instanceId: string) => {
-        setExpandedLayer(instanceId);
-        setIsDrawerOpen(true);
-    }, []);
 
     // Started, never torn down: the chart outlives this page. Whoever built the
     // container owns its lifetime, and a page that disposed it would leave a
@@ -125,7 +117,6 @@ export function HeatmapPage(): ReactElement {
         instruments,
         instrumentSymbol,
         onInstrumentSelect: handleInstrumentSelect,
-        onOpenLayerSettings: handleOpenSettings,
         time: {
             visibleSpanMs,
             recordedSpanMs,
@@ -140,17 +131,14 @@ export function HeatmapPage(): ReactElement {
     const settings = (
         <SettingsDrawer
             isFloating={!isWide}
-            controls={indicators}
             isOpen={isDrawerOpen}
             onOpenChange={setIsDrawerOpen}
-            expandedLayer={expandedLayer}
-            onExpandedLayerChange={setExpandedLayer}
         />
     );
 
     return (
         <div className="flex h-dvh flex-col bg-abyss-900 pt-[env(safe-area-inset-top)]">
-            {isWide && <ChartHeader {...chartControls} settings={settings} />}
+            {isWide && <ChartHeader {...chartControls} drawings={drawings} settings={settings} />}
             <main ref={surfaceRef} className="relative min-h-0 flex-1">
                 <ChartSurface />
 
@@ -170,11 +158,6 @@ export function HeatmapPage(): ReactElement {
                     ))}
                 </div>
 
-                {/* What each layer reads, beside what it reads it about. Only
-                    where there is room: on a screen held in one hand these rows
-                    are most of the chart, and the panel in the dock says the
-                    same thing without covering anything. */}
-                {isWide && <ChartLegend controls={indicators} layout={surfaceLayout} />}
 
                 <IndicatorOverlay controls={indicators} />
 
@@ -198,11 +181,10 @@ export function HeatmapPage(): ReactElement {
                     )}
 
                     <DrawingActions controls={drawings} />
-                    <ChartDock
+                    {!isWide && <ChartDock
                         {...chartControls}
                         drawings={drawings}
-                        hasChartControls={!isWide}
-                    />
+                    />}
                 </div>
 
 

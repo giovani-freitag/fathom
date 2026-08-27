@@ -1,67 +1,36 @@
 import { describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
-import { type ReactElement, useState } from 'react';
+import { type ReactElement } from 'react';
 import { createIndicatorKernel, renderWithKernel } from '../../../mocks/indicator-kernel.tsx';
-import type { AddedIndicator } from '../../../../src/shared/core/indicator-selection.ts';
+import { EN_DICTIONARY } from '../../../../src/app/i18n/dictionaries/en.ts';
 import { SettingsDrawer } from '../../../../src/app/ui/settings-drawer.tsx';
-import { useIndicators } from '../../../../src/app/react/use-indicators.ts';
 
-
-const BOOK: AddedIndicator = {
-    instanceId: 'depth-1', indicatorId: 'depth', settings: {}, tone: 'ink',
-};
-const CANDLES: AddedIndicator = {
-    instanceId: 'candles-1', indicatorId: 'candles', settings: {}, tone: 'ink',
-};
-
-function renderDrawer(added: readonly AddedIndicator[], openOn: string | null = null): void {
-    const kernel = createIndicatorKernel(added);
-
+function renderDrawer(): void {
     function Harness(): ReactElement {
-        const [expanded, setExpanded] = useState<string | null>(openOn);
-        return (
-            <SettingsDrawer
-                controls={useIndicators()}
-                isOpen
-                onOpenChange={() => undefined}
-                expandedLayer={expanded}
-                onExpandedLayerChange={setExpanded}
-            />
-        );
+        return <SettingsDrawer isOpen onOpenChange={() => undefined} />;
     }
 
-    renderWithKernel(kernel, <Harness />);
+    renderWithKernel(createIndicatorKernel([]), <Harness />);
 }
 
 describe('SettingsDrawer', () => {
-    it('keeps the recording controls with the book they are the instrument of', async () => {
-        renderDrawer([BOOK, CANDLES], 'depth-1');
+    it('carries what the chart looks like', () => {
+        renderDrawer();
 
-        expect(await screen.findByRole('slider', { name: 'Storage ceiling' })).toBeDefined();
-        expect(screen.getByText(/The collector runs whether or not/)).toBeDefined();
+        expect(screen.getByText(EN_DICTIONARY['settings.appearance'])).toBeDefined();
     });
 
-    it('offers them once, not once per layer on the chart', async () => {
-        renderDrawer([BOOK, CANDLES], 'depth-1');
+    it('carries no second list of the layers on the chart', () => {
+        // Two lists of one thing, answering to different controls, is a reader
+        // wondering which of them is the real one.
+        renderDrawer();
 
-        expect(await screen.findAllByRole('slider', { name: 'Storage ceiling' })).toHaveLength(1);
+        expect(screen.queryByRole('button', { name: 'Hide' })).toBeNull();
     });
 
-    it('never lets the book be taken away, because the collector would go with it', () => {
-        // A control that disappears with its layer is a collector nobody can
-        // stop, and an order book that stopped being recorded cannot be
-        // recovered afterwards. It is hidden instead, which leaves the same
-        // chart behind.
-        renderDrawer([BOOK, CANDLES]);
+    it('offers no way to add a layer either', () => {
+        renderDrawer();
 
-        expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(1);
-        expect(screen.getAllByRole('button', { name: 'Hide' })).toHaveLength(2);
-    });
-
-    it('lists what is on the chart', () => {
-        renderDrawer([BOOK, CANDLES]);
-
-        expect(screen.getByRole('button', { name: /Book/ })).toBeDefined();
-        expect(screen.getByRole('button', { name: /Candles/ })).toBeDefined();
+        expect(screen.queryByRole('searchbox')).toBeNull();
     });
 });

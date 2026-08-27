@@ -1,11 +1,10 @@
-import { ChartSpline, Layers } from 'lucide-react';
+import { Layers } from 'lucide-react';
 import type { ReactElement, ReactNode } from 'react';
 import { BAR_INTERVALS_MS, type BarIntervalMs } from '../core/bar-interval.ts';
-import type { ChartDockProps, TimeControls } from './chart-dock.tsx';
+import { type ChartDockProps, Divider, DrawingTools, type TimeControls } from './chart-dock.tsx';
 import { DockPopover } from './dock-popover.tsx';
 import { formatDuration } from '../core/formatting.ts';
-import { IndicatorPalette } from './indicators/indicator-palette.tsx';
-import { LayerList } from './indicators/layer-list.tsx';
+import { LayerPanel } from './indicators/layer-panel.tsx';
 import { Select } from './select.tsx';
 import { SpanPresets } from './span-presets.tsx';
 import { useTranslate } from '../react/use-appearance.ts';
@@ -15,7 +14,7 @@ const AUTOMATIC_INTERVAL = 'auto';
 
 const ICON_SIZE_PX = 18;
 
-export interface ChartHeaderProps extends Omit<ChartDockProps, 'drawings'> {
+export interface ChartHeaderProps extends ChartDockProps {
     /** The drawer trigger, which the page owns because it owns the drawer. */
     readonly settings: ReactNode;
 }
@@ -39,7 +38,6 @@ export function ChartHeader(props: ChartHeaderProps): ReactElement {
     return (
         <header className="flex shrink-0 items-center gap-2 border-b border-hairline px-3 py-2">
             <Select
-                isLead
                 value={props.instrumentSymbol ?? ''}
                 label={translate('instrument.label')}
                 onSelect={props.onInstrumentSelect}
@@ -72,29 +70,20 @@ export function ChartHeader(props: ChartHeaderProps): ReactElement {
 
             <SpanRow time={time} />
 
-            <span className="flex-1" />
+            <Divider />
 
-            <DockPopover
-                side="bottom"
-                label={translate('indicators.open')}
-                trigger={<ChartSpline size={ICON_SIZE_PX} />}
-            >
-                <IndicatorPalette
-                    onAdd={props.indicators.add}
-                    isFull={props.indicators.isFull}
-                    addedCounts={props.indicators.addedCounts}
-                    hasAutoFocus
-                />
-            </DockPopover>
+            {/* Up here too on a wide screen: with a bar there is no reason to
+                leave them floating over the chart the way a phone must. */}
+            <DrawingTools drawings={props.drawings} />
+
+            <span className="flex-1" />
 
             <DockPopover
                 side="bottom"
                 label={translate('indicators.onTheChart')}
                 trigger={<Layers size={ICON_SIZE_PX} />}
             >
-                <div className="w-64">
-                    <LayerList controls={props.indicators} onOpenSettings={props.onOpenLayerSettings} />
-                </div>
+                <LayerPanel controls={props.indicators} />
             </DockPopover>
 
             {props.settings}

@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactElement, ReactNode } from 'react';
+import { CONTROL_HEIGHT } from './control-shell.ts';
 
 interface ControlButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     readonly children: ReactNode;
@@ -24,7 +25,7 @@ export function ControlButton({ children, isActive = false, ...attributes }: Con
             type="button"
             {...titleProps}
             {...attributes}
-            className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-md border px-3 text-xs font-semibold tracking-wide transition-colors disabled:opacity-40 ${activeClasses} ${attributes.className ?? ''}`}
+            className={`inline-flex ${CONTROL_HEIGHT} min-w-10 items-center justify-center gap-2 rounded-lg border px-3 text-xs font-semibold tracking-wide transition-colors disabled:opacity-40 ${activeClasses} ${attributes.className ?? ''}`}
         >
             {children}
         </button>

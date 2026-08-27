@@ -1,5 +1,6 @@
 import { Check, ChevronDown } from 'lucide-react';
 import type { ReactElement, ReactNode } from 'react';
+import { CONTROL_HEIGHT } from './control-shell.ts';
 import { Select as RadixSelect } from 'radix-ui';
 
 export interface SelectChoice {
@@ -21,8 +22,6 @@ interface SelectProps {
     readonly choices: readonly SelectChoice[];
     readonly onSelect: (value: string) => void;
     readonly label: string;
-    /** Prominent where the reader picks what the whole chart is about. */
-    readonly isLead?: boolean;
 }
 
 /**
@@ -35,8 +34,10 @@ interface SelectProps {
  * Everything a select shows goes through here — which is also what makes the
  * implementation behind it one file to change.
  */
-export function Select({ value, choices, onSelect, label, isLead }: SelectProps): ReactElement {
-    const height = isLead === true ? 'min-h-11 text-sm font-semibold' : 'min-h-8 text-xs';
+export function Select({ value, choices, onSelect, label }: SelectProps): ReactElement {
+    // One height, the same as every other control: a select that was taller than
+    // the buttons beside it read as a row assembled rather than designed.
+    const height = `${CONTROL_HEIGHT} text-xs font-semibold`;
 
     return (
         <RadixSelect.Root value={value} onValueChange={onSelect}>

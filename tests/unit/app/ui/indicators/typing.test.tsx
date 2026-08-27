@@ -1,35 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
-import { type ReactElement, useState } from 'react';
+import { type ReactElement } from 'react';
 import { createIndicatorKernel, renderWithKernel } from '../../../../mocks/indicator-kernel.tsx';
 import type { AddedIndicator } from '../../../../../src/shared/core/indicator-selection.ts';
-import type { ChartState } from '../../../../../src/app/core/chart-controller.ts';
-import { EMPTY_DATASET } from '../../../../../src/app/core/chart-dataset.ts';
-import { LayerAccordion } from '../../../../../src/app/ui/indicators/layer-accordion.tsx';
+import { fireEvent as fire } from '@testing-library/react';
+import { LayerPanel } from '../../../../../src/app/ui/indicators/layer-panel.tsx';
 import { useIndicators } from '../../../../../src/app/react/use-indicators.ts';
-
-const STATE = { instruments: [], instrumentSymbol: 'BTCUSDT', dataset: EMPTY_DATASET } as unknown as ChartState;
 
 const SMA: AddedIndicator = {
     instanceId: 'sma-1', indicatorId: 'sma', settings: { periodBars: 20 }, tone: 'phosphor',
 };
 
+function Harness(): ReactElement {
+    return <LayerPanel controls={useIndicators()} />;
+}
+
+/** The panel, opened onto the one layer's knobs. */
 function renderOpen() {
     const kernel = createIndicatorKernel([SMA]);
-
-    function Harness(): ReactElement {
-        const [expanded, setExpanded] = useState<string | null>('sma-1');
-        return (
-            <LayerAccordion
-                controls={useIndicators()}
-                state={STATE}
-                expanded={expanded}
-                onExpandedChange={setExpanded}
-            />
-        );
-    }
-
     renderWithKernel(kernel, <Harness />);
+    fire.click(screen.getByRole('button', { name: 'Settings' }));
     return kernel;
 }
 

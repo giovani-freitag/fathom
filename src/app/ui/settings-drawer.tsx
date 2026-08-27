@@ -1,23 +1,16 @@
-import { DOCK_BUTTON_CLASSES, DOCK_RESTING_CLASSES } from './dock-popover.tsx';
+import { CONTROL_BUTTON_CLASSES, CONTROL_RESTING_CLASSES } from './control-shell.ts';
 import { PanelSection } from './panel-section.tsx';
 import { Menu, X } from 'lucide-react';
 import { Dialog } from 'radix-ui';
 import { memo, type ReactElement } from 'react';
 import { AboutPanel } from './about-panel.tsx';
-import type { IndicatorControls } from '../react/use-indicators.ts';
-import { LayerAccordion } from './indicators/layer-accordion.tsx';
 import { AppearanceControls } from './appearance-controls.tsx';
 import { useAppearance, useTranslate } from '../react/use-appearance.ts';
-import { useChartState } from '../react/use-chart-state.ts';
 import { useKernel } from '../react/kernel-context.ts';
 
 interface SettingsDrawerProps {
-    readonly controls: IndicatorControls;
     readonly isOpen: boolean;
     readonly onOpenChange: (isOpen: boolean) => void;
-    /** The layer to open onto, or null to open onto nothing. */
-    readonly expandedLayer: string | null;
-    readonly onExpandedLayerChange: (instanceId: string | null) => void;
     /** True where it sits over the chart rather than in a bar of controls. */
     readonly isFloating?: boolean;
 }
@@ -29,14 +22,16 @@ const FLOATING_TRIGGER_CLASSES =
     + ' hover:border-hairline-bright hover:text-ink-100';
 
 /**
- * Everything a reader can change, in one drawer.
+ * What the chart looks like and what it is, in one drawer.
+ *
+ * The layers used to be listed in here as well as in their own panel, which
+ * meant a reader could be looking at two lists of the same thing that answered
+ * to different controls. They live in one place now, and this is what is left:
+ * the appearance, and what this build is.
  */
 function SettingsDrawerShell({
-    controls,
     isOpen,
     onOpenChange,
-    expandedLayer,
-    onExpandedLayerChange,
     isFloating = false,
 }: SettingsDrawerProps): ReactElement {
     const kernel = useKernel();
@@ -50,7 +45,7 @@ function SettingsDrawerShell({
                     type="button"
                     aria-label={translate('settings.open')}
                     title={translate('settings.open')}
-                    className={isFloating ? FLOATING_TRIGGER_CLASSES : `${DOCK_BUTTON_CLASSES} ${DOCK_RESTING_CLASSES}`}
+                    className={isFloating ? FLOATING_TRIGGER_CLASSES : `${CONTROL_BUTTON_CLASSES} ${CONTROL_RESTING_CLASSES}`}
                 >
                     <Menu className="size-[18px]" />
                 </button>
@@ -82,15 +77,8 @@ function SettingsDrawerShell({
                     </div>
 
                     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-                        <PanelSection title={translate('indicators.title')} isDivided={false}>
-                            <DrawerLayers
-                                controls={controls}
-                                expanded={expandedLayer}
-                                onExpandedChange={onExpandedLayerChange}
-                            />
-                        </PanelSection>
 
-                        <PanelSection title={translate('settings.appearance')}>
+                        <PanelSection isDivided={false} title={translate('settings.appearance')}>
                             <AppearanceControls
                                 locale={appearance.locale}
                                 themeChoice={appearance.themeChoice}
@@ -109,34 +97,10 @@ function SettingsDrawerShell({
     );
 }
 
-interface DrawerLayersProps {
-    readonly controls: IndicatorControls;
-    readonly expanded: string | null;
-    readonly onExpandedChange: (instanceId: string | null) => void;
-}
-
 /**
- * The layer cards, reading the window themselves.
+ * Re-rendered only when it is opened or closed.
  *
- * A component of its own so the hook lives where the panel does: a drag rewrites
- * the viewport many times a second, and a closed drawer that followed it rebuilt
- * this whole dialog on every frame of one.
- */
-function DrawerLayers({ controls, expanded, onExpandedChange }: DrawerLayersProps): ReactElement {
-    return (
-        <LayerAccordion
-            controls={controls}
-            state={useChartState()}
-            expanded={expanded}
-            onExpandedChange={onExpandedChange}
-        />
-    );
-}
-
-/**
- * Re-rendered only when what it shows changes.
- *
- * Closed, it is a button; the panel behind it does not exist. Following the
- * viewport from here rebuilt the dialog on every frame of a drag.
+ * It reads the appearance, which nothing on the chart touches while a reader is
+ * dragging it about.
  */
 export const SettingsDrawer = memo(SettingsDrawerShell);
