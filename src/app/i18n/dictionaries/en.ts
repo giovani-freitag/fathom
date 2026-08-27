@@ -53,10 +53,12 @@ export const EN_DICTIONARY = {
     'indicator.atr.help': 'How far price has been travelling per bar',
 
     'indicator.vwap': 'VWAP',
+    'indicator.vwap.help': 'The average price traded so far, weighted by how much traded there',
     'parameter.vwapAnchor': 'Anchor',
     'vwapAnchor.session': 'Session',
     'vwapAnchor.window': 'Window',
     'indicator.volume': 'Volume',
+    'indicator.volume.help': 'How much changed hands in each bar, by the side that crossed the spread',
     'indicator.volume.rising': 'Volume',
     'indicator.volume.falling': 'Volume',
     'indicator.volume.bought': 'Bought',

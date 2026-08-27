@@ -55,10 +55,12 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'indicator.atr.help': 'O quanto o preço tem andado por barra',
 
     'indicator.vwap': 'VWAP',
+    'indicator.vwap.help': 'O preço médio negociado até aqui, ponderado por quanto negociou em cada um',
     'parameter.vwapAnchor': 'Âncora',
     'vwapAnchor.session': 'Sessão',
     'vwapAnchor.window': 'Janela',
     'indicator.volume': 'Volume',
+    'indicator.volume.help': 'Quanto mudou de mãos em cada barra, pelo lado que cruzou o spread',
     'indicator.volume.rising': 'Volume',
     'indicator.volume.falling': 'Volume',
     'indicator.volume.bought': 'Comprado',

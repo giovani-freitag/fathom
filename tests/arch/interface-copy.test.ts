@@ -196,3 +196,24 @@ describe('Every translation of a phrase', () => {
     });
 });
 
+describe('Every layer a reader can add', () => {
+    const english = readDictionary('en.ts');
+
+    /** Keys that name a thing on the chart, rather than a part of one. */
+    function readCatalogueKeys(): string[] {
+        return [...english.keys()].filter((key) => /^(?:indicator|layer)\.[^.]+$/.test(key));
+    }
+
+    it('is offered under a name of its own', () => {
+        expect(readCatalogueKeys().length).toBeGreaterThan(0);
+    });
+
+    it('says what it is, in a line beneath that name', () => {
+        // The palette asks the dictionary for `<name>.help` and shows whatever
+        // comes back. A layer with none shows the reader its key.
+        const unexplained = readCatalogueKeys().filter((key) => !english.has(`${key}.help`));
+
+        expect(unexplained).toEqual([]);
+    });
+});
+
