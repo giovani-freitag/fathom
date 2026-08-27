@@ -336,6 +336,121 @@ describe('DrawingsController removing a mark', () => {
     });
 });
 
+describe('DrawingsController stepping back and forward', () => {
+    let harness: Harness;
+
+    /** Draws one level, which is one step a reader could take back. */
+    function drawLevel(price: number): void {
+        harness.drawings.arm('horizontal-line');
+        harness.drawings.begin({ anchor: at(1_000, price), hitId: null });
+        harness.drawings.settle();
+    }
+
+    beforeEach(() => { harness = buildHarness(); });
+
+    it('offers no step back on a chart nothing has happened to', () => {
+        expect(harness.drawings.store.read().canUndo).toBe(false);
+    });
+
+    it('offers one once a mark is made', () => {
+        drawLevel(100);
+
+        expect(harness.drawings.store.read().canUndo).toBe(true);
+    });
+
+    it('takes the mark back off the chart', () => {
+        drawLevel(100);
+
+        harness.drawings.undo();
+
+        expect(harness.drawings.store.read().drawings).toEqual([]);
+    });
+
+    it('puts it back on', () => {
+        drawLevel(100);
+        harness.drawings.undo();
+
+        harness.drawings.redo();
+
+        expect(harness.drawings.store.read().drawings).toHaveLength(1);
+    });
+
+    it('writes each step out, so a reload does not undo the undo', () => {
+        drawLevel(100);
+
+        harness.drawings.undo();
+
+        expect(readPersisted(harness)).toEqual([]);
+    });
+
+    it('takes a removal back', () => {
+        drawLevel(100);
+        harness.drawings.remove('mark-1');
+
+        harness.drawings.undo();
+
+        expect(harness.drawings.store.read().drawings).toHaveLength(1);
+    });
+
+    it('takes a recolour back', () => {
+        drawLevel(100);
+        const original = harness.drawings.store.read().drawings[0]?.tone;
+        harness.drawings.recolour('mark-1', 'cyan');
+
+        harness.drawings.undo();
+
+        expect(harness.drawings.store.read().drawings[0]?.tone).toBe(original);
+    });
+
+    it('takes a whole move back as one step, not one per frame', () => {
+        // A drag rewrites a mark many times a second, and a step back per frame
+        // is not a step anybody can use.
+        drawLevel(100);
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: 'mark-1' });
+        harness.drawings.drag(at(1_000, 110));
+        harness.drawings.drag(at(1_000, 120));
+        harness.drawings.settle();
+
+        harness.drawings.undo();
+
+        expect(harness.drawings.store.read().drawings[0]?.anchors).toEqual([at(1_000, 100)]);
+    });
+
+    it('counts a press that only selected as no step at all', () => {
+        drawLevel(100);
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: 'mark-1' });
+        harness.drawings.settle();
+
+        harness.drawings.undo();
+
+        expect(harness.drawings.store.read().drawings).toEqual([]);
+    });
+
+    it('lets go of a selection the step took away', () => {
+        // Kept, the controls go on offering to remove what is no longer there.
+        drawLevel(100);
+
+        harness.drawings.undo();
+
+        expect(harness.drawings.store.read().selectedId).toBeNull();
+    });
+
+    it('gives up what was ahead once the reader draws again', () => {
+        drawLevel(100);
+        harness.drawings.undo();
+
+        drawLevel(200);
+
+        expect(harness.drawings.store.read().canRedo).toBe(false);
+    });
+
+    it('does nothing when there is nothing to step back to', () => {
+        harness.drawings.undo();
+
+        expect(harness.drawings.store.read().drawings).toEqual([]);
+    });
+});
+
 describe('DrawingsController with no contract on the chart', () => {
     it('draws nothing, because a mark belongs to a contract', () => {
         const drawings = new DrawingsController({

@@ -4,13 +4,16 @@
 export const EN_DICTIONARY = {
     'chart.surface': 'Order book liquidity heat map',
 
-    'drawing.toolbar': 'Drawing tools',
     'drawing.horizontalLine': 'Price level',
     'drawing.trendLine': 'Trend line',
     'drawing.remove': 'Remove the selected mark',
+    'dock.label': 'Chart and drawing tools',
+    'dock.time': 'Time on screen',
+    'drawing.actions': 'Drawing actions',
+    'drawing.undo': 'Undo',
+    'drawing.redo': 'Redo',
     'drawing.zone': 'Zone',
     'drawing.select': 'Move and select',
-    'drawing.tone': 'Colour',
 
     'layer.depth': 'Book',
     'layer.depth.help': 'Resting size at every price, as it changed through time',

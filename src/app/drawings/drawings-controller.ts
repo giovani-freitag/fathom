@@ -6,6 +6,7 @@ import {
     shiftDrawing,
 } from '../../shared/core/drawing.ts';
 import { INSTANCE_TONES, type PlotTone } from '../../shared/core/draw-plan.ts';
+import { DrawingHistory } from './drawing-history.ts';
 import { ObservableStore } from '../core/observable-store.ts';
 import type { PreferencesService } from '../services/preferences-service.ts';
 
@@ -22,6 +23,8 @@ export interface DrawingsState {
     readonly selectedId: string | null;
     /** The mark being dragged out, drawn but not yet kept. */
     readonly draft: Drawing | null;
+    readonly canUndo: boolean;
+    readonly canRedo: boolean;
 }
 
 /** Where a press landed, and on what. */
@@ -46,8 +49,16 @@ export class DrawingsController {
     readonly store: ObservableStore<DrawingsState>;
 
     private readonly config: DrawingsControllerConfig;
+    private readonly history = new DrawingHistory();
     /** Where the pointer went down, for a move measured against its start. */
     private grabbedFrom: DrawingAnchor | null = null;
+    /**
+     * What was on the chart when the gesture began.
+     *
+     * Held rather than recorded per move: a drag rewrites a mark many times a
+     * second, and a step back per frame is not a step a reader can use.
+     */
+    private beforeGesture: readonly Drawing[] | null = null;
 
     constructor(config: DrawingsControllerConfig) {
         this.config = config;
@@ -57,6 +68,8 @@ export class DrawingsController {
                 drawings: config.preferences.read().drawings,
                 selectedId: null,
                 draft: null,
+                canUndo: false,
+                canRedo: false,
             },
         });
     }
@@ -77,6 +90,7 @@ export class DrawingsController {
      */
     begin(press: DrawingPress): void {
         this.grabbedFrom = press.anchor;
+        this.beforeGesture = this.store.read().drawings;
         const { armedTool } = this.store.read();
         if (armedTool !== null) {
             this.startDraft(armedTool, press.anchor);
@@ -119,6 +133,8 @@ export class DrawingsController {
      */
     settle(): void {
         this.grabbedFrom = null;
+        const before = this.beforeGesture;
+        this.beforeGesture = null;
         const { draft } = this.store.read();
         if (draft !== null && !hasExtent(draft)) {
             // A click where a drag was needed leaves a mark of no length: kept,
@@ -137,7 +153,27 @@ export class DrawingsController {
                 drawings: keepNewest([...state.drawings, draft]),
             }));
         }
+
+        // Recorded only when the gesture actually changed something: a press
+        // that merely selected is not a step anybody wants to undo.
+        if (before !== null && before !== this.store.read().drawings) {
+            this.rememberStep(before);
+        }
         this.persist();
+    }
+
+    /**
+     * Steps back one thing the reader did.
+     */
+    undo(): void {
+        this.travel(this.history.undo(this.store.read().drawings));
+    }
+
+    /**
+     * Steps forward one thing the reader undid.
+     */
+    redo(): void {
+        this.travel(this.history.redo(this.store.read().drawings));
     }
 
     /**
@@ -147,6 +183,7 @@ export class DrawingsController {
      * @param tone - The tone to give it.
      */
     recolour(drawingId: string, tone: PlotTone): void {
+        this.rememberStep(this.store.read().drawings);
         this.store.update((state) => ({
             ...state,
             drawings: state.drawings.map(
@@ -162,6 +199,7 @@ export class DrawingsController {
      * @param drawingId - The mark to remove; unknown ids are ignored.
      */
     remove(drawingId: string): void {
+        this.rememberStep(this.store.read().drawings);
         this.store.update((state) => ({
             ...state,
             drawings: state.drawings.filter((drawing) => drawing.id !== drawingId),
@@ -225,6 +263,42 @@ export class DrawingsController {
                     : drawing)),
             };
         });
+    }
+
+    /**
+     * Keeps one step back, and says so to whatever offers the controls.
+     */
+    private rememberStep(before: readonly Drawing[]): void {
+        this.history.record(before);
+        this.publishHistory();
+    }
+
+    /**
+     * Puts the chart back to a set the history handed over.
+     */
+    private travel(drawings: readonly Drawing[] | null): void {
+        if (drawings === null) {
+            return;
+        }
+        this.store.update((state) => ({
+            ...state,
+            drawings,
+            // A mark the step took away cannot stay selected, and the controls
+            // for it would go on offering to remove what is no longer there.
+            selectedId: drawings.some((drawing) => drawing.id === state.selectedId)
+                ? state.selectedId
+                : null,
+        }));
+        this.publishHistory();
+        this.persist();
+    }
+
+    private publishHistory(): void {
+        this.store.update((state) => ({
+            ...state,
+            canUndo: this.history.canUndo,
+            canRedo: this.history.canRedo,
+        }));
     }
 
     private persist(): void {

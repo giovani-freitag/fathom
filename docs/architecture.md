@@ -570,20 +570,38 @@ the pan never seeing it. Declining is reported too, which is what lets a press o
 bare chart mean *done with that one*.
 
 Delete and Backspace remove what is selected, Escape puts the tool down and lets
-the selection go, and neither fires while a reader is typing into a field. Those
-are the keys a reader tries before they find the button.
+the selection go, Ctrl-Z steps back and Ctrl-Shift-Z steps forward — and none of
+them fires while a reader is typing into a field. Those are the keys a reader
+tries before they find the button.
 
-The controls sit along the bottom, not down a rail beside the chart: a phone is
-held by its lower half, and a control a thumb cannot reach without regripping is
-a control that does not get used. They are an *island* floating over the chart
-rather than a bar of their own, because drawing is done in bursts and a full row
-of chrome would cost the chart its height for as long as the page is open — the
-one bar down there is the span presets, which are read constantly. The pointer
-is shown as a tool of its own, so the resting state reads as a choice rather
-than as nothing being on, and the island clears the time axis, whose labels are
-read while a mark is being placed. What can be changed about the selected mark —
-its colour — stacks directly above the island, and only while something is
-selected.
+Stepping back keeps the whole set of marks per step rather than inverting each
+edit on its own terms: a chart holds few marks and each is small, so a stack of
+sets is cheaper to reason about than undoing a move, a recolour and a removal
+three different ways. A drag records one step, not one per frame.
+
+## Everything a thumb reaches
+
+The controls sit along the bottom, not in a header: a phone is held by its lower
+half, and a control a thumb cannot reach without regripping is a control that
+does not get used. They are *islands* floating over the chart rather than bars
+of their own, because chrome that takes layout costs the chart its height for as
+long as the page is open — and most of what is down there is opened once and
+closed again.
+
+Which is what makes it hold so much. Each of the three questions the chart is
+about — which contract, how much time is on screen, what is drawn over it — is
+one target that opens a panel above itself. The header that used to carry them
+is a status line now: what the chart is doing, and one drawer nobody opens twice
+a session.
+
+Beside them are the drawing tools, with the pointer shown as a tool of its own
+so the resting state reads as a choice rather than as nothing being on. Above
+them, and only when there is something for them to do, sit the actions: step
+back, step forward, and — while a mark is selected — the colours and the bin. A
+reader who never draws never sees that row at all.
+
+The islands clear the time axis, whose labels are read while a mark is being
+placed.
 
 A new tool is a kind in one table, a case in the painter's shape arithmetic, and
 two dictionary entries. The zone was added that way after the first two, which

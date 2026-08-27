@@ -11,13 +11,16 @@ interface SpanPresetsProps {
 
 /**
  * Jumps the time axis to a fixed span ending at the live edge.
+ *
+ * Wrapped rather than scrolled: it is read inside a panel that opens to fit it,
+ * and a row a reader has to drag sideways hides half the choices it offers.
  */
 function SpanPresetsComponent({ activeSpanMs, recordedSpanMs, onSelect }: SpanPresetsProps): ReactElement {
     const translate = useTranslate();
 
     return (
         <div
-            className="flex items-center gap-1.5 overflow-x-auto px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex flex-wrap items-center gap-1.5"
             role="group"
             aria-label={translate('span.label')}
         >

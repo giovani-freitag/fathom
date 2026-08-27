@@ -15,15 +15,12 @@ import { ReturnToLive } from './return-to-live.tsx';
 import { CoverageStrip } from './coverage-strip.tsx';
 import { listDrawnOverlays } from '../indicators/layer-contributions.ts';
 import { SettingsDrawer } from './settings-drawer.tsx';
-import { InstrumentPicker } from './instrument-picker.tsx';
 import type { BarIntervalMs } from '../core/bar-interval.ts';
-import { IntervalPicker } from './interval-picker.tsx';
-import { SpanPresets } from './span-presets.tsx';
-import { IndicatorOverlay, IndicatorTrigger } from './indicators/indicator-controls.tsx';
+import { IndicatorOverlay } from './indicators/indicator-controls.tsx';
 import { useIndicators } from '../react/use-indicators.ts';
 import { useDrawings } from '../react/use-drawings.ts';
-import { DrawingDock } from './drawing-dock.tsx';
-import { DrawingProperties } from './drawing-properties.tsx';
+import { ChartDock } from './chart-dock.tsx';
+import { DrawingActions } from './drawing-actions.tsx';
 import { useChartLayout } from '../react/use-chart-layout.ts';
 
 /** Enough to clear the time axis the renderer reserves along the bottom. */
@@ -113,25 +110,14 @@ export function HeatmapPage(): ReactElement {
 
     return (
         <div className="flex h-dvh flex-col bg-abyss-900 pt-[env(safe-area-inset-top)]">
-            <header className="flex shrink-0 items-center gap-2 border-b border-hairline px-3 py-2">
-                <InstrumentPicker
-                    instruments={instruments}
-                    selectedSymbol={instrumentSymbol}
-                    onSelect={handleInstrumentSelect}
-                />
-
-                <IntervalPicker
-                    chosen={barIntervalMs}
-                    effectiveMs={barWindowIntervalMs}
-                    frameIntervalMs={recordedIntervalMs}
-                    onSelect={handleIntervalSelect}
-                />
-
+            {/* What is left of the header once every control moved to the dock:
+                what the chart is doing, and the one drawer nobody opens twice a
+                session. */}
+            <header className="flex shrink-0 items-center gap-2 border-b border-hairline px-3 py-1.5">
                 <div className="min-w-0 flex-1 overflow-hidden">
                     <CoverageStrip />
                 </div>
 
-                <IndicatorTrigger controls={indicators} />
                 <SettingsDrawer
                     controls={indicators}
                     isOpen={isDrawerOpen}
@@ -166,11 +152,26 @@ export function HeatmapPage(): ReactElement {
                     Clear of the time axis, whose labels are read while a mark is
                     being placed and would otherwise sit under the island. */}
                 <div
-                    className="pointer-events-none absolute inset-x-0 flex flex-col items-center gap-2"
+                    className="pointer-events-none absolute inset-x-0 flex flex-col items-center gap-2 px-2"
                     style={{ bottom: TIME_AXIS_CLEARANCE_PX }}
                 >
-                    <DrawingProperties controls={drawings} />
-                    <DrawingDock controls={drawings} />
+                    <DrawingActions controls={drawings} />
+                    <ChartDock
+                        drawings={drawings}
+                        indicators={indicators}
+                        instruments={instruments}
+                        instrumentSymbol={instrumentSymbol}
+                        onInstrumentSelect={handleInstrumentSelect}
+                        time={{
+                            visibleSpanMs,
+                            recordedSpanMs,
+                            onSpanSelect: handleSpanSelect,
+                            barIntervalMs,
+                            effectiveIntervalMs: barWindowIntervalMs,
+                            frameIntervalMs: recordedIntervalMs,
+                            onIntervalSelect: handleIntervalSelect,
+                        }}
+                    />
                 </div>
 
                 {!isFollowingLive && <ReturnToLive onReturn={handleReturnToLive} />}
@@ -193,13 +194,7 @@ export function HeatmapPage(): ReactElement {
                 )}
             </main>
 
-            <footer className="shrink-0 border-t border-hairline pb-[env(safe-area-inset-bottom)]">
-                <SpanPresets
-                    activeSpanMs={visibleSpanMs}
-                    recordedSpanMs={recordedSpanMs}
-                    onSelect={handleSpanSelect}
-                />
-            </footer>
+            <div className="shrink-0 pb-[env(safe-area-inset-bottom)]" />
         </div>
     );
 }

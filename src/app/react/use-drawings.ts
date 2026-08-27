@@ -25,6 +25,8 @@ const readArmedTool = (state: DrawingsState): DrawingKind | null => state.armedT
 const readSelectedId = (state: DrawingsState): string | null => state.selectedId;
 const readSelectedTone = (state: DrawingsState): PlotTone | null => state.drawings
     .find((drawing) => drawing.id === state.selectedId)?.tone ?? null;
+const readCanUndo = (state: DrawingsState): boolean => state.canUndo;
+const readCanRedo = (state: DrawingsState): boolean => state.canRedo;
 
 /**
  * What the drawing controls need to show, and what a press of one does.
@@ -42,6 +44,12 @@ export interface DrawingControls {
     readonly recolourSelected: (tone: PlotTone) => void;
     /** Takes the selected mark off the chart. */
     readonly removeSelected: () => void;
+    readonly canUndo: boolean;
+    readonly canRedo: boolean;
+    /** Steps back one thing the reader did. */
+    readonly undo: () => void;
+    /** Steps forward one thing the reader undid. */
+    readonly redo: () => void;
 }
 
 /**
@@ -54,6 +62,8 @@ export function useDrawings(): DrawingControls {
     const armedTool = useStoreSlice(kernel.drawings.store, readArmedTool);
     const selectedId = useStoreSlice(kernel.drawings.store, readSelectedId);
     const selectedTone = useStoreSlice(kernel.drawings.store, readSelectedTone);
+    const canUndo = useStoreSlice(kernel.drawings.store, readCanUndo);
+    const canRedo = useStoreSlice(kernel.drawings.store, readCanRedo);
 
     // Every reader reaches for Delete before they reach for the button, and for
     // Escape when they change their mind about the tool they armed.
@@ -70,6 +80,16 @@ export function useDrawings(): DrawingControls {
             if (REMOVE_KEYS.has(event.key) && selectedId !== null) {
                 event.preventDefault();
                 kernel.drawings.remove(selectedId);
+                return;
+            }
+            // The chord every reader tries before they look for a button.
+            if (event.key.toLowerCase() === 'z' && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                if (event.shiftKey) {
+                    kernel.drawings.redo();
+                } else {
+                    kernel.drawings.undo();
+                }
             }
         };
         window.addEventListener('keydown', handleKeyDown);
@@ -94,5 +114,9 @@ export function useDrawings(): DrawingControls {
                 kernel.drawings.remove(selectedId);
             }
         },
+        canUndo,
+        canRedo,
+        undo: () => { kernel.drawings.undo(); },
+        redo: () => { kernel.drawings.redo(); },
     };
 }
