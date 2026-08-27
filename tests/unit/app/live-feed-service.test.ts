@@ -132,4 +132,41 @@ describe('LiveFeedService', () => {
 
         expect(openSockets.length).toBe(1);
     });
+
+    it('does not throw when a frame cannot be read', () => {
+        // A gateway redeployed on a newer wire format sends every frame in a
+        // shape this bundle cannot read, and each one throws inside the socket's
+        // own message handler where no caller ever sees it.
+        const service = new LiveFeedService({ baseUrl: 'http://gateway.test' });
+        service.connect(buildSubscription([]));
+        openSockets[0]?.emit('open');
+
+        expect(() => {
+            openSockets[0]?.emit('message', { data: new ArrayBuffer(8) });
+        }).not.toThrow();
+    });
+
+    it('says it cannot read what the gateway is sending', () => {
+        const statuses: LiveFeedStatus[] = [];
+        const service = new LiveFeedService({ baseUrl: 'http://gateway.test' });
+        service.connect(buildSubscription(statuses));
+        openSockets[0]?.emit('open');
+
+        openSockets[0]?.emit('message', { data: new ArrayBuffer(8) });
+
+        expect(statuses.at(-1)).toBe('refused');
+    });
+
+    it('stops retrying a gateway whose frames it cannot read', () => {
+        // Retried, it reconnects for ever against a mismatch only a reload fixes,
+        // and the chart shows a tail that is always about to arrive.
+        const service = new LiveFeedService({ baseUrl: 'http://gateway.test' });
+        service.connect(buildSubscription([]));
+        openSockets[0]?.emit('open');
+        openSockets[0]?.emit('message', { data: new ArrayBuffer(8) });
+
+        vi.advanceTimersByTime(60_000);
+
+        expect(openSockets).toHaveLength(1);
+    });
 });

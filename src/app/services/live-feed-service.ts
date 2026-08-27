@@ -1,6 +1,7 @@
 import type { LiveFeed, LiveFeedSubscription } from './live-feed.ts';
 export type { LiveFeedStatus, LiveFeedSubscription } from './live-feed.ts';
 import { API_ROUTES } from '../../shared/core/api-contract.ts';
+import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import type { LiveMessage } from '../../shared/core/live-message.ts';
 import { decodeLiquidityFrameWindow } from '../../shared/codec/heatmap-codec.ts';
 
@@ -17,9 +18,6 @@ export interface LiveFeedServiceConfig {
     readonly baseUrl: string;
 }
 
-/**
- * One viewer's tail.
- */
 /**
  * The only place the live socket is spoken.
  */
@@ -122,7 +120,17 @@ export class LiveFeedService implements LiveFeed {
      * Turns a binary frame back into the message every driver speaks.
      */
     private deliverFrames(buffer: ArrayBuffer): void {
-        const window = decodeLiquidityFrameWindow(buffer);
+        let window: LiquidityFrameWindow;
+        try {
+            window = decodeLiquidityFrameWindow(buffer);
+        } catch {
+            // A gateway on a newer wire format sends every frame in a shape this
+            // bundle cannot read, and only a reload fixes that: retrying would
+            // show a tail that is for ever about to arrive.
+            this.refuse();
+            return;
+        }
+
         const newestFrame = window.frames[window.frames.length - 1];
         if (newestFrame !== undefined) {
             this.newestFrameMs = Math.max(this.newestFrameMs, newestFrame.capturedAtMs);
@@ -146,14 +154,22 @@ export class LiveFeedService implements LiveFeed {
         }
 
         if (PERMANENT_CLOSE_CODES.has(closeCode)) {
-            this.wasStopped = true;
-            this.subscription?.onStatusChanged('refused');
+            this.refuse();
             return;
         }
 
         this.consecutiveFailureCount += 1;
         this.subscription?.onStatusChanged('reconnecting');
         this.reconnectTimer = setTimeout(this.handleReconnectDue, this.resolveBackoffDelay());
+    }
+
+    /**
+     * Gives up on a gateway no retry will make readable.
+     */
+    private refuse(): void {
+        this.wasStopped = true;
+        this.closeSocket();
+        this.subscription?.onStatusChanged('refused');
     }
 
     private handleReconnectDue(): void {
