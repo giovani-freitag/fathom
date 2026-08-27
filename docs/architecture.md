@@ -156,6 +156,20 @@ derivable from the execution grid to within a hundredth of a percent, so this is
 a choice: the mid is what the recording is of, and it is defined in every second
 the collector saw, including the ones nothing traded in.
 
+## One answer to a question asked wrong
+
+Every windowed route refuses the same window on the same terms: a range that
+ends before it starts, or one wider than the archive will be asked to scan. The
+rule was written on one route and applied to four, because the other three
+answered a plainly impossible question with an empty two hundred — which leaves
+a caller unable to tell a question asked wrong from a stretch nothing was
+recorded in, and asks the archive to scan a decade to find out.
+
+The routes are exercised through the server rather than as functions, so a
+request meets the schema that guards it. The one bug this layer has had was a
+schema that quietly dropped a field, and no test of a handler alone would have
+seen it.
+
 ## Nothing anybody has to display
 
 This chart is given away under MIT, and so is everything it ships: two hundred
