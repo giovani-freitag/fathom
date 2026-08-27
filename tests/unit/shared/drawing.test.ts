@@ -5,6 +5,8 @@ import {
     type Drawing,
     DRAWING_KINDS,
     isDrawing,
+    isTransientKind,
+    moveDrawingAnchor,
     priceAtTime,
     resolveDrawingLook,
     shiftDrawing,
@@ -121,8 +123,13 @@ describe('shiftDrawing', () => {
 });
 
 describe('ANCHORS_PER_KIND', () => {
-    it('pins a level by one point, and a segment and a zone by two', () => {
-        expect(ANCHORS_PER_KIND).toEqual({ 'horizontal-line': 1, 'trend-line': 2, zone: 2 });
+    it('pins a level by one point, and everything that covers ground by two', () => {
+        expect(ANCHORS_PER_KIND).toEqual({
+            'horizontal-line': 1,
+            'trend-line': 2,
+            zone: 2,
+            measure: 2,
+        });
     });
 
     it('says how to pin every kind the dock offers', () => {
@@ -175,5 +182,50 @@ describe('resolveDrawingLook', () => {
         const foreign = { ...buildLevel(100), width: 'hairline' } as unknown as Drawing;
 
         expect(resolveDrawingLook(foreign).width).toBe('medium');
+    });
+});
+
+describe('moveDrawingAnchor', () => {
+    it('puts the end it was handed where it was told', () => {
+        const trend = buildTrend();
+
+        const reshaped = moveDrawingAnchor(trend, 1, { atMs: 9_000, price: 90 });
+
+        expect(reshaped.anchors[1]).toEqual({ atMs: 9_000, price: 90 });
+    });
+
+    it('leaves the other end where it was drawn', () => {
+        const trend = buildTrend();
+
+        const reshaped = moveDrawingAnchor(trend, 1, { atMs: 9_000, price: 90 });
+
+        expect(reshaped.anchors[0]).toEqual(trend.anchors[0]);
+    });
+
+    it('keeps a level pinned to the instant it was left at', () => {
+        // Nothing on screen says where along time a level sits, so a drag that
+        // rewrote it would lose that for no visible gain.
+        const level = buildLevel(100);
+
+        const reshaped = moveDrawingAnchor(level, 0, { atMs: 9_000, price: 90 });
+
+        expect(reshaped.anchors[0]).toEqual({ atMs: level.anchors[0]!.atMs, price: 90 });
+    });
+
+    it('hands back the same mark when there is no such end', () => {
+        const level = buildLevel(100);
+
+        expect(moveDrawingAnchor(level, 3, { atMs: 9_000, price: 90 })).toBe(level);
+    });
+});
+
+describe('isTransientKind', () => {
+    it('says a measurement is read and then done with', () => {
+        expect(isTransientKind('measure')).toBe(true);
+    });
+
+    it('says a mark a reader drew is theirs to keep', () => {
+        expect(DRAWING_KINDS.filter((kind) => !isTransientKind(kind)))
+            .toEqual(['horizontal-line', 'trend-line', 'zone']);
     });
 });

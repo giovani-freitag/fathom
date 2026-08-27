@@ -25,6 +25,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'drawing.undo': 'Desfazer',
     'drawing.redo': 'Refazer',
     'drawing.zone': 'Zona',
+    'drawing.measure': 'Medir',
     'drawing.select': 'Mover e selecionar',
 
     'layer.depth': 'Book',

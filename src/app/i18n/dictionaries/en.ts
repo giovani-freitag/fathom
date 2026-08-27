@@ -23,6 +23,7 @@ export const EN_DICTIONARY = {
     'drawing.undo': 'Undo',
     'drawing.redo': 'Redo',
     'drawing.zone': 'Zone',
+    'drawing.measure': 'Measure',
     'drawing.select': 'Move and select',
 
     'layer.depth': 'Book',

@@ -484,3 +484,54 @@ describe('DrawingsController with no contract on the chart', () => {
         expect(drawings.store.read().draft).toBeNull();
     });
 });
+
+describe('DrawingsController measuring a move', () => {
+    let harness: Harness;
+
+    beforeEach(() => { harness = buildHarness(); });
+
+    function measure(): void {
+        harness.drawings.arm('measure');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.drag(at(5_000, 120));
+        harness.drawings.settle();
+    }
+
+    it('leaves the reading on the chart, where it was taken', () => {
+        measure();
+
+        expect(harness.drawings.store.read().draft?.kind).toBe('measure');
+    });
+
+    it('never keeps it, because a measurement answers a question and is done', () => {
+        measure();
+
+        expect(harness.drawings.store.read().drawings).toEqual([]);
+    });
+
+    it('writes nothing out, so it is not there again next session', () => {
+        measure();
+
+        expect(harness.write).not.toHaveBeenCalled();
+    });
+
+    it('is no step to go back over', () => {
+        measure();
+
+        expect(harness.drawings.store.read().canUndo).toBe(false);
+    });
+
+    it('puts the tool down after it, like every other', () => {
+        measure();
+
+        expect(harness.drawings.store.read().armedTool).toBeNull();
+    });
+
+    it('takes it off the chart on the next press anywhere', () => {
+        measure();
+
+        harness.drawings.select(null);
+
+        expect(harness.drawings.store.read().draft).toBeNull();
+    });
+});

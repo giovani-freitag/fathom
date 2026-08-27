@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { RENDER_PALETTE } from '../../../../src/app/painting/render-palette.ts';
 import { buildPaintContext, createRecordingContext, type RecordingContext } from '../../../mocks/canvas-context.ts';
 import { DEFAULT_VIEWPORT } from '../../../mocks/canvas-context.ts';
 import type { Drawing } from '../../../../src/shared/core/drawing.ts';
@@ -247,6 +248,61 @@ describe('DrawingPainter honouring how a mark says to draw it', () => {
         painter.paint(buildContext(recording, { draft: buildTrend({ style: 'solid' }) }));
 
         expect(recording.callsTo('setLineDash')[0]?.args[0]).not.toEqual([]);
+    });
+});
+
+describe('DrawingPainter taking a measurement', () => {
+    const painter = new DrawingPainter();
+    let recording: RecordingContext;
+
+    function buildMeasure(toPrice: number): Drawing {
+        return {
+            id: 'measure',
+            kind: 'measure',
+            instrumentSymbol: 'BTCUSDT',
+            anchors: [
+                { atMs: DEFAULT_VIEWPORT.fromMs, price: DEFAULT_VIEWPORT.lowPrice },
+                { atMs: MID_MS, price: toPrice },
+            ],
+            tone: 'violet',
+        };
+    }
+
+    beforeEach(() => { recording = createRecordingContext(); });
+
+    it('writes what it came to, in money and in proportion', () => {
+        painter.paint(buildContext(recording, { draft: buildMeasure(DEFAULT_VIEWPORT.highPrice) }));
+
+        const written = recording.callsTo('fillText').map((call) => String(call.args[0]));
+        expect(written.some((line) => line.includes('%'))).toBe(true);
+    });
+
+    it('says how long the move took as well as how far it went', () => {
+        painter.paint(buildContext(recording, { draft: buildMeasure(DEFAULT_VIEWPORT.highPrice) }));
+
+        expect(recording.callsTo('fillText')).toHaveLength(2);
+    });
+
+    it('reads a rise in the colour a rise is drawn in', () => {
+        painter.paint(buildContext(recording, { draft: buildMeasure(DEFAULT_VIEWPORT.highPrice) }));
+
+        expect(recording.callsTo('fillRect')[0]?.fillStyle).toBe(RENDER_PALETTE.bid);
+    });
+
+    it('reads a fall in the colour a fall is drawn in', () => {
+        // Which way price went is the answer, so the mark's own tone would be
+        // one more colour on the chart saying nothing.
+        const falling = buildMeasure(DEFAULT_VIEWPORT.lowPrice - 10);
+
+        painter.paint(buildContext(recording, { draft: falling }));
+
+        expect(recording.callsTo('fillRect')[0]?.fillStyle).toBe(RENDER_PALETTE.ask);
+    });
+
+    it('draws the arrow it is read along', () => {
+        painter.paint(buildContext(recording, { draft: buildMeasure(DEFAULT_VIEWPORT.highPrice) }));
+
+        expect(recording.callsTo('stroke').length).toBeGreaterThan(0);
     });
 });
 

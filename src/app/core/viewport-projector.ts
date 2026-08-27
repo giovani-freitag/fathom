@@ -25,6 +25,16 @@ export class ViewportProjector {
     }
 
     /**
+     * How wide the plot is.
+     *
+     * Read by whatever is placed across the whole of it rather than at an
+     * instant, which a projection from time cannot answer.
+     */
+    get plotWidth(): number {
+        return this.width;
+    }
+
+    /**
      * Horizontal position of an instant.
      *
      * @param timestampMs - Unix milliseconds.

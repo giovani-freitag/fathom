@@ -1,4 +1,4 @@
-import { Coins, Layers, Minus, MousePointer2, Redo2, Square, TrendingUp, Undo2 } from 'lucide-react';
+import { Coins, Layers, Minus, MousePointer2, Redo2, Ruler, Square, TrendingUp, Undo2 } from 'lucide-react';
 import type { ComponentType, ReactElement } from 'react';
 import { BAR_INTERVALS_MS, type BarIntervalMs } from '../core/bar-interval.ts';
 import {
@@ -30,6 +30,7 @@ const TOOL_FACES: Readonly<Record<DrawingKind, ToolFace>> = {
     'horizontal-line': { Icon: Minus, labelKey: 'drawing.horizontalLine' },
     'trend-line': { Icon: TrendingUp, labelKey: 'drawing.trendLine' },
     zone: { Icon: Square, labelKey: 'drawing.zone' },
+    measure: { Icon: Ruler, labelKey: 'drawing.measure' },
 };
 
 const ICON_SIZE_PX = 18;

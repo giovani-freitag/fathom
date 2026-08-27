@@ -595,6 +595,18 @@ step back at a time. Whether a gesture is a drag is decided once and then held:
 re-asking each move would strand a mark wherever the pointer last was far enough
 away.
 
+A selected mark shows a grip on each end, and dragging one reshapes it while
+dragging anywhere else on it moves the whole thing. Which of the two a press
+meant is decided where the grips are drawn rather than where the anchors are
+pinned: a level crosses the whole window, so its grip sits at the middle of the
+plot and the hit test has to agree with the painter about that.
+
+Not every mark is kept. A measurement — how far price moved over a stretch, in
+money and in proportion — is drawn where it was taken, coloured by which way it
+went, and gone on the next press anywhere. It is never stored and never a step
+to go back over, because it answers a question the reader had while they were
+looking rather than one they want back next session.
+
 Delete and Backspace remove what is selected, Escape puts the tool down and lets
 the selection go, Ctrl-Z steps back and Ctrl-Shift-Z steps forward — and none of
 them fires while a reader is typing into a field. Those are the keys a reader

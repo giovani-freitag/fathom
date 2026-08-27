@@ -73,6 +73,12 @@ mark under a resting pointer shows as grabbable, because a one-pixel line gives
 a reader no other way to know they are on it than to press and find out — which
 pans the chart when they were not.
 
+**A mark is dragged by its ends as well as by its middle, and not every mark is
+kept.** The grips the painter draws for the selected mark are grabbable, so
+reshaping needs no mode; and the kinds table gained a measurement, which is
+drawn, read, and dropped on the next press rather than stored. Transience is one
+predicate over the kind, not a second vocabulary beside the first.
+
 **A mark belongs to a contract.** It is drawn about `BTCUSDT`, shown on no other
 chart, and a stored mark naming a kind this build cannot draw is dropped on the
 way in rather than carried for ever.

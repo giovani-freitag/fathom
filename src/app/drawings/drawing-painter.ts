@@ -6,7 +6,12 @@ import {
     resolveDrawingLook,
 } from '../../shared/core/drawing.ts';
 import type { FieldLayerPainter, PaintContext, RenderRequest } from '../painting/render-types.ts';
-import { RENDER_PALETTE, resolveToneColour } from '../painting/render-palette.ts';
+import {
+    formatDuration,
+    formatSignedChange,
+    formatSignedPercent,
+} from '../core/formatting.ts';
+import { RENDER_METRICS, RENDER_PALETTE, resolveToneColour } from '../painting/render-palette.ts';
 import type { ViewportProjector } from '../core/viewport-projector.ts';
 
 /** Painted over every indicator: a reader's own mark is not something to bury. */
@@ -36,6 +41,16 @@ const DRAFT_DASH = [5, 4];
 
 /** How much of a zone's colour survives, so the depth map under it still reads. */
 const ZONE_FILL_ALPHA = 0.12;
+
+/** Half the width of the arrow head a measurement is read along. */
+const ARROW_HEAD_HALF_WIDTH_PX = 5;
+const ARROW_HEAD_LENGTH_PX = 9;
+
+/** Padding inside the box a measurement's figures are written in. */
+const READOUT_PADDING_X = 8;
+const READOUT_PADDING_Y = 6;
+const READOUT_LINE_HEIGHT_PX = 15;
+const READOUT_CORNER_RADIUS = 6;
 
 /**
  * What the reader has drawn on this chart, and what they are drawing now.
@@ -94,7 +109,9 @@ export class DrawingPainter implements FieldLayerPainter {
         paint.context.lineCap = look.style === 'dotted' ? 'round' : 'butt';
         paint.context.setLineDash([...stroke.dash ?? STYLE_DASHES[look.style]]);
 
-        if (drawing.kind === 'zone') {
+        if (drawing.kind === 'measure') {
+            this.strokeMeasure(stroke);
+        } else if (drawing.kind === 'zone') {
             this.strokeZone(stroke);
         } else {
             this.strokeLine(stroke);
@@ -140,6 +157,96 @@ export class DrawingPainter implements FieldLayerPainter {
     }
 
     /**
+     * Shades what a measurement covers and writes what it came to.
+     *
+     * Coloured by which way price went rather than by the mark's own tone: the
+     * answer is the reading, and a measurement drawn in the next colour of the
+     * cycle would say nothing about it.
+     */
+    private strokeMeasure(stroke: DrawingStroke): void {
+        const { paint, drawing } = stroke;
+        const [from, to] = drawing.anchors;
+        const box = resolveBox(drawing, paint.projector);
+        if (from === undefined || to === undefined || box === null) {
+            return;
+        }
+
+        const colour = resolveToneColour(to.price >= from.price ? 'bid' : 'ask');
+        const { context } = paint;
+        context.strokeStyle = colour;
+        context.globalAlpha = ZONE_FILL_ALPHA;
+        context.fillStyle = colour;
+        context.fillRect(box.x, box.y, box.width, box.height);
+        context.globalAlpha = 1;
+        context.strokeRect(box.x, box.y, box.width, box.height);
+
+        this.strokeArrow(paint, {
+            x: box.x + box.width / 2,
+            fromY: paint.projector.priceToY(from.price),
+            toY: paint.projector.priceToY(to.price),
+        });
+        this.writeReading(paint, drawing, box);
+    }
+
+    /**
+     * Draws the arrow the measurement is read along, from where to where.
+     */
+    private strokeArrow(paint: PaintContext, span: MeasuredSpan): void {
+        const { context } = paint;
+        const direction = span.toY >= span.fromY ? 1 : -1;
+
+        context.setLineDash([]);
+        context.beginPath();
+        context.moveTo(span.x, span.fromY);
+        context.lineTo(span.x, span.toY);
+        context.moveTo(span.x - ARROW_HEAD_HALF_WIDTH_PX, span.toY - ARROW_HEAD_LENGTH_PX * direction);
+        context.lineTo(span.x, span.toY);
+        context.lineTo(span.x + ARROW_HEAD_HALF_WIDTH_PX, span.toY - ARROW_HEAD_LENGTH_PX * direction);
+        context.stroke();
+    }
+
+    /**
+     * Writes how far price moved, in both of the ways a reader asks it.
+     */
+    private writeReading(paint: PaintContext, drawing: Drawing, box: DrawnBox): void {
+        const [from, to] = drawing.anchors;
+        if (from === undefined || to === undefined) {
+            return;
+        }
+
+        const deltaPrice = to.price - from.price;
+        const lines = [
+            `${formatSignedChange(deltaPrice)}  ${formatSignedPercent(deltaPrice / from.price)}`,
+            formatDuration(Math.abs(to.atMs - from.atMs), paint.translate),
+        ];
+
+        const { context } = paint;
+        context.font = RENDER_METRICS.labelFont;
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        const width = Math.max(...lines.map((line) => context.measureText(line).width))
+            + READOUT_PADDING_X * 2;
+        const height = lines.length * READOUT_LINE_HEIGHT_PX + READOUT_PADDING_Y * 2;
+        const centreX = box.x + box.width / 2;
+        const centreY = box.y + box.height / 2;
+
+        context.setLineDash([]);
+        context.fillStyle = RENDER_PALETTE.readoutBackdrop;
+        context.strokeStyle = RENDER_PALETTE.hairline;
+        context.lineWidth = 1;
+        context.beginPath();
+        context.roundRect(centreX - width / 2, centreY - height / 2, width, height, READOUT_CORNER_RADIUS);
+        context.fill();
+        context.stroke();
+
+        context.fillStyle = RENDER_PALETTE.inkPrimary;
+        lines.forEach((line, index) => {
+            const offset = (index - (lines.length - 1) / 2) * READOUT_LINE_HEIGHT_PX;
+            context.fillText(line, centreX, centreY + offset);
+        });
+    }
+
+    /**
      * Puts a grip on each anchor, so what a drag would move is visible.
      */
     private markAnchors(paint: PaintContext, drawing: Drawing): void {
@@ -172,6 +279,13 @@ interface DrawingStroke {
     readonly isSelected: boolean;
     /** Set while a mark is still being dragged out, so it reads as provisional. */
     readonly dash?: readonly number[];
+}
+
+/** Where a measurement's arrow runs, once its prices are on the surface. */
+interface MeasuredSpan {
+    readonly x: number;
+    readonly fromY: number;
+    readonly toY: number;
 }
 
 interface DrawnSpan {

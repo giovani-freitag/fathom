@@ -12,17 +12,44 @@ export interface DrawingAnchor {
 }
 
 /** The kinds of mark a reader can leave on the chart. */
-export type DrawingKind = 'horizontal-line' | 'trend-line' | 'zone';
+export type DrawingKind = 'horizontal-line' | 'trend-line' | 'zone' | 'measure';
 
 /** Every kind, in the order the dock offers them. */
-export const DRAWING_KINDS: readonly DrawingKind[] = ['horizontal-line', 'trend-line', 'zone'];
+export const DRAWING_KINDS: readonly DrawingKind[] = [
+    'horizontal-line',
+    'trend-line',
+    'zone',
+    'measure',
+];
 
 /** Anchors each kind is pinned by. */
 export const ANCHORS_PER_KIND: Readonly<Record<DrawingKind, number>> = {
     'horizontal-line': 1,
     'trend-line': 2,
     zone: 2,
+    measure: 2,
 };
+
+/**
+ * Kinds that cover ground rather than trace a path.
+ *
+ * A box has no one price at an instant, so asking it for one would answer with
+ * a diagonal nobody drew.
+ */
+const BOXED_KINDS: ReadonlySet<DrawingKind> = new Set<DrawingKind>(['zone', 'measure']);
+
+/**
+ * Whether a mark is read and then done with rather than kept.
+ *
+ * A measurement answers a question the reader had while they were looking; kept,
+ * it would be one more thing to tidy up after every time they asked.
+ *
+ * @param kind - The kind to ask about.
+ * @returns True when a mark of that kind is never stored.
+ */
+export function isTransientKind(kind: DrawingKind): boolean {
+    return kind === 'measure';
+}
 
 /** How heavy a mark is drawn. */
 export type DrawingWidth = 'thin' | 'medium' | 'thick';
@@ -126,9 +153,7 @@ export function priceAtTime(drawing: Drawing, atMs: number): number | null {
     if (second === undefined) {
         return first.price;
     }
-    // A zone is a box rather than a path: it has no one price at an instant, so
-    // asking for one would answer with a diagonal nobody drew.
-    if (drawing.kind === 'zone') {
+    if (BOXED_KINDS.has(drawing.kind)) {
         return null;
     }
 
@@ -146,13 +171,6 @@ export interface DrawingShift {
     readonly deltaPrice: number;
 }
 
-/**
- * Moves a whole drawing, keeping its shape.
- *
- * @param drawing - The mark to move.
- * @param shift - How far to move it, in chart coordinates.
- * @returns The moved mark.
- */
 /**
  * The corners of a mark, whichever way round it was dragged out.
  *
@@ -179,6 +197,44 @@ export interface DrawingBounds {
     readonly highPrice: number;
 }
 
+/**
+ * Moves one end of a mark, leaving the rest of it where it was.
+ *
+ * @param drawing - The mark to reshape.
+ * @param index - Which anchor is being dragged.
+ * @param anchor - Where that anchor is now.
+ * @returns The reshaped mark, or the same one when there is no such anchor.
+ */
+export function moveDrawingAnchor(
+    drawing: Drawing,
+    index: number,
+    anchor: DrawingAnchor,
+): Drawing {
+    if (drawing.anchors[index] === undefined) {
+        return drawing;
+    }
+    return {
+        ...drawing,
+        anchors: drawing.anchors.map((existing, at) => {
+            if (at !== index) {
+                return existing;
+            }
+            // A level is read against the price axis alone, so the instant it
+            // was pinned at is not something a drag of it should rewrite.
+            return drawing.kind === 'horizontal-line'
+                ? { atMs: existing.atMs, price: anchor.price }
+                : anchor;
+        }),
+    };
+}
+
+/**
+ * Moves a whole drawing, keeping its shape.
+ *
+ * @param drawing - The mark to move.
+ * @param shift - How far to move it, in chart coordinates.
+ * @returns The moved mark.
+ */
 export function shiftDrawing(drawing: Drawing, shift: DrawingShift): Drawing {
     return {
         ...drawing,

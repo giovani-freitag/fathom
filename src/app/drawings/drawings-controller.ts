@@ -5,6 +5,8 @@ import {
     type DrawingKind,
     type DrawingStyle,
     type DrawingWidth,
+    isTransientKind,
+    moveDrawingAnchor,
     shiftDrawing,
 } from '../../shared/core/drawing.ts';
 import { INSTANCE_TONES, type PlotTone } from '../../shared/core/draw-plan.ts';
@@ -41,6 +43,13 @@ export interface DrawingPress {
     readonly anchor: DrawingAnchor;
     /** The mark under the pointer, or null when the press landed on bare chart. */
     readonly hitId: string | null;
+    /**
+     * Which end of that mark was grabbed, or null for the mark as a whole.
+     *
+     * A drag of one end reshapes; a drag of anywhere else moves. Which of the
+     * two a press meant is decided where the grips are drawn, not here.
+     */
+    readonly grabbedAnchorIndex?: number | null;
 }
 
 export interface DrawingsControllerConfig {
@@ -61,6 +70,8 @@ export class DrawingsController {
     private readonly history = new DrawingHistory();
     /** Where the pointer went down, for a move measured against its start. */
     private grabbedFrom: DrawingAnchor | null = null;
+    /** Which end the gesture has hold of, or null when it has the whole mark. */
+    private grabbedAnchorIndex: number | null = null;
     /**
      * What was on the chart when the gesture began.
      *
@@ -99,6 +110,7 @@ export class DrawingsController {
      */
     begin(press: DrawingPress): void {
         this.grabbedFrom = press.anchor;
+        this.grabbedAnchorIndex = press.grabbedAnchorIndex ?? null;
         this.beforeGesture = this.store.read().drawings;
         const { armedTool } = this.store.read();
         if (armedTool !== null) {
@@ -114,7 +126,9 @@ export class DrawingsController {
      * @param drawingId - The mark to select, or null to select nothing.
      */
     select(drawingId: string | null): void {
-        this.store.update((state) => ({ ...state, selectedId: drawingId }));
+        // A measurement is answered by the moment it was asked in: the next
+        // press anywhere is a reader who has read it and moved on.
+        this.store.update((state) => ({ ...state, selectedId: drawingId, draft: null }));
     }
 
     /**
@@ -134,6 +148,10 @@ export class DrawingsController {
             this.reshapeDraft(anchor);
             return;
         }
+        if (this.grabbedAnchorIndex !== null) {
+            this.reshapeSelected(this.grabbedAnchorIndex, anchor);
+            return;
+        }
         this.shiftSelected({ deltaMs: anchor.atMs - from.atMs, deltaPrice: anchor.price - from.price });
     }
 
@@ -149,6 +167,12 @@ export class DrawingsController {
             // A click where a drag was needed leaves a mark of no length: kept,
             // it is invisible, unselectable, and stored for ever.
             this.store.update((state) => ({ ...state, draft: null }));
+            return;
+        }
+        if (draft !== null && isTransientKind(draft.kind)) {
+            // Left on screen but never stored: it is read where it was drawn
+            // and then done with, so it is neither persisted nor undoable.
+            this.store.update((state) => ({ ...state, armedTool: null }));
             return;
         }
         if (draft !== null) {
@@ -254,6 +278,23 @@ export class DrawingsController {
                 ? [anchor]
                 : [state.draft.anchors[0]!, anchor];
             return { ...state, draft: { ...state.draft, anchors } };
+        });
+    }
+
+    /**
+     * Puts one end of the selected mark where the pointer is.
+     */
+    private reshapeSelected(index: number, anchor: DrawingAnchor): void {
+        this.store.update((state) => {
+            if (state.selectedId === null) {
+                return state;
+            }
+            return {
+                ...state,
+                drawings: state.drawings.map((drawing) => (drawing.id === state.selectedId
+                    ? moveDrawingAnchor(drawing, index, anchor)
+                    : drawing)),
+            };
         });
     }
 

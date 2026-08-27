@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Drawing } from '../../../../src/shared/core/drawing.ts';
 import {
     DRAWING_GRAB_TOLERANCE_PX,
+    findAnchorAt,
     findDrawingAt,
 } from '../../../../src/app/drawings/drawing-hit-test.ts';
 import { ViewportProjector } from '../../../../src/app/core/viewport-projector.ts';
@@ -183,5 +184,59 @@ describe('findDrawingAt', () => {
 
     it('finds nothing on a chart with nothing drawn on it', () => {
         expect(findDrawingAt({ drawings: [], projector, point: { x: 10, y: 10 } })).toBeNull();
+    });
+});
+
+describe('findAnchorAt', () => {
+    const trend: Drawing = {
+        id: 'trend',
+        kind: 'trend-line',
+        instrumentSymbol: 'BTCUSDT',
+        anchors: [{ atMs: 20_000, price: 20 }, { atMs: 80_000, price: 80 }],
+        tone: 'amber',
+    };
+
+    it('answers which end the pointer is on', () => {
+        const point = { x: projector.timeToX(80_000), y: projector.priceToY(80) };
+
+        expect(findAnchorAt({ drawing: trend, projector, point })).toBe(1);
+    });
+
+    it('answers nothing halfway along, where there is no end to take', () => {
+        const point = { x: projector.timeToX(50_000), y: projector.priceToY(50) };
+
+        expect(findAnchorAt({ drawing: trend, projector, point })).toBeNull();
+    });
+
+    it('answers the end a pointer aimed at it lands a few pixels off', () => {
+        // Written in pixels rather than against the tolerance itself, which
+        // would follow the constant wherever it went and pin nothing.
+        const point = { x: projector.timeToX(80_000) + 6, y: projector.priceToY(80) };
+
+        expect(findAnchorAt({ drawing: trend, projector, point })).toBe(1);
+    });
+
+    it('stops well short of the line, which is grabbed for something else', () => {
+        // Reshaping and moving are different gestures on the same mark, and an
+        // end that reached far along the line would take presses meant to move.
+        const point = { x: projector.timeToX(80_000) - 20, y: projector.priceToY(78) };
+
+        expect(findAnchorAt({ drawing: trend, projector, point })).toBeNull();
+    });
+
+    it("looks for a level's grip where the painter draws it, not where it is pinned", () => {
+        // A level crosses the whole window, so its grip sits at the middle of
+        // the plot rather than at an instant that may be off screen entirely.
+        const level: Drawing = {
+            id: 'level',
+            kind: 'horizontal-line',
+            instrumentSymbol: 'BTCUSDT',
+            anchors: [{ atMs: 5_000, price: 50 }],
+            tone: 'phosphor',
+        };
+
+        const point = { x: WIDTH_PX / 2, y: projector.priceToY(50) };
+
+        expect(findAnchorAt({ drawing: level, projector, point })).toBe(0);
     });
 });

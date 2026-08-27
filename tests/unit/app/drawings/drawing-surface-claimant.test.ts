@@ -14,6 +14,14 @@ const projector = new ViewportProjector({
     height: HEIGHT_PX,
 });
 
+const STORED_TREND: Drawing = {
+    id: 'trend',
+    kind: 'trend-line',
+    instrumentSymbol: 'BTCUSDT',
+    anchors: [{ atMs: 20_000, price: 20 }, { atMs: 80_000, price: 80 }],
+    tone: 'amber',
+};
+
 const STORED_LEVEL: Drawing = {
     id: 'level',
     kind: 'horizontal-line',
@@ -50,6 +58,11 @@ function buildHarness(stored: readonly Drawing[] = [], symbol: string | null = '
 /** Where a price sits on this surface. */
 function yOf(price: number): number {
     return projector.priceToY(price);
+}
+
+/** Where an instant sits on this surface. */
+function xOf(atMs: number): number {
+    return projector.timeToX(atMs);
 }
 
 describe('DrawingSurfaceClaimant offered a press', () => {
@@ -241,5 +254,74 @@ describe('DrawingSurfaceClaimant asked what the pointer should look like', () =>
         harness.drawings.arm('horizontal-line');
 
         expect(harness.claimant.describeCursor({ x: 500, y: yOf(50) })).toBeNull();
+    });
+});
+
+describe('DrawingSurfaceClaimant offered a press on the end of a mark', () => {
+    let harness: Harness;
+
+    beforeEach(() => {
+        harness = buildHarness([STORED_TREND]);
+        harness.drawings.select('trend');
+    });
+
+    it('reshapes the mark, leaving the other end where it was drawn', () => {
+        harness.claimant.offerPress({ x: xOf(80_000), y: yOf(80) });
+        harness.claimant.moveClaim({ x: xOf(80_000), y: yOf(60) });
+        harness.claimant.settleClaim();
+
+        const anchors = harness.drawings.store.read().drawings[0]?.anchors;
+        expect(anchors?.[0]).toEqual({ atMs: 20_000, price: 20 });
+    });
+
+    it('puts the end it has hold of where the pointer went', () => {
+        harness.claimant.offerPress({ x: xOf(80_000), y: yOf(80) });
+        harness.claimant.moveClaim({ x: xOf(60_000), y: yOf(60) });
+        harness.claimant.settleClaim();
+
+        const moved = harness.drawings.store.read().drawings[0]?.anchors[1];
+        expect(moved?.price).toBeCloseTo(60);
+    });
+
+    it('moves the whole mark when the press was on the line rather than an end', () => {
+        harness.claimant.offerPress({ x: xOf(50_000), y: yOf(50) });
+        harness.claimant.moveClaim({ x: xOf(50_000), y: yOf(40) });
+        harness.claimant.settleClaim();
+
+        const anchors = harness.drawings.store.read().drawings[0]?.anchors;
+        expect(anchors?.[0]?.price).toBeCloseTo(10);
+    });
+
+    it('moves a mark nobody had selected rather than reshaping it', () => {
+        // The grips are drawn for the selected mark only, and reshaping one a
+        // reader cannot see the ends of is not what a press on it meant.
+        harness.drawings.select(null);
+
+        harness.claimant.offerPress({ x: xOf(80_000), y: yOf(80) });
+        harness.claimant.moveClaim({ x: xOf(80_000), y: yOf(60) });
+        harness.claimant.settleClaim();
+
+        expect(harness.drawings.store.read().drawings[0]?.anchors[0]?.price).toBeCloseTo(0);
+    });
+
+    it('shows an end under the pointer as something to take hold of', () => {
+        expect(harness.claimant.describeCursor({ x: xOf(80_000), y: yOf(80) })).toBe('grab');
+    });
+
+    it('shows the line between the ends as something to move', () => {
+        expect(harness.claimant.describeCursor({ x: xOf(50_000), y: yOf(50) })).toBe('move');
+    });
+
+    it('slides a level in price alone, however far along the drag went', () => {
+        // Its instant is not something a reader can see, and rewriting it on a
+        // drag would lose where the level was pinned for nothing visible.
+        const levels = buildHarness([STORED_LEVEL]);
+        levels.drawings.select('level');
+
+        levels.claimant.offerPress({ x: 500, y: yOf(50) });
+        levels.claimant.moveClaim({ x: 900, y: yOf(30) });
+        levels.claimant.settleClaim();
+
+        expect(levels.drawings.store.read().drawings[0]?.anchors[0]).toEqual({ atMs: 50_000, price: 30 });
     });
 });

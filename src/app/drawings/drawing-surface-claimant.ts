@@ -1,7 +1,7 @@
 import type { DrawingAnchor } from '../../shared/core/drawing.ts';
 import type { PointerClaimant, PointerPosition } from '../core/chart-gesture-controller.ts';
 import type { DrawingsController } from './drawings-controller.ts';
-import { findDrawingAt } from './drawing-hit-test.ts';
+import { findAnchorAt, findDrawingAt } from './drawing-hit-test.ts';
 import type { ViewportProjector } from '../core/viewport-projector.ts';
 
 /**
@@ -53,7 +53,12 @@ export class DrawingSurfaceClaimant implements PointerClaimant {
         }
 
         const { armedTool } = this.config.drawings.store.read();
-        const hitId = this.findHit(point);
+        const grabbedAnchorIndex = armedTool === null ? this.findGrabbedAnchor(point) : null;
+        // An end of the selected mark counts as that mark even when the pointer
+        // is past where the line itself stops, which is where a grip half sits.
+        const hitId = grabbedAnchorIndex === null
+            ? this.findHit(point)
+            : this.config.drawings.store.read().selectedId;
         if (armedTool === null && hitId === null) {
             // Declined, so the press pans. A reader pressing away from what they
             // had selected is a reader done with it.
@@ -63,7 +68,7 @@ export class DrawingSurfaceClaimant implements PointerClaimant {
 
         this.pressedAt = point;
         this.hasTravelled = false;
-        this.config.drawings.begin({ anchor, hitId });
+        this.config.drawings.begin({ anchor, hitId, grabbedAnchorIndex });
         return true;
     }
 
@@ -106,7 +111,27 @@ export class DrawingSurfaceClaimant implements PointerClaimant {
         if (this.config.drawings.store.read().armedTool !== null) {
             return null;
         }
+        if (this.findGrabbedAnchor(point) !== null) {
+            return 'grab';
+        }
         return this.findHit(point) === null ? null : 'move';
+    }
+
+    /**
+     * Which end of the selected mark is under the pointer, if any.
+     *
+     * Only the selected one has ends to grab: its grips are the only ones drawn,
+     * and reshaping a mark by what looks like a press on it is not something a
+     * reader asked for.
+     */
+    private findGrabbedAnchor(point: PointerPosition): number | null {
+        const projector = this.config.readProjector();
+        const { drawings, selectedId } = this.config.drawings.store.read();
+        const selected = drawings.find((drawing) => drawing.id === selectedId);
+        if (projector === null || selected === undefined) {
+            return null;
+        }
+        return findAnchorAt({ drawing: selected, projector, point });
     }
 
     /**
