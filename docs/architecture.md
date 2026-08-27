@@ -117,8 +117,8 @@ ADR 0005 records the measurement that settled it.
 
 Sampling rather than averaging is defensible because resting liquidity persists —
 a wall that stood for ten minutes appears in any sample of that stretch. What is
-lost is a wall shorter than the sampling step, and the step in force is shown in
-the interface header.
+lost is a wall shorter than the sampling step, and the step in force is shown
+beside the time window it is about.
 
 The step is never finer than the recorded grid. Asking for more columns than
 there are frames would leave empty buckets between the real ones, and the
@@ -694,9 +694,9 @@ there is still time to change one's mind.
 
 ## Everything a thumb reaches
 
-On a screen held in one hand the controls sit along the bottom, not in a header: a phone is held by its lower
-half, and a control a thumb cannot reach without regripping is a control that
-does not get used. They are *islands* floating over the chart rather than bars
+On a screen held in one hand the controls sit along the bottom, not in a header:
+a phone is held by its lower half, and a control a thumb cannot reach without
+regripping is a control that does not get used. They are *islands* floating over the chart rather than bars
 of their own, because chrome that takes layout costs the chart its height for as
 long as the page is open — and most of what is down there is opened once and
 closed again.
@@ -734,7 +734,8 @@ two reveals to make one decision; a panel that has already opened has the room
 to show what it is offering, and the one in force is then visible without
 touching anything.
 
-There is no header at all. What one used to report, the chart already answers:
+On that screen there is no header at all. What one used to report, the chart
+already answers:
 gaps are drawn on the chart, so counting them again is a second telling; live or
 in history is said by whether the way back to the live edge is offered; how wide
 a column of the book is belongs beside the time window it is about, and is shown
