@@ -154,9 +154,9 @@ export function HeatmapPage(): ReactElement {
                     onOpenSettings={handleOpenSettings}
                 />
 
-                {/* Left of the plot and clear of the rows above it, which is
-                    where a reader's hand already is when they reach for one. */}
-                <div className="pointer-events-none absolute bottom-3 left-3">
+                {/* A rail down the left edge, clear of the rows at the top and
+                    of the time axis at the bottom, both of which it crowded. */}
+                <div className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2">
                     <DrawingToolbar controls={drawings} />
                 </div>
 
