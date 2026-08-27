@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { INSTANCE_TONES, type PlotTone } from '../../shared/core/draw-plan.ts';
 import type { DrawingControls } from '../react/use-drawings.ts';
+import { FLOATING_PANEL_CLASSES } from './drawing-dock.tsx';
 import { useTranslate } from '../react/use-appearance.ts';
 
 /** The class each tone's swatch is filled with, so the canvas and the page agree. */
@@ -36,7 +37,7 @@ export function DrawingProperties({ controls }: DrawingPropertiesProps): ReactEl
 
     return (
         <div
-            className="pointer-events-auto flex items-center gap-1 rounded-xl border border-hairline bg-abyss-800/95 px-1.5 py-1 shadow-lg backdrop-blur"
+            className={FLOATING_PANEL_CLASSES}
             role="group"
             aria-label={translate('drawing.tone')}
         >

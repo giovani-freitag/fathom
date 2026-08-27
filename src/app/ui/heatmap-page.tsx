@@ -26,6 +26,9 @@ import { DrawingDock } from './drawing-dock.tsx';
 import { DrawingProperties } from './drawing-properties.tsx';
 import { useChartLayout } from '../react/use-chart-layout.ts';
 
+/** Enough to clear the time axis the renderer reserves along the bottom. */
+const TIME_AXIS_CLEARANCE_PX = 32;
+
 /* Declared once each, so every subscription is the same one on every render. */
 const readPhase = (state: ChartState): ChartState['phase'] => state.phase;
 const readFailureKey = (state: ChartState): TranslationKey | null => state.failureKey;
@@ -155,10 +158,19 @@ export function HeatmapPage(): ReactElement {
                     onOpenSettings={handleOpenSettings}
                 />
 
-                {/* Directly over the dock it belongs to, and only while there is
-                    something selected to change. */}
-                <div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center">
+                {/* An island rather than a bar of its own: drawing is done in
+                    bursts, and a full row of chrome for it costs the chart its
+                    height for as long as the page is open. What can be changed
+                    about the selected mark stacks directly above it.
+
+                    Clear of the time axis, whose labels are read while a mark is
+                    being placed and would otherwise sit under the island. */}
+                <div
+                    className="pointer-events-none absolute inset-x-0 flex flex-col items-center gap-2"
+                    style={{ bottom: TIME_AXIS_CLEARANCE_PX }}
+                >
                     <DrawingProperties controls={drawings} />
+                    <DrawingDock controls={drawings} />
                 </div>
 
                 {!isFollowingLive && <ReturnToLive onReturn={handleReturnToLive} />}
@@ -180,11 +192,6 @@ export function HeatmapPage(): ReactElement {
                     />
                 )}
             </main>
-
-            {/* Along the bottom, where a thumb already is on a phone. */}
-            <div className="shrink-0 border-t border-hairline bg-abyss-900">
-                <DrawingDock controls={drawings} />
-            </div>
 
             <footer className="shrink-0 border-t border-hairline pb-[env(safe-area-inset-bottom)]">
                 <SpanPresets

@@ -27,6 +27,11 @@ const ICON_SIZE_PX = 18;
  */
 const DOCK_BUTTON_CLASSES = 'grid size-11 shrink-0 place-items-center rounded-lg transition-colors';
 
+/** The shell the dock and the strip above it share, so they read as one thing. */
+export const FLOATING_PANEL_CLASSES =
+    'pointer-events-auto flex items-center gap-1 rounded-2xl border border-hairline'
+    + ' bg-abyss-800/95 px-1.5 py-1 shadow-lg backdrop-blur';
+
 const ACTIVE_CLASSES = 'bg-phosphor/15 text-phosphor';
 const RESTING_CLASSES = 'text-ink-400 hover:bg-abyss-700 hover:text-ink-100';
 
@@ -42,7 +47,7 @@ export function DrawingDock({ controls }: DrawingDockProps): ReactElement {
 
     return (
         <div
-            className="flex items-center gap-1 overflow-x-auto px-2 py-1"
+            className={FLOATING_PANEL_CLASSES}
             role="toolbar"
             aria-label={translate('drawing.toolbar')}
         >
@@ -54,7 +59,7 @@ export function DrawingDock({ controls }: DrawingDockProps): ReactElement {
                 <MousePointer2 size={ICON_SIZE_PX} />
             </DockButton>
 
-            <span className="h-6 w-px shrink-0 bg-hairline" />
+            <Divider />
 
             {DRAWING_KINDS.map((kind) => {
                 const { Icon, labelKey } = TOOL_FACES[kind];
@@ -70,7 +75,7 @@ export function DrawingDock({ controls }: DrawingDockProps): ReactElement {
                 );
             })}
 
-            <span className="flex-1" />
+            <Divider />
 
             <DockButton
                 label={translate('drawing.remove')}
@@ -82,6 +87,13 @@ export function DrawingDock({ controls }: DrawingDockProps): ReactElement {
             </DockButton>
         </div>
     );
+}
+
+/**
+ * A hairline between two groups of the dock.
+ */
+function Divider(): ReactElement {
+    return <span className="h-6 w-px shrink-0 bg-hairline" />;
 }
 
 interface DockButtonProps {

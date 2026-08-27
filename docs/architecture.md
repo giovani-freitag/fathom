@@ -573,13 +573,17 @@ Delete and Backspace remove what is selected, Escape puts the tool down and lets
 the selection go, and neither fires while a reader is typing into a field. Those
 are the keys a reader tries before they find the button.
 
-The controls sit along the bottom of the app, not down a rail beside the chart:
-a phone is held by its lower half, and a control a thumb cannot reach without
-regripping is a control that does not get used. The tool row is always there,
-with the pointer shown as a tool of its own so the resting state reads as a
-choice rather than as nothing being on. What can be changed about the mark that
-is selected — its colour — floats over the chart directly above that row, and
-only while something is selected.
+The controls sit along the bottom, not down a rail beside the chart: a phone is
+held by its lower half, and a control a thumb cannot reach without regripping is
+a control that does not get used. They are an *island* floating over the chart
+rather than a bar of their own, because drawing is done in bursts and a full row
+of chrome would cost the chart its height for as long as the page is open — the
+one bar down there is the span presets, which are read constantly. The pointer
+is shown as a tool of its own, so the resting state reads as a choice rather
+than as nothing being on, and the island clears the time axis, whose labels are
+read while a mark is being placed. What can be changed about the selected mark —
+its colour — stacks directly above the island, and only while something is
+selected.
 
 A new tool is a kind in one table, a case in the painter's shape arithmetic, and
 two dictionary entries. The zone was added that way after the first two, which

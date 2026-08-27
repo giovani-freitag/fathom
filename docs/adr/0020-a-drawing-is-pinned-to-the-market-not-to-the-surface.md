@@ -43,10 +43,14 @@ that takes one gets the whole gesture — move and release — and the pointer n
 reaches the pan, the pinch, or the drag book. A claimant that declines hears
 about it too, which is what lets pressing bare chart mean *done with that one*.
 
-**The controls live along the bottom.** A phone is held by its lower half, and a
-rail beside the chart is a regrip away. The tool row is always present, the
-resting pointer is shown as a tool rather than as nothing, and the properties of
-whatever is selected float above that row instead of pushing the chart smaller.
+**The controls live along the bottom, as an island rather than a bar.** A phone
+is held by its lower half, and a rail beside the chart is a regrip away. But
+drawing is done in bursts, and a full-width row for it costs the chart its
+height for as long as the page is open — so the tools are a floating island over
+the chart, clear of the time axis, and the one bar down there stays the span
+presets, which are read constantly. The resting pointer is shown as a tool
+rather than as nothing, and the properties of whatever is selected stack above
+the island instead of pushing the chart smaller.
 
 **A mark belongs to a contract.** It is drawn about `BTCUSDT`, shown on no other
 chart, and a stored mark naming a kind this build cannot draw is dropped on the
