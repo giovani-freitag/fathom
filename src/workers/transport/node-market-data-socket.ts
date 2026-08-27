@@ -26,6 +26,12 @@ export function openNodeMarketDataSocket(streamUrl: string): MarketDataSocket {
             wasClosed = true;
             socket.removeAllListeners();
 
+            // A socket the venue already hung up on emits no further close, so
+            // waiting out the grace would hold the collector's exit for nothing.
+            if (socket.readyState === WebSocket.CLOSED) {
+                return;
+            }
+
             const { promise, resolve } = Promise.withResolvers<void>();
             socket.once('close', resolve);
             socket.close();
