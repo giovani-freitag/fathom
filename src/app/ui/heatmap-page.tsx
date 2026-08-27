@@ -23,7 +23,7 @@ import { IndicatorOverlay } from './indicators/indicator-controls.tsx';
 import { useIndicators } from '../react/use-indicators.ts';
 import { useDrawings } from '../react/use-drawings.ts';
 import { ChartDock } from './chart-dock.tsx';
-import { DrawingProperties } from './drawing-properties.tsx';
+import { ChartProperties } from './chart-properties.tsx';
 
 /** Enough to clear the time axis the renderer reserves along the bottom. */
 const TIME_AXIS_CLEARANCE_PX = 32;
@@ -185,7 +185,7 @@ export function HeatmapPage(): ReactElement {
 
                     {/* Along the bottom rather than down the edge, where on a
                         phone a panel would be most of the chart. */}
-                    {!isWide && <DrawingProperties controls={drawings} />}
+                    {!isWide && <ChartProperties drawings={drawings} indicators={indicators} />}
 
                     {!isWide && <ChartDock
                         {...chartControls}
@@ -200,7 +200,7 @@ export function HeatmapPage(): ReactElement {
                         className="pointer-events-none absolute left-3 flex"
                         style={{ top: WIDE_PROPERTIES_TOP_PX }}
                     >
-                        <DrawingProperties controls={drawings} />
+                        <ChartProperties drawings={drawings} indicators={indicators} />
                     </div>
                 )}
 

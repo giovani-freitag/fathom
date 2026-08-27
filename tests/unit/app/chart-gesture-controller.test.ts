@@ -440,6 +440,7 @@ describe('ChartGestureController offering a press to a claimant', () => {
         readonly offers: PointerPosition[];
         readonly moves: PointerPosition[];
         readonly settles: number[];
+        readonly taps: PointerPosition[];
     }
 
     /**
@@ -455,6 +456,7 @@ describe('ChartGestureController offering a press to a claimant', () => {
         const offers: PointerPosition[] = [];
         const moves: PointerPosition[] = [];
         const settles: number[] = [];
+        const taps: PointerPosition[] = [];
 
         const controller = new ChartGestureController({
             surface: surface.surface,
@@ -476,10 +478,11 @@ describe('ChartGestureController offering a press to a claimant', () => {
                 moveClaim: (point) => { moves.push(point); },
                 settleClaim: () => { settles.push(1); },
                 describeCursor: () => cursor,
+                offerTap: (point) => { taps.push(point); },
             },
         });
         controller.attach();
-        return { surface, offers, moves, settles };
+        return { surface, offers, moves, settles, taps };
     }
 
     it('shows the pointer as what a press there would do', () => {
@@ -506,6 +509,45 @@ describe('ChartGestureController offering a press to a claimant', () => {
         harness.surface.fire('pointermove', { pointerId: 1, clientX: 990, clientY: 250 });
 
         expect(harness.surface.surface.style.cursor).toBe('ns-resize');
+    });
+
+    it('tells it about a press it declined that went nowhere', () => {
+        // A press over the plot has to be free to pan, so what it landed on
+        // cannot be decided when it goes down.
+        const harness = buildClaimed(false);
+
+        harness.surface.fire('pointerdown', { pointerId: 1, clientX: 500, clientY: 250 });
+        harness.surface.fire('pointerup', { pointerId: 1, clientX: 500, clientY: 250 });
+
+        expect(harness.taps).toHaveLength(1);
+    });
+
+    it('says nothing about a press that panned the chart', () => {
+        const harness = buildClaimed(false);
+
+        harness.surface.fire('pointerdown', { pointerId: 1, clientX: 500, clientY: 250 });
+        harness.surface.fire('pointermove', { pointerId: 1, clientX: 560, clientY: 250 });
+        harness.surface.fire('pointerup', { pointerId: 1, clientX: 560, clientY: 250 });
+
+        expect(harness.taps).toEqual([]);
+    });
+
+    it('says nothing about a press it took, which was never a tap', () => {
+        const harness = buildClaimed(true);
+
+        harness.surface.fire('pointerdown', { pointerId: 1, clientX: 500, clientY: 250 });
+        harness.surface.fire('pointerup', { pointerId: 1, clientX: 500, clientY: 250 });
+
+        expect(harness.taps).toEqual([]);
+    });
+
+    it('says nothing about a tap on the axis, which is not the plot', () => {
+        const harness = buildClaimed(false);
+
+        harness.surface.fire('pointerdown', { pointerId: 1, clientX: 990, clientY: 250 });
+        harness.surface.fire('pointerup', { pointerId: 1, clientX: 990, clientY: 250 });
+
+        expect(harness.taps).toEqual([]);
     });
 
     it('offers it every press over the plot', () => {

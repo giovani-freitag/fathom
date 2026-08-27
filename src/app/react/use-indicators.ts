@@ -28,6 +28,10 @@ export interface IndicatorControls {
     readonly setBand: (instanceId: string, bandKey: string | null) => void;
     /** How many copies of each indicator are on the chart, by indicator id. */
     readonly addedCounts: ReadonlyMap<string, number>;
+    /** The copy whose settings the chart has open, or null while none are. */
+    readonly picked: AddedIndicator | null;
+    /** Opens one copy's settings, or closes whatever is open. */
+    readonly pick: (instanceId: string | null) => void;
     /** The last removal, until it is undone or another change lands. */
     readonly lastRemoved: AddedIndicator | null;
     readonly undoRemoval: () => void;
@@ -39,8 +43,9 @@ export interface IndicatorControls {
  *
  * @returns The set and the operations over it.
  */
-/** Declared once so the subscription is the same one on every render. */
+/* Declared once each, so the subscription is the same one on every render. */
 const readAddedIndicators = (state: ChartState): readonly AddedIndicator[] => state.addedIndicators;
+const readPickedInstanceId = (state: ChartState): string | null => state.pickedInstanceId;
 
 export function useIndicators(): IndicatorControls {
     const kernel = useKernel();
@@ -48,6 +53,11 @@ export function useIndicators(): IndicatorControls {
     // viewport from here rebuilt every control on the screen for a figure none
     // of them read.
     const added = useChartSlice(readAddedIndicators);
+    const pickedInstanceId = useChartSlice(readPickedInstanceId);
+
+    const pick = useCallback((instanceId: string | null) => {
+        kernel.chart.pickLayer(instanceId);
+    }, [kernel]);
 
     const add = useCallback((indicatorId: string) => {
         const layer = findChartLayer(indicatorId);
@@ -128,6 +138,8 @@ export function useIndicators(): IndicatorControls {
     return useMemo(() => ({
         added,
         addedCounts,
+        picked: added.find((entry) => entry.instanceId === pickedInstanceId) ?? null,
+        pick,
         // Only a document guard, never a product limit: what is too many is
         // something the reader can see on the chart and decide about.
         isFull: added.length >= MAXIMUM_STORED_INDICATORS,
@@ -140,5 +152,8 @@ export function useIndicators(): IndicatorControls {
         lastRemoved: removal?.entry ?? null,
         undoRemoval,
         forgetRemoval,
-    }), [added, addedCounts, add, remove, retune, recolour, setVisibility, setBand, removal, undoRemoval, forgetRemoval]);
+    }), [
+        added, addedCounts, pickedInstanceId, pick, add, remove, retune, recolour,
+        setVisibility, setBand, removal, undoRemoval, forgetRemoval,
+    ]);
 }

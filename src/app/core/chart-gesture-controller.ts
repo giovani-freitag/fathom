@@ -25,6 +25,25 @@ const AXIS_SCALE_DISTANCE_PX = 180;
  */
 type SurfaceRegion = 'plot' | 'price-scale' | 'time-scale';
 
+/**
+ * How far a press has to move to have been a pan rather than a tap.
+ *
+ * The same allowance a claimed press gets before it moves a mark: no hand is
+ * perfectly still between pressing and letting go.
+ */
+const TAP_TRAVEL_TOLERANCE_PX = 4;
+
+/**
+ * Whether a press went far enough to have been a drag.
+ *
+ * @param from - Where it went down.
+ * @param to - Where it came up.
+ * @returns True when it travelled further than a hand's own tremor.
+ */
+function hasTravelled(from: PointerPosition, to: PointerPosition): boolean {
+    return Math.hypot(to.x - from.x, to.y - from.y) >= TAP_TRAVEL_TOLERANCE_PX;
+}
+
 const REGION_CURSORS: Record<SurfaceRegion, string> = {
     plot: 'crosshair',
     'price-scale': 'ns-resize',
@@ -59,6 +78,16 @@ export interface PointerClaimant {
     moveClaim(point: PointerPosition): void;
     /** Told the claim is over. */
     settleClaim(): void;
+    /**
+     * Offered a press it declined that turned out to go nowhere.
+     *
+     * A press over the plot has to be free to pan, so what it landed on cannot
+     * be decided when it goes down. A press that never moved was not a pan, and
+     * this is the only point at which that is known.
+     *
+     * @param point - Where the press landed, in surface pixels.
+     */
+    offerTap(point: PointerPosition): void;
     /**
      * What the pointer should look like resting over the plot.
      *
@@ -213,6 +242,7 @@ export class ChartGestureController {
     }
 
     private handlePointerUp(event: PointerEvent): void {
+        const position = this.toLocalPosition(event);
         this.activePointers.delete(event.pointerId);
         if (this.config.surface.hasPointerCapture(event.pointerId)) {
             this.config.surface.releasePointerCapture(event.pointerId);
@@ -222,6 +252,11 @@ export class ChartGestureController {
             this.claimedPointerId = null;
             this.config.claimant?.settleClaim();
             return;
+        }
+
+        const origin = this.dragOrigin;
+        if (origin !== null && origin.region === 'plot' && !hasTravelled(origin.pointer, position)) {
+            this.config.claimant?.offerTap(position);
         }
         this.beginGesture();
     }

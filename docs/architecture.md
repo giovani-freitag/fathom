@@ -597,6 +597,19 @@ on, and asking them to say it again is a press they should not have to make. It
 opens where there is room for it — down the left on a wide screen, above the
 island on a narrow one — and closes when the selection goes.
 
+**A reading opens the same way.** Tapping the line an indicator drew opens that
+copy's own settings in the same slot, so the way to a moving average is to point
+at it rather than to find its name in a list. One slot rather than two: a reader
+picks one thing at a time, and two panels arguing over the same corner is a
+layout deciding what they meant. A mark wins while there is one — it is what
+they pressed last.
+
+That press cannot be spent when it goes down, though. A plotted line crosses the
+whole chart, and dragging from one has to pan like dragging from anywhere else,
+so the claimant declines it and the gesture controller reports it back as a *tap*
+once it has come up without going anywhere. Which is also the only moment at
+which a press is known not to have been a pan.
+
 The pointer is the harder half. The surface already spends every press on the
 viewport, so a press over the plot is *offered* first — the gesture controller
 takes a claimant, and a claimant that takes a press gets the whole gesture with
@@ -604,9 +617,10 @@ the pan never seeing it. Declining is reported too, which is what lets a press o
 bare chart mean *done with that one*.
 
 The same seam answers what the pointer should look like. Resting over a mark it
-is shown as something to grab, which is the only sign a reader gets that they
-are on a line one pixel wide; the controller asks rather than knows, so it still
-has never heard of a drawing.
+is shown as something to move, over one of its ends as something to take hold
+of, and over a reading as something to open — the only sign a reader gets that
+they are on a line one pixel wide. The controller asks rather than knows, so it
+still has never heard of a drawing or of an indicator.
 
 A press has to travel a few pixels before it moves anything. No hand is
 perfectly still between pressing and letting go, and without the threshold every

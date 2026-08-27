@@ -83,6 +83,13 @@ export interface ChartState {
     readonly addedIndicators: readonly AddedIndicator[];
     /** What the indicators produced for the window on screen. */
     readonly plans: readonly DrawPlan[];
+    /**
+     * The added layer whose settings are open, or null while none are.
+     *
+     * Opened by pressing what it drew rather than by finding it in a list: a
+     * reader who has just pointed at a line has said which one they mean.
+     */
+    readonly pickedInstanceId: string | null;
 }
 
 export interface ChartControllerConfig {
@@ -260,6 +267,18 @@ export class ChartController {
             viewport: this.store.read().viewport,
             surfaceWidthPx: this.surfaceWidthPx,
         });
+    }
+
+    /**
+     * Points the controls at one added layer, or at none.
+     *
+     * @param instanceId - The copy to open, or null to close whatever is open.
+     */
+    pickLayer(instanceId: string | null): void {
+        if (this.store.read().pickedInstanceId === instanceId) {
+            return;
+        }
+        this.store.update((state) => ({ ...state, pickedInstanceId: instanceId }));
     }
 
     /**
@@ -667,6 +686,7 @@ function buildInitialState(preferences: ViewerPreferences): ChartState {
         ...resolveFieldSettings(preferences.addedIndicators),
         addedIndicators: preferences.addedIndicators,
         plans: [],
+        pickedInstanceId: null,
     };
 }
 

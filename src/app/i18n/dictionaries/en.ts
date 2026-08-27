@@ -106,6 +106,7 @@ export const EN_DICTIONARY = {
     'indicators.open': 'Indicators',
     'indicators.onTheChart': 'On the chart',
     'indicators.add': 'Add a layer',
+    'indicators.close': 'Close',
     'indicators.search': 'Search',
     'indicators.noMatch': 'Nothing by that name',
     'indicators.none': 'None yet',

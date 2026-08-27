@@ -24,6 +24,21 @@ export interface DrawingSurfaceClaimantConfig {
     readonly readProjector: () => ViewportProjector | null;
     /** The contract on the chart, so a press only meets marks drawn about it. */
     readonly readInstrumentSymbol: () => string | null;
+    /**
+     * Which added layer is drawn under a point, if any.
+     *
+     * Asked rather than worked out here: what an indicator drew and where it was
+     * placed is not something the drawing tools know or should learn.
+     */
+    readonly readLayerAt: (point: PointerPosition) => string | null;
+    /**
+     * Points the controls at one added layer, or at none.
+     *
+     * A press over the plot is about the chart, so whatever panel was open for a
+     * layer lets go — and a press that went nowhere and landed on a reading opens
+     * that reading's own.
+     */
+    readonly onPickLayer: (instanceId: string | null) => void;
 }
 
 /**
@@ -51,6 +66,7 @@ export class DrawingSurfaceClaimant implements PointerClaimant {
         if (anchor === null) {
             return false;
         }
+        this.config.onPickLayer(null);
 
         const { armedTool } = this.config.drawings.store.read();
         const grabbedAnchorIndex = armedTool === null ? this.findGrabbedAnchor(point) : null;
@@ -98,6 +114,15 @@ export class DrawingSurfaceClaimant implements PointerClaimant {
     }
 
     /**
+     * Opens whatever reading a press that went nowhere landed on.
+     *
+     * @param point - Where the press landed, in surface pixels.
+     */
+    offerTap(point: PointerPosition): void {
+        this.config.onPickLayer(this.config.readLayerAt(point));
+    }
+
+    /**
      * What the pointer looks like resting over the plot.
      *
      * A mark under it is shown as something to grab, which is the whole of what
@@ -114,7 +139,12 @@ export class DrawingSurfaceClaimant implements PointerClaimant {
         if (this.findGrabbedAnchor(point) !== null) {
             return 'grab';
         }
-        return this.findHit(point) === null ? null : 'move';
+        if (this.findHit(point) !== null) {
+            return 'move';
+        }
+        // A reading is not something a press moves, so it is shown as something
+        // to open rather than something to take hold of.
+        return this.config.readLayerAt(point) === null ? null : 'pointer';
     }
 
     /**

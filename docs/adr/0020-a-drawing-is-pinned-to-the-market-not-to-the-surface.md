@@ -79,6 +79,15 @@ reshaping needs no mode; and the kinds table gained a measurement, which is
 drawn, read, and dropped on the next press rather than stored. Transience is one
 predicate over the kind, not a second vocabulary beside the first.
 
+**A tap is a separate offer from a press.** A press over the plot must stay free
+to pan, so what it landed on cannot be spent when it goes down. The controller
+therefore reports a press that was declined and then went nowhere, and the
+claimant answers that with what a reader meant by it: opening the settings of
+whatever reading was drawn under it. The hit test that finds one resolves each
+plan's projection the same three ways the painter does — the price axis, a strip
+along the floor, a band of its own — because a test that placed a line anywhere
+else would answer about one nobody can see.
+
 **A mark belongs to a contract.** It is drawn about `BTCUSDT`, shown on no other
 chart, and a stored mark naming a kind this build cannot draw is dropped on the
 way in rather than carried for ever.

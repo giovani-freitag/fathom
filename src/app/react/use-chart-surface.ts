@@ -1,6 +1,7 @@
 import { ChartGestureController } from '../core/chart-gesture-controller.ts';
 import { resolveChartLayout } from '../painting/chart-layout.ts';
-import { countPanedPlans } from '../painting/pane-projector.ts';
+import { countPanedPlans, placePanes } from '../painting/pane-projector.ts';
+import { findPlanAt } from '../painting/plan-hit-test.ts';
 import { HeatmapRenderer, type PointerReadout } from '../painting/heatmap-renderer.ts';
 import { type RefObject, useCallback, useEffect, useRef } from 'react';
 import { DrawingSurfaceClaimant } from '../drawings/drawing-surface-claimant.ts';
@@ -44,6 +45,41 @@ function resolveSurfaceProjector(
         viewport: state.viewport,
         width: layout.plotWidth,
         height: layout.pricePaneHeight,
+    });
+}
+
+/**
+ * Which added layer is drawn under a point, as the frame has it placed.
+ *
+ * Rebuilt per press rather than held: the panes are placed from the plans and
+ * the room, and both move while a reader is looking.
+ *
+ * @param container - The surface, for the room the panes were placed in.
+ * @param kernel - The services, for the viewport and what was drawn.
+ * @param point - Where the pointer is, in surface pixels.
+ * @returns The instance id of the reading under it, or null.
+ */
+function readLayerAt(
+    container: HTMLElement,
+    kernel: ServiceContainer,
+    point: { readonly x: number; readonly y: number },
+): string | null {
+    const bounds = container.getBoundingClientRect();
+    const state = kernel.chart.store.read();
+    const layout = resolveChartLayout({
+        cssWidth: bounds.width,
+        cssHeight: bounds.height,
+        isVolumeProfileVisible: state.isVolumeProfileVisible,
+        indicatorPaneCount: countPanedPlans(state.plans),
+    });
+
+    return findPlanAt({
+        plans: state.plans,
+        viewport: state.viewport,
+        layout,
+        projector: resolveSurfaceProjector(container, kernel),
+        panePlacements: placePanes(state.plans, layout.indicatorPanes, state.viewport),
+        point,
     });
 }
 
@@ -157,6 +193,8 @@ export function useChartSurface(): ChartSurfaceHandles {
                 drawings: kernel.drawings,
                 readProjector: () => resolveSurfaceProjector(container, kernel),
                 readInstrumentSymbol: () => kernel.chart.store.read().instrumentSymbol,
+                readLayerAt: (point) => readLayerAt(container, kernel, point),
+                onPickLayer: (instanceId) => { kernel.chart.pickLayer(instanceId); },
             }),
         });
         gestures.attach();

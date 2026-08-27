@@ -76,6 +76,9 @@ export function createIndicatorKernel(added: readonly AddedIndicator[] = []): In
             updateIndicators: (revise: (current: readonly AddedIndicator[]) => readonly AddedIndicator[]) => {
                 store.update((state) => buildState(revise(state.addedIndicators)));
             },
+            pickLayer: (instanceId: string | null) => {
+                store.update((state) => ({ ...state, pickedInstanceId: instanceId }));
+            },
         },
     } as unknown as ServiceContainer;
 
@@ -107,6 +110,7 @@ function buildState(added: readonly AddedIndicator[]): ChartState {
         instruments: [],
         instrumentSymbol: 'BTCUSDT',
         isVolumeProfileVisible: false,
+        pickedInstanceId: null,
     } as unknown as ChartState;
 }
 

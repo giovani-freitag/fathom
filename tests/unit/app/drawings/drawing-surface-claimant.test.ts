@@ -33,9 +33,16 @@ const STORED_LEVEL: Drawing = {
 interface Harness {
     readonly claimant: DrawingSurfaceClaimant;
     readonly drawings: DrawingsController;
+    /** Every layer the claimant pointed the controls at, in order. */
+    readonly picked: (string | null)[];
 }
 
-function buildHarness(stored: readonly Drawing[] = [], symbol: string | null = 'BTCUSDT'): Harness {
+function buildHarness(
+    stored: readonly Drawing[] = [],
+    symbol: string | null = 'BTCUSDT',
+    layerAt: string | null = null,
+): Harness {
+    const picked: (string | null)[] = [];
     const drawings = new DrawingsController({
         preferences: {
             read: () => ({ ...DEFAULT_PREFERENCES, drawings: stored }),
@@ -47,10 +54,13 @@ function buildHarness(stored: readonly Drawing[] = [], symbol: string | null = '
 
     return {
         drawings,
+        picked,
         claimant: new DrawingSurfaceClaimant({
             drawings,
             readProjector: () => projector,
             readInstrumentSymbol: () => symbol,
+            readLayerAt: () => layerAt,
+            onPickLayer: (instanceId) => { picked.push(instanceId); },
         }),
     };
 }
@@ -323,5 +333,47 @@ describe('DrawingSurfaceClaimant offered a press on the end of a mark', () => {
         levels.claimant.settleClaim();
 
         expect(levels.drawings.store.read().drawings[0]?.anchors[0]).toEqual({ atMs: 50_000, price: 30 });
+    });
+});
+
+describe('DrawingSurfaceClaimant offered a tap it declined', () => {
+    it('opens the reading the tap landed on', () => {
+        // A press over the plot has to be free to pan, so what it landed on is
+        // only known once it has gone nowhere and come back up.
+        const harness = buildHarness([], 'BTCUSDT', 'sma-1');
+
+        harness.claimant.offerTap({ x: 500, y: 250 });
+
+        expect(harness.picked.at(-1)).toBe('sma-1');
+    });
+
+    it('closes whatever was open when the tap landed on bare chart', () => {
+        const harness = buildHarness([], 'BTCUSDT', null);
+
+        harness.claimant.offerTap({ x: 500, y: 250 });
+
+        expect(harness.picked.at(-1)).toBeNull();
+    });
+
+    it('lets go of an open reading as soon as a press starts', () => {
+        // A press over the plot is about the chart, and a panel left open over
+        // it is about something the reader has stopped pointing at.
+        const harness = buildHarness([STORED_LEVEL], 'BTCUSDT', 'sma-1');
+
+        harness.claimant.offerPress({ x: 500, y: yOf(50) });
+
+        expect(harness.picked).toEqual([null]);
+    });
+
+    it('shows a reading under the pointer as something to open', () => {
+        const harness = buildHarness([], 'BTCUSDT', 'sma-1');
+
+        expect(harness.claimant.describeCursor({ x: 500, y: 250 })).toBe('pointer');
+    });
+
+    it('shows a mark over a reading as something to move, which is what a press does', () => {
+        const harness = buildHarness([STORED_LEVEL], 'BTCUSDT', 'sma-1');
+
+        expect(harness.claimant.describeCursor({ x: 500, y: yOf(50) })).toBe('move');
     });
 });

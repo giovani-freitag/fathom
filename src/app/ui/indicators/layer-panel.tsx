@@ -107,7 +107,7 @@ function PanelStep({ title, onBack, children }: PanelStepProps): ReactElement {
     );
 }
 
-interface LayerKnobsProps {
+export interface LayerKnobsProps {
     readonly controls: IndicatorControls;
     readonly instanceId: string;
 }
@@ -119,7 +119,7 @@ interface LayerKnobsProps {
  * reader pressed a control beside a name, and what opens should be about that
  * name and nothing else.
  */
-function LayerKnobs({ controls, instanceId }: LayerKnobsProps): ReactElement | null {
+export function LayerKnobs({ controls, instanceId }: LayerKnobsProps): ReactElement | null {
     const translate = useTranslate();
     const state = useChartState();
     const added = controls.added.find((entry) => entry.instanceId === instanceId);
