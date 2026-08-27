@@ -236,3 +236,19 @@ describe('what a function asks to be handed', () => {
         expect(overloaded).toEqual([]);
     });
 });
+
+describe('a settings panel is built from one kind of section', () => {
+    it('rules a section off in one place, so the breath after it is the same', () => {
+        // Three different amounts of breath after the same horizontal rule is
+        // what a reader sees as an interface that was not decided, and one of
+        // them had no title at all: a run of figures started under a pair of
+        // switches with nothing saying it was a different subject.
+        const spelled = sourceFiles
+            .filter((path) => path.endsWith('.tsx'))
+            .filter((path) => !path.endsWith('ui/panel-section.tsx'))
+            .filter((path) => !path.endsWith('ui/about-panel.tsx'))
+            .filter((path) => /border-t border-hairline pt-/.test(read(path)));
+
+        expect(spelled).toEqual([]);
+    });
+});
