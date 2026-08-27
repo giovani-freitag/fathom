@@ -11,6 +11,15 @@ const INITIAL_PRICE_RANGE_RATIO = 0.004;
 /** A price span narrower than this many buckets stops being a chart. */
 const MINIMUM_PRICE_BUCKETS = 4;
 
+/**
+ * How far back a reader may pan.
+ *
+ * Far enough to cover any contract worth charting, and no further: past the day
+ * a contract was listed there is nothing to draw, and a viewport that may sit
+ * where nothing can answer is one a reader can get lost in.
+ */
+const VENUE_HISTORY_HORIZON_MS = 5 * 365 * 24 * 60 * 60 * 1_000;
+
 export interface BoundsRequest {
     readonly instrument: InstrumentCoverage | undefined;
     readonly priceBucketSize: number;
@@ -27,7 +36,15 @@ export interface BoundsRequest {
  */
 export function resolveViewportBounds(request: BoundsRequest): ViewportBounds {
     return {
-        earliestMs: request.instrument?.firstFrameAtMs ?? 0,
+        // Back to whichever is earlier: where this recording starts, or the
+        // horizon the venue publishes candles over. The book stops where the
+        // recording does, but the price that moved through it does not, and a
+        // chart that refused to pan past its own first frame could not show a
+        // week to a reader who had been recording for an hour.
+        earliestMs: Math.min(
+            request.instrument?.firstFrameAtMs ?? request.nowMs,
+            request.nowMs - VENUE_HISTORY_HORIZON_MS,
+        ),
         // The tail may be seconds ahead of the newest frame the viewer holds, so
         // the edge follows the clock rather than the data.
         latestMs: Math.max(request.nowMs, request.instrument?.lastFrameAtMs ?? 0)
@@ -152,12 +169,21 @@ export function frameOnBook(
 }
 
 /**
- * The band the bars themselves cover, with head-room.
+ * The band the bars on screen cover, with head-room.
+ *
+ * On screen, not in hand. A window carries warm-up bars before its own start so
+ * a reading has converged by the time it is drawn, and those reach back as far
+ * as the longest reading needs — days, at an hourly bar. Framing on them frames
+ * the axis on prices nobody can see, and the candles come out as a ribbon in a
+ * corner of it.
  */
 function frameOnBars(viewport: ChartViewport, dataset: ChartDataset): ChartViewport | null {
     let low = Number.POSITIVE_INFINITY;
     let high = Number.NEGATIVE_INFINITY;
     for (const bar of dataset.bars.bars) {
+        if (bar.closedAtMs < viewport.fromMs || bar.openedAtMs > viewport.toMs) {
+            continue;
+        }
         low = Math.min(low, bar.lowPrice);
         high = Math.max(high, bar.highPrice);
     }

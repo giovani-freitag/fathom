@@ -146,10 +146,14 @@ describe('package confinement', () => {
             || path.startsWith('src/app/'))).toBe(true);
     });
 
-    it('reaches the venue over the network only from the workers', () => {
+    it('reaches the venue over the network from two places, both named', () => {
+        // The collector, which records the book, and the wiring that hands the
+        // chart its candles — public history the venue serves for any past day.
+        // A third caller is the venue leaking into the rest of the product.
         const callers = sourceFiles.filter((path) => /binance\.com/.test(read(path)));
 
-        expect(callers.every((path) => path.startsWith('src/workers/'))).toBe(true);
+        expect(callers.every((path) => path.startsWith('src/workers/')
+            || path === 'src/app/core/venue-candles.ts')).toBe(true);
     });
 });
 

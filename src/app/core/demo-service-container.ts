@@ -5,6 +5,7 @@ import { createCursorStore } from './cursor-store.ts';
 import type { CollectorEvent } from '../../shared/core/collector-worker-contract.ts';
 import { CollectorWorkerService } from '../services/collector-worker-service.ts';
 import { IndexedDbHeatmapSource } from '../../database/browser/indexed-db-heatmap-source.ts';
+import { wrapWithVenueCandles } from './venue-candles.ts';
 import { BrowserRecordingControl } from '../../database/browser/browser-recording-control.ts';
 import { DEMO_CATALOGUE } from '../../workers/browser/demo-collector-configuration.ts';
 import { IndexedDbLiquidityArchive } from '../../database/browser/indexed-db-liquidity-archive.ts';
@@ -43,7 +44,7 @@ export function createDemoServiceContainer(
     config: DemoServiceContainerConfig,
 ): DemoServiceContainer {
     const database = new IndexedDbService({ factory: config.factory });
-    const api = new IndexedDbHeatmapSource({ database });
+    const api = wrapWithVenueCandles(new IndexedDbHeatmapSource({ database }));
     const cursor = createCursorStore();
     const preferences = new PreferencesService({ storage: config.storage });
 

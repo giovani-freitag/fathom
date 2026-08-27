@@ -62,7 +62,6 @@ export function ChartHeader(props: ChartHeaderProps): ReactElement {
             <SpanControl
                 isCollapsed={!props.hasRoomForPresets}
                 activeSpanMs={time.visibleSpanMs}
-                recordedSpanMs={time.recordedSpanMs}
                 onSelect={time.onSpanSelect}
             />
 

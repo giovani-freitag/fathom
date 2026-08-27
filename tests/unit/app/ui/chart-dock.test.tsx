@@ -68,7 +68,6 @@ function renderDock(overrides: Partial<DrawingControls> = {}): Pressed {
         onInstrumentSelect: () => undefined,
         time: {
             visibleSpanMs: 900_000,
-            recordedSpanMs: 86_400_000,
             onSpanSelect: () => undefined,
             barIntervalMs: null,
             effectiveIntervalMs: 5_000,

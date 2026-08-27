@@ -13,8 +13,6 @@ export interface ChartViewport {
  * rather than a chart, and a recording that has just started is exactly when
  * they most need it to look like one.
  */
-const MINIMUM_COVERAGE_SPAN_MS = 60_000;
-
 /** Hard bounds a viewport is never allowed past. */
 export interface ViewportBounds {
     readonly earliestMs: number;
@@ -101,22 +99,20 @@ export function zoomViewportPrice(request: ViewportZoomRequest): ChartViewport {
  * @returns A viewport within bounds, preserving the requested span where possible.
  */
 export function clampViewport(viewport: ChartViewport, bounds: ViewportBounds): ChartViewport {
-    // A span wider than what was ever recorded has nowhere to sit: pushing its
-    // start up to the first frame would push its end past the clock, and the
-    // chart would show empty future instead of saying it has less history than
-    // was asked for.
-    // Floored at the narrowest view offered, not at the narrowest zoom allowed.
-    // An archive a few seconds old would otherwise open on a few seconds, where
-    // every column is a slab and one candle is the whole chart.
-    const recordedSpanMs = Math.max(
-        MINIMUM_COVERAGE_SPAN_MS,
-        bounds.latestMs - bounds.earliestMs,
-    );
+    // A span wider than the whole allowed range has nowhere to sit: pushing its
+    // start back to the earliest would push its end past the clock, and the
+    // chart would show empty future instead of what it was asked for.
+    //
+    // It used to be floored at a minute as well, so an archive seconds old did
+    // not open on seconds of slabs. That floor is gone with the reason for it:
+    // the range now reaches back to where candles are published rather than to
+    // the first frame recorded, so it is never seconds wide.
+    const availableSpanMs = bounds.latestMs - bounds.earliestMs;
     const requestedSpanMs = viewport.toMs - viewport.fromMs;
     const spanMs = Math.min(
         Math.max(requestedSpanMs, bounds.minimumSpanMs),
         bounds.maximumSpanMs,
-        recordedSpanMs,
+        availableSpanMs,
     );
 
     let fromMs = viewport.fromMs;

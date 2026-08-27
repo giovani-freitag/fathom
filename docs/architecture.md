@@ -323,10 +323,17 @@ feeds it sits there too: which contracts are written and how much room they may
 take. The collector is the book's instrument, not a requirement of the product,
 and its controls belong with the thing it serves.
 
-How much traded is not one of them, though it was recorded alongside. A bar
-carries its own volume, so it is drawn from the bars the candles are drawn from
-and needs no book at all: it is an indicator like any other, and it survives a
-chart the book has been taken off.
+How much traded is not one of them. A bar carries its own volume, so it is drawn
+from the bars the candles are drawn from and needs no book at all: it is an
+indicator like any other, and it survives a chart the book has been taken off.
+
+And the bars themselves come from the venue, not from the recording. A venue
+publishes candles and volume for every past day; nobody publishes yesterday's
+resting depth. So the chart opens on history and fills the book in behind it,
+rather than opening on the few minutes this reader happened to record. Below a
+minute the recording answers instead, because no venue publishes a candle that
+fine — and a chart zoomed in that far is looking at seconds of book anyway.
+ADR 0021 records the reasoning.
 
 A chart opens on the book, the candles and the volume, because a chart that
 opens on less than the price and what traded in it asks the reader to assemble

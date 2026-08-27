@@ -52,7 +52,6 @@ export interface ChartDockProps {
 /** Everything the two time questions need, asked in one place. */
 export interface TimeControls {
     readonly visibleSpanMs: number;
-    readonly recordedSpanMs: number;
     readonly onSpanSelect: (spanMs: number) => void;
     readonly barIntervalMs: BarIntervalMs | null;
     readonly effectiveIntervalMs: number;
@@ -212,7 +211,6 @@ function TimePanel({ time }: { readonly time: TimeControls }): ReactElement {
             >
                 <SpanControl
                     activeSpanMs={time.visibleSpanMs}
-                    recordedSpanMs={time.recordedSpanMs}
                     onSelect={time.onSpanSelect}
                 />
             </PanelSection>

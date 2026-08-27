@@ -1,9 +1,10 @@
 /**
- * One open-high-low-close bar of the recorded book mid, carrying what built it.
+ * One open-high-low-close bar, carrying what built it.
  *
- * Book mid rather than traded price is a choice, not a limit: a traded close is
- * derivable from the execution grid to within a hundredth of a percent. The mid
- * is what the recording is *of*, so it is what a bar of it should say.
+ * From the venue where the venue publishes one, and from the recorded book mid
+ * below a minute, where no venue does. The two disagree by half a spread —
+ * inside one price bucket on any contract worth charting — and a bar says which
+ * it is only through `expectedFrames`, which a venue candle has no notion of.
  */
 export interface PriceBar {
     /** Bucket edges. Always aligned; a bucket the query range clipped is never emitted. */

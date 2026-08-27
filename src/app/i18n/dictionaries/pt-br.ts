@@ -180,7 +180,6 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'span.1w': '1sem',
 
     'span.label': 'Janela de tempo',
-    'span.beyondCoverage': 'Ainda não há gravação suficiente',
 
     'page.returnToLive': 'Voltar ao tempo real',
     'page.probing': 'Carregando a gravação…',

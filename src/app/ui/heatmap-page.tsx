@@ -1,6 +1,5 @@
 import { RefreshCw, TriangleAlert } from 'lucide-react';
 import { type ReactElement, useCallback, useEffect, useRef, useState } from 'react';
-import { resolveRecordedSpanMs } from '../core/viewport-policy.ts';
 import { useKernel } from '../react/kernel-context.ts';
 import { useChartSlice } from '../react/use-chart-state.ts';
 import { useTranslate } from '../react/use-appearance.ts';
@@ -106,7 +105,6 @@ export function HeatmapPage(): ReactElement {
         handleSpanSelect(viewport.toMs - viewport.fromMs);
     }, [handleSpanSelect, kernel]);
 
-    const recordedSpanMs = resolveRecordedSpanMs(instruments, instrumentSymbol);
     // How wide a drawn column of the book is. A chart with no book has no answer
     // to that rather than an answer of nought.
     const columnSummary = isDepthVisible
@@ -126,7 +124,6 @@ export function HeatmapPage(): ReactElement {
         onInstrumentSelect: handleInstrumentSelect,
         time: {
             visibleSpanMs,
-            recordedSpanMs,
             onSpanSelect: handleSpanSelect,
             barIntervalMs,
             effectiveIntervalMs: barWindowIntervalMs,

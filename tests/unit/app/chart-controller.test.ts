@@ -497,11 +497,11 @@ describe('ChartController.selectBarInterval', () => {
 });
 
 describe('ChartController on an archive that starts empty', () => {
-    it('tightens the window to what has actually been recorded', async () => {
-        // A browser recording for itself knows nothing of its own extent at
-        // first. A window opened wider than anything recorded used to stay that
-        // wide for ever: a quarter of an hour of chart holding ten seconds of
-        // it, pressed into a sliver at the edge.
+    it('keeps the window a reader asked for, however little of it was recorded', async () => {
+        // It used to be pulled in to the recording, from when the price came
+        // out of the recording too. The candles are fetched now: a quarter of an
+        // hour is a quarter of an hour on a browser ten seconds old, with the
+        // book drawn across the sliver of it that was recorded.
         const mocks = createChartServiceMocks();
         const nowMs = Date.now();
         mocks.fetchInstruments.mockResolvedValue([{
@@ -518,10 +518,8 @@ describe('ChartController on an archive that starts empty', () => {
             mocks.deliverFrames(buildWindow([buildFrame(nowMs, 79_000)]));
         });
 
-        // Floored at the narrowest view offered rather than at the ten seconds
-        // recorded: below a minute a reader is looking at slabs, not a chart.
         const { viewport } = controller.store.read();
-        expect(viewport.toMs - viewport.fromMs).toBe(60_000);
+        expect(viewport.toMs - viewport.fromMs).toBe(900_000);
     });
 });
 

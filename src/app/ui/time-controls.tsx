@@ -8,12 +8,8 @@ import { matchesSpan, SPAN_PRESETS } from './span-preset-catalogue.ts';
 import type { Translate } from '../i18n/translator.ts';
 import { useTranslate } from '../react/use-appearance.ts';
 
-/** Past this much more than was recorded, a span would show mostly nothing. */
-const COVERAGE_HEADROOM = 1.2;
-
 interface SpanControlProps {
     readonly activeSpanMs: number;
-    readonly recordedSpanMs: number;
     readonly onSelect: (spanMs: number) => void;
     /** True where the choices have to fold into a menu to fit. */
     readonly isCollapsed?: boolean;
@@ -28,12 +24,11 @@ interface SpanControlProps {
  */
 function SpanControlComponent({
     activeSpanMs,
-    recordedSpanMs,
     onSelect,
     isCollapsed = false,
 }: SpanControlProps): ReactElement {
     const translate = useTranslate();
-    const choices = listSpanChoices(recordedSpanMs, translate);
+    const choices = listSpanChoices(translate);
     const active = SPAN_PRESETS.find((preset) => matchesSpan(activeSpanMs, preset.spanMs));
 
     if (isCollapsed) {
@@ -110,22 +105,21 @@ function BarIntervalControlComponent(props: BarIntervalControlProps): ReactEleme
 export const BarIntervalControl = memo(BarIntervalControlComponent);
 
 /**
- * The spans the chart offers, and which of them it has the recording for.
+ * The spans the chart offers.
  *
- * @param recordedSpanMs - How far back the contract has been recorded.
+ * Every one of them, always. They used to be gated on how much had been
+ * recorded, from when the price was drawn from the recording too; the price is
+ * fetched now, so a week is a week whatever this chart has of the book — and
+ * what it has of the book is drawn as the book, which is where that belongs.
+ *
  * @param translate - The reader's words.
  * @returns One choice per preset, in the order they are offered.
  */
-function listSpanChoices(recordedSpanMs: number, translate: Translate): readonly Choice[] {
-    return SPAN_PRESETS.map((preset) => {
-        const isBeyondCoverage = preset.spanMs > recordedSpanMs * COVERAGE_HEADROOM;
-        return {
-            value: String(preset.spanMs),
-            label: translate(preset.labelKey),
-            isDisabled: isBeyondCoverage,
-            ...isBeyondCoverage ? { title: translate('span.beyondCoverage') } : {},
-        };
-    });
+function listSpanChoices(translate: Translate): readonly Choice[] {
+    return SPAN_PRESETS.map((preset) => ({
+        value: String(preset.spanMs),
+        label: translate(preset.labelKey),
+    }));
 }
 
 /**

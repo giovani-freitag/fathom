@@ -4,6 +4,7 @@ import { DrawingsController } from '../drawings/drawings-controller.ts';
 import { type CursorReadout, createCursorStore } from './cursor-store.ts';
 import type { ObservableStore } from './observable-store.ts';
 import { HeatmapApiService } from '../services/heatmap-api-service.ts';
+import { wrapWithVenueCandles } from './venue-candles.ts';
 import type { HeatmapSource } from '../../shared/core/heatmap-source.ts';
 import type { LiveFeed } from '../services/live-feed.ts';
 import { LiveFeedService } from '../services/live-feed-service.ts';
@@ -43,7 +44,7 @@ export interface ServiceContainerConfig {
  * @returns Every service the tree needs.
  */
 export function createServiceContainer(config: ServiceContainerConfig): ServiceContainer {
-    const api = new HeatmapApiService({ baseUrl: config.baseUrl });
+    const api = wrapWithVenueCandles(new HeatmapApiService({ baseUrl: config.baseUrl }));
     const cursor = createCursorStore();
     const liveFeed = new LiveFeedService({ baseUrl: config.baseUrl });
     const preferences = new PreferencesService({ storage: config.storage });

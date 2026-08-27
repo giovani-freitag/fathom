@@ -32,14 +32,15 @@
   <img src="docs/screenshot.png" alt="Fathom chart" width="100%">
 </p>
 
-Candles can be downloaded for any past day. The order book cannot — no venue
-sells yesterday's resting depth, and nothing reconstructs it. An hour that was
-not recorded is gone. Fathom exists to be running before you need the data.
+Candles come from the venue, so the chart opens on history from the first
+second. The order book does not — no venue sells yesterday's resting depth, and
+nothing reconstructs it. An hour that was not recorded is gone. Fathom exists to
+be running before you need the data.
 
 ## ✨ Features
 
 - 🌊 **Depth heat map** — every resting price level, once per second, as colour
-- 🕯️ **Candles over liquidity** — open/high/low/close derived from the recorded book
+- 🕯️ **Candles over liquidity** — full history and volume from the venue, with the book drawn over it
 - 🫧 **Aggressor bubbles** — trades sized by volume, coloured by which side crossed
 - 📊 **Depth ladder** — resting size and traded volume per price, beside the chart
 - 🎚️ **Two-cut colour map** — mute the background churn so real walls stand alone

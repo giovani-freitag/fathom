@@ -178,7 +178,6 @@ export const EN_DICTIONARY = {
     'span.1w': '1w',
 
     'span.label': 'Time window',
-    'span.beyondCoverage': 'Not enough recorded yet',
 
     'page.returnToLive': 'Back to live',
     'page.probing': 'Loading the recording…',

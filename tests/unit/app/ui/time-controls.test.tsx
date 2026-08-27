@@ -14,7 +14,7 @@ interface Chosen {
     readonly intervals: (number | null)[];
 }
 
-function renderSpans(options: { recordedSpanMs?: number; isCollapsed?: boolean } = {}): Chosen {
+function renderSpans(options: { isCollapsed?: boolean } = {}): Chosen {
     const chosen: Chosen = { spans: [], intervals: [] };
     const kernel = createIndicatorKernel();
 
@@ -22,7 +22,6 @@ function renderSpans(options: { recordedSpanMs?: number; isCollapsed?: boolean }
         <KernelProvider container={kernel.container}>
             <SpanControl
                 activeSpanMs={HOUR_MS}
-                recordedSpanMs={options.recordedSpanMs ?? WEEK_MS}
                 isCollapsed={options.isCollapsed ?? false}
                 onSelect={(spanMs) => { chosen.spans.push(spanMs); }}
             />
@@ -70,11 +69,7 @@ describe('SpanControl laid out', () => {
         const kernel = createIndicatorKernel();
         render(
             <KernelProvider container={kernel.container}>
-                <SpanControl
-                    activeSpanMs={HOUR_MS * 1.05}
-                    recordedSpanMs={WEEK_MS}
-                    onSelect={() => undefined}
-                />
+                <SpanControl activeSpanMs={HOUR_MS * 1.05} onSelect={() => undefined} />
             </KernelProvider>,
         );
 
@@ -90,20 +85,16 @@ describe('SpanControl laid out', () => {
         expect(chosen.spans).toEqual([86_400_000]);
     });
 
-    it('refuses a span there is not enough recording for', () => {
-        const chosen = renderSpans({ recordedSpanMs: HOUR_MS });
+    it('offers a week to a reader who has recorded an hour', () => {
+        // The spans were gated on the recording when the price was drawn from
+        // it too. The price is fetched now: a week is a week whatever this
+        // chart has of the book, and what it has of the book is drawn as the
+        // book, which is where that belongs.
+        const chosen = renderSpans();
 
-        const week = screen.getByRole('radio', { name: EN_DICTIONARY['span.1w'] });
-        week.click();
+        screen.getByRole('radio', { name: EN_DICTIONARY['span.1w'] }).click();
 
-        expect([week.hasAttribute('disabled'), chosen.spans]).toEqual([true, []]);
-    });
-
-    it('says why it cannot be pressed', () => {
-        renderSpans({ recordedSpanMs: HOUR_MS });
-
-        expect(screen.getByRole('radio', { name: EN_DICTIONARY['span.1w'] })
-            .getAttribute('title')).toBe(EN_DICTIONARY['span.beyondCoverage']);
+        expect(chosen.spans).toEqual([WEEK_MS]);
     });
 });
 

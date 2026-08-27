@@ -1,4 +1,5 @@
 import type { InstrumentCoverage } from '../../../src/shared/core/api-contract.ts';
+import type { PriceBar } from '../../../src/shared/core/price-bar.ts';
 import { type ChartDataset, EMPTY_DATASET } from '../../../src/app/core/chart-dataset.ts';
 import {
     followLiveEdge,
@@ -41,7 +42,10 @@ function barsSpanning(lowPrice: number, highPrice: number) {
 }
 
 describe('resolveViewportBounds', () => {
-    it('starts at the first recorded frame', () => {
+    it('reaches back past the recording, to where candles are still published', () => {
+        // The book stops where the recording does; the price that moved through
+        // it does not. A chart that refused to pan past its own first frame
+        // could not show a week to a reader who had been recording an hour.
         const bounds = resolveViewportBounds({
             instrument: INSTRUMENT,
             priceBucketSize: 10,
@@ -49,7 +53,20 @@ describe('resolveViewportBounds', () => {
             rightMarginMs: 0,
         });
 
-        expect(bounds.earliestMs).toBe(500_000);
+        expect(bounds.earliestMs).toBeLessThan(500_000);
+    });
+
+    it('stops somewhere, rather than letting a reader pan into nothing', () => {
+        const nowMs = 3_000_000;
+
+        const bounds = resolveViewportBounds({
+            instrument: INSTRUMENT,
+            priceBucketSize: 10,
+            nowMs,
+            rightMarginMs: 0,
+        });
+
+        expect(nowMs - bounds.earliestMs).toBeLessThan(10 * 365 * 24 * 60 * 60 * 1_000);
     });
 
     it('ends at the clock, which runs ahead of the newest frame held', () => {
@@ -94,9 +111,60 @@ describe('resolveViewportBounds', () => {
     });
 
     it('survives an instrument that was never recorded', () => {
-        const bounds = resolveViewportBounds({ instrument: undefined, priceBucketSize: 10, nowMs: 5_000, rightMarginMs: 0 });
+        const nowMs = 5_000;
 
-        expect(bounds.earliestMs).toBe(0);
+        const bounds = resolveViewportBounds({ instrument: undefined, priceBucketSize: 10, nowMs, rightMarginMs: 0 });
+
+        expect(bounds.earliestMs).toBeLessThan(nowMs);
+    });
+});
+
+describe('frameOnBook without the book', () => {
+    /** One bar of the given reach, opening at an instant. */
+    function buildBar(openedAtMs: number, lowPrice: number, highPrice: number): PriceBar {
+        return {
+            ...FLAT_BAR,
+            openedAtMs,
+            closedAtMs: openedAtMs + 60_000,
+            lowPrice,
+            highPrice,
+            openPrice: lowPrice,
+            closePrice: highPrice,
+        };
+    }
+
+    /** A window carrying warm-up bars from well before its own start. */
+    function datasetWithBars(bars: readonly PriceBar[]): ChartDataset {
+        return { ...EMPTY_DATASET, bars: { ...EMPTY_DATASET.bars, bars } };
+    }
+
+    it('frames on the bars the window is showing', () => {
+        const dataset = datasetWithBars([buildBar(1_000_000, 100, 110)]);
+
+        const framed = frameOnBook({ ...VIEWPORT, fromMs: 900_000, toMs: 1_200_000 }, dataset, false);
+
+        expect([framed.lowPrice < 100, framed.highPrice > 110]).toEqual([true, true]);
+    });
+
+    it('leaves out the warm-up, which reaches back days at an hourly bar', () => {
+        // Framing on prices nobody can see puts the candles in a corner of an
+        // axis stretched over a week the window does not cover.
+        const dataset = datasetWithBars([
+            buildBar(0, 10, 20),
+            buildBar(1_000_000, 100, 110),
+        ]);
+
+        const framed = frameOnBook({ ...VIEWPORT, fromMs: 900_000, toMs: 1_200_000 }, dataset, false);
+
+        expect(framed.lowPrice).toBeGreaterThan(50);
+    });
+
+    it('keeps the band it had when the window shows no bars at all', () => {
+        const dataset = datasetWithBars([buildBar(0, 10, 20)]);
+
+        const framed = frameOnBook({ ...VIEWPORT, fromMs: 900_000, toMs: 1_200_000 }, dataset, false);
+
+        expect(framed.lowPrice).toBe(VIEWPORT.lowPrice);
     });
 });
 
@@ -260,9 +328,23 @@ describe('frameOnBook without the book', () => {
                 intervalMs: 5_000,
                 warmupBarsRequested: 0,
                 warmupBarsReturned: 0,
+                // Inside the window on purpose: what is framed on is what is
+                // drawn, and a bar outside it is warm-up.
                 bars: [
-                    { ...FLAT_BAR, lowPrice: barRange[0], highPrice: barRange[0] },
-                    { ...FLAT_BAR, lowPrice: barRange[1], highPrice: barRange[1] },
+                    {
+                        ...FLAT_BAR,
+                        openedAtMs: 1_100_000,
+                        closedAtMs: 1_105_000,
+                        lowPrice: barRange[0],
+                        highPrice: barRange[0],
+                    },
+                    {
+                        ...FLAT_BAR,
+                        openedAtMs: 1_200_000,
+                        closedAtMs: 1_205_000,
+                        lowPrice: barRange[1],
+                        highPrice: barRange[1],
+                    },
                 ],
             },
         };
