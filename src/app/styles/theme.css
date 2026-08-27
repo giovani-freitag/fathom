@@ -113,6 +113,34 @@ body {
     -webkit-tap-highlight-color: transparent;
 }
 
+/*
+ * The small capitals over a control, wherever one is labelled.
+ *
+ * A class rather than a component because the five places that need it lay
+ * their contents out differently — one is a heading, one holds a reading on the
+ * right — and what they share is the type, not the box.
+ */
+.field-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-ink-500);
+}
+
+/*
+ * The sentence under a control that explains what it does.
+ *
+ * A class because the four of them had drifted into two readings of the same
+ * intent — one dimmer and tighter than the other for no reason either could
+ * give — and what they share is the voice, not the box they sit in.
+ */
+.panel-note {
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--color-ink-500);
+}
+
 .numeric {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;

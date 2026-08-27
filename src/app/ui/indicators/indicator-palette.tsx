@@ -99,7 +99,7 @@ function IndicatorGroup({ titleKey, indicators, isFull, addedCounts, onAdd }: In
 
     return (
         <section className="mb-1">
-            <h3 className="px-1 py-1 text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+            <h3 className="px-1 py-1 field-label">
                 {translate(titleKey)}
             </h3>
             {indicators.map((indicator) => (

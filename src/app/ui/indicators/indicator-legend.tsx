@@ -4,6 +4,7 @@ import type { DrawPlan, PlotTone } from '../../../shared/core/draw-plan.ts';
 import { readChoice, readSetting, readValueAt } from '../../../shared/core/draw-plan.ts';
 import type { Tunable } from '../../../shared/core/draw-plan.ts';
 import { formatFixed } from '../../core/formatting.ts';
+import { IconButton } from '../icon-button.tsx';
 import { useCursorInstant } from '../../react/use-cursor-instant.ts';
 import { findChartLayer } from '../../indicators/indicator-catalogue.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
@@ -242,55 +243,51 @@ function LegendRowContent({ added, plan, controls, onOpenSettings, banding }: Le
                 one a finger cannot reach at all.
             */}
             <span className="flex items-center gap-0.5 opacity-40 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-                <button
-                    type="button"
-                    aria-label={translate(isHidden ? 'indicators.show' : 'indicators.hide')}
+                <IconButton
+                    isCompact
+                    label={translate(isHidden ? 'indicators.show' : 'indicators.hide')}
                     onClick={() => { controls.setVisibility(added.instanceId, !isHidden); }}
-                    className="grid size-6 place-items-center rounded text-ink-500 hover:bg-abyss-700 hover:text-ink-100"
                 >
                     {isHidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                </button>
+                </IconButton>
 
                 {banding?.isSharing === true && (
-                    <button
-                        type="button"
-                        aria-label={translate('indicators.splitBand')}
+                    <IconButton
+                        isCompact
+                        label={translate('indicators.splitBand')}
                         onClick={() => { controls.setBand(added.instanceId, null); }}
-                        className="grid size-6 place-items-center rounded text-ink-500 hover:bg-abyss-700 hover:text-ink-100"
                     >
                         <Split className="size-3.5" />
-                    </button>
+                    </IconButton>
                 )}
                 {banding?.joinable !== null && banding?.joinable !== undefined && (
-                    <button
-                        type="button"
-                        aria-label={translate('indicators.mergeBand')}
+                    <IconButton
+                        isCompact
+                        label={translate('indicators.mergeBand')}
                         onClick={() => { controls.setBand(added.instanceId, banding.joinable); }}
-                        className="grid size-6 place-items-center rounded text-ink-500 hover:bg-abyss-700 hover:text-ink-100"
                     >
                         <Combine className="size-3.5" />
-                    </button>
+                    </IconButton>
                 )}
 
                 {isTunable && (
-                    <button
-                        type="button"
-                        aria-label={translate('indicators.tune')}
+                    <IconButton
+                        isCompact
+                        label={translate('indicators.tune')}
                         onClick={() => { onOpenSettings(added.instanceId); }}
-                        className="grid size-6 place-items-center rounded text-ink-500 hover:bg-abyss-700 hover:text-ink-100"
                     >
                         <Settings2 className="size-3.5" />
-                    </button>
+                    </IconButton>
                 )}
 
-                <button
-                    type="button"
-                    aria-label={translate('indicators.remove')}
+                <IconButton
+                    isCompact
+                    tone="destructive"
+                    label={translate('indicators.remove')}
                     onClick={() => { controls.remove(added.instanceId); }}
-                    className="grid size-6 place-items-center rounded text-ink-500 hover:bg-abyss-700 hover:text-ask"
                 >
                     <X className="size-3.5" />
-                </button>
+                </IconButton>
             </span>
         </li>
     );

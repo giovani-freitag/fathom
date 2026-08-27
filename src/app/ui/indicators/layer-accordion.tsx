@@ -5,6 +5,7 @@ import type { ChartState } from '../../core/chart-controller.ts';
 import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts';
 import { readSetting, type Tunable } from '../../../shared/core/draw-plan.ts';
 import { findChartLayer, findIndicator } from '../../indicators/indicator-catalogue.ts';
+import { IconButton } from '../icon-button.tsx';
 import { findLayerContribution, isLayerTunable } from '../../indicators/layer-contributions.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
 import { IndicatorParameters } from './indicator-parameters.tsx';
@@ -107,23 +108,20 @@ function LayerRow({ added, controls, state }: LayerRowProps): ReactElement | nul
                     </span>
                 </Accordion.Trigger>
 
-                <button
-                    type="button"
-                    aria-label={translate(isHidden ? 'indicators.show' : 'indicators.hide')}
+                <IconButton
+                    label={translate(isHidden ? 'indicators.show' : 'indicators.hide')}
                     onClick={() => { controls.setVisibility(added.instanceId, !isHidden); }}
-                    className="grid size-8 shrink-0 place-items-center rounded text-ink-500 hover:bg-abyss-700 hover:text-ink-100"
                 >
                     {isHidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                </button>
+                </IconButton>
                 {contribution?.isRemovable !== false && (
-                    <button
-                        type="button"
-                        aria-label={translate('indicators.remove')}
+                    <IconButton
+                        tone="destructive"
+                        label={translate('indicators.remove')}
                         onClick={() => { controls.remove(added.instanceId); }}
-                        className="grid size-8 shrink-0 place-items-center rounded text-ink-500 hover:bg-abyss-700 hover:text-ask"
                     >
                         <X className="size-3.5" />
-                    </button>
+                    </IconButton>
                 )}
             </div>
 

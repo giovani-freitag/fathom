@@ -78,7 +78,7 @@ export function RecordingPanel({ recording, onContractsChanged, translate }: Rec
                 </span>
             </div>
 
-            <p className="text-[11px] leading-snug text-ink-600">
+            <p className="panel-note">
                 {translate('recording.contractsHelp')}
             </p>
 
@@ -112,7 +112,7 @@ export function RecordingPanel({ recording, onContractsChanged, translate }: Rec
                 translate={translate}
             />
 
-            <p className="text-[11px] leading-snug text-ink-600">
+            <p className="panel-note">
                 {translate('recording.ceilingHelp')}
             </p>
 

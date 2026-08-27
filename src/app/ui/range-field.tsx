@@ -33,7 +33,7 @@ export function RangeField({
 }: RangeFieldProps): ReactElement {
     return (
         <label className="block space-y-1">
-            <span className="flex items-baseline justify-between gap-3 text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+            <span className="flex items-baseline justify-between gap-3 field-label">
                 {label}
                 <span className="numeric normal-case tracking-normal text-ink-300">{display}</span>
             </span>

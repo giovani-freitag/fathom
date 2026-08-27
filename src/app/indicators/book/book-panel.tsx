@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import type { ChartState } from '../../core/chart-controller.ts';
 import { formatDuration, formatFixed } from '../../core/formatting.ts';
 import { RecordingPanel } from './recording-panel.tsx';
@@ -30,22 +30,21 @@ export function BookPanel({ state }: BookPanelProps): ReactElement {
     return (
         <div className="space-y-3 border-t border-hairline pt-3">
             <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
-                <dt className="text-ink-500">{translate('settings.recordedSoFar')}</dt>
-                <dd className="numeric text-right text-ink-100">
+                <Stat isLead term={translate('settings.recordedSoFar')}>
                     {formatDuration(resolveRecordedSpanMs(state.instruments, state.instrumentSymbol), translate)}
-                </dd>
-                <dt className="text-ink-500">{translate('settings.resolution')}</dt>
-                <dd className="numeric text-right text-ink-300">
+                </Stat>
+                <Stat term={translate('settings.resolution')}>
                     {translate('settings.perColumn', { value: formatDuration(state.dataset.sampleIntervalMs, translate) })}
-                </dd>
-                <dt className="text-ink-500">{translate('settings.priceBand')}</dt>
-                <dd className="numeric text-right text-ink-300">
+                </Stat>
+                <Stat term={translate('settings.priceBand')}>
                     {translate('settings.perRow', { value: state.dataset.priceBucketSize })}
-                </dd>
-                <dt className="text-ink-500">{translate('settings.columnsLoaded')}</dt>
-                <dd className="numeric text-right text-ink-300">{formatFixed(state.dataset.frames.length, 0)}</dd>
-                <dt className="text-ink-500">{translate('settings.gapsInWindow')}</dt>
-                <dd className="numeric text-right text-ink-300">{formatFixed(state.dataset.gaps.length, 0)}</dd>
+                </Stat>
+                <Stat term={translate('settings.columnsLoaded')}>
+                    {formatFixed(state.dataset.frames.length, 0)}
+                </Stat>
+                <Stat term={translate('settings.gapsInWindow')}>
+                    {formatFixed(state.dataset.gaps.length, 0)}
+                </Stat>
             </dl>
 
             {kernel.recording === null ? null : (
@@ -55,15 +54,36 @@ export function BookPanel({ state }: BookPanelProps): ReactElement {
                         onContractsChanged={() => { void kernel.chart.refreshInstruments(); }}
                         translate={translate}
                     />
-                    <p className="text-[11px] leading-relaxed text-ink-500">
+                    <p className="panel-note">
                         {translate('settings.recordingIsGlobal')}
                     </p>
-                    <p className="text-[11px] leading-relaxed text-ink-500">
+                    <p className="panel-note">
                         {translate('settings.backfillNote')}
                     </p>
                 </div>
             )}
 
         </div>
+    );
+}
+
+interface StatProps {
+    readonly term: string;
+    readonly children: ReactNode;
+    /** The one figure the panel is really about, given the brighter ink. */
+    readonly isLead?: boolean;
+}
+
+/**
+ * One reading of the recording, named on the left and given on the right.
+ */
+function Stat({ term, children, isLead }: StatProps): ReactElement {
+    return (
+        <>
+            <dt className="text-ink-500">{term}</dt>
+            <dd className={`numeric text-right ${isLead === true ? 'text-ink-100' : 'text-ink-300'}`}>
+                {children}
+            </dd>
+        </>
     );
 }

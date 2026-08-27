@@ -46,7 +46,7 @@ export function IndicatorParameters({
 
             {hasTone && (
                 <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+                    <span className="field-label">
                         {translate('indicators.colour')}
                     </span>
                     <div className="flex gap-1.5">
@@ -177,7 +177,7 @@ function ChoiceField({ parameter, label, value, onChange }: ChoiceFieldProps): R
 
     return (
         <label className="flex w-full min-w-0 flex-col gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+            <span className="field-label">
                 {label}
             </span>
             <select
@@ -215,7 +215,7 @@ function ParameterField({ parameter, label, value, onChange }: ParameterFieldPro
 
     return (
         <label className="flex min-w-0 flex-col gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+            <span className="field-label">
                 {label}
             </span>
             <input

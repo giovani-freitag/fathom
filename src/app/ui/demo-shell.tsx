@@ -124,16 +124,10 @@ export function DemoShell({ factory, storage, appearanceHost, build }: DemoShell
 
 function PreRollNotice({ translate }: { readonly translate: Translate }): ReactElement {
     return (
-        <div className="flex size-full items-center justify-center bg-abyss-950 p-8">
-            <div className="max-w-sm space-y-3 text-center">
-                <h1 className="text-sm font-semibold tracking-wide text-ink-100">
-                    {translate('demo.preRollTitle')}
-                </h1>
-                <p className="text-xs leading-relaxed text-ink-400">
-                    {translate('demo.preRollBody')}
-                </p>
-            </div>
-        </div>
+        <PageNotice
+            title={translate('demo.preRollTitle')}
+            body={translate('demo.preRollBody')}
+        />
     );
 }
 
@@ -175,14 +169,25 @@ function resolveBannerMessage(
 
 function RefusalNotice({ translate }: { readonly translate: Translate }): ReactElement {
     return (
+        <PageNotice
+            title={translate('demo.refusedTitle')}
+            body={translate('demo.refusedBody')}
+        />
+    );
+}
+
+/**
+ * A page that is only a message, for the moments before there is a chart.
+ *
+ * Written once because it was written twice, in widths that had drifted apart
+ * for no reason either of them could give.
+ */
+function PageNotice({ title, body }: { readonly title: string; readonly body: string }): ReactElement {
+    return (
         <div className="flex size-full items-center justify-center bg-abyss-950 p-8">
             <div className="max-w-md space-y-3 text-center">
-                <h1 className="text-sm font-semibold tracking-wide text-ink-100">
-                    {translate('demo.refusedTitle')}
-                </h1>
-                <p className="text-xs leading-relaxed text-ink-400">
-                    {translate('demo.refusedBody')}
-                </p>
+                <h1 className="text-sm font-semibold tracking-wide text-ink-100">{title}</h1>
+                <p className="text-xs leading-relaxed text-ink-400">{body}</p>
             </div>
         </div>
     );

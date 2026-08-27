@@ -183,3 +183,25 @@ describe('controls that mean the same thing look the same', () => {
         expect(written).toContain('translate-x-[18px]');
     });
 });
+
+describe('the interface is built from parts, not from repeated markup', () => {
+    it('spells no set of classes out in more than two places', () => {
+        // Not a ban on repetition — two places is a coincidence and four is a
+        // component nobody wrote. Every one of the shapes that crossed this line
+        // had drifted: two switches with different knobs, seven icon buttons in
+        // two sizes, two notices at widths neither could justify.
+        const uses = new Map<string, string[]>();
+        for (const path of sourceFiles.filter((file) => file.endsWith('.tsx'))) {
+            for (const match of read(path).matchAll(/className="([^"]{25,})"/g)) {
+                const classes = match[1]!;
+                uses.set(classes, [...uses.get(classes) ?? [], path]);
+            }
+        }
+
+        const overused = [...uses.entries()]
+            .filter(([, places]) => places.length > 2)
+            .map(([classes, places]) => `${classes.slice(0, 40)} (×${places.length})`);
+
+        expect(overused).toEqual([]);
+    });
+});
