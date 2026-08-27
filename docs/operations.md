@@ -172,6 +172,11 @@ To keep it up, a user unit pointing at that command, with `Restart=always`. When
 the tunnel is up, set `FATHOM_TUNNELLED=true` and restart the gateway: the cookie
 then goes out as `Secure`, so it cannot leak over a plaintext connection.
 
+The gateway refuses to start with `FATHOM_TUNNELLED=true` and no
+`FATHOM_ACCESS_TOKEN`. Tunnelled and unguarded means the whole recorded history,
+and the controls that write to it, are one public URL away from anyone who finds
+the address.
+
 ### The request ceiling
 
 Each client gets a fixed budget of requests a minute. The risk is not privacy —
