@@ -156,3 +156,43 @@ function listFiles(directory: string): string[] {
         return statSync(join(ROOT, path)).isDirectory() ? listFiles(path) : [path];
     });
 }
+
+/** Every phrase a dictionary declares, by the key it answers to. */
+function readDictionary(fileName: string): Map<string, string> {
+    const source = readFileSync(join(ROOT, 'src/app/i18n/dictionaries', fileName), 'utf8');
+    const entries = new Map<string, string>();
+    for (const line of source.split('\n')) {
+        const declared = /^\s*'([^']+)':\s*(?:'((?:[^'\\]|\\.)*)'|`((?:[^`\\]|\\.)*)`),/.exec(line);
+        if (declared !== null) {
+            entries.set(declared[1]!, declared[2] ?? declared[3] ?? '');
+        }
+    }
+    return entries;
+}
+
+/** The `{slot}` names a phrase expects to be given, in order. */
+function readSlots(phrase: string): string[] {
+    return [...phrase.matchAll(/\{(\w+)\}/g)].map((slot) => slot[1]!).sort();
+}
+
+describe('Every translation of a phrase', () => {
+    const english = readDictionary('en.ts');
+    const portuguese = readDictionary('pt-br.ts');
+
+    it('is declared for the same keys, so no reader meets a blank', () => {
+        expect([...portuguese.keys()].sort()).toEqual([...english.keys()].sort());
+    });
+
+    it('asks to be given the same values, whatever language it is in', () => {
+        // A slot renamed in translation is left in the sentence as the literal
+        // `{name}`: the compiler types the keys, and nothing types these.
+        const disagreeing = [...english].filter(([key, phrase]) => {
+            const translated = portuguese.get(key);
+            return translated !== undefined
+                && readSlots(phrase).join(',') !== readSlots(translated).join(',');
+        });
+
+        expect(disagreeing.map(([key]) => key)).toEqual([]);
+    });
+});
+
