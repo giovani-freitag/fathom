@@ -1,4 +1,8 @@
 import { MAXIMUM_WINDOW_MS } from '../../shared/core/api-contract.ts';
+const DEFAULT_HOST = '0.0.0.0';
+const DEFAULT_PORT = 8787;
+const DEFAULT_VIEWER_DIST_PATH = 'dist/app';
+
 /** Raised when the environment cannot produce a usable configuration. */
 export class ConfigurationError extends Error {
     constructor(message: string) {
@@ -52,22 +56,47 @@ export const REQUEST_BUDGET = {
  * @throws ConfigurationError when DATABASE_URL is missing or the port is not a valid port number.
  */
 export function readGatewayConfiguration(): GatewayConfiguration {
-    const databaseUrl = process.env['DATABASE_URL'];
-    if (databaseUrl === undefined || databaseUrl.trim() === '') {
+    const databaseUrl = readText('DATABASE_URL', '');
+    if (databaseUrl === '') {
         throw new ConfigurationError('Missing required environment variable: DATABASE_URL');
     }
 
-    const port = Number(process.env['GATEWAY_PORT'] ?? 8787);
+    const port = Number(readText('GATEWAY_PORT', String(DEFAULT_PORT)));
     if (!Number.isInteger(port) || port < 1 || port > 65_535) {
         throw new ConfigurationError('GATEWAY_PORT must be a valid port number');
     }
 
+    const accessToken = readText('FATHOM_ACCESS_TOKEN', '');
+    const isTunnelled = readText('FATHOM_TUNNELLED', '') === 'true';
+    if (isTunnelled && accessToken === '') {
+        throw new ConfigurationError(
+            'FATHOM_ACCESS_TOKEN is required while FATHOM_TUNNELLED is true, '
+            + 'otherwise the whole recorded history and the controls that write to it '
+            + 'are one public URL away from anyone',
+        );
+    }
+
     return {
-        host: process.env['GATEWAY_HOST'] ?? '0.0.0.0',
+        host: readText('GATEWAY_HOST', DEFAULT_HOST),
         port,
-        databaseUrl: databaseUrl.trim(),
-        viewerDistPath: process.env['VIEWER_DIST_PATH'] ?? 'dist/app',
-        accessToken: (process.env['FATHOM_ACCESS_TOKEN'] ?? '').trim(),
-        isTunnelled: process.env['FATHOM_TUNNELLED'] === 'true',
+        databaseUrl,
+        // Blank would resolve to the directory the gateway runs in, and the
+        // static route would then serve the project itself — `.env` included.
+        viewerDistPath: readText('VIEWER_DIST_PATH', DEFAULT_VIEWER_DIST_PATH),
+        accessToken,
+        isTunnelled,
     };
+}
+
+/**
+ * Reads a variable that has something sensible to fall back on.
+ *
+ * @param variableName - The variable to read.
+ * @param fallbackValue - What an unset or blank variable means.
+ * @returns The configured text, trimmed, or the fallback.
+ */
+function readText(variableName: string, fallbackValue: string): string {
+    // Blank reads as unset throughout: emptying a variable is how a `.env` says
+    // it does not apply.
+    return process.env[variableName]?.trim() || fallbackValue;
 }
