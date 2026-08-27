@@ -531,13 +531,19 @@ export class ChartController {
         }
 
         const onLiveEdge = followLiveEdge(state.viewport, dataset, resolveRightMarginMs(state));
-        if (!state.isFollowingPrice) {
-            return onLiveEdge;
-        }
-        return followDrawnPrice(onLiveEdge, dataset, {
-            isDepthVisible: state.isDepthVisible,
-            isCandleOverlayVisible: state.isCandleOverlayVisible,
-        });
+        const followed = state.isFollowingPrice
+            ? followDrawnPrice(onLiveEdge, dataset, {
+                isDepthVisible: state.isDepthVisible,
+                isCandleOverlayVisible: state.isCandleOverlayVisible,
+            })
+            : onLiveEdge;
+
+        // Held to the bounds on every frame, not only when a gesture asks. An
+        // archive that starts empty knows nothing of its own extent at first,
+        // and a window opened wider than anything recorded would stay that
+        // wide for ever: a quarter of an hour of chart holding ten seconds of
+        // it, pressed into a sliver at the edge.
+        return clampViewport(followed, this.resolveBounds());
     }
 
     /**

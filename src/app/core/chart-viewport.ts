@@ -6,6 +6,15 @@ export interface ChartViewport {
     readonly highPrice: number;
 }
 
+/**
+ * The narrowest window a chart opens on, however little has been recorded.
+ *
+ * The same as the narrowest span offered: below it a reader is looking at slabs
+ * rather than a chart, and a recording that has just started is exactly when
+ * they most need it to look like one.
+ */
+const MINIMUM_COVERAGE_SPAN_MS = 60_000;
+
 /** Hard bounds a viewport is never allowed past. */
 export interface ViewportBounds {
     readonly earliestMs: number;
@@ -96,7 +105,13 @@ export function clampViewport(viewport: ChartViewport, bounds: ViewportBounds): 
     // start up to the first frame would push its end past the clock, and the
     // chart would show empty future instead of saying it has less history than
     // was asked for.
-    const recordedSpanMs = Math.max(bounds.minimumSpanMs, bounds.latestMs - bounds.earliestMs);
+    // Floored at the narrowest view offered, not at the narrowest zoom allowed.
+    // An archive a few seconds old would otherwise open on a few seconds, where
+    // every column is a slab and one candle is the whole chart.
+    const recordedSpanMs = Math.max(
+        MINIMUM_COVERAGE_SPAN_MS,
+        bounds.latestMs - bounds.earliestMs,
+    );
     const requestedSpanMs = viewport.toMs - viewport.fromMs;
     const spanMs = Math.min(
         Math.max(requestedSpanMs, bounds.minimumSpanMs),

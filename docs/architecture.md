@@ -214,6 +214,19 @@ dependency under anything conditional, or carrying a NOTICE, fails the suite.
 Development tooling is exempt, because a bundler's licence puts no condition on
 what it built.
 
+## A window no wider than what is in it
+
+The viewport is held to the recorded extent on every frame, not only when a
+gesture asks for it. An archive that starts empty — the browser-only build is
+one — knows nothing of its own extent at first, and a window opened wider than
+anything recorded used to stay that wide for ever: a quarter of an hour of chart
+holding ten seconds of it, pressed into a sliver against the right edge. That
+was the first thing anybody opening the demo saw.
+
+The floor is the narrowest span offered rather than the narrowest zoom allowed.
+Below a minute a reader is looking at slabs rather than a chart, and a recording
+that has just started is exactly when they most need it to look like one.
+
 ## Room after the newest bar
 
 The live edge is kept a few bars ahead of the newest one. Pressed against the

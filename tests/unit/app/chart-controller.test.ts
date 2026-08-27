@@ -1,4 +1,5 @@
 import { ChartController } from '../../../src/app/core/chart-controller.ts';
+import { act } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { EN_DICTIONARY } from '../../../src/app/i18n/dictionaries/en.ts';
 import {
@@ -492,5 +493,34 @@ describe('ChartController.selectBarInterval', () => {
         expect(mocks.writePreferences).toHaveBeenCalledWith(
             expect.objectContaining({ barIntervalMs: null }),
         );
+    });
+});
+
+describe('ChartController on an archive that starts empty', () => {
+    it('tightens the window to what has actually been recorded', async () => {
+        // A browser recording for itself knows nothing of its own extent at
+        // first. A window opened wider than anything recorded used to stay that
+        // wide for ever: a quarter of an hour of chart holding ten seconds of
+        // it, pressed into a sliver at the edge.
+        const mocks = createChartServiceMocks();
+        const nowMs = Date.now();
+        mocks.fetchInstruments.mockResolvedValue([{
+            instrumentSymbol: 'BTCUSDT',
+            priceBucketSize: 10,
+            frameIntervalMs: 1_000,
+            firstFrameAtMs: nowMs - 10_000,
+            lastFrameAtMs: nowMs,
+        }]);
+        const controller = buildController(mocks);
+        await controller.initialize();
+
+        act(() => {
+            mocks.deliverFrames(buildWindow([buildFrame(nowMs, 79_000)]));
+        });
+
+        // Floored at the narrowest view offered rather than at the ten seconds
+        // recorded: below a minute a reader is looking at slabs, not a chart.
+        const { viewport } = controller.store.read();
+        expect(viewport.toMs - viewport.fromMs).toBe(60_000);
     });
 });
