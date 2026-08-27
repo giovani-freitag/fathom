@@ -74,23 +74,38 @@ export function mintInstanceId(
 /**
  * Adds an indicator at its declared defaults.
  *
- * @param added - What is already on the chart.
- * @param indicatorId - The indicator to add.
- * @param settings - Its starting parameters.
- * @param tone - What it is drawn in, decided by the caller: a layer the host
+ * @param request - The set, what to add to it, and how it is tuned.
  *               paints in colours of its own takes none of the rotation.
  * @param isRepeatable - False for a layer the host draws once however many
  *                       copies are asked for, whose second copy would be a row
  *                       of controls that change nothing.
  * @returns The new set, unchanged once it is full or the copy would be idle.
  */
-export function withIndicatorAdded(
-    added: readonly AddedIndicator[],
-    indicatorId: string,
-    settings: IndicatorSettings,
-    tone: PlotTone,
-    isRepeatable = true,
-): readonly AddedIndicator[] {
+export interface IndicatorAddition {
+    readonly added: readonly AddedIndicator[];
+    readonly indicatorId: string;
+    readonly settings: IndicatorSettings;
+    readonly tone: PlotTone;
+    /**
+     * Whether a second copy of it is worth having.
+     *
+     * Named rather than passed as a bare true at the end of four other things,
+     * where nothing at the call site says what the true is answering.
+     */
+    readonly isRepeatable?: boolean;
+}
+
+export interface IndicatorRetune {
+    readonly added: readonly AddedIndicator[];
+    /** Which copy, as against which knob — the two used to be strings in a row. */
+    readonly instanceId: string;
+    readonly name: string;
+    readonly value: number | string | boolean;
+}
+
+export function withIndicatorAdded(request: IndicatorAddition): readonly AddedIndicator[] {
+    const { added, indicatorId, settings, tone } = request;
+    const isRepeatable = request.isRepeatable ?? true;
     const isRefused = added.length >= MAXIMUM_STORED_INDICATORS
         || (!isRepeatable && added.some((entry) => entry.indicatorId === indicatorId));
     if (isRefused) {
@@ -122,9 +137,7 @@ export function chooseInstanceTone(added: readonly AddedIndicator[]): PlotTone {
 /**
  * Changes what one added indicator is drawn in.
  *
- * @param added - What is on the chart.
- * @param instanceId - Which copy to recolour.
- * @param tone - Its new colour.
+ * @param request - The set, the copy to retune, and its new value.
  * @returns The new set, in the order it was already in.
  */
 export function withIndicatorRecoloured(
@@ -160,12 +173,8 @@ export function withIndicatorRemoved(
  * @param value - Its new value.
  * @returns The new set, in the order it was already in.
  */
-export function withIndicatorRetuned(
-    added: readonly AddedIndicator[],
-    instanceId: string,
-    name: string,
-    value: number | string | boolean,
-): readonly AddedIndicator[] {
+export function withIndicatorRetuned(request: IndicatorRetune): readonly AddedIndicator[] {
+    const { added, instanceId, name, value } = request;
     return added.map((entry) => (
         entry.instanceId === instanceId
             ? { ...entry, settings: { ...entry.settings, [name]: value } }

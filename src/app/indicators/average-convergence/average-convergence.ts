@@ -82,15 +82,15 @@ export class AverageConvergence implements Indicator {
         const slow = createBlankValues(bars.length);
 
         for (const segment of findContinuousSegments(bars)) {
-            fillExponential(source, fastBars, segment.startIndex, segment.endIndex, fast);
-            fillExponential(source, slowBars, segment.startIndex, segment.endIndex, slow);
+            fillExponential({ source, periodBars: fastBars, segment, out: fast });
+            fillExponential({ source, periodBars: slowBars, segment, out: slow });
 
             for (let index = segment.startIndex; index < segment.endIndex; index += 1) {
                 difference[index] = fast[index]! - slow[index]!;
             }
             // Smoothed over the difference rather than over the price, and the
             // difference does not exist until the slower average does.
-            fillExponential(difference, signalBars, segment.startIndex, segment.endIndex, signal);
+            fillExponential({ source: difference, periodBars: signalBars, segment, out: signal });
 
             for (let index = segment.startIndex; index < segment.endIndex; index += 1) {
                 gap[index] = difference[index]! - signal[index]!;

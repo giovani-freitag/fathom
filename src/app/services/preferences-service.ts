@@ -130,7 +130,12 @@ export class PreferencesService {
 function buildDefaultLayers(): readonly AddedIndicator[] {
     let added: readonly AddedIndicator[] = [];
     for (const layer of OPENING_LAYERS) {
-        added = withIndicatorAdded(added, layer.id, readLayerDefaults(layer), chooseLayerTone(layer, added));
+        added = withIndicatorAdded({
+            added,
+            indicatorId: layer.id,
+            settings: readLayerDefaults(layer),
+            tone: chooseLayerTone(layer, added),
+        });
     }
     return added;
 }
@@ -153,12 +158,12 @@ function liftVolumeOutOfTheBook(stored: readonly AddedIndicator[]): readonly Add
     if (book === undefined) {
         return carried;
     }
-    return withIndicatorAdded(
-        carried,
-        VOLUME.id,
-        { ...readLayerDefaults(VOLUME), volumeMode: String(book.settings['volumeMode'] ?? 'total') },
-        chooseLayerTone(VOLUME, carried),
-    );
+    return withIndicatorAdded({
+        added: carried,
+        indicatorId: VOLUME.id,
+        settings: { ...readLayerDefaults(VOLUME), volumeMode: String(book.settings['volumeMode'] ?? 'total') },
+        tone: chooseLayerTone(VOLUME, carried),
+    });
 }
 
 const SPENT_BOOK_SETTINGS = ['showVolume', 'volumeMode'];
@@ -218,12 +223,12 @@ function migrateLayers(
 
     let carried: readonly AddedIndicator[] = [];
     for (const layer of wanted) {
-        carried = withIndicatorAdded(
-            carried,
-            layer.id,
-            { ...readLayerDefaults(layer), ...(layer.id === 'depth' ? readLegacyDepth(legacy) : {}) },
-            chooseLayerTone(layer, carried),
-        );
+        carried = withIndicatorAdded({
+            added: carried,
+            indicatorId: layer.id,
+            settings: { ...readLayerDefaults(layer), ...(layer.id === 'depth' ? readLegacyDepth(legacy) : {}) },
+            tone: chooseLayerTone(layer, carried),
+        });
     }
     // The document's own list, not the merged one: merging over the defaults
     // hands an old document the very layers this is deciding about.

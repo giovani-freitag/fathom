@@ -81,7 +81,7 @@ export function decodeLiquidityFrameWindow(buffer: ArrayBuffer): LiquidityFrameW
     let readOffset = WINDOW_HEADER_BYTE_LENGTH;
 
     for (let i = 0; i < frameCount; i += 1) {
-        const decoded = readFrame(buffer, view, readOffset, view.getFloat64(16, true));
+        const decoded = readFrame({ buffer, view, readOffset, baseTimestampMs: view.getFloat64(16, true) });
         frames.push(decoded.frame);
         readOffset = decoded.nextOffset;
     }
@@ -148,12 +148,22 @@ interface FrameReadResult {
     readonly nextOffset: number;
 }
 
-function readFrame(
-    buffer: ArrayBuffer,
-    view: DataView,
-    readOffset: number,
-    baseTimestampMs: number,
-): FrameReadResult {
+/**
+ * Where in the payload a frame starts, and what its instants are counted from.
+ *
+ * Named because the two are numbers side by side — a byte offset and a
+ * millisecond — and transposed they compile into a decoder reading from the
+ * wrong place and dating what it finds from nowhere.
+ */
+interface FrameRead {
+    readonly buffer: ArrayBuffer;
+    readonly view: DataView;
+    readonly readOffset: number;
+    readonly baseTimestampMs: number;
+}
+
+function readFrame(read: FrameRead): FrameReadResult {
+    const { buffer, view, readOffset, baseTimestampMs } = read;
     if (readOffset + FRAME_HEADER_BYTE_LENGTH > buffer.byteLength) {
         throw new HeatmapCodecError('Payload ends inside a frame header');
     }

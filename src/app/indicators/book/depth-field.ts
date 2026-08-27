@@ -8,6 +8,24 @@ export interface DepthFieldConfig {
     readonly colourGain: number;
 }
 
+interface FramePaint {
+    readonly image: ImageData;
+    readonly frame: LiquidityFrame;
+    readonly columnOffset: number;
+    readonly imageWidth: number;
+}
+
+/**
+ * One side of one frame, named because the two figures that place it are both
+ * numbers: where the column sits, and how wide the image it sits in is.
+ */
+interface LadderPaint {
+    readonly image: ImageData;
+    readonly ladder: LiquidityFrame['bids'];
+    readonly column: number;
+    readonly imageWidth: number;
+}
+
 /**
  * The depth window rendered once into an offscreen image, in time and bucket space.
  */
@@ -166,7 +184,7 @@ export class DepthField {
         const width = bounds.lastColumn - bounds.firstColumn + 1;
         const image = context.createImageData(width, this.bucketCount);
         for (const frame of frames) {
-            this.paintFrame(image, frame, bounds.firstColumn, width);
+            this.paintFrame({ image, frame, columnOffset: bounds.firstColumn, imageWidth: width });
         }
         context.putImageData(image, bounds.firstColumn, 0);
     }
@@ -189,26 +207,18 @@ export class DepthField {
         return Number.isFinite(firstColumn) ? { firstColumn, lastColumn } : null;
     }
 
-    private paintFrame(
-        image: ImageData,
-        frame: LiquidityFrame,
-        columnOffset: number,
-        imageWidth: number,
-    ): void {
+    private paintFrame(request: FramePaint): void {
+        const { image, frame, columnOffset, imageWidth } = request;
         const column = Math.round(this.timeToColumn(frame.capturedAtMs)) - columnOffset;
         if (column < 0 || column >= imageWidth) {
             return;
         }
-        this.paintLadder(image, frame.bids, column, imageWidth);
-        this.paintLadder(image, frame.asks, column, imageWidth);
+        this.paintLadder({ image, ladder: frame.bids, column, imageWidth });
+        this.paintLadder({ image, ladder: frame.asks, column, imageWidth });
     }
 
-    private paintLadder(
-        image: ImageData,
-        ladder: LiquidityFrame['bids'],
-        column: number,
-        imageWidth: number,
-    ): void {
+    private paintLadder(request: LadderPaint): void {
+        const { image, ladder, column, imageWidth } = request;
         const ramp = DepthColourScale.ramp();
         const highestRow = this.lowestBucketIndex + this.bucketCount - 1;
         const { quantities, lowestBucketIndex } = ladder;

@@ -205,3 +205,34 @@ describe('the interface is built from parts, not from repeated markup', () => {
         expect(overused).toEqual([]);
     });
 });
+
+describe('what a function asks to be handed', () => {
+    it('never takes more than three things in a row', () => {
+        // Beyond three, an argument list stops reading as a sentence and starts
+        // reading as an order to be remembered. Every one that crossed the line
+        // here had two of the same type side by side — a start and an end, two
+        // sizes, an id and a name — where transposing them compiles and the
+        // chart is quietly wrong.
+        const overloaded: string[] = [];
+        for (const path of sourceFiles) {
+            const text = read(path);
+            const signatures = text.matchAll(
+                /(?:function\s+(\w+)|^\s{4}(?:private |protected |public |async )*(\w+))\(([^)]{0,400}?)\)\s*:/gm,
+            );
+            for (const signature of signatures) {
+                const declared = signature[3]!.trim();
+                // A destructured object is one thing, however many names it
+                // spreads into; that is the shape this rule asks for.
+                if (declared === '' || declared.startsWith('{')) {
+                    continue;
+                }
+                const parameters = declared.split(/,(?![^<]*>)/).filter((one) => one.trim() !== '');
+                if (parameters.length > 3) {
+                    overloaded.push(`${path} ${signature[1] ?? signature[2]} (${parameters.length})`);
+                }
+            }
+        }
+
+        expect(overloaded).toEqual([]);
+    });
+});

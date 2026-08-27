@@ -18,6 +18,13 @@ const TICK_RATIO = 0.45;
 /** Where the fill under an area chart fades out, as a fraction of full colour. */
 const AREA_FADE = 0.22;
 
+interface CandlePaint {
+    readonly paint: PaintContext;
+    readonly bar: PriceBar;
+    readonly bodyWidth: number;
+    readonly style: CandleStyle;
+}
+
 /**
  * Draws the price track as bars over the depth field.
  *
@@ -75,7 +82,7 @@ export class CandlePainter implements FieldLayerPainter {
             if (previous !== null && bar.openedAtMs > previous.closedAtMs) {
                 this.paintVoid(paint, previous.closedAtMs, bar.openedAtMs);
             }
-            this.paintCandle(paint, bar, bodyWidth, style);
+            this.paintCandle({ paint, bar, bodyWidth, style });
             previous = bar;
         }
     }
@@ -149,12 +156,8 @@ export class CandlePainter implements FieldLayerPainter {
         context.setLineDash([]);
     }
 
-    private paintCandle(
-        paint: PaintContext,
-        bar: PriceBar,
-        bodyWidth: number,
-        style: CandleStyle,
-    ): void {
+    private paintCandle(request: CandlePaint): void {
+        const { paint, bar, bodyWidth, style } = request;
         const { context, layout, projector } = paint;
         const left = projector.timeToX(bar.openedAtMs);
         if (left + bodyWidth < 0 || left > layout.plotWidth) {

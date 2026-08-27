@@ -148,19 +148,29 @@ function sampleQuantities(frames: readonly LiquidityFrame[]): number[] {
     const sampled: number[] = [];
     let cursor = 0;
     for (const frame of frames) {
-        cursor = collectSide(frame.bids.quantities, stride, cursor, sampled);
-        cursor = collectSide(frame.asks.quantities, stride, cursor, sampled);
+        cursor = collectSide({ quantities: frame.bids.quantities, stride, startCursor: cursor, sampled });
+        cursor = collectSide({ quantities: frame.asks.quantities, stride, startCursor: cursor, sampled });
     }
     return sampled;
 }
 
-function collectSide(
-    quantities: Float32Array,
-    stride: number,
-    startCursor: number,
-    sampled: number[],
-): number {
-    let cursor = startCursor;
+/**
+ * Samples one side of one frame into the running list.
+ *
+ * Named because the two figures that drive it are both numbers — how often to
+ * take one, and how far through the window we are — and transposed they compile
+ * into a sample of the wrong every-nth bucket.
+ */
+interface SideSample {
+    readonly quantities: Float32Array;
+    readonly stride: number;
+    readonly startCursor: number;
+    readonly sampled: number[];
+}
+
+function collectSide(sample: SideSample): number {
+    const { quantities, stride, sampled } = sample;
+    let cursor = sample.startCursor;
     for (let offset = 0; offset < quantities.length; offset += 1) {
         if (cursor % stride === 0) {
             const quantity = quantities[offset]!;

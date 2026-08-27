@@ -49,6 +49,20 @@ interface MergeGrid {
 const NOTHING: MergedPrints = { cells: [], saturationQuantity: 0 };
 
 /**
+ * One execution and the two sizes it is drawn against.
+ *
+ * Named because the two were numbers side by side — the size that fills a bubble
+ * and the size that is the largest one on screen — and transposed they compile
+ * into a chart where every print looks the same size.
+ */
+interface BubblePaint {
+    readonly paint: PaintContext;
+    readonly cell: PrintCell;
+    readonly saturationQuantity: number;
+    readonly radiusSpan: number;
+}
+
+/**
  * Draws aggressive executions as bubbles over the depth field.
  */
 export class TradePainter implements FieldLayerPainter {
@@ -84,7 +98,7 @@ export class TradePainter implements FieldLayerPainter {
             * (maximumBubbleRadius - minimumBubbleRadius);
 
         for (const cell of cells) {
-            this.paintBubble(paint, cell, saturationQuantity, radiusSpan);
+            this.paintBubble({ paint, cell, saturationQuantity, radiusSpan });
         }
     }
 
@@ -112,12 +126,8 @@ export class TradePainter implements FieldLayerPainter {
         return this.merged;
     }
 
-    private paintBubble(
-        paint: PaintContext,
-        cell: PrintCell,
-        saturationQuantity: number,
-        radiusSpan: number,
-    ): void {
+    private paintBubble(print: BubblePaint): void {
+        const { paint, cell, saturationQuantity, radiusSpan } = print;
         const { context, layout, projector, request } = paint;
         if (cell.atMs < request.viewport.fromMs || cell.atMs > request.viewport.toMs) {
             return;

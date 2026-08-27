@@ -54,13 +54,13 @@ export function useIndicators(): IndicatorControls {
         if (layer !== null) {
             const settings = readLayerDefaults(layer);
             kernel.chart.updateIndicators(
-                (current) => withIndicatorAdded(
-                    current,
+                (current) => withIndicatorAdded({
+                    added: current,
                     indicatorId,
                     settings,
-                    chooseLayerTone(layer, current),
-                    findFieldLayer(indicatorId) === null,
-                ),
+                    tone: chooseLayerTone(layer, current),
+                    isRepeatable: findFieldLayer(indicatorId) === null,
+                }),
             );
         }
     }, [kernel]);
@@ -95,7 +95,7 @@ export function useIndicators(): IndicatorControls {
 
     const retune = useCallback((instanceId: string, name: string, value: number | string | boolean) => {
         kernel.chart.updateIndicators(
-            (current) => withIndicatorRetuned(current, instanceId, name, value),
+            (current) => withIndicatorRetuned({ added: current, instanceId, name, value }),
         );
     }, [kernel]);
 

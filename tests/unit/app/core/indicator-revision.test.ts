@@ -17,7 +17,7 @@ const SETTINGS = { periodBars: 20 };
 function addTimes(count: number): readonly AddedIndicator[] {
     let added: readonly AddedIndicator[] = [];
     for (let index = 0; index < count; index += 1) {
-        added = withIndicatorAdded(added, 'ema', SETTINGS, chooseInstanceTone(added));
+        added = withIndicatorAdded({ added, indicatorId: 'ema', settings: SETTINGS, tone: chooseInstanceTone(added) });
     }
     return added;
 }
@@ -39,7 +39,7 @@ describe('indicator revision', () => {
     it('stops adding once the chart is holding all it can draw', () => {
         const full = addTimes(MAXIMUM_STORED_INDICATORS);
 
-        const beyond = withIndicatorAdded(full, 'rsi', SETTINGS, chooseInstanceTone(full));
+        const beyond = withIndicatorAdded({ added: full, indicatorId: 'rsi', settings: SETTINGS, tone: chooseInstanceTone(full) });
 
         expect(beyond).toHaveLength(MAXIMUM_STORED_INDICATORS);
     });
@@ -47,7 +47,7 @@ describe('indicator revision', () => {
     it('retunes one copy and leaves its twin alone', () => {
         const added = addTimes(2);
 
-        const retuned = withIndicatorRetuned(added, 'ema-2', 'periodBars', 50);
+        const retuned = withIndicatorRetuned({ added, instanceId: 'ema-2', name: 'periodBars', value: 50 });
 
         expect(retuned.map((entry) => entry.settings['periodBars'])).toEqual([20, 50]);
     });
@@ -56,8 +56,8 @@ describe('indicator revision', () => {
         // Each revision reads the set the one before it produced. Applying both
         // to the same starting set instead would land the second on top of the
         // first, and the addition would be silently lost.
-        const first = withIndicatorAdded([], 'ema', SETTINGS, 'phosphor');
-        const second = withIndicatorAdded(first, 'rsi', SETTINGS, chooseInstanceTone(first));
+        const first = withIndicatorAdded({ added: [], indicatorId: 'ema', settings: SETTINGS, tone: 'phosphor' });
+        const second = withIndicatorAdded({ added: first, indicatorId: 'rsi', settings: SETTINGS, tone: chooseInstanceTone(first) });
 
         expect(second.map((entry) => entry.indicatorId)).toEqual(['ema', 'rsi']);
     });
@@ -87,7 +87,7 @@ describe('undoing a removal', () => {
     it('puts the indicator back in the band it was drawn in', () => {
         // Restoring to the end would move every oscillator below it up a pane,
         // which is not what undoing a removal means.
-        const added = [...addTimes(1), ...withIndicatorAdded(addTimes(1), 'rsi', SETTINGS, 'cyan').slice(1)];
+        const added = [...addTimes(1), ...withIndicatorAdded({ added: addTimes(1), indicatorId: 'rsi', settings: SETTINGS, tone: 'cyan' }).slice(1)];
         const removed = withIndicatorRemoved(added, added[0]!.instanceId);
 
         const restored = withIndicatorRestored(removed, added[0]!, 0);
@@ -111,7 +111,7 @@ describe('undoing a removal', () => {
 
 describe('hiding an indicator', () => {
     it('keeps how it was tuned', () => {
-        const added = withIndicatorRetuned(addTimes(1), 'ema-1', 'periodBars', 200);
+        const added = withIndicatorRetuned({ added: addTimes(1), instanceId: 'ema-1', name: 'periodBars', value: 200 });
 
         const hidden = withIndicatorVisibility(added, 'ema-1', true);
 
@@ -120,7 +120,7 @@ describe('hiding an indicator', () => {
     });
 
     it('leaves its neighbours drawing', () => {
-        const added = withIndicatorAdded(addTimes(1), 'rsi', SETTINGS, 'cyan');
+        const added = withIndicatorAdded({ added: addTimes(1), indicatorId: 'rsi', settings: SETTINGS, tone: 'cyan' });
 
         const hidden = withIndicatorVisibility(added, 'ema-1', true);
 

@@ -65,7 +65,7 @@ export class AverageTrueRange implements Indicator {
                     ? bar.highPrice - bar.lowPrice
                     : resolveTrueRange(bar, bars[index - 1]!.closePrice);
             }
-            fillWilder(trueRanges, periodBars, segment.startIndex, segment.endIndex, value);
+            fillWilder({ source: trueRanges, periodBars, segment, out: value });
         }
 
         return {

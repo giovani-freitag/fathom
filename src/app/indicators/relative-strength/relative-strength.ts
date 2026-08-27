@@ -14,6 +14,7 @@ import {
     createBlankValues,
     findContinuousSegments,
     smoothWilder,
+    type SeriesFill,
 } from '../shared/series-math.ts';
 
 const PERIOD_BARS: NumericParameter = {
@@ -60,7 +61,7 @@ export class RelativeStrength implements Indicator {
 
         const source = collectSource(bars, input.settings);
         for (const segment of findContinuousSegments(bars)) {
-            fillRelativeStrength(source, periodBars, segment.startIndex, segment.endIndex, value);
+            fillRelativeStrength({ source, periodBars, segment, out: value });
         }
 
         return {
@@ -88,13 +89,9 @@ export class RelativeStrength implements Indicator {
 /**
  * Seeds from the first full period of moves, then smooths the rest onto it.
  */
-function fillRelativeStrength(
-    source: ArrayLike<number>,
-    periodBars: number,
-    startIndex: number,
-    endIndex: number,
-    value: Float64Array,
-): void {
+function fillRelativeStrength(fill: SeriesFill): void {
+    const { source, periodBars, out: value } = fill;
+    const { startIndex, endIndex } = fill.segment;
     if (endIndex - startIndex <= periodBars) {
         return;
     }

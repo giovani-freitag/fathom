@@ -7,6 +7,22 @@ export interface BarSegment {
 }
 
 /**
+ * What a smoothing pass needs, as one thing rather than five.
+ *
+ * Named rather than positional because three of the five were numbers in a row:
+ * the period, the first index and the last. Two of them transposed compiles, and
+ * every average on the chart would be a little wrong with nothing to show for it.
+ */
+export interface SeriesFill {
+    readonly source: ArrayLike<number>;
+    readonly periodBars: number;
+    /** The stretch to fill, which is a stretch recorded without interruption. */
+    readonly segment: BarSegment;
+    /** Written in place, and left untouched before the seed is complete. */
+    readonly out: Float64Array;
+}
+
+/**
  * Splits bars into stretches that were recorded without interruption.
  *
  * Every indicator restarts at a boundary rather than carrying state across it.
@@ -86,19 +102,11 @@ export function resolveExponentialWeight(periodBars: number): number {
  * read off this chart and one read off another agree from the first bar either
  * of them draws rather than only after the seed has washed out.
  *
- * @param source - Values to smooth; NaN is treated as the series not having started.
- * @param periodBars - Bars the average spans.
- * @param startIndex - First index of the stretch, inclusive.
- * @param endIndex - Last index of the stretch, exclusive.
- * @param out - Written in place, and left untouched before the seed is complete.
+ * @param fill - The source, the period, the stretch, and where to write it.
  */
-export function fillExponential(
-    source: ArrayLike<number>,
-    periodBars: number,
-    startIndex: number,
-    endIndex: number,
-    out: Float64Array,
-): void {
+export function fillExponential(fill: SeriesFill): void {
+    const { source, periodBars, out } = fill;
+    const { startIndex, endIndex } = fill.segment;
     const firstIndex = findFirstReal(source, startIndex, endIndex);
     const seedIndex = firstIndex + periodBars - 1;
     if (firstIndex === -1 || seedIndex >= endIndex) {
@@ -125,19 +133,11 @@ export function fillExponential(
  * Seeded with the simple mean of the first period, which is the seed Wilder
  * defined and the one the reference implementations use.
  *
- * @param source - Values to smooth.
- * @param periodBars - Bars the average spans.
- * @param startIndex - First index of the stretch, inclusive.
- * @param endIndex - Last index of the stretch, exclusive.
- * @param out - Written in place, and left untouched before the seed is complete.
+ * @param fill - The source, the period, the stretch, and where to write it.
  */
-export function fillWilder(
-    source: ArrayLike<number>,
-    periodBars: number,
-    startIndex: number,
-    endIndex: number,
-    out: Float64Array,
-): void {
+export function fillWilder(fill: SeriesFill): void {
+    const { source, periodBars, out } = fill;
+    const { startIndex, endIndex } = fill.segment;
     const seedIndex = startIndex + periodBars - 1;
     if (seedIndex >= endIndex) {
         return;

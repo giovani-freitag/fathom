@@ -67,7 +67,7 @@ export class ExponentialAverage implements Indicator {
         const value = createBlankValues(bars.length);
 
         for (const segment of findContinuousSegments(bars)) {
-            fillExponential(source, periodBars, segment.startIndex, segment.endIndex, value);
+            fillExponential({ source, periodBars, segment, out: value });
         }
 
         return {

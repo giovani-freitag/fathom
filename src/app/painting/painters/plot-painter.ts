@@ -39,6 +39,35 @@ const BAND_ALPHA = 0.1;
 /** How much of a floor strip survives, so the depth map under it still reads. */
 const FLOOR_STRIP_ALPHA = 0.55;
 
+interface SeriesPaint {
+    readonly paint: PaintContext;
+    readonly series: PlotSeries;
+    readonly plan: DrawPlan;
+    readonly projector: ValueProjector;
+}
+
+interface BandPaint {
+    readonly paint: PaintContext;
+    readonly plan: DrawPlan;
+    readonly band: PlotBand;
+    readonly projector: ValueProjector;
+}
+
+/**
+ * One unbroken stretch of a band, named because six of them in a row were not.
+ *
+ * Two series and two indices, and either pair transposed compiles: the shading
+ * would be drawn upside down, or over a stretch nobody asked for.
+ */
+interface BandRun {
+    readonly paint: PaintContext;
+    readonly upper: PlotSeries;
+    readonly lower: PlotSeries;
+    readonly projector: ValueProjector;
+    readonly fromIndex: number;
+    readonly toIndex: number;
+}
+
 /**
  * Draws the plans indicators produced, each against the scale it asked for.
  *
@@ -119,7 +148,7 @@ export class PlotPainter {
     ): void {
         this.paintBands(paint, plan, projector);
         for (const series of plan.series) {
-            this.paintSeries(paint, series, plan, projector);
+            this.paintSeries({ paint, series, plan, projector });
         }
     }
 
@@ -155,19 +184,15 @@ export class PlotPainter {
         for (const plan of band) {
             this.paintBands(paint, plan, projector);
             for (const series of plan.series) {
-                this.paintSeries(paint, series, plan, projector);
+                this.paintSeries({ paint, series, plan, projector });
             }
         }
 
         context.restore();
     }
 
-    private paintSeries(
-        paint: PaintContext,
-        series: PlotSeries,
-        plan: DrawPlan,
-        projector: ValueProjector,
-    ): void {
+    private paintSeries(request: SeriesPaint): void {
+        const { paint, series, plan, projector } = request;
         if (series.shape === 'histogram') {
             this.paintHistogram(paint, series, projector);
             return;
@@ -239,16 +264,12 @@ export class PlotPainter {
      */
     private paintBands(paint: PaintContext, plan: DrawPlan, projector: ValueProjector): void {
         for (const band of plan.bands ?? []) {
-            this.paintBand(paint, plan, band, projector);
+            this.paintBand({ paint, plan, band, projector });
         }
     }
 
-    private paintBand(
-        paint: PaintContext,
-        plan: DrawPlan,
-        band: PlotBand,
-        projector: ValueProjector,
-    ): void {
+    private paintBand(request: BandPaint): void {
+        const { paint, plan, band, projector } = request;
         const upper = plan.series[band.upperSeriesIndex];
         const lower = plan.series[band.lowerSeriesIndex];
         if (upper === undefined || lower === undefined) {
@@ -271,7 +292,7 @@ export class PlotPainter {
                 runStart = index;
             }
             if (!isUsable && runStart !== -1) {
-                this.fillBandRun(paint, upper, lower, projector, runStart, index);
+                this.fillBandRun({ paint, upper, lower, projector, fromIndex: runStart, toIndex: index });
                 runStart = -1;
             }
         }
@@ -279,14 +300,8 @@ export class PlotPainter {
         context.restore();
     }
 
-    private fillBandRun(
-        paint: PaintContext,
-        upper: PlotSeries,
-        lower: PlotSeries,
-        projector: ValueProjector,
-        fromIndex: number,
-        toIndex: number,
-    ): void {
+    private fillBandRun(run: BandRun): void {
+        const { paint, upper, lower, projector, fromIndex, toIndex } = run;
         const { context } = paint;
         context.beginPath();
         for (let index = fromIndex; index < toIndex; index += 1) {

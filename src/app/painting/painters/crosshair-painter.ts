@@ -34,6 +34,24 @@ export interface CrosshairPainterConfig {
     readonly axisPainter: AxisPainter;
 }
 
+interface ReadoutPaint {
+    readonly paint: PaintContext;
+    readonly pointer: PointerReadout;
+    readonly price: number;
+    readonly timestampMs: number;
+}
+
+/**
+ * One price bucket of one frame, named because the pair of figures that find it
+ * are both numbers: a bucket index and the price it stands for.
+ */
+interface RestingBucket {
+    readonly paint: PaintContext;
+    readonly frame: LiquidityFrame;
+    readonly bucketIndex: number;
+    readonly bucketPrice: number;
+}
+
 /**
  * Draws the crosshair and what sits under it.
  */
@@ -66,7 +84,7 @@ export class CrosshairPainter {
             background: RENDER_PALETTE.inkPrimary,
             foreground: RENDER_PALETTE.surface,
         });
-        this.paintReadout(paint, pointer, price, timestampMs);
+        this.paintReadout({ paint, pointer, price, timestampMs });
     }
 
     private paintLines(paint: PaintContext, pointer: PointerReadout): void {
@@ -84,12 +102,8 @@ export class CrosshairPainter {
         context.setLineDash([]);
     }
 
-    private paintReadout(
-        paint: PaintContext,
-        pointer: PointerReadout,
-        price: number,
-        timestampMs: number,
-    ): void {
+    private paintReadout(request: ReadoutPaint): void {
+        const { paint, pointer, price, timestampMs } = request;
         const { dataset } = paint.request;
         // The frame under the cursor, not the newest one: while the view is
         // parked in history the newest frame describes a different minute, and a
@@ -103,7 +117,7 @@ export class CrosshairPainter {
         const bucketPrice = bucketIndex * dataset.priceBucketSize;
         const lines: ReadoutLine[] = [
             { label: formatReadoutMoment(frame.capturedAtMs), colour: RENDER_PALETTE.inkMuted },
-            this.describeResting(paint, frame, bucketIndex, bucketPrice),
+            this.describeResting({ paint, frame, bucketIndex, bucketPrice }),
         ];
 
         if (!paint.layout.isCompact) {
@@ -118,12 +132,8 @@ export class CrosshairPainter {
     /**
      * The side and size resting in the bucket under the cursor.
      */
-    private describeResting(
-        paint: PaintContext,
-        frame: LiquidityFrame,
-        bucketIndex: number,
-        bucketPrice: number,
-    ): ReadoutLine {
+    private describeResting(bucket: RestingBucket): ReadoutLine {
+        const { paint, frame, bucketIndex, bucketPrice } = bucket;
         const bidQuantity = frame.bids.quantities[bucketIndex - frame.bids.lowestBucketIndex] ?? 0;
         const askQuantity = frame.asks.quantities[bucketIndex - frame.asks.lowestBucketIndex] ?? 0;
         const asset = resolveBaseAsset(paint.request.dataset.instrumentSymbol);
