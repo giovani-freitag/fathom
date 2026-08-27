@@ -86,6 +86,18 @@ describe('ChartProperties', () => {
         expect(screen.queryByRole('group', { name: EN_DICTIONARY['indicator.sma'] })).toBeNull();
     });
 
+    it("offers the way out on the name's own line", () => {
+        // A line of its own for one glyph is a line of empty panel beside it,
+        // and the name is what the glyph is about.
+        renderSlot(null, 'sma-1');
+
+        const close = screen.getByRole('button', { name: EN_DICTIONARY['indicators.close'] });
+
+        // Equal, not merely containing: the row the way out sits in holds the
+        // name and nothing else, which is what puts the two on one line.
+        expect(close.parentElement?.textContent.trim()).toBe(EN_DICTIONARY['indicator.sma']);
+    });
+
     it('closes the reading when the reader says so', () => {
         const kernel = renderSlot(null, 'sma-1');
 

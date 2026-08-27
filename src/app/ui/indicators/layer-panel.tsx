@@ -1,5 +1,5 @@
 import { ArrowLeft, Plus } from 'lucide-react';
-import { type ReactElement, useState } from 'react';
+import { type ReactElement, type ReactNode, useState } from 'react';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
 import { IndicatorPalette } from './indicator-palette.tsx';
 import { LayerList } from './layer-list.tsx';
@@ -110,6 +110,13 @@ function PanelStep({ title, onBack, children }: PanelStepProps): ReactElement {
 export interface LayerKnobsProps {
     readonly controls: IndicatorControls;
     readonly instanceId: string;
+    /**
+     * Offered on the name's own line, for whoever opened this.
+     *
+     * A line of its own for one glyph is a line of empty panel beside it, and
+     * the name is what the glyph is about.
+     */
+    readonly action?: ReactNode;
 }
 
 /**
@@ -119,7 +126,7 @@ export interface LayerKnobsProps {
  * reader pressed a control beside a name, and what opens should be about that
  * name and nothing else.
  */
-export function LayerKnobs({ controls, instanceId }: LayerKnobsProps): ReactElement | null {
+export function LayerKnobs({ controls, instanceId, action }: LayerKnobsProps): ReactElement | null {
     const translate = useTranslate();
     const state = useChartState();
     const added = controls.added.find((entry) => entry.instanceId === instanceId);
@@ -136,9 +143,12 @@ export function LayerKnobs({ controls, instanceId }: LayerKnobsProps): ReactElem
 
     return (
         <div className="flex w-72 flex-col gap-3">
-            <span className="text-xs font-semibold text-ink-100">
-                {translateLabel(translate, layer.labelKey)}
-            </span>
+            <div className="flex min-h-6 items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-ink-100">
+                    {translateLabel(translate, layer.labelKey)}
+                </span>
+                {action}
+            </div>
             <IndicatorParameters
                 indicator={layer}
                 hasTone={hasTone}

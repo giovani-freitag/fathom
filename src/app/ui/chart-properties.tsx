@@ -34,19 +34,24 @@ export function ChartProperties({ drawings, indicators }: ChartPropertiesProps):
 
     return (
         <div
-            className="pointer-events-auto flex max-h-[70vh] flex-col gap-2 overflow-y-auto rounded-xl border border-hairline bg-abyss-800/95 p-3 shadow-2xl shadow-black/50 backdrop-blur"
+            className="pointer-events-auto flex max-h-[70vh] flex-col overflow-y-auto rounded-xl border border-hairline bg-abyss-800/95 p-3 shadow-2xl shadow-black/50 backdrop-blur"
             role="group"
             aria-label={translateLabel(translate, layer.labelKey)}
         >
-            <button
-                type="button"
-                onClick={() => { indicators.pick(null); }}
-                aria-label={translate('indicators.close')}
-                className="grid size-6 shrink-0 place-items-center self-end rounded-md text-ink-500 transition-colors hover:bg-abyss-700 hover:text-ink-100"
-            >
-                <X className="size-4" />
-            </button>
-            <LayerKnobs controls={indicators} instanceId={picked.instanceId} />
+            <LayerKnobs
+                controls={indicators}
+                instanceId={picked.instanceId}
+                action={(
+                    <button
+                        type="button"
+                        onClick={() => { indicators.pick(null); }}
+                        aria-label={translate('indicators.close')}
+                        className="-mr-1 grid size-6 shrink-0 place-items-center rounded-md text-ink-500 transition-colors hover:bg-abyss-700 hover:text-ink-100"
+                    >
+                        <X className="size-4" />
+                    </button>
+                )}
+            />
         </div>
     );
 }

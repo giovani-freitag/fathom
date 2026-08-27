@@ -43,7 +43,7 @@ export function Select({ value, choices, onSelect, label }: SelectProps): ReactE
         <RadixSelect.Root value={value} onValueChange={onSelect}>
             <RadixSelect.Trigger
                 aria-label={label}
-                className={`inline-flex items-center gap-2 rounded-md border border-hairline bg-abyss-800/80 px-3 text-ink-100 transition-colors hover:border-hairline-bright data-[state=open]:border-phosphor/60 ${height}`}
+                className={`inline-flex items-center justify-between gap-2 rounded-md border border-hairline bg-abyss-800/80 px-3 text-ink-100 transition-colors hover:border-hairline-bright data-[state=open]:border-phosphor/60 ${height}`}
             >
                 <RadixSelect.Value placeholder="—" />
                 <RadixSelect.Icon>
@@ -52,10 +52,13 @@ export function Select({ value, choices, onSelect, label }: SelectProps): ReactE
             </RadixSelect.Trigger>
 
             <RadixSelect.Portal>
+                {/* Never narrower than what was pressed: a menu that opens half
+                    the width of its own trigger reads as belonging to something
+                    else on the panel. */}
                 <RadixSelect.Content
                     position="popper"
                     sideOffset={6}
-                    className="z-50 overflow-hidden rounded-lg border border-hairline bg-abyss-800 shadow-2xl shadow-black/60"
+                    className="z-50 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border border-hairline bg-abyss-800 shadow-2xl shadow-black/60"
                 >
                     <RadixSelect.Viewport className="p-1">
                         {choices.map((choice) => (
