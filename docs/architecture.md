@@ -599,6 +599,13 @@ size of their own, over the very data they were about. A row says what its layer
 *reads*; the panel is where a reader acts on it, and every control in it is the
 same size as every other.
 
+Which is also what decides whether a row exists. A layer that reads nothing
+there — the book, or anything the reader has hidden — used to take a row anyway,
+for the controls it carried. Now it takes none: a row that is only a name is
+chart nobody can see. The fold counts what was actually drawn, and is offered
+only once there is more than one row to put away, because folding a single row
+saves a line and costs one.
+
 There is no header at all. What one used to report, the chart already answers:
 gaps are drawn on the chart, so counting them again is a second telling; live or
 in history is said by whether the way back to the live edge is offered; how wide

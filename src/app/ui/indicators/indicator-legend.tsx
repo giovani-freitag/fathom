@@ -58,8 +58,8 @@ export function IndicatorLegend({ controls, layout, onOpenSettings }: IndicatorL
     // indicator that is being kept without being drawn still has the control
     // that brings it back.
     const overPrice = controls.added.filter((entry) => {
-        const plan = planFor.get(entry.instanceId);
-        return plan === undefined || !needsOwnBand(plan.scale);
+        const plan = planFor.get(entry.instanceId) ?? null;
+        return readsSomething(entry, plan) && (plan === null || !needsOwnBand(plan.scale));
     });
 
     return (
@@ -68,7 +68,9 @@ export function IndicatorLegend({ controls, layout, onOpenSettings }: IndicatorL
                 className="absolute flex flex-col items-start gap-1"
                 style={{ left: ROWS_LEFT_PX, top: PRICE_ROWS_TOP_PX }}
             >
-                <LegendFold count={overPrice.length} />
+                {/* Folding one row saves one line and costs one: the control
+                    is offered once there is more than that to put away. */}
+                {overPrice.length > 1 && <LegendFold count={overPrice.length} />}
             </div>
 
             <ul
@@ -102,7 +104,7 @@ export function IndicatorLegend({ controls, layout, onOpenSettings }: IndicatorL
                             const added = controls.added.find(
                                 (entry) => entry.instanceId === plan.instanceId,
                             );
-                            return added === undefined ? null : (
+                            return added === undefined || !readsSomething(added, plan) ? null : (
                                 <LegendRow
                                     key={plan.instanceId}
                                     added={added}
@@ -203,6 +205,24 @@ function resolveBanding(
     };
 }
 
+/**
+ * Whether a layer has anything to say over the chart.
+ *
+ * A layer that reads nothing there used to take a row anyway, for the controls
+ * it carried. Those are one panel away now, and a row that is only a name is
+ * chart nobody can see.
+ *
+ * @param added - The layer as the reader added it.
+ * @param plan - What it produced, or null while it is kept without being drawn.
+ * @returns True when a row for it would carry a reading.
+ */
+function readsSomething(added: AddedIndicator, plan: DrawPlan | null): boolean {
+    if (added.isHidden === true) {
+        return false;
+    }
+    return plan !== null || findLayerContribution(added.indicatorId)?.Readout !== undefined;
+}
+
 interface LegendRowProps {
     readonly added: AddedIndicator;
     /** Absent while the indicator is being kept without being drawn. */
@@ -226,17 +246,16 @@ function LegendRowContent({ added, plan }: LegendRowProps): ReactElement | null 
     const contribution = findLayerContribution(added.indicatorId);
     const Readout = contribution?.Readout;
 
-    const isHidden = added.isHidden === true;
     const hasSettled = plan === null || plan.hasConverged;
     const unsettled = hasSettled ? undefined : translate('indicators.unconverged');
 
     return (
         <li
             title={unsettled}
-            className="group pointer-events-auto flex items-center gap-2 rounded border border-transparent bg-abyss-900/70 px-2 py-1 backdrop-blur-sm transition-colors hover:border-hairline"
+            className="pointer-events-none flex items-center gap-2 rounded bg-abyss-900/60 px-1.5 py-0.5 backdrop-blur-sm"
         >
-            {isTinted && <ToneSwatch tone={added.tone} className={`size-2 ${isHidden ? 'opacity-30' : ''}`} />}
-            <span className={resolveNameClasses(isHidden, hasSettled)}>
+            {isTinted && <ToneSwatch tone={added.tone} className="size-2" />}
+            <span className={resolveNameClasses(hasSettled)}>
                 {translateLabel(translate, layer.labelKey)}
             </span>
             {/*
@@ -249,7 +268,7 @@ function LegendRowContent({ added, plan }: LegendRowProps): ReactElement | null 
             </span>
             {describeChosenSource(layer, added, translate)}
             {plan !== null && <CursorValues plan={plan} />}
-            {Readout !== undefined && !isHidden && <Readout />}
+            {Readout !== undefined && <Readout />}
 
         </li>
     );
@@ -258,10 +277,9 @@ function LegendRowContent({ added, plan }: LegendRowProps): ReactElement | null 
 /**
  * How a row's name reads: dimmed while kept but not drawn, amber while unsettled.
  */
-function resolveNameClasses(isHidden: boolean, hasSettled: boolean): string {
-    if (isHidden) {
-        return 'text-xs font-semibold text-ink-500 line-through decoration-ink-700';
-    }
+function resolveNameClasses(hasSettled: boolean): string {
+    // Hidden has no case here any more: a layer that is not drawn takes no row,
+    // so a struck-through name over the chart would name nothing on it.
     return `text-xs font-semibold ${hasSettled ? 'text-ink-100' : 'text-amber'}`;
 }
 

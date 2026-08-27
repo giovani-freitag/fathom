@@ -84,15 +84,24 @@ describe('IndicatorLegend', () => {
         expect(screen.getByText(/^\d{1,3}\.\d{2}$/).textContent).toBe(atNewestBar);
     });
 
-    it('gives a hidden indicator no band, so it stops taking room from the price', () => {
+    it('names a hidden indicator nowhere, because it reads nothing there', () => {
+        // Bringing it back is one panel away; a row over the chart for a layer
+        // that is not drawn is chart nobody can see.
         renderLegend([{ ...RSI, isHidden: true }]);
 
-        // Every row at the same height is the rule itself: nothing was given a
-        // band of its own, so nothing took height from the price.
-        const rows = screen.getAllByRole('listitem');
-        const tops = new Set(rows.map((row) => row.parentElement!.style.top));
+        expect(screen.queryAllByRole('listitem')).toEqual([]);
+    });
 
-        expect(tops.size).toBe(1);
+    it('names a layer with nothing to read nowhere either', () => {
+        renderLegend([{ instanceId: 'depth-1', indicatorId: 'depth', settings: {}, tone: 'ink' }]);
+
+        expect(screen.queryAllByRole('listitem')).toEqual([]);
+    });
+
+    it('still names one that does read something', () => {
+        renderLegend([SMA_FAST]);
+
+        expect(screen.getAllByRole('listitem')).toHaveLength(1);
     });
 
 });
@@ -111,10 +120,30 @@ describe('IndicatorLegend folded away', () => {
     });
 
     it('hides the rows once it is folded, and keeps counting them', () => {
-        const kernel = renderLegend([SMA_FAST, RSI]);
+        const kernel = renderLegend([SMA_FAST, SMA_SLOW]);
 
         fireEvent.click(screen.getByRole('button', { name: 'Fold the rows away' }));
 
         expect(kernel.container.appearance.store.read().isLegendCollapsed).toBe(true);
+    });
+
+    it('offers nothing to fold when there is one row to fold away', () => {
+        // Folding one row saves a line and costs one. The control is offered
+        // once there is more than that to put away.
+        renderLegend([SMA_FAST]);
+
+        expect(screen.queryByRole('button', { name: 'Fold the rows away' })).toBeNull();
+    });
+
+    it('counts only the rows it actually drew', () => {
+        // A layer that reads nothing takes no row, so counting it left the
+        // control claiming to hide more than there was.
+        renderLegend([
+            SMA_FAST,
+            SMA_SLOW,
+            { instanceId: 'depth-1', indicatorId: 'depth', settings: {}, tone: 'ink' },
+        ]);
+
+        expect(screen.getByRole('button', { name: 'Fold the rows away' }).textContent).toContain('2');
     });
 });
