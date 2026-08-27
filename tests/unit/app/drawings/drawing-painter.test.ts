@@ -196,6 +196,60 @@ describe('DrawingPainter drawing a zone', () => {
     });
 });
 
+describe('DrawingPainter honouring how a mark says to draw it', () => {
+    const painter = new DrawingPainter();
+    let recording: RecordingContext;
+
+    beforeEach(() => { recording = createRecordingContext(); });
+
+    it('draws a heavy mark heavier than a light one', () => {
+        painter.paint(buildContext(recording, { settled: [buildLevel({ width: 'thin' })] }));
+        const thin = recording.callsTo('stroke')[0]?.lineWidth ?? 0;
+
+        painter.paint(buildContext(recording, { settled: [buildLevel({ width: 'thick' })] }));
+
+        expect(recording.callsTo('stroke')[1]?.lineWidth).toBeGreaterThan(thin);
+    });
+
+    it('draws the mark being worked on heavier than it asked for, so it reads as picked', () => {
+        painter.paint(buildContext(recording, { settled: [buildLevel({ width: 'thin' })], selectedId: 'level' }));
+
+        expect(recording.callsTo('stroke')[0]?.lineWidth).toBeGreaterThan(1);
+    });
+
+    it('breaks up a dashed mark', () => {
+        painter.paint(buildContext(recording, { settled: [buildLevel({ style: 'dashed' })] }));
+
+        expect(recording.callsTo('setLineDash')[0]?.args[0]).not.toEqual([]);
+    });
+
+    it('draws a solid mark unbroken', () => {
+        painter.paint(buildContext(recording, { settled: [buildLevel({ style: 'solid' })] }));
+
+        expect(recording.callsTo('setLineDash')[0]?.args[0]).toEqual([]);
+    });
+
+    it('rounds the ends of a dotted mark, so its dots are dots', () => {
+        // Square ends turn a one-pixel dash into a dash again, which is the
+        // line a reader picked dotted to avoid.
+        painter.paint(buildContext(recording, { settled: [buildLevel({ style: 'dotted' })] }));
+
+        expect(recording.callsTo('stroke')[0]?.lineCap).toBe('round');
+    });
+
+    it('leaves a dashed mark square-ended, so its dashes keep their length', () => {
+        painter.paint(buildContext(recording, { settled: [buildLevel({ style: 'dashed' })] }));
+
+        expect(recording.callsTo('stroke')[0]?.lineCap).toBe('butt');
+    });
+
+    it('draws a mark still being dragged out as provisional, whatever line it will settle to', () => {
+        painter.paint(buildContext(recording, { draft: buildTrend({ style: 'solid' }) }));
+
+        expect(recording.callsTo('setLineDash')[0]?.args[0]).not.toEqual([]);
+    });
+});
+
 describe('describeDrawings', () => {
     it('answers the same for the same marks', () => {
         const view = { ...EMPTY_DRAWINGS_VIEW, settled: [buildLevel()] };
@@ -228,6 +282,25 @@ describe('describeDrawings', () => {
         const view = { ...EMPTY_DRAWINGS_VIEW, settled: [buildLevel()] };
 
         expect(describeDrawings({ ...view, settled: [buildLevel({ tone: 'cyan' })] }))
+            .not.toBe(describeDrawings(view));
+    });
+
+});
+
+describe('describeDrawings reading the look', () => {
+    it('changes when a mark is given a different weight', () => {
+        // The held layer is redrawn from this alone: a weight that changed
+        // without changing it would not be drawn until something else moved.
+        const view = { ...EMPTY_DRAWINGS_VIEW, settled: [buildLevel()] };
+
+        expect(describeDrawings({ ...view, settled: [buildLevel({ width: 'thick' })] }))
+            .not.toBe(describeDrawings(view));
+    });
+
+    it('changes when a mark is given a different line', () => {
+        const view = { ...EMPTY_DRAWINGS_VIEW, settled: [buildLevel()] };
+
+        expect(describeDrawings({ ...view, settled: [buildLevel({ style: 'dotted' })] }))
             .not.toBe(describeDrawings(view));
     });
 });

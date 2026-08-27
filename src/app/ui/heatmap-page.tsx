@@ -23,10 +23,13 @@ import { IndicatorOverlay } from './indicators/indicator-controls.tsx';
 import { useIndicators } from '../react/use-indicators.ts';
 import { useDrawings } from '../react/use-drawings.ts';
 import { ChartDock } from './chart-dock.tsx';
-import { DrawingActions } from './drawing-actions.tsx';
+import { DrawingProperties } from './drawing-properties.tsx';
 
 /** Enough to clear the time axis the renderer reserves along the bottom. */
 const TIME_AXIS_CLEARANCE_PX = 32;
+
+/** Below the depth key and the way into the settings, which share that corner. */
+const WIDE_PROPERTIES_TOP_PX = 56;
 
 /* Declared once each, so every subscription is the same one on every render. */
 const readPhase = (state: ChartState): ChartState['phase'] => state.phase;
@@ -180,12 +183,26 @@ export function HeatmapPage(): ReactElement {
                         </div>
                     )}
 
-                    <DrawingActions controls={drawings} />
+                    {/* Along the bottom rather than down the edge, where on a
+                        phone a panel would be most of the chart. */}
+                    {!isWide && <DrawingProperties controls={drawings} />}
+
                     {!isWide && <ChartDock
                         {...chartControls}
                         drawings={drawings}
                     />}
                 </div>
+
+                {/* Opened by the selection itself, on the side a reader's eye is
+                    already on once they have pressed a mark. */}
+                {isWide && (
+                    <div
+                        className="pointer-events-none absolute left-3 flex"
+                        style={{ top: WIDE_PROPERTIES_TOP_PX }}
+                    >
+                        <DrawingProperties controls={drawings} />
+                    </div>
+                )}
 
 
                 {phase === 'initialising' && <SurfaceNotice message={translate('page.probing')} translate={translate} />}

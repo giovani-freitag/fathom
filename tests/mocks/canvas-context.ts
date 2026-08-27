@@ -15,6 +15,9 @@ export interface RecordedCall {
     /** Fill and stroke styles in force when the call was made. */
     readonly fillStyle: string;
     readonly strokeStyle: string;
+    /** How heavy the line was, and how its ends were finished. */
+    readonly lineWidth: number;
+    readonly lineCap: string;
 }
 
 export interface RecordingContext {
@@ -45,14 +48,17 @@ const ANSWERS: Readonly<Record<string, () => unknown>> = {
  */
 export function createRecordingContext(): RecordingContext {
     const calls: RecordedCall[] = [];
-    const state = { fillStyle: '', strokeStyle: '' };
+    const state = { fillStyle: '', strokeStyle: '', lineWidth: 1, lineCap: 'butt' };
 
     const recorder: Record<string, unknown> = {
         get fillStyle() { return state.fillStyle; },
         set fillStyle(value: string) { state.fillStyle = value; },
         get strokeStyle() { return state.strokeStyle; },
         set strokeStyle(value: string) { state.strokeStyle = value; },
-        lineWidth: 1,
+        get lineWidth() { return state.lineWidth; },
+        set lineWidth(value: number) { state.lineWidth = value; },
+        get lineCap() { return state.lineCap; },
+        set lineCap(value: string) { state.lineCap = value; },
         font: '',
         textAlign: 'left',
         textBaseline: 'middle',
@@ -67,7 +73,7 @@ export function createRecordingContext(): RecordingContext {
 
     for (const method of [...RECORDED_METHODS, ...Object.keys(ANSWERS)]) {
         recorder[method] = (...args: unknown[]) => {
-            calls.push({ method, args, fillStyle: state.fillStyle, strokeStyle: state.strokeStyle });
+            calls.push({ method, args, ...state });
             return ANSWERS[method]?.();
         };
     }

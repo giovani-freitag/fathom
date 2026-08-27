@@ -3,6 +3,8 @@ import {
     type Drawing,
     type DrawingAnchor,
     type DrawingKind,
+    type DrawingStyle,
+    type DrawingWidth,
     shiftDrawing,
 } from '../../shared/core/drawing.ts';
 import { INSTANCE_TONES, type PlotTone } from '../../shared/core/draw-plan.ts';
@@ -25,6 +27,13 @@ export interface DrawingsState {
     readonly draft: Drawing | null;
     readonly canUndo: boolean;
     readonly canRedo: boolean;
+}
+
+/** What about a mark's look is being changed. */
+export interface DrawingRestyle {
+    readonly tone?: PlotTone;
+    readonly width?: DrawingWidth;
+    readonly style?: DrawingStyle;
 }
 
 /** Where a press landed, and on what. */
@@ -177,17 +186,17 @@ export class DrawingsController {
     }
 
     /**
-     * Paints one mark in another tone.
+     * Changes how one mark is drawn.
      *
-     * @param drawingId - The mark to recolour.
-     * @param tone - The tone to give it.
+     * @param drawingId - The mark to restyle.
+     * @param look - Whichever of its tone, weight and line to change.
      */
-    recolour(drawingId: string, tone: PlotTone): void {
+    restyle(drawingId: string, look: DrawingRestyle): void {
         this.rememberStep(this.store.read().drawings);
         this.store.update((state) => ({
             ...state,
             drawings: state.drawings.map(
-                (drawing) => (drawing.id === drawingId ? { ...drawing, tone } : drawing),
+                (drawing) => (drawing.id === drawingId ? { ...drawing, ...look } : drawing),
             ),
         }));
         this.persist();

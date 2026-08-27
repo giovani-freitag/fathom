@@ -24,6 +24,43 @@ export const ANCHORS_PER_KIND: Readonly<Record<DrawingKind, number>> = {
     zone: 2,
 };
 
+/** How heavy a mark is drawn. */
+export type DrawingWidth = 'thin' | 'medium' | 'thick';
+
+/** How a mark's line is broken up, if at all. */
+export type DrawingStyle = 'solid' | 'dashed' | 'dotted';
+
+export const DRAWING_WIDTHS: readonly DrawingWidth[] = ['thin', 'medium', 'thick'];
+export const DRAWING_STYLES: readonly DrawingStyle[] = ['solid', 'dashed', 'dotted'];
+
+/** What a mark looks like, once the ones it did not say are filled in. */
+export interface DrawingLook {
+    readonly width: DrawingWidth;
+    readonly style: DrawingStyle;
+}
+
+const DEFAULT_LOOK: DrawingLook = { width: 'medium', style: 'solid' };
+
+/**
+ * How a mark should be drawn, whatever it happens to say about itself.
+ *
+ * Read through here rather than off the mark, because a mark stored before this
+ * build says nothing about either and has to be drawn anyway.
+ *
+ * @param drawing - The mark to look at.
+ * @returns Its weight and its line, always both.
+ */
+export function resolveDrawingLook(drawing: Drawing): DrawingLook {
+    return {
+        width: DRAWING_WIDTHS.includes(drawing.width as DrawingWidth)
+            ? drawing.width as DrawingWidth
+            : DEFAULT_LOOK.width,
+        style: DRAWING_STYLES.includes(drawing.style as DrawingStyle)
+            ? drawing.style as DrawingStyle
+            : DEFAULT_LOOK.style,
+    };
+}
+
 /**
  * One mark a reader left on one instrument's chart.
  */
@@ -34,6 +71,9 @@ export interface Drawing {
     readonly instrumentSymbol: string;
     readonly anchors: readonly DrawingAnchor[];
     readonly tone: PlotTone;
+    /** Absent on a mark stored before this build knew how to vary either. */
+    readonly width?: DrawingWidth;
+    readonly style?: DrawingStyle;
 }
 
 /**

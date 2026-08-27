@@ -558,10 +558,24 @@ other layer uses. Panning does not move it; zooming does not stretch it; a
 reload does not lose it.
 
 Marks are drawn with the data rather than with the cursor, on the layer held
-between frames, and a mark added, moved, recoloured or selected is part of that
+between frames, and a mark added, moved, restyled or selected is part of that
 layer's key. The one being dragged out is on the same layer and dashed: a drag
 already invalidates the key through the viewport, so it costs the repaint that
 was happening anyway.
+
+What a mark says about how to draw it — its colour, its weight, its line — is
+stored beside its anchors, and everything it does not say is filled in when it
+is read rather than when it is written. A mark left in an earlier session names
+no weight and no line at all, and is drawn anyway; so is one naming a weight
+this build has never heard of. The alternative — refusing to draw what does not
+parse, or migrating every stored mark on the way in — loses a reader's own work
+to a vocabulary that grew after they left it.
+
+Selecting a mark opens what can be changed about it, with no second control to
+find first: a reader who has just pressed a mark has said what they want to work
+on, and asking them to say it again is a press they should not have to make. It
+opens where there is room for it — down the left on a wide screen, above the
+island on a narrow one — and closes when the selection goes.
 
 The pointer is the harder half. The surface already spends every press on the
 viewport, so a press over the plot is *offered* first — the gesture controller
@@ -576,7 +590,7 @@ tries before they find the button.
 
 Stepping back keeps the whole set of marks per step rather than inverting each
 edit on its own terms: a chart holds few marks and each is small, so a stack of
-sets is cheaper to reason about than undoing a move, a recolour and a removal
+sets is cheaper to reason about than undoing a move, a restyle and a removal
 three different ways. A drag records one step, not one per frame.
 
 ## Two layouts, not one hidden twice
@@ -655,10 +669,12 @@ while the window already drawn is still on screen — and that appears as a mark
 over the chart only while it is true.
 
 Beside them are the drawing tools, with the pointer shown as a tool of its own
-so the resting state reads as a choice rather than as nothing being on. Above
-them, and only when there is something for them to do, sit the actions: step
-back, step forward, and — while a mark is selected — the colours and the bin. A
-reader who never draws never sees that row at all.
+so the resting state reads as a choice rather than as nothing being on, and with
+step-back and step-forward at the end of the same row: undoing is part of
+drawing, and a row of its own for two glyphs was a second place to look. Above
+them, and only while a mark is selected, sits everything that mark can be
+changed by — its colour, its weight, its line, and the bin. A reader who never
+draws never sees that panel at all.
 
 The islands clear the time axis, whose labels are read while a mark is being
 placed.

@@ -268,7 +268,7 @@ describe('DrawingsController remembering what was drawn', () => {
     });
 });
 
-describe('DrawingsController recolouring a mark', () => {
+describe('DrawingsController restyling a mark', () => {
     let harness: Harness;
 
     beforeEach(() => {
@@ -278,14 +278,30 @@ describe('DrawingsController recolouring a mark', () => {
         harness.drawings.settle();
     });
 
+    it('gives it the weight it was handed', () => {
+        harness.drawings.restyle('mark-1', { width: 'thick' });
+
+        expect(harness.drawings.store.read().drawings[0]?.width).toBe('thick');
+    });
+
+    it('changes only what it was handed, leaving the rest of the look alone', () => {
+        harness.drawings.restyle('mark-1', { width: 'thick' });
+        const tone = harness.drawings.store.read().drawings[0]?.tone;
+
+        harness.drawings.restyle('mark-1', { style: 'dashed' });
+
+        expect(harness.drawings.store.read().drawings[0])
+            .toMatchObject({ tone, width: 'thick', style: 'dashed' });
+    });
+
     it('paints it in the tone it was given', () => {
-        harness.drawings.recolour('mark-1', 'cyan');
+        harness.drawings.restyle('mark-1', { tone: 'cyan' });
 
         expect(harness.drawings.store.read().drawings[0]?.tone).toBe('cyan');
     });
 
     it('writes the colour out, so it comes back the same next session', () => {
-        harness.drawings.recolour('mark-1', 'cyan');
+        harness.drawings.restyle('mark-1', { tone: 'cyan' });
 
         expect(readPersisted(harness)[0]?.tone).toBe('cyan');
     });
@@ -295,7 +311,7 @@ describe('DrawingsController recolouring a mark', () => {
         harness.drawings.begin({ anchor: at(2_000, 200), hitId: null });
         harness.drawings.settle();
 
-        harness.drawings.recolour('mark-1', 'cyan');
+        harness.drawings.restyle('mark-1', { tone: 'cyan' });
 
         expect(harness.drawings.store.read().drawings[1]?.tone).not.toBe('cyan');
     });
@@ -395,7 +411,7 @@ describe('DrawingsController stepping back and forward', () => {
     it('takes a recolour back', () => {
         drawLevel(100);
         const original = harness.drawings.store.read().drawings[0]?.tone;
-        harness.drawings.recolour('mark-1', 'cyan');
+        harness.drawings.restyle('mark-1', { tone: 'cyan' });
 
         harness.drawings.undo();
 

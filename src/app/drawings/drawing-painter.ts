@@ -1,4 +1,10 @@
-import { boundDrawing, type Drawing } from '../../shared/core/drawing.ts';
+import {
+    boundDrawing,
+    type Drawing,
+    type DrawingStyle,
+    type DrawingWidth,
+    resolveDrawingLook,
+} from '../../shared/core/drawing.ts';
 import type { FieldLayerPainter, PaintContext, RenderRequest } from '../painting/render-types.ts';
 import { RENDER_PALETTE, resolveToneColour } from '../painting/render-palette.ts';
 import type { ViewportProjector } from '../core/viewport-projector.ts';
@@ -6,7 +12,21 @@ import type { ViewportProjector } from '../core/viewport-projector.ts';
 /** Painted over every indicator: a reader's own mark is not something to bury. */
 const DRAWING_ORDER = 900;
 
-const LINE_WIDTH_PX = 1.5;
+/** How heavy each weight draws, and how much heavier when it is selected. */
+const WIDTH_PIXELS: Readonly<Record<DrawingWidth, number>> = {
+    thin: 1,
+    medium: 1.75,
+    thick: 3,
+};
+
+const SELECTED_WIDTH_FACTOR = 1.8;
+
+/** How each line is broken up. Solid says so with no dashes at all. */
+const STYLE_DASHES: Readonly<Record<DrawingStyle, readonly number[]>> = {
+    solid: [],
+    dashed: [7, 5],
+    dotted: [1, 4],
+};
 
 /** Radius of the grip shown at each anchor of the selected mark. */
 const HANDLE_RADIUS_PX = 5;
@@ -65,10 +85,14 @@ export class DrawingPainter implements FieldLayerPainter {
      */
     private drawOne(stroke: DrawingStroke): void {
         const { paint, drawing, isSelected } = stroke;
+        const look = resolveDrawingLook(drawing);
+        const weight = WIDTH_PIXELS[look.width];
+
         paint.context.save();
         paint.context.strokeStyle = resolveToneColour(drawing.tone);
-        paint.context.lineWidth = isSelected ? LINE_WIDTH_PX * 2 : LINE_WIDTH_PX;
-        paint.context.setLineDash([...stroke.dash ?? []]);
+        paint.context.lineWidth = isSelected ? weight * SELECTED_WIDTH_FACTOR : weight;
+        paint.context.lineCap = look.style === 'dotted' ? 'round' : 'butt';
+        paint.context.setLineDash([...stroke.dash ?? STYLE_DASHES[look.style]]);
 
         if (drawing.kind === 'zone') {
             this.strokeZone(stroke);
@@ -242,5 +266,6 @@ export function describeDrawings(view: DrawingsView): string {
 
 function describeDrawing(drawing: Drawing): string {
     const anchors = drawing.anchors.map((anchor) => `${anchor.atMs}:${anchor.price}`).join(',');
-    return `${drawing.id}@${drawing.tone}@${anchors}`;
+    const look = resolveDrawingLook(drawing);
+    return `${drawing.id}@${drawing.tone}@${look.width}@${look.style}@${anchors}`;
 }

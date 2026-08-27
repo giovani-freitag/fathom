@@ -33,7 +33,7 @@ screen — is derived per frame from the projector the rest of the chart uses.
 
 **Marks are drawn with the data, not with the cursor.** They go on the overlay
 layer, which is held between frames and repainted only when its key changes; a
-mark added, moved, recoloured or selected is part of that key. A mark still
+mark added, moved, restyled or selected is part of that key. A mark still
 being dragged out is on the same layer, dashed, because a drag already moves the
 viewport key every frame and costs the same repaint either way.
 
@@ -47,10 +47,24 @@ about it too, which is what lets pressing bare chart mean *done with that one*.
 is held by its lower half, and a rail beside the chart is a regrip away. But
 drawing is done in bursts, and a full-width row for it costs the chart its
 height for as long as the page is open — so the tools are a floating island over
-the chart, clear of the time axis, and the one bar down there stays the span
-presets, which are read constantly. The resting pointer is shown as a tool
-rather than as nothing, and the properties of whatever is selected stack above
-the island instead of pushing the chart smaller.
+the chart, clear of the time axis. The resting pointer is shown as a tool rather
+than as nothing, and stepping back and forward sits at the end of the same row:
+undoing is part of drawing, and a row of its own for two glyphs was a second
+place to look.
+
+**Selecting a mark opens what can be changed about it.** Not a control that then
+opens it — the reader has already said what they want to work on by pressing it,
+and a second press to say so again is one they should not have to make. What
+opens is the same set of choices in both layouts, placed where each has room:
+down the left on a wide screen, above the island on a narrow one. It closes with
+the selection.
+
+**A mark's look is stored, and what it does not say is filled in when it is
+read.** Colour, weight and line sit beside the anchors, and a mark that names
+none of them — one left before either existed, or one naming a weight this build
+has never heard of — is drawn at the default rather than refused. Resolving on
+read instead of migrating on write means the vocabulary can grow again without
+touching what a reader already drew.
 
 **A mark belongs to a contract.** It is drawn about `BTCUSDT`, shown on no other
 chart, and a stored mark naming a kind this build cannot draw is dropped on the

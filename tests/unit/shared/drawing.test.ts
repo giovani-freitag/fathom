@@ -6,6 +6,7 @@ import {
     DRAWING_KINDS,
     isDrawing,
     priceAtTime,
+    resolveDrawingLook,
     shiftDrawing,
 } from '../../../src/shared/core/drawing.ts';
 
@@ -153,5 +154,26 @@ describe('priceAtTime of a zone', () => {
         const zone: Drawing = { ...buildTrend(), kind: 'zone' };
 
         expect(priceAtTime(zone, 2_000)).toBeNull();
+    });
+
+});
+
+describe('resolveDrawingLook', () => {
+    it('draws a mark the way it says to', () => {
+        const styled: Drawing = { ...buildLevel(100), width: 'thick', style: 'dashed' };
+
+        expect(resolveDrawingLook(styled)).toEqual({ width: 'thick', style: 'dashed' });
+    });
+
+    it('draws a mark stored before either existed anyway', () => {
+        // It says nothing about weight or line, and refusing to draw it would
+        // lose a mark a reader left in an earlier session.
+        expect(resolveDrawingLook(buildLevel(100))).toEqual({ width: 'medium', style: 'solid' });
+    });
+
+    it('draws a mark naming a weight this build does not have', () => {
+        const foreign = { ...buildLevel(100), width: 'hairline' } as unknown as Drawing;
+
+        expect(resolveDrawingLook(foreign).width).toBe('medium');
     });
 });

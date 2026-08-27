@@ -1,4 +1,4 @@
-import { Coins, Layers, Minus, MousePointer2, Square, TrendingUp } from 'lucide-react';
+import { Coins, Layers, Minus, MousePointer2, Redo2, Square, TrendingUp, Undo2 } from 'lucide-react';
 import type { ComponentType, ReactElement } from 'react';
 import { BAR_INTERVALS_MS, type BarIntervalMs } from '../core/bar-interval.ts';
 import {
@@ -174,6 +174,27 @@ export function DrawingTools({ drawings }: DrawingToolsProps): ReactElement {
                     </DockButton>
                 );
             })}
+
+            <Divider />
+
+            {/* Beside the tools, because a step back is about what they did. */}
+            <DockButton
+                label={translate('drawing.undo')}
+                isActive={false}
+                isDisabled={!drawings.canUndo}
+                onPress={drawings.undo}
+            >
+                <Undo2 size={ICON_SIZE_PX} />
+            </DockButton>
+
+            <DockButton
+                label={translate('drawing.redo')}
+                isActive={false}
+                isDisabled={!drawings.canRedo}
+                onPress={drawings.redo}
+            >
+                <Redo2 size={ICON_SIZE_PX} />
+            </DockButton>
         </>
     );
 }

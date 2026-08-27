@@ -8,7 +8,7 @@ export const MAXIMUM_HISTORY_STEPS = 50;
  *
  * A stack rather than a log of edits: a mark is small and a chart holds few of
  * them, so keeping the whole set per step is cheaper to reason about than
- * inverting a move, a recolour and a removal each on their own terms.
+ * inverting a move, a restyle and a removal each on their own terms.
  */
 export class DrawingHistory {
     private readonly past: (readonly Drawing[])[] = [];
