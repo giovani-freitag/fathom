@@ -13,7 +13,6 @@ export interface PriceBar {
     readonly highPrice: number;
     readonly lowPrice: number;
     readonly closePrice: number;
-    /** Frames a wholly recorded bucket of this width holds, from the instrument's grid. */
     /**
      * What traded inside the bucket, by which side crossed the spread.
      *
@@ -99,3 +98,18 @@ export const BAR_BUDGET = {
     maximumSourceFrames: 180_000,
     maximumBars: 2_000,
 } as const;
+
+/**
+ * Trims a run of bars to what a window may return, keeping the newest.
+ *
+ * @param bars - Bars for the whole range, oldest first.
+ * @returns At most the budgeted count, still oldest first.
+ */
+export function keepNewestBars(bars: readonly PriceBar[]): PriceBar[] {
+    // Trimmed from the other end, a reader who pinned a fine interval and zoomed
+    // out is handed the oldest stretch of the range and a blank right edge,
+    // which is exactly where the price is.
+    return bars.length <= BAR_BUDGET.maximumBars
+        ? [...bars]
+        : bars.slice(bars.length - BAR_BUDGET.maximumBars);
+}

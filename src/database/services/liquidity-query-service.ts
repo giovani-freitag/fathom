@@ -372,25 +372,28 @@ interface PriceBarRow {
 /**
  * Bars scanned from the frames themselves, naming only the two price columns.
  */
-const RAW_BAR_STATEMENT = `SELECT
-        time_bucket(make_interval(secs => $4), captured_at) AS bucket_start,
-        first(mid_price, captured_at)                       AS open_price,
-        max(mid_price)                                      AS high_price,
-        min(mid_price)                                      AS low_price,
-        last(mid_price, captured_at)                        AS close_price,
-        count(*)::int                                       AS frame_count,
-        min(captured_at)                                    AS first_frame_at,
-        max(captured_at)                                    AS last_frame_at
-    FROM (
-        SELECT captured_at, (best_bid_price + best_ask_price) / 2 AS mid_price
-        FROM liquidity_frame
-        WHERE instrument_symbol = $1
-          AND captured_at >= $2::timestamptz
-          AND captured_at < $3::timestamptz
-    ) narrow
-    GROUP BY 1
-    ORDER BY 1
-    LIMIT ${BAR_BUDGET.maximumBars}`;
+const RAW_BAR_STATEMENT = `SELECT * FROM (
+        SELECT
+            time_bucket(make_interval(secs => $4), captured_at) AS bucket_start,
+            first(mid_price, captured_at)                       AS open_price,
+            max(mid_price)                                      AS high_price,
+            min(mid_price)                                      AS low_price,
+            last(mid_price, captured_at)                        AS close_price,
+            count(*)::int                                       AS frame_count,
+            min(captured_at)                                    AS first_frame_at,
+            max(captured_at)                                    AS last_frame_at
+        FROM (
+            SELECT captured_at, (best_bid_price + best_ask_price) / 2 AS mid_price
+            FROM liquidity_frame
+            WHERE instrument_symbol = $1
+              AND captured_at >= $2::timestamptz
+              AND captured_at < $3::timestamptz
+        ) narrow
+        GROUP BY 1
+        ORDER BY 1 DESC
+        LIMIT ${BAR_BUDGET.maximumBars}
+    ) recent
+    ORDER BY bucket_start`;
 
 /**
  * Bars rolled up from a coarser grid that already holds them.
@@ -400,22 +403,25 @@ const RAW_BAR_STATEMENT = `SELECT
  * is short of frames however many levels it was rolled through.
  */
 function rolledBarStatement(source: BarSource): string {
-    return `SELECT
-            time_bucket(make_interval(secs => $4), opened_at) AS bucket_start,
-            first(open_price, opened_at)                      AS open_price,
-            max(high_price)                                   AS high_price,
-            min(low_price)                                    AS low_price,
-            last(close_price, opened_at)                      AS close_price,
-            sum(frame_count)::int                             AS frame_count,
-            min(first_frame_at)                               AS first_frame_at,
-            max(last_frame_at)                                AS last_frame_at
-        FROM ${source.table}
-        WHERE instrument_symbol = $1
-          AND opened_at >= $2::timestamptz
-          AND opened_at < $3::timestamptz
-        GROUP BY 1
-        ORDER BY 1
-        LIMIT ${BAR_BUDGET.maximumBars}`;
+    return `SELECT * FROM (
+            SELECT
+                time_bucket(make_interval(secs => $4), opened_at) AS bucket_start,
+                first(open_price, opened_at)                      AS open_price,
+                max(high_price)                                   AS high_price,
+                min(low_price)                                    AS low_price,
+                last(close_price, opened_at)                      AS close_price,
+                sum(frame_count)::int                             AS frame_count,
+                min(first_frame_at)                               AS first_frame_at,
+                max(last_frame_at)                                AS last_frame_at
+            FROM ${source.table}
+            WHERE instrument_symbol = $1
+              AND opened_at >= $2::timestamptz
+              AND opened_at < $3::timestamptz
+            GROUP BY 1
+            ORDER BY 1 DESC
+            LIMIT ${BAR_BUDGET.maximumBars}
+        ) recent
+        ORDER BY bucket_start`;
 }
 
 interface BarVolumeRow {
@@ -432,18 +438,21 @@ interface BarVolumeRow {
  * says how much traded in a stretch of time, not where in the book it traded.
  */
 function volumeStatement(source: TradeSource): string {
-    return `SELECT
-            time_bucket(make_interval(secs => $4), executed_at) AS bucket_start,
-            sum(buy_quantity)::double precision                 AS buy_volume,
-            sum(sell_quantity)::double precision                AS sell_volume,
-            sum(trade_count)::int                               AS trade_count
-        FROM ${source.table}
-        WHERE instrument_symbol = $1
-          AND executed_at >= $2::timestamptz
-          AND executed_at < $3::timestamptz
-        GROUP BY 1
-        ORDER BY 1
-        LIMIT ${BAR_BUDGET.maximumBars}`;
+    return `SELECT * FROM (
+            SELECT
+                time_bucket(make_interval(secs => $4), executed_at) AS bucket_start,
+                sum(buy_quantity)::double precision                 AS buy_volume,
+                sum(sell_quantity)::double precision                AS sell_volume,
+                sum(trade_count)::int                               AS trade_count
+            FROM ${source.table}
+            WHERE instrument_symbol = $1
+              AND executed_at >= $2::timestamptz
+              AND executed_at < $3::timestamptz
+            GROUP BY 1
+            ORDER BY 1 DESC
+            LIMIT ${BAR_BUDGET.maximumBars}
+        ) recent
+        ORDER BY bucket_start`;
 }
 
 /**

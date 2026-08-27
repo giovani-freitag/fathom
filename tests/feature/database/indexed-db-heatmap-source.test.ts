@@ -111,4 +111,5 @@ describe('IndexedDbHeatmapSource', () => {
 
         expect(result.clusters).toHaveLength(2);
     });
+
 });

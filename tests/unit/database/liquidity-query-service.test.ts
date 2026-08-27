@@ -230,6 +230,29 @@ describe('LiquidityQueryService bar sources', () => {
         return asked.find((ask) => ask.statement.includes('buy_volume'))!.statement;
     }
 
+    it('keeps the newest bars when a range holds more than it may return', async () => {
+        // Truncated from the other end, a reader who pinned a fine interval and
+        // zoomed out gets the oldest stretch of the range and a blank right
+        // edge, which is exactly where the price is.
+        const statement = await sourceFor(1_000);
+
+        expect(statement).toMatch(/ORDER BY[^)]*DESC\s*\n?\s*LIMIT/);
+    });
+
+    it('returns the bars it kept oldest first, however it picked them', async () => {
+        const statement = await sourceFor(1_000);
+
+        expect(statement.trimEnd().endsWith('ORDER BY bucket_start')).toBe(true);
+    });
+
+    it('reads the executions of the same buckets the bars came from', async () => {
+        // Truncated from opposite ends, every bar the reader sees reports no
+        // volume at all, because the volume rows cover a different stretch.
+        const statement = await volumeSourceFor(1_000);
+
+        expect(statement).toMatch(/ORDER BY[^)]*DESC\s*\n?\s*LIMIT/);
+    });
+
     it('scans the frames themselves below a minute, where nothing holds bars yet', async () => {
         expect(await sourceFor(15_000)).toContain('FROM liquidity_frame');
     });

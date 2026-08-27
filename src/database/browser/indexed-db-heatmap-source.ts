@@ -10,7 +10,12 @@ import { foldFramesIntoColumns, INSTANTS_PER_COLUMN } from '../core/frame-aggreg
 import type { IndexedDbService } from './indexed-db-service.ts';
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
-import type { PriceBar, PriceBarQuery, PriceBarWindow } from '../../shared/core/price-bar.ts';
+import {
+    keepNewestBars,
+    type PriceBar,
+    type PriceBarQuery,
+    type PriceBarWindow,
+} from '../../shared/core/price-bar.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import { STORES } from './browser-schema.ts';
 import {
@@ -164,12 +169,12 @@ export class IndexedDbHeatmapSource implements HeatmapSource {
             ),
         );
 
-        const bars = addVolume(foldRecordsIntoBars({
+        const bars = addVolume(keepNewestBars(foldRecordsIntoBars({
             records,
             intervalMs,
             expectedFrames: Math.max(1, Math.round(intervalMs / frameIntervalMs)),
             closedBeforeMs: Date.now() - intervalMs,
-        }), clusters, intervalMs);
+        })), clusters, intervalMs);
 
         return {
             instrumentSymbol: query.symbol,
