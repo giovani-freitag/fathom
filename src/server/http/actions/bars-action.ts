@@ -1,4 +1,5 @@
 import type { BarFilters } from '../schemas/bars-schema.ts';
+import { refuseUnansweredWindow } from './window-guard.ts';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { LiquidityQueryService } from '../../../database/services/liquidity-query-service.ts';
 
@@ -17,6 +18,11 @@ export function createBarsHandler(config: BarsHandlerConfig) {
         request: FastifyRequest<{ Querystring: BarFilters }>,
         reply: FastifyReply,
     ): Promise<FastifyReply> {
+        const refused = refuseUnansweredWindow(request.query, reply);
+        if (refused !== null) {
+            return refused;
+        }
+
         return reply.send(await config.query.fetchPriceBars(request.query));
     };
 }
