@@ -2,6 +2,7 @@ import { X } from 'lucide-react';
 import type { ReactElement } from 'react';
 import type { DrawingControls } from '../react/use-drawings.ts';
 import { DrawingProperties } from './drawing-properties.tsx';
+import { FLOATING_CARD_CLASSES } from './control-shell.ts';
 import type { IndicatorControls } from '../react/use-indicators.ts';
 import { LayerKnobs } from './indicators/layer-panel.tsx';
 import { translateLabel } from '../i18n/translator.ts';
@@ -34,7 +35,7 @@ export function ChartProperties({ drawings, indicators }: ChartPropertiesProps):
 
     return (
         <div
-            className="pointer-events-auto flex max-h-[70vh] flex-col overflow-y-auto rounded-xl border border-hairline bg-abyss-800/95 p-3 shadow-2xl shadow-black/50 backdrop-blur"
+            className={`${FLOATING_CARD_CLASSES} flex max-h-[70vh] flex-col overflow-y-auto`}
             role="group"
             aria-label={translateLabel(translate, layer.labelKey)}
         >

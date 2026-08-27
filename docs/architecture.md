@@ -677,13 +677,16 @@ two renderings of that list rather than two lists. Described twice, they drift:
 one shape offers a span the recording cannot fill and the other does not, and
 which answer a reader gets depends on how wide their window happens to be.
 
-Within a layout there is **one control height, and one palette to go with it**.
-Both had drifted — a select at forty-four beside one at thirty-two, chips at
-forty-four and glyphs at forty; a chip that faded to thirty per cent when it
-could not be pressed beside one that faded to forty. They are tokens now, and
-every control the reader presses is built from them, so a row of controls that
-do the same kind of thing reads as a row that was designed rather than
-assembled.
+Within a layout there is **one control height, one palette, and one material**.
+All three had drifted — a select at forty-four beside one at thirty-two, chips
+at forty-four and glyphs at forty, a search box at forty beside a number field
+at thirty-six; a chip that faded to thirty per cent when it could not be pressed
+beside one that faded to forty; a panel at full opacity floating beside one at
+ninety-five per cent, a blur beside a smaller blur. They are tokens now, and
+everything the reader presses, types into, or reads off a floating panel is
+built from them, so the chart reads as one interface rather than as several
+assembled beside each other. An architecture test holds it: the tokens are the
+only place those values are named.
 
 Nothing is drawn over the chart but the colour ramp the depth map is read from,
 a mark when a refetch has failed, and a notice about a layer just removed while

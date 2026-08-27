@@ -1,3 +1,4 @@
+import { CONTROL_INPUT_CLASSES } from '../control-shell.ts';
 import { type ReactElement, useMemo, useState } from 'react';
 import type { FieldLayer, Indicator } from '../../../shared/core/draw-plan.ts';
 
@@ -45,7 +46,7 @@ export function IndicatorPalette({ onAdd, isFull, addedCounts, hasAutoFocus = fa
                     placeholder={translate('indicators.search')}
                     onChange={(event) => { setQuery(event.target.value); }}
                     onKeyDown={(event) => { addFirstMatch(event, matches, isFull, onAdd); }}
-                    className="min-h-10 w-full rounded border border-hairline bg-abyss-900 pl-8 pr-2 text-sm text-ink-100 outline-none focus:border-phosphor/60"
+                    className={`${CONTROL_INPUT_CLASSES} pl-8 pr-2`}
                 />
             </div>
 

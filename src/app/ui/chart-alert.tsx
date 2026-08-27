@@ -1,3 +1,4 @@
+import { FLOATING_SURFACE_CLASSES } from './control-shell.ts';
 import type { ChartState } from '../core/chart-controller.ts';
 import type { ReactElement } from 'react';
 import { TriangleAlert } from 'lucide-react';
@@ -28,7 +29,7 @@ export function ChartAlert(): ReactElement | null {
 
     return (
         <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-3">
-            <span className="pointer-events-auto inline-flex max-w-full items-center gap-1.5 truncate rounded-full border border-hairline bg-abyss-800/95 px-3 py-1 text-[11px] text-ask shadow-lg backdrop-blur">
+            <span className={`${FLOATING_SURFACE_CLASSES} pointer-events-auto inline-flex max-w-full items-center gap-1.5 truncate rounded-full px-3 py-1 text-[11px] text-ask shadow-lg`}>
                 <TriangleAlert className="size-3 shrink-0" />
                 {translate(failureKey)}
             </span>

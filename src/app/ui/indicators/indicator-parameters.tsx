@@ -1,3 +1,4 @@
+import { CONTROL_INPUT_CLASSES } from '../control-shell.ts';
 import type { ChoiceParameter, IndicatorParameter, NumericParameter, Tunable } from '../../../shared/core/draw-plan.ts';
 import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts';
 import { INSTANCE_TONES, readChoice, readSetting, readToggle } from '../../../shared/core/draw-plan.ts';
@@ -224,7 +225,7 @@ function ParameterField({ parameter, label, value, onChange }: ParameterFieldPro
                 step={parameter.step ?? 1}
                 onChange={(event) => { setDraft(readDraft(event.target.value, parameter, onChange)); }}
                 onBlur={() => { setDraft(commitDraft(draft, parameter, onChange)); }}
-                className="min-h-9 w-full rounded border border-hairline bg-abyss-900 px-2 text-sm text-ink-100 tabular-nums outline-none focus:border-phosphor/60"
+                className={`${CONTROL_INPUT_CLASSES} px-2 tabular-nums`}
             />
         </label>
     );

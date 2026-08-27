@@ -2,6 +2,7 @@ import { ChartGestureController } from '../core/chart-gesture-controller.ts';
 import { resolveChartLayout } from '../painting/chart-layout.ts';
 import { countPanedPlans, placePanes } from '../painting/pane-projector.ts';
 import { findPlanAt } from '../painting/plan-hit-test.ts';
+import type { ChartLayout } from '../painting/render-types.ts';
 import { HeatmapRenderer, type PointerReadout } from '../painting/heatmap-renderer.ts';
 import { type RefObject, useCallback, useEffect, useRef } from 'react';
 import { DrawingSurfaceClaimant } from '../drawings/drawing-surface-claimant.ts';
@@ -22,6 +23,28 @@ export interface ChartSurfaceHandles {
 }
 
 /**
+ * How the chart is divided up, for the room and the plans in force.
+ *
+ * Measured per call rather than held: the pane count belongs here as much as in
+ * the renderer, because it is what decides how tall the price pane is, and a
+ * drag divides by that height to turn a finger into a price.
+ *
+ * @param container - The surface the chart is spread over.
+ * @param kernel - The services, for the plans and what is shown beside them.
+ * @returns The layout this frame is drawn in.
+ */
+function resolveSurfaceLayout(container: HTMLElement, kernel: ServiceContainer): ChartLayout {
+    const bounds = container.getBoundingClientRect();
+    const state = kernel.chart.store.read();
+    return resolveChartLayout({
+        cssWidth: bounds.width,
+        cssHeight: bounds.height,
+        isVolumeProfileVisible: state.isVolumeProfileVisible,
+        indicatorPaneCount: countPanedPlans(state.plans),
+    });
+}
+
+/**
  * What maps the surface to the chart, for the viewport and size in force.
  *
  * @param container - The surface the chart is spread over.
@@ -32,17 +55,9 @@ function resolveSurfaceProjector(
     container: HTMLElement,
     kernel: ServiceContainer,
 ): ViewportProjector {
-    const bounds = container.getBoundingClientRect();
-    const state = kernel.chart.store.read();
-    const layout = resolveChartLayout({
-        cssWidth: bounds.width,
-        cssHeight: bounds.height,
-        isVolumeProfileVisible: state.isVolumeProfileVisible,
-        indicatorPaneCount: countPanedPlans(state.plans),
-    });
-
+    const layout = resolveSurfaceLayout(container, kernel);
     return new ViewportProjector({
-        viewport: state.viewport,
+        viewport: kernel.chart.store.read().viewport,
         width: layout.plotWidth,
         height: layout.pricePaneHeight,
     });
@@ -64,14 +79,8 @@ function readLayerAt(
     kernel: ServiceContainer,
     point: { readonly x: number; readonly y: number },
 ): string | null {
-    const bounds = container.getBoundingClientRect();
     const state = kernel.chart.store.read();
-    const layout = resolveChartLayout({
-        cssWidth: bounds.width,
-        cssHeight: bounds.height,
-        isVolumeProfileVisible: state.isVolumeProfileVisible,
-        indicatorPaneCount: countPanedPlans(state.plans),
-    });
+    const layout = resolveSurfaceLayout(container, kernel);
 
     return findPlanAt({
         plans: state.plans,
@@ -167,19 +176,7 @@ export function useChartSurface(): ChartSurfaceHandles {
             surface: container,
             readViewport: () => kernel.chart.store.read().viewport,
             readSurfaceSize: () => container.getBoundingClientRect(),
-            readLayout: () => {
-                const bounds = container.getBoundingClientRect();
-                const state = kernel.chart.store.read();
-                // The pane count belongs here as much as in the renderer: it is
-                // what decides how tall the price pane is, and a drag divides by
-                // that height to turn a finger into a price.
-                return resolveChartLayout({
-                    cssWidth: bounds.width,
-                    cssHeight: bounds.height,
-                    isVolumeProfileVisible: state.isVolumeProfileVisible,
-                    indicatorPaneCount: countPanedPlans(state.plans),
-                });
-            },
+            readLayout: () => resolveSurfaceLayout(container, kernel),
             onView: (request) => kernel.chart.applyView(request),
             onRefitPrice: () => { kernel.chart.refitPrice(); },
             onPointerMove: (pointer) => {

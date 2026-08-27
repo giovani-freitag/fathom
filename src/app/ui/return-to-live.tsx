@@ -1,3 +1,4 @@
+import { FLOATING_SURFACE_CLASSES } from './control-shell.ts';
 import { ChevronsRight } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useTranslate } from '../react/use-appearance.ts';
@@ -26,7 +27,7 @@ export function ReturnToLive({ onReturn }: ReturnToLiveProps): ReactElement {
             onClick={onReturn}
             title={translate('page.returnToLive')}
             aria-label={translate('page.returnToLive')}
-            className="pointer-events-auto grid size-9 place-items-center rounded-full border border-hairline bg-abyss-800/95 text-ink-400 shadow-lg backdrop-blur transition-colors hover:border-hairline-bright hover:text-phosphor"
+            className={`${FLOATING_SURFACE_CLASSES} pointer-events-auto grid size-9 place-items-center rounded-full text-ink-400 shadow-lg transition-colors hover:border-hairline-bright hover:text-phosphor`}
         >
             <ChevronsRight className="size-4" />
         </button>

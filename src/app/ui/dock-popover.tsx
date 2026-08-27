@@ -1,3 +1,4 @@
+import { FLOATING_CARD_CLASSES } from './control-shell.ts';
 import { Popover } from 'radix-ui';
 import type { ReactElement, ReactNode } from 'react';
 import {
@@ -59,10 +60,10 @@ export function DockPopover({
                     side={side}
                     sideOffset={10}
                     collisionPadding={12}
-                    className="z-50 max-h-[60dvh] overflow-y-auto rounded-xl border border-hairline bg-abyss-800 p-3 shadow-2xl shadow-black/60"
+                    className={`${FLOATING_CARD_CLASSES} z-50 max-h-[60dvh] overflow-y-auto`}
                 >
                     {children}
-                    <Popover.Arrow className="fill-abyss-800" />
+                    <Popover.Arrow className="fill-abyss-800/95" />
                 </Popover.Content>
             </Popover.Portal>
         </Popover.Root>

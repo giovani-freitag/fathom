@@ -9,6 +9,11 @@ import {
     resolveDrawingLook,
 } from '../../shared/core/drawing.ts';
 import type { DrawingControls } from '../react/use-drawings.ts';
+import {
+    CONTROL_CHOSEN_CLASSES,
+    CONTROL_OFFERED_CLASSES,
+    FLOATING_CARD_CLASSES,
+} from './control-shell.ts';
 import { INSTANCE_TONES, type PlotTone } from '../../shared/core/draw-plan.ts';
 import { useTranslate } from '../react/use-appearance.ts';
 
@@ -39,8 +44,6 @@ const STYLE_BARS: Readonly<Record<DrawingStyle, string>> = {
 };
 
 const OPTION_CLASSES = 'grid size-8 shrink-0 place-items-center rounded-md border transition-colors';
-const CHOSEN_CLASSES = 'border-phosphor/60 bg-phosphor/12';
-const OFFERED_CLASSES = 'border-hairline hover:border-hairline-bright';
 
 interface DrawingPropertiesProps {
     readonly controls: DrawingControls;
@@ -62,7 +65,7 @@ export function DrawingProperties({ controls }: DrawingPropertiesProps): ReactEl
 
     return (
         <div
-            className="pointer-events-auto flex w-60 flex-col gap-3 rounded-xl border border-hairline bg-abyss-800/95 p-3 shadow-2xl shadow-black/50 backdrop-blur"
+            className={`${FLOATING_CARD_CLASSES} flex w-60 flex-col gap-3`}
             role="group"
             aria-label={translate('drawing.properties')}
         >
@@ -159,7 +162,7 @@ function Option({ label, isChosen, onPress, children }: OptionProps): ReactEleme
             title={label}
             aria-pressed={isChosen}
             onClick={onPress}
-            className={`${OPTION_CLASSES} ${isChosen ? CHOSEN_CLASSES : OFFERED_CLASSES}`}
+            className={`${OPTION_CLASSES} ${isChosen ? CONTROL_CHOSEN_CLASSES : CONTROL_OFFERED_CLASSES}`}
         >
             {children}
         </button>

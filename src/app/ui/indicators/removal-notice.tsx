@@ -1,3 +1,4 @@
+import { FLOATING_SURFACE_CLASSES } from '../control-shell.ts';
 import { type ReactElement, useEffect } from 'react';
 import { findChartLayer } from '../../indicators/indicator-catalogue.ts';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
@@ -37,7 +38,7 @@ export function RemovalNotice({ controls }: RemovalNoticeProps): ReactElement | 
     }
 
     return (
-        <div className="pointer-events-auto flex items-center gap-3 rounded-md border border-hairline bg-abyss-800/95 px-3 py-2 shadow-lg shadow-black/50 backdrop-blur-sm">
+        <div className={`${FLOATING_SURFACE_CLASSES} pointer-events-auto flex items-center gap-3 rounded-md px-3 py-2 shadow-lg shadow-black/50`}>
             <span className="text-xs text-ink-300">
                 {translate('indicators.removed', {
                     name: translateLabel(translate, layer.labelKey),

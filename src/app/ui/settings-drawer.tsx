@@ -1,3 +1,4 @@
+import { FLOATING_SURFACE_CLASSES } from './control-shell.ts';
 import { CONTROL_BUTTON_CLASSES, CONTROL_RESTING_CLASSES } from './control-shell.ts';
 import { PanelSection } from './panel-section.tsx';
 import { Menu, X } from 'lucide-react';
@@ -17,8 +18,8 @@ interface SettingsDrawerProps {
 
 /** Over the chart it needs a shell of its own; in a bar it takes the bar's. */
 const FLOATING_TRIGGER_CLASSES =
-    'pointer-events-auto grid size-9 shrink-0 place-items-center rounded-lg border border-hairline'
-    + ' bg-abyss-800/95 text-ink-400 shadow-lg backdrop-blur transition-colors'
+    `pointer-events-auto grid size-9 shrink-0 place-items-center rounded-lg ${FLOATING_SURFACE_CLASSES}`
+    + ' text-ink-400 shadow-lg transition-colors'
     + ' hover:border-hairline-bright hover:text-ink-100';
 
 /**
