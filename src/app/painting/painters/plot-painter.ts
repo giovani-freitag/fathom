@@ -4,7 +4,6 @@ import {
     type PlotBand,
     type PlotLevel,
     type PlotSeries,
-    type PlotTone,
 } from '../../../shared/core/draw-plan.ts';
 import {
     groupPanedPlans,
@@ -14,20 +13,8 @@ import {
     resolvePlanRange,
     type ValueProjector,
 } from '../pane-projector.ts';
-import { RENDER_PALETTE } from '../render-palette.ts';
+import { RENDER_PALETTE, resolveToneColour } from '../render-palette.ts';
 import type { PaintContext, PanePlacement, PaneRect } from '../render-types.ts';
-
-/** The palette a plan's tone resolves against, chosen by the host and not the author. */
-const TONE_COLOURS: Record<PlotTone, () => string> = {
-    bid: () => RENDER_PALETTE.bid,
-    ask: () => RENDER_PALETTE.ask,
-    amber: () => RENDER_PALETTE.amber,
-    violet: () => RENDER_PALETTE.violet,
-    cyan: () => RENDER_PALETTE.cyan,
-    phosphor: () => RENDER_PALETTE.phosphor,
-    ink: () => RENDER_PALETTE.inkPrimary,
-    muted: () => RENDER_PALETTE.inkMuted,
-};
 
 /** An unconverged series is drawn dashed, so it does not read as settled. */
 const UNCONVERGED_DASH = [4, 3];
@@ -199,7 +186,7 @@ export class PlotPainter {
         }
 
         const { context, layout } = paint;
-        context.strokeStyle = TONE_COLOURS[series.tone]();
+        context.strokeStyle = resolveToneColour(series.tone);
         context.lineWidth = series.widthPx ?? 1;
         context.setLineDash(this.resolveDash(series, plan));
         context.beginPath();
@@ -248,7 +235,7 @@ export class PlotPainter {
 
             const isNegative = value < baseline;
             const tone = isNegative ? series.negativeTone ?? series.tone : series.tone;
-            context.fillStyle = TONE_COLOURS[tone]();
+            context.fillStyle = resolveToneColour(tone);
             const y = projector.valueToY(value);
             context.fillRect(
                 Math.round(x - columnWidth / 2),
@@ -279,7 +266,7 @@ export class PlotPainter {
         const { context } = paint;
         context.save();
         context.globalAlpha = BAND_ALPHA;
-        context.fillStyle = TONE_COLOURS[band.tone]();
+        context.fillStyle = resolveToneColour(band.tone);
 
         // Walked out along the upper edge and back along the lower one, so a
         // break in either closes the shape instead of shading across the hole.
@@ -327,7 +314,7 @@ export class PlotPainter {
         const { context, layout } = paint;
         const y = Math.round(projector.valueToY(level.value)) + 0.5;
 
-        context.strokeStyle = TONE_COLOURS[level.tone]();
+        context.strokeStyle = resolveToneColour(level.tone);
         context.lineWidth = 1;
         context.setLineDash(level.isDashed === true ? LEVEL_DASH : []);
         context.beginPath();

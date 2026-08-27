@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createRecordingContext, DEFAULT_VIEWPORT, type RecordingContext } from '../../../mocks/canvas-context.ts';
 import { buildFrame } from '../../../mocks/chart-services.ts';
 import { EMPTY_DATASET } from '../../../../src/app/core/chart-dataset.ts';
+import { EMPTY_DRAWINGS_VIEW } from '../../../../src/app/drawings/drawing-painter.ts';
 import { HeatmapRenderer } from '../../../../src/app/painting/heatmap-renderer.ts';
 import { resolveChartLayout } from '../../../../src/app/painting/chart-layout.ts';
 import type { RenderRequest } from '../../../../src/app/painting/render-types.ts';
@@ -51,6 +52,7 @@ function buildRequest(overrides: Partial<RenderRequest> = {}): RenderRequest {
         locale: 'en',
         plans: [],
         theme: 'dark',
+        drawings: EMPTY_DRAWINGS_VIEW,
         ...overrides,
     };
 }
@@ -189,5 +191,48 @@ describe('HeatmapRenderer containment', () => {
         }));
 
         expect(surface.overlay.calls.length).toBeGreaterThan(drawnOnce);
+    });
+
+});
+
+describe('HeatmapRenderer and the marks a reader left', () => {
+    const LEVEL = {
+        id: 'level',
+        kind: 'horizontal-line' as const,
+        instrumentSymbol: 'BTCUSDT',
+        anchors: [{ atMs: 1_500_000, price: 78_500 }],
+        tone: 'phosphor' as const,
+    };
+
+    it('redraws the data layer when a mark is moved', () => {
+        // The chart holds the layer it drew between frames. A mark that moved
+        // without the key moving with it stays drawn where it used to be until
+        // something else happens to change.
+        const surface = buildSurface();
+        surface.renderer.render(buildRequest({
+            drawings: { settled: [LEVEL], draft: null, selectedId: null },
+        }));
+        const before = surface.overlay.callsTo('clearRect').length;
+
+        surface.renderer.render(buildRequest({
+            drawings: {
+                settled: [{ ...LEVEL, anchors: [{ atMs: 1_500_000, price: 78_600 }] }],
+                draft: null,
+                selectedId: null,
+            },
+        }));
+
+        expect(surface.overlay.callsTo('clearRect').length).toBeGreaterThan(before);
+    });
+
+    it('holds the data layer while the same marks are drawn', () => {
+        const surface = buildSurface();
+        const drawings = { settled: [LEVEL], draft: null, selectedId: null };
+        surface.renderer.render(buildRequest({ drawings }));
+        const before = surface.overlay.callsTo('clearRect').length;
+
+        surface.renderer.render(buildRequest({ drawings }));
+
+        expect(surface.overlay.callsTo('clearRect').length).toBe(before);
     });
 });

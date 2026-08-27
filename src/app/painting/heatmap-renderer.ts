@@ -6,6 +6,7 @@ import { EMPTY_LAYOUT, resolveChartLayout } from './chart-layout.ts';
 import { AxisPainter } from './painters/axis-painter.ts';
 import { buildBackgroundPainters, buildFieldPainters } from '../indicators/layer-painters.ts';
 import { CrosshairPainter } from './painters/crosshair-painter.ts';
+import { describeDrawings, DrawingPainter } from '../drawings/drawing-painter.ts';
 import { GapPainter } from './painters/gap-painter.ts';
 import { GridPainter } from './painters/grid-painter.ts';
 import { TouchLinePainter } from './painters/touch-line-painter.ts';
@@ -57,6 +58,8 @@ export class HeatmapRenderer {
     private readonly fieldPainters = buildFieldPainters();
     private readonly backgroundPainters = buildBackgroundPainters();
     private readonly plotPainter = new PlotPainter();
+    // The reader's own marks, drawn over every layer that reads the market.
+    private readonly drawingPainter = new DrawingPainter();
     private readonly axisPainter = new AxisPainter();
     private readonly touchLinePainter: TouchLinePainter;
     private readonly crosshairPainter: CrosshairPainter;
@@ -185,6 +188,9 @@ export class HeatmapRenderer {
         }
         // Last of the price layers: an indicator is drawn over what it describes.
         this.plotPainter.paintOverPrice(paint);
+        if (this.drawingPainter.isDrawn(request)) {
+            this.drawingPainter.paint(paint);
+        }
         paint.context.restore();
 
         this.plotPainter.paintInPanes(paint);
@@ -290,5 +296,8 @@ function describeOverlayState(request: RenderRequest, layout: ChartLayout): stri
         request.theme,
         // The volume profile writes sizes, which every language groups its own way.
         request.locale,
+        // A mark moved, added or selected changes nothing else about the frame,
+        // so what is drawn has to be in the key itself.
+        describeDrawings(request.drawings),
     ].join('|');
 }

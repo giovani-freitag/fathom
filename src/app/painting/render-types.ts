@@ -1,4 +1,5 @@
 import type { ChartViewport } from '../core/chart-viewport.ts';
+import type { DrawingsView } from '../drawings/drawing-painter.ts';
 import type { LayerSettings } from '../indicators/field-layers.ts';
 import type { PlotLevel } from '../../shared/core/draw-plan.ts';
 import type { ViewportProjector } from '../core/viewport-projector.ts';
@@ -38,6 +39,8 @@ export interface RenderRequest {
     readonly plans: readonly DrawPlan[];
     /** Named rather than read from the palette, which is mutated in place. */
     readonly theme: ResolvedTheme;
+    /** The marks the reader left, and the one being dragged out now. */
+    readonly drawings: DrawingsView;
 }
 
 /** Where one pane sits in the stack, in surface pixels. */

@@ -1,5 +1,6 @@
 import { type AppearanceHost, AppearanceController } from './appearance-controller.ts';
 import { ChartController } from './chart-controller.ts';
+import { DrawingsController } from '../drawings/drawings-controller.ts';
 import { type CursorReadout, createCursorStore } from './cursor-store.ts';
 import type { ObservableStore } from './observable-store.ts';
 import { HeatmapApiService } from '../services/heatmap-api-service.ts';
@@ -15,6 +16,8 @@ export interface ServiceContainer {
     readonly liveFeed: LiveFeed;
     readonly preferences: PreferencesService;
     readonly chart: ChartController;
+    /** The marks the reader leaves on the chart. */
+    readonly drawings: DrawingsController;
     readonly appearance: AppearanceController;
     /** Where the pointer is, for the parts that show a reading under it. */
     readonly cursor: ObservableStore<CursorReadout>;
@@ -44,13 +47,19 @@ export function createServiceContainer(config: ServiceContainerConfig): ServiceC
     const cursor = createCursorStore();
     const liveFeed = new LiveFeedService({ baseUrl: config.baseUrl });
     const preferences = new PreferencesService({ storage: config.storage });
+    const chart = new ChartController({ api, liveFeed, preferences });
 
     return {
         api,
         liveFeed,
         preferences,
+        chart,
         recording: new RecordingApiService({ baseUrl: config.baseUrl }),
-        chart: new ChartController({ api, liveFeed, preferences }),
+        drawings: new DrawingsController({
+            preferences,
+            readInstrumentSymbol: () => chart.store.read().instrumentSymbol,
+            newId: () => crypto.randomUUID(),
+        }),
         appearance: new AppearanceController({ preferences, host: config.appearanceHost }),
         cursor,
     };

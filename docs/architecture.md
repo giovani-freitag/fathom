@@ -548,6 +548,31 @@ indicator now costs its price when something changes rather than sixty times a
 second, which is what makes the surface affordable to grow. ADR 0010 records the
 measurements.
 
+## What a reader draws themselves
+
+A level, a trend line: a mark a reader leaves is about the market, not about the
+window they were looking through when they left it. So it is stored the way it
+is read — one anchor of time and price for a level, two for a segment — and
+where it lands on the surface is derived per frame from the same projector every
+other layer uses. Panning does not move it; zooming does not stretch it; a
+reload does not lose it.
+
+Marks are drawn with the data rather than with the cursor, on the layer held
+between frames, and a mark added, moved, recoloured or selected is part of that
+layer's key. The one being dragged out is on the same layer and dashed: a drag
+already invalidates the key through the viewport, so it costs the repaint that
+was happening anyway.
+
+The pointer is the harder half. The surface already spends every press on the
+viewport, so a press over the plot is *offered* first — the gesture controller
+takes a claimant, and a claimant that takes a press gets the whole gesture with
+the pan never seeing it. Declining is reported too, which is what lets a press on
+bare chart mean *done with that one*.
+
+A new tool is a kind in one table, a case in the painter's span arithmetic, and
+two dictionary entries. The gesture controller learns nothing: it knows only that
+something took the press. ADR 0020 records the reasoning.
+
 ## How the tree is arranged
 
 The top level divides by **who executes**, not by layer. It is the division that
@@ -557,7 +582,7 @@ discipline, and an architecture test holds it.
 
 | Folder | Runs in | Holds |
 | --- | --- | --- |
-| `shared/` | all three | wire types, the live tail, the binary codec, band arithmetic |
+| `shared/` | all three | wire types, the live tail, the binary codec, band arithmetic, drawing geometry |
 | `database/` | Node and the browser | connection, writing, reading, both engines |
 | `server/` | the gateway process | routes, schemas, the socket bridge |
 | `workers/` | the collector process and the worker | the book mirror, the venue, recording |

@@ -1,3 +1,4 @@
+import { type Drawing, isDrawing } from '../../shared/core/drawing.ts';
 import { VOLUME } from '../indicators/volume/volume.ts';
 import { chooseLayerTone, OPENING_LAYERS, readLayerDefaults } from '../indicators/indicator-catalogue.ts';
 import { PLOT_TONES } from '../../shared/core/draw-plan.ts';
@@ -14,7 +15,7 @@ import { THEME_CHOICES, type ThemeChoice } from '../core/theme.ts';
 const STORAGE_KEY = 'fathom.preferences.v1';
 
 /** Bumped when a stored document has to be read differently than it was written. */
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 export interface ViewerPreferences {
     readonly schemaVersion: number;
@@ -35,6 +36,8 @@ export interface ViewerPreferences {
     readonly themeChoice: ThemeChoice;
     /** Whether the rows over the price are folded behind their own control. */
     readonly isLegendCollapsed: boolean;
+    /** Every mark the reader has left, across every contract. */
+    readonly drawings: readonly Drawing[];
 }
 
 export const DEFAULT_PREFERENCES: ViewerPreferences = {
@@ -46,6 +49,7 @@ export const DEFAULT_PREFERENCES: ViewerPreferences = {
     locale: null,
     themeChoice: 'system',
     isLegendCollapsed: false,
+    drawings: [],
 };
 
 export interface PreferencesServiceConfig {
@@ -94,6 +98,9 @@ export class PreferencesService {
             // A rung the build no longer offers reads as no choice at all,
             // which is the state a chart works in anyway.
             barIntervalMs: BAR_INTERVALS_MS.find((rung) => rung === merged.barIntervalMs) ?? null,
+            // A mark of a kind this build no longer draws would be persisted for
+            // ever and shown by nothing, so it is dropped on the way in.
+            drawings: keepReadableDrawings(merged.drawings),
         };
     }
 
@@ -126,6 +133,16 @@ export class PreferencesService {
             return null;
         }
     }
+}
+
+/**
+ * Keeps the marks this build knows how to draw.
+ *
+ * @param stored - Whatever the document held under `drawings`.
+ * @returns The readable ones, in the order they were written.
+ */
+function keepReadableDrawings(stored: unknown): readonly Drawing[] {
+    return Array.isArray(stored) ? stored.filter(isDrawing) : [];
 }
 
 /**

@@ -6,6 +6,11 @@ import type { Dictionary } from './en.ts';
 export const PT_BR_DICTIONARY: Dictionary = {
     'chart.surface': 'Mapa de calor da liquidez do livro',
 
+    'drawing.toolbar': 'Ferramentas de desenho',
+    'drawing.horizontalLine': 'Nível de preço',
+    'drawing.trendLine': 'Linha de tendência',
+    'drawing.remove': 'Remover a marca selecionada',
+
     'layer.depth': 'Book',
     'layer.depth.help': 'Tamanho em repouso em cada preço, como mudou ao longo do tempo',
     'layer.candles': 'Candles',

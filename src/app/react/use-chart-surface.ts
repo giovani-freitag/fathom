@@ -3,6 +3,7 @@ import { resolveChartLayout } from '../painting/chart-layout.ts';
 import { countPanedPlans } from '../painting/pane-projector.ts';
 import { HeatmapRenderer, type PointerReadout } from '../painting/heatmap-renderer.ts';
 import { type RefObject, useCallback, useEffect, useRef } from 'react';
+import { DrawingSurfaceClaimant } from '../drawings/drawing-surface-claimant.ts';
 import { publishCursor } from '../core/cursor-store.ts';
 import type { ServiceContainer } from '../core/service-container.ts';
 import { ViewportProjector } from '../core/viewport-projector.ts';
@@ -20,21 +21,16 @@ export interface ChartSurfaceHandles {
 }
 
 /**
- * The instant under the pointer, in the viewport in force.
+ * What maps the surface to the chart, for the viewport and size in force.
  *
- * @param container - The surface, for the width the viewport is spread over.
- * @param kernel - The services, for that viewport.
- * @param pointer - Where the pointer is, or null once it has left.
- * @returns The instant, or null when there is no pointer on the chart.
+ * @param container - The surface the chart is spread over.
+ * @param kernel - The services, for the viewport and the pane stack.
+ * @returns A projector for this frame.
  */
-function readCursorInstant(
+function resolveSurfaceProjector(
     container: HTMLElement,
     kernel: ServiceContainer,
-    pointer: PointerReadout | null,
-): number | null {
-    if (pointer === null) {
-        return null;
-    }
+): ViewportProjector {
     const bounds = container.getBoundingClientRect();
     const state = kernel.chart.store.read();
     const layout = resolveChartLayout({
@@ -48,7 +44,23 @@ function readCursorInstant(
         viewport: state.viewport,
         width: layout.plotWidth,
         height: layout.pricePaneHeight,
-    }).xToTime(pointer.x);
+    });
+}
+
+/**
+ * The instant under the pointer, in the viewport in force.
+ *
+ * @param container - The surface, for the width the viewport is spread over.
+ * @param kernel - The services, for that viewport.
+ * @param pointer - Where the pointer is, or null once it has left.
+ * @returns The instant, or null when there is no pointer on the chart.
+ */
+function readCursorInstant(
+    container: HTMLElement,
+    kernel: ServiceContainer,
+    pointer: PointerReadout | null,
+): number | null {
+    return pointer === null ? null : resolveSurfaceProjector(container, kernel).xToTime(pointer.x);
 }
 
 /**
@@ -76,6 +88,7 @@ export function useChartSurface(): ChartSurfaceHandles {
         }
         const state = kernel.chart.store.read();
         const appearance = kernel.appearance.store.read();
+        const marks = kernel.drawings.store.read();
         renderer.render({
             viewport: state.viewport,
             dataset: state.dataset,
@@ -90,6 +103,11 @@ export function useChartSurface(): ChartSurfaceHandles {
             pointer: pointerRef.current,
             locale: appearance.locale,
             theme: appearance.resolvedTheme,
+            drawings: {
+                settled: marks.drawings,
+                draft: marks.draft,
+                selectedId: marks.selectedId,
+            },
         });
     }, [kernel]);
 
@@ -133,6 +151,13 @@ export function useChartSurface(): ChartSurfaceHandles {
                 publishCursor(kernel.cursor, readCursorInstant(container, kernel, pointer));
                 schedulePaint();
             },
+            // Given first refusal on every press over the plot, so arming a tool
+            // draws a line rather than panning the view under it.
+            claimant: new DrawingSurfaceClaimant({
+                drawings: kernel.drawings,
+                readProjector: () => resolveSurfaceProjector(container, kernel),
+                readInstrumentSymbol: () => kernel.chart.store.read().instrumentSymbol,
+            }),
         });
         gestures.attach();
 
@@ -140,10 +165,14 @@ export function useChartSurface(): ChartSurfaceHandles {
         // The canvas cannot inherit a theme the way the cascade does, so a switch
         // reaches it as one more reason to paint.
         const unsubscribeAppearance = kernel.appearance.store.subscribe(schedulePaint);
+        // A mark added, moved or selected changes the picture without touching
+        // the chart's own state.
+        const unsubscribeDrawings = kernel.drawings.store.subscribe(schedulePaint);
 
         return () => {
             unsubscribeChart();
             unsubscribeAppearance();
+            unsubscribeDrawings();
             gestures.detach();
             renderer.dispose();
             rendererRef.current = null;

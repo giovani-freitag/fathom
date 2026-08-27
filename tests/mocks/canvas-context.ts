@@ -1,4 +1,5 @@
 import { buildTranslate } from '../../src/app/i18n/translator.ts';
+import { EMPTY_DRAWINGS_VIEW } from '../../src/app/drawings/drawing-painter.ts';
 import type { ChartViewport } from '../../src/app/core/chart-viewport.ts';
 import { choosePriceTicks, chooseTimeTicks } from '../../src/app/painting/axis-ticks.ts';
 import { ViewportProjector } from '../../src/app/core/viewport-projector.ts';
@@ -100,6 +101,8 @@ export interface PaintContextOptions {
     readonly cssHeight?: number;
     readonly priceTickSpacingPx?: number;
     readonly timeTickSpacingPx?: number;
+    /** The marks a reader left, for the painter that draws them. */
+    readonly drawings?: RenderRequest['drawings'];
 }
 
 /**
@@ -156,6 +159,7 @@ export function buildPaintContext(
             locale: 'en',
             plans,
             theme: 'dark',
+            drawings: options.drawings ?? EMPTY_DRAWINGS_VIEW,
         },
         crosshairY: options.crosshairY ?? options.pointer?.y ?? null,
     };

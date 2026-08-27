@@ -1,5 +1,8 @@
 import type { ChartViewport } from '../../../src/app/core/chart-viewport.ts';
-import { ChartGestureController } from '../../../src/app/core/chart-gesture-controller.ts';
+import {
+    ChartGestureController,
+    type PointerPosition,
+} from '../../../src/app/core/chart-gesture-controller.ts';
 import { describe, expect, it } from 'vitest';
 import { createGestureSurface, type GestureSurfaceMock } from '../../mocks/gesture-surface.ts';
 import { resolveChartLayout } from '../../../src/app/painting/chart-layout.ts';
@@ -427,5 +430,95 @@ describe('ChartGestureController tracking', () => {
         const zoomed = surface.published.at(-1)!.viewport;
         const after = zoomed.fromMs + (anchorX / plotWidth) * (zoomed.toMs - zoomed.fromMs);
         expect(after).toBeCloseTo(before, 6);
+    });
+
+});
+
+describe('ChartGestureController offering a press to a claimant', () => {
+    interface ClaimedHarness {
+        readonly surface: GestureSurfaceMock;
+        readonly offers: PointerPosition[];
+        readonly moves: PointerPosition[];
+        readonly settles: number[];
+    }
+
+    /** A controller whose claimant takes every press over the plot. */
+    function buildClaimed(doesClaim: boolean): ClaimedHarness {
+        const surface = createGestureSurface(VIEWPORT);
+        const offers: PointerPosition[] = [];
+        const moves: PointerPosition[] = [];
+        const settles: number[] = [];
+
+        const controller = new ChartGestureController({
+            surface: surface.surface,
+            readViewport: surface.readViewport,
+            readSurfaceSize: () => ({ width: surface.width, height: surface.height }),
+            readLayout: () => resolveChartLayout({
+                cssWidth: surface.width,
+                cssHeight: surface.height,
+                isVolumeProfileVisible: true,
+            }),
+            onView: (request) => surface.published.push(request),
+            onPointerMove: (pointer) => surface.pointers.push(pointer),
+            onRefitPrice: () => { surface.refits += 1; },
+            claimant: {
+                offerPress: (point) => { offers.push(point); return doesClaim; },
+                moveClaim: (point) => { moves.push(point); },
+                settleClaim: () => { settles.push(1); },
+            },
+        });
+        controller.attach();
+        return { surface, offers, moves, settles };
+    }
+
+    it('offers it every press over the plot', () => {
+        const harness = buildClaimed(false);
+
+        harness.surface.fire('pointerdown', { pointerId: 1, clientX: 500, clientY: 250 });
+
+        expect(harness.offers).toHaveLength(1);
+    });
+
+    it('holds the view still for a press it took', () => {
+        // Panned as well, the chart would slide out from under the very line the
+        // reader is placing on it.
+        const harness = buildClaimed(true);
+
+        dragBy(harness.surface, 100, 0);
+
+        expect(harness.surface.published).toEqual([]);
+    });
+
+    it('carries the pointer to it while it holds the press', () => {
+        const harness = buildClaimed(true);
+
+        dragBy(harness.surface, 100, 0);
+
+        expect(harness.moves).toHaveLength(1);
+    });
+
+    it('tells it when the press is let go', () => {
+        const harness = buildClaimed(true);
+        dragBy(harness.surface, 100, 0);
+
+        harness.surface.fire('pointerup', { pointerId: 1, clientX: 600, clientY: 250 });
+
+        expect(harness.settles).toEqual([1]);
+    });
+
+    it('still moves the view for a press it declined', () => {
+        const harness = buildClaimed(false);
+
+        dragBy(harness.surface, 100, 0);
+
+        expect(harness.surface.published).toHaveLength(1);
+    });
+
+    it('keeps the crosshair following a press it took', () => {
+        const harness = buildClaimed(true);
+
+        dragBy(harness.surface, 100, 0);
+
+        expect(harness.surface.pointers.at(-1)).not.toBeNull();
     });
 });

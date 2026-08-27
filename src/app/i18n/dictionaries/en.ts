@@ -4,6 +4,11 @@
 export const EN_DICTIONARY = {
     'chart.surface': 'Order book liquidity heat map',
 
+    'drawing.toolbar': 'Drawing tools',
+    'drawing.horizontalLine': 'Price level',
+    'drawing.trendLine': 'Trend line',
+    'drawing.remove': 'Remove the selected mark',
+
     'layer.depth': 'Book',
     'layer.depth.help': 'Resting size at every price, as it changed through time',
     'layer.candles': 'Candles',

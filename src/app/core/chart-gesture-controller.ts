@@ -36,6 +36,31 @@ export interface SurfaceSize {
     readonly height: number;
 }
 
+/**
+ * Whoever gets first refusal on a press over the plot.
+ *
+ * A tool that draws and a mark that is being dragged both take the pointer that
+ * would otherwise pan: without asking, arming a tool would move the view under
+ * the very line the reader is trying to place.
+ */
+export interface PointerClaimant {
+    /**
+     * Offers it a press over the plot, before the viewport takes it.
+     *
+     * Offered rather than asked, so declining is something it hears about: a
+     * press somewhere else is how a reader says they are done with what they
+     * had selected.
+     *
+     * @param point - Where the press landed, in surface pixels.
+     * @returns True to take the whole gesture.
+     */
+    offerPress(point: PointerPosition): boolean;
+    /** Told where the pointer is while the claim is held. */
+    moveClaim(point: PointerPosition): void;
+    /** Told the claim is over. */
+    settleClaim(): void;
+}
+
 export interface ChartGestureControllerConfig {
     readonly surface: HTMLElement;
     readonly readViewport: () => ChartViewport;
@@ -45,9 +70,11 @@ export interface ChartGestureControllerConfig {
     readonly onPointerMove: (pointer: PointerReadout | null) => void;
     /** Asked for when the reader double-clicks the price axis. */
     readonly onRefitPrice: () => void;
+    /** Absent when nothing but the viewport wants the pointer. */
+    readonly claimant?: PointerClaimant;
 }
 
-interface PointerPosition {
+export interface PointerPosition {
     readonly x: number;
     readonly y: number;
 }
@@ -74,6 +101,7 @@ export class ChartGestureController {
 
     private dragOrigin: DragOrigin | null = null;
     private pinchOrigin: PinchOrigin | null = null;
+    private claimedPointerId: number | null = null;
     private isAttached = false;
 
     constructor(config: ChartGestureControllerConfig) {
@@ -121,17 +149,33 @@ export class ChartGestureController {
         this.activePointers.clear();
         this.dragOrigin = null;
         this.pinchOrigin = null;
+        this.claimedPointerId = null;
         this.isAttached = false;
     }
 
     private handlePointerDown(event: PointerEvent): void {
         this.config.surface.setPointerCapture(event.pointerId);
-        this.activePointers.set(event.pointerId, this.toLocalPosition(event));
+        const position = this.toLocalPosition(event);
+
+        // Claimed presses never reach the pointer book, so no drag and no pinch
+        // can be built from one: the view holds still while the reader draws.
+        if (this.resolveRegion(position) === 'plot' && this.config.claimant?.offerPress(position) === true) {
+            this.claimedPointerId = event.pointerId;
+            return;
+        }
+
+        this.activePointers.set(event.pointerId, position);
         this.beginGesture();
     }
 
     private handlePointerMove(event: PointerEvent): void {
         const position = this.toLocalPosition(event);
+
+        if (this.claimedPointerId === event.pointerId) {
+            this.config.claimant?.moveClaim(position);
+            this.config.onPointerMove(position);
+            return;
+        }
 
         if (!this.activePointers.has(event.pointerId)) {
             this.config.surface.style.cursor = REGION_CURSORS[this.resolveRegion(position)];
@@ -155,6 +199,12 @@ export class ChartGestureController {
         this.activePointers.delete(event.pointerId);
         if (this.config.surface.hasPointerCapture(event.pointerId)) {
             this.config.surface.releasePointerCapture(event.pointerId);
+        }
+
+        if (this.claimedPointerId === event.pointerId) {
+            this.claimedPointerId = null;
+            this.config.claimant?.settleClaim();
+            return;
         }
         this.beginGesture();
     }

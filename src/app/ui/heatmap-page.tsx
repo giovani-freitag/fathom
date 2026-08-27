@@ -21,6 +21,8 @@ import { IntervalPicker } from './interval-picker.tsx';
 import { SpanPresets } from './span-presets.tsx';
 import { IndicatorOverlay, IndicatorTrigger } from './indicators/indicator-controls.tsx';
 import { useIndicators } from '../react/use-indicators.ts';
+import { useDrawings } from '../react/use-drawings.ts';
+import { DrawingToolbar } from './drawing-toolbar.tsx';
 import { useChartLayout } from '../react/use-chart-layout.ts';
 
 /* Declared once each, so every subscription is the same one on every render. */
@@ -53,6 +55,7 @@ export function HeatmapPage(): ReactElement {
     const visibleSpanMs = useChartSlice(readVisibleSpanMs);
     const translate = useTranslate();
     const indicators = useIndicators();
+    const drawings = useDrawings();
     // Measured here rather than read back from the renderer, so the rows placed
     // over each band are placed by the same arithmetic that drew it.
     const surfaceRef = useRef<HTMLElement>(null);
@@ -151,9 +154,13 @@ export function HeatmapPage(): ReactElement {
                     onOpenSettings={handleOpenSettings}
                 />
 
-                {!isFollowingLive && <ReturnToLive onReturn={handleReturnToLive} />}
+                {/* Left of the plot and clear of the rows above it, which is
+                    where a reader's hand already is when they reach for one. */}
+                <div className="pointer-events-none absolute bottom-3 left-3">
+                    <DrawingToolbar controls={drawings} />
+                </div>
 
-                
+                {!isFollowingLive && <ReturnToLive onReturn={handleReturnToLive} />}
 
                 {phase === 'initialising' && <SurfaceNotice message={translate('page.probing')} translate={translate} />}
                 {phase === 'empty' && (

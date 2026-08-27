@@ -3,6 +3,7 @@ import {
     PreferencesService,
 } from '../../../src/app/services/preferences-service.ts';
 import { describe, expect, it, vi } from 'vitest';
+import type { Drawing } from '../../../src/shared/core/drawing.ts';
 
 const STORAGE_KEY = 'fathom.preferences.v1';
 
@@ -99,5 +100,54 @@ describe('PreferencesService.write', () => {
         const service = new PreferencesService({ storage });
 
         expect(() => { service.write(DEFAULT_PREFERENCES); }).not.toThrow();
+    });
+
+});
+
+describe('PreferencesService and the marks a reader left', () => {
+    const LEVEL: Drawing = {
+        id: 'level',
+        kind: 'horizontal-line',
+        instrumentSymbol: 'BTCUSDT',
+        anchors: [{ atMs: 1_000, price: 100 }],
+        tone: 'phosphor',
+    };
+
+    it('opens a fresh page with nothing drawn', () => {
+        const service = new PreferencesService({ storage: buildStorage(null) });
+
+        expect(service.read().drawings).toEqual([]);
+    });
+
+    /** Storage that actually keeps what it was given. */
+    function buildLiveStorage(): Storage {
+        let held: string | null = null;
+        return {
+            getItem: () => held,
+            setItem: (unusedKey: string, value: string) => { held = value; },
+        } as unknown as Storage;
+    }
+
+    it('reads back the marks it wrote', () => {
+        const storage = buildLiveStorage();
+
+        new PreferencesService({ storage }).write({ drawings: [LEVEL] });
+
+        expect(new PreferencesService({ storage }).read().drawings).toEqual([LEVEL]);
+    });
+
+    it('drops a mark of a kind this build no longer draws', () => {
+        // Kept, it would be written back every session and shown by nothing.
+        const storage = buildStorage(JSON.stringify({
+            drawings: [LEVEL, { ...LEVEL, id: 'gone', kind: 'fibonacci-fan' }],
+        }));
+
+        expect(new PreferencesService({ storage }).read().drawings).toEqual([LEVEL]);
+    });
+
+    it('reads a document whose marks are not a list as none at all', () => {
+        const storage = buildStorage(JSON.stringify({ drawings: 'nothing' }));
+
+        expect(new PreferencesService({ storage }).read().drawings).toEqual([]);
     });
 });

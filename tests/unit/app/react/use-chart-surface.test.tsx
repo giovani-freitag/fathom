@@ -8,6 +8,7 @@ import type { ServiceContainer } from '../../../../src/app/core/service-containe
 describe('useChartSurface', () => {
     let chartStore: ObservableStore<never>;
     let appearanceStore: ObservableStore<never>;
+    let drawingsStore: ObservableStore<never>;
     let applyView: ReturnType<typeof vi.fn>;
     let chartSubscribers: number;
     let appearanceSubscribers: number;
@@ -31,6 +32,7 @@ describe('useChartSurface', () => {
         const container = {
             chart: { store: chartStore, applyView },
             appearance: { store: appearanceStore },
+            drawings: { store: drawingsStore },
         } as unknown as ServiceContainer;
 
         return render(
@@ -54,6 +56,9 @@ describe('useChartSurface', () => {
             { locale: 'en', resolvedTheme: 'dark' } as never,
             (delta) => { appearanceSubscribers += delta; },
         );
+        drawingsStore = new ObservableStore<never>({
+            initialState: { armedTool: null, drawings: [], selectedId: null, draft: null } as never,
+        });
     });
 
     it('follows the appearance as well as the chart, so a theme change repaints', () => {

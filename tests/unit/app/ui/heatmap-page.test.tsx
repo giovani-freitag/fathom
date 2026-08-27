@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { ChartController } from '../../../../src/app/core/chart-controller.ts';
+import { DrawingsController } from '../../../../src/app/drawings/drawings-controller.ts';
 import { type ChartServiceMocks, createChartServiceMocks } from '../../../mocks/chart-services.ts';
 import { createCursorStore } from '../../../../src/app/core/cursor-store.ts';
 import { HeatmapPage } from '../../../../src/app/ui/heatmap-page.tsx';
@@ -30,6 +31,11 @@ function mountPage(): MountedPage {
         chart,
         cursor: createCursorStore(),
         recording: null,
+        drawings: new DrawingsController({
+            preferences: mocks.preferences,
+            readInstrumentSymbol: () => chart.store.read().instrumentSymbol,
+            newId: () => 'mark',
+        }),
         appearance: {
             store: { read: () => APPEARANCE, subscribe: () => () => undefined },
             selectLocale: () => undefined,

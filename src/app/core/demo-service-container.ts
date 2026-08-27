@@ -1,5 +1,6 @@
 import { type AppearanceHost, AppearanceController } from './appearance-controller.ts';
 import { ChartController } from './chart-controller.ts';
+import { DrawingsController } from '../drawings/drawings-controller.ts';
 import { createCursorStore } from './cursor-store.ts';
 import type { CollectorEvent } from '../../shared/core/collector-worker-contract.ts';
 import { CollectorWorkerService } from '../services/collector-worker-service.ts';
@@ -72,6 +73,8 @@ export function createDemoServiceContainer(
         catalogue: DEMO_CATALOGUE,
     });
 
+    const chart = new ChartController({ api, liveFeed, preferences });
+
     return {
         api,
         liveFeed,
@@ -79,8 +82,13 @@ export function createDemoServiceContainer(
         collector,
         database,
         recording,
-        chart: new ChartController({ api, liveFeed, preferences }),
+        chart,
         cursor,
+        drawings: new DrawingsController({
+            preferences,
+            readInstrumentSymbol: () => chart.store.read().instrumentSymbol,
+            newId: () => crypto.randomUUID(),
+        }),
         appearance: new AppearanceController({ preferences, host: config.appearanceHost }),
     };
 }

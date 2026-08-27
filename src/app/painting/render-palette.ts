@@ -1,3 +1,4 @@
+import type { PlotTone } from '../../shared/core/draw-plan.ts';
 import type { ResolvedTheme } from '../core/theme.ts';
 
 /** Chrome colours the canvas paints with. */
@@ -88,6 +89,31 @@ export const RENDER_PALETTE: RenderPalette = { ...DARK_PALETTE };
  */
 export function applyPaletteTheme(theme: ResolvedTheme): void {
     Object.assign(RENDER_PALETTE, theme === 'light' ? LIGHT_PALETTE : DARK_PALETTE);
+}
+
+/** The palette a tone resolves against, chosen by the host and not the author. */
+const TONE_COLOURS: Record<PlotTone, () => string> = {
+    bid: () => RENDER_PALETTE.bid,
+    ask: () => RENDER_PALETTE.ask,
+    amber: () => RENDER_PALETTE.amber,
+    violet: () => RENDER_PALETTE.violet,
+    cyan: () => RENDER_PALETTE.cyan,
+    phosphor: () => RENDER_PALETTE.phosphor,
+    ink: () => RENDER_PALETTE.inkPrimary,
+    muted: () => RENDER_PALETTE.inkMuted,
+};
+
+/**
+ * The colour a tone stands for in the theme in force.
+ *
+ * Read through a call rather than held: the palette is re-pointed in place on a
+ * theme change, and anything that captured a colour would keep the old one.
+ *
+ * @param tone - The tone a plan or a mark named.
+ * @returns The colour to paint it in.
+ */
+export function resolveToneColour(tone: PlotTone): string {
+    return TONE_COLOURS[tone]();
 }
 
 export const RENDER_METRICS = {
