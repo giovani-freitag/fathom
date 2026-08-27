@@ -59,6 +59,17 @@ export interface PointerClaimant {
     moveClaim(point: PointerPosition): void;
     /** Told the claim is over. */
     settleClaim(): void;
+    /**
+     * What the pointer should look like resting over the plot.
+     *
+     * Asked because the claimant is the only one that knows a press there would
+     * mean something other than a pan, and a reader who cannot tell has to find
+     * out by pressing.
+     *
+     * @param point - Where the pointer is resting, in surface pixels.
+     * @returns A CSS cursor, or null to leave the region's own.
+     */
+    describeCursor(point: PointerPosition): string | null;
 }
 
 export interface ChartGestureControllerConfig {
@@ -184,7 +195,7 @@ export class ChartGestureController {
         }
 
         if (!this.activePointers.has(event.pointerId)) {
-            this.config.surface.style.cursor = REGION_CURSORS[this.resolveRegion(position)];
+            this.config.surface.style.cursor = this.resolveCursor(position);
             this.config.onPointerMove(position);
             return;
         }
@@ -298,6 +309,17 @@ export class ChartGestureController {
     /**
      * Which band the given point falls in.
      */
+    /**
+     * What the pointer looks like where it is resting.
+     */
+    private resolveCursor(position: PointerPosition): string {
+        const region = this.resolveRegion(position);
+        if (region !== 'plot') {
+            return REGION_CURSORS[region];
+        }
+        return this.config.claimant?.describeCursor(position) ?? REGION_CURSORS.plot;
+    }
+
     private resolveRegion(position: PointerPosition): SurfaceRegion {
         const layout = this.config.readLayout();
         const priceScaleX = layout.isCompact ? layout.priceAxisX : layout.profileX;

@@ -447,7 +447,10 @@ describe('ChartGestureController offering a press to a claimant', () => {
      *
      * @param doesClaim - Whether it takes a press, given how many it has seen.
      */
-    function buildClaimed(doesClaim: boolean | ((offersSoFar: number) => boolean)): ClaimedHarness {
+    function buildClaimed(
+        doesClaim: boolean | ((offersSoFar: number) => boolean),
+        cursor: string | null = null,
+    ): ClaimedHarness {
         const surface = createGestureSurface(VIEWPORT);
         const offers: PointerPosition[] = [];
         const moves: PointerPosition[] = [];
@@ -472,11 +475,38 @@ describe('ChartGestureController offering a press to a claimant', () => {
                 },
                 moveClaim: (point) => { moves.push(point); },
                 settleClaim: () => { settles.push(1); },
+                describeCursor: () => cursor,
             },
         });
         controller.attach();
         return { surface, offers, moves, settles };
     }
+
+    it('shows the pointer as what a press there would do', () => {
+        // A mark one pixel wide gives no other sign that it is under the
+        // pointer, and pressing to find out pans the chart when it was not.
+        const harness = buildClaimed(false, 'move');
+
+        harness.surface.fire('pointermove', { pointerId: 1, clientX: 500, clientY: 250 });
+
+        expect(harness.surface.surface.style.cursor).toBe('move');
+    });
+
+    it('leaves the plot its own pointer where a press would do nothing else', () => {
+        const harness = buildClaimed(false);
+
+        harness.surface.fire('pointermove', { pointerId: 1, clientX: 500, clientY: 250 });
+
+        expect(harness.surface.surface.style.cursor).toBe('crosshair');
+    });
+
+    it('asks nothing of it off the plot, where the axis owns the pointer', () => {
+        const harness = buildClaimed(false, 'move');
+
+        harness.surface.fire('pointermove', { pointerId: 1, clientX: 990, clientY: 250 });
+
+        expect(harness.surface.surface.style.cursor).toBe('ns-resize');
+    });
 
     it('offers it every press over the plot', () => {
         const harness = buildClaimed(false);

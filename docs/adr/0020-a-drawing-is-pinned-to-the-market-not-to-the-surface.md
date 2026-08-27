@@ -66,6 +66,13 @@ has never heard of — is drawn at the default rather than refused. Resolving on
 read instead of migrating on write means the vocabulary can grow again without
 touching what a reader already drew.
 
+**A press has to travel before it moves anything, and the pointer says what it
+is over.** Both hang off the same claimant seam. A click that twitches two
+pixels is a selection, not a drag, so selecting a mark cannot shift it; and a
+mark under a resting pointer shows as grabbable, because a one-pixel line gives
+a reader no other way to know they are on it than to press and find out — which
+pans the chart when they were not.
+
 **A mark belongs to a contract.** It is drawn about `BTCUSDT`, shown on no other
 chart, and a stored mark naming a kind this build cannot draw is dropped on the
 way in rather than carried for ever.

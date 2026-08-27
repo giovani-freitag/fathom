@@ -4,6 +4,15 @@ import type { DrawingsController } from './drawings-controller.ts';
 import { findDrawingAt } from './drawing-hit-test.ts';
 import type { ViewportProjector } from '../core/viewport-projector.ts';
 
+/**
+ * How far a press has to travel before it is moving something.
+ *
+ * A click is never perfectly still — a hand twitches a pixel or two between
+ * pressing and letting go — and without this every press meant to select a mark
+ * nudges it off the price it was drawn about, one undo step at a time.
+ */
+export const DRAWING_DRAG_THRESHOLD_PX = 4;
+
 export interface DrawingSurfaceClaimantConfig {
     readonly drawings: DrawingsController;
     /**
@@ -22,6 +31,10 @@ export interface DrawingSurfaceClaimantConfig {
  */
 export class DrawingSurfaceClaimant implements PointerClaimant {
     private readonly config: DrawingSurfaceClaimantConfig;
+    /** Where the held press went down, for a move measured against it. */
+    private pressedAt: PointerPosition | null = null;
+    /** Set once the press has travelled far enough to be a drag rather than a click. */
+    private hasTravelled = false;
 
     constructor(config: DrawingSurfaceClaimantConfig) {
         this.config = config;
@@ -48,6 +61,8 @@ export class DrawingSurfaceClaimant implements PointerClaimant {
             return false;
         }
 
+        this.pressedAt = point;
+        this.hasTravelled = false;
         this.config.drawings.begin({ anchor, hitId });
         return true;
     }
@@ -58,6 +73,11 @@ export class DrawingSurfaceClaimant implements PointerClaimant {
      * @param point - Where the pointer is, in surface pixels.
      */
     moveClaim(point: PointerPosition): void {
+        if (!this.hasTravelled && !this.hasLeft(point)) {
+            return;
+        }
+        this.hasTravelled = true;
+
         const anchor = this.toAnchor(point);
         if (anchor !== null) {
             this.config.drawings.drag(anchor);
@@ -68,7 +88,36 @@ export class DrawingSurfaceClaimant implements PointerClaimant {
      * Ends the claimed gesture, keeping whatever it drew or moved.
      */
     settleClaim(): void {
+        this.pressedAt = null;
         this.config.drawings.settle();
+    }
+
+    /**
+     * What the pointer looks like resting over the plot.
+     *
+     * A mark under it is shown as something to grab, which is the whole of what
+     * tells a reader they are on it: a line one pixel wide gives no other sign,
+     * and pressing to find out moves the view when they have missed.
+     *
+     * @param point - Where the pointer is resting, in surface pixels.
+     * @returns A CSS cursor, or null to leave the plot's own.
+     */
+    describeCursor(point: PointerPosition): string | null {
+        if (this.config.drawings.store.read().armedTool !== null) {
+            return null;
+        }
+        return this.findHit(point) === null ? null : 'move';
+    }
+
+    /**
+     * Whether the pointer has left the press far enough behind to be dragging.
+     */
+    private hasLeft(point: PointerPosition): boolean {
+        const from = this.pressedAt;
+        if (from === null) {
+            return true;
+        }
+        return Math.hypot(point.x - from.x, point.y - from.y) >= DRAWING_DRAG_THRESHOLD_PX;
     }
 
     /**

@@ -583,6 +583,18 @@ takes a claimant, and a claimant that takes a press gets the whole gesture with
 the pan never seeing it. Declining is reported too, which is what lets a press on
 bare chart mean *done with that one*.
 
+The same seam answers what the pointer should look like. Resting over a mark it
+is shown as something to grab, which is the only sign a reader gets that they
+are on a line one pixel wide; the controller asks rather than knows, so it still
+has never heard of a drawing.
+
+A press has to travel a few pixels before it moves anything. No hand is
+perfectly still between pressing and letting go, and without the threshold every
+press meant to select a mark dragged it off the price it was drawn about, one
+step back at a time. Whether a gesture is a drag is decided once and then held:
+re-asking each move would strand a mark wherever the pointer last was far enough
+away.
+
 Delete and Backspace remove what is selected, Escape puts the tool down and lets
 the selection go, Ctrl-Z steps back and Ctrl-Shift-Z steps forward — and none of
 them fires while a reader is typing into a field. Those are the keys a reader

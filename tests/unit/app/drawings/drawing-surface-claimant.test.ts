@@ -145,3 +145,101 @@ describe('DrawingSurfaceClaimant with no contract on the chart', () => {
         expect(bare.drawings.store.read().draft).toBeNull();
     });
 });
+
+describe('DrawingSurfaceClaimant telling a press from a drag', () => {
+    let harness: Harness;
+
+    beforeEach(() => { harness = buildHarness([STORED_LEVEL]); });
+
+    it('leaves the mark where it was drawn when the press only twitched', () => {
+        // No hand is perfectly still between pressing and letting go, and a
+        // reader who meant to select a level should not find it a tick lower.
+        harness.claimant.offerPress({ x: 500, y: yOf(50) });
+        harness.claimant.moveClaim({ x: 502, y: yOf(50) + 2 });
+        harness.claimant.settleClaim();
+
+        expect(harness.drawings.store.read().drawings[0]?.anchors[0]?.price).toBe(50);
+    });
+
+    it('selects the mark all the same, which is what the press was for', () => {
+        harness.claimant.offerPress({ x: 500, y: yOf(50) });
+        harness.claimant.moveClaim({ x: 502, y: yOf(50) + 2 });
+        harness.claimant.settleClaim();
+
+        expect(harness.drawings.store.read().selectedId).toBe('level');
+    });
+
+    it('records no step back for a press that moved nothing', () => {
+        harness.claimant.offerPress({ x: 500, y: yOf(50) });
+        harness.claimant.moveClaim({ x: 502, y: yOf(50) + 2 });
+        harness.claimant.settleClaim();
+
+        expect(harness.drawings.store.read().canUndo).toBe(false);
+    });
+
+    it('moves the mark once the pointer has gone somewhere', () => {
+        harness.claimant.offerPress({ x: 500, y: yOf(50) });
+        harness.claimant.moveClaim({ x: 500, y: yOf(40) });
+        harness.claimant.settleClaim();
+
+        expect(harness.drawings.store.read().drawings[0]?.anchors[0]?.price).toBeCloseTo(40);
+    });
+
+    it('carries the whole way, not only what was left after the threshold', () => {
+        // The mark follows the pointer: a drag that dropped its first pixels
+        // would leave the line lagging the finger by however far it took to
+        // decide this was a drag at all.
+        harness.claimant.offerPress({ x: 500, y: yOf(50) });
+        harness.claimant.moveClaim({ x: 500, y: yOf(50) + 5 });
+        harness.claimant.moveClaim({ x: 500, y: yOf(30) });
+        harness.claimant.settleClaim();
+
+        expect(harness.drawings.store.read().drawings[0]?.anchors[0]?.price).toBeCloseTo(30);
+    });
+
+    it('keeps carrying a drag that comes back past where it started', () => {
+        // Deciding once is what makes a drag a drag: re-asking every move
+        // would drop the ones near the press and strand the mark out where
+        // the pointer last was far enough away.
+        harness.claimant.offerPress({ x: 500, y: yOf(50) });
+        harness.claimant.moveClaim({ x: 500, y: yOf(30) });
+        harness.claimant.moveClaim({ x: 500, y: yOf(50) + 1 });
+        harness.claimant.settleClaim();
+
+        expect(harness.drawings.store.read().drawings[0]?.anchors[0]?.price).toBeCloseTo(49.8, 1);
+    });
+
+    it('measures the next press from where that one went down', () => {
+        harness.claimant.offerPress({ x: 500, y: yOf(50) });
+        harness.claimant.moveClaim({ x: 500, y: yOf(30) });
+        harness.claimant.settleClaim();
+
+        harness.claimant.offerPress({ x: 500, y: yOf(30) });
+        harness.claimant.moveClaim({ x: 501, y: yOf(30) + 1 });
+        harness.claimant.settleClaim();
+
+        expect(harness.drawings.store.read().drawings[0]?.anchors[0]?.price).toBeCloseTo(30);
+    });
+});
+
+describe('DrawingSurfaceClaimant asked what the pointer should look like', () => {
+    let harness: Harness;
+
+    beforeEach(() => { harness = buildHarness([STORED_LEVEL]); });
+
+    it('shows a mark under the pointer as something to grab', () => {
+        expect(harness.claimant.describeCursor({ x: 500, y: yOf(50) })).toBe('move');
+    });
+
+    it('says nothing about bare chart, which the plot already answers for', () => {
+        expect(harness.claimant.describeCursor({ x: 500, y: yOf(10) })).toBeNull();
+    });
+
+    it('says nothing while a tool is armed, when every press draws anyway', () => {
+        // The mark under the pointer is not what the next press is about, and
+        // showing it as grabbable would say the tool had been put down.
+        harness.drawings.arm('horizontal-line');
+
+        expect(harness.claimant.describeCursor({ x: 500, y: yOf(50) })).toBeNull();
+    });
+});
