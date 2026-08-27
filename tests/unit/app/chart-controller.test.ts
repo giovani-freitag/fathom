@@ -524,3 +524,51 @@ describe('ChartController on an archive that starts empty', () => {
         expect(viewport.toMs - viewport.fromMs).toBe(60_000);
     });
 });
+
+describe('ChartController.selectInstrument', () => {
+    /** Two contracts to switch between, both recorded. */
+    function buildTwoInstrumentMocks(): ReturnType<typeof createChartServiceMocks> {
+        const mocks = createChartServiceMocks({ instrumentSymbol: 'BTCUSDT' });
+        mocks.fetchInstruments.mockResolvedValue([
+            INSTRUMENT,
+            { ...INSTRUMENT, instrumentSymbol: 'ETHUSDT' },
+        ]);
+        return mocks;
+    }
+
+    it('points the chart at the contract it was given', async () => {
+        const mocks = buildTwoInstrumentMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+
+        act(() => { controller.selectInstrument('ETHUSDT'); });
+        await vi.waitFor(() => { expect(controller.store.read().phase).not.toBe('loading'); });
+
+        expect(controller.store.read().instrumentSymbol).toBe('ETHUSDT');
+    });
+
+    it('ignores a contract that has never been recorded', async () => {
+        const mocks = buildTwoInstrumentMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+
+        controller.selectInstrument('DOGEUSDT');
+
+        expect(controller.store.read().instrumentSymbol).toBe('BTCUSDT');
+    });
+
+    it('lets go of the tail on the contract it is leaving', async () => {
+        // Still open, it keeps delivering, and a frame message names no
+        // instrument: the chart appends one contract's liquidity to the other's.
+        const mocks = buildTwoInstrumentMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        mocks.disconnect.mockClear();
+
+        controller.selectInstrument('ETHUSDT');
+
+        expect(mocks.disconnect).toHaveBeenCalled();
+    });
+
+});
+

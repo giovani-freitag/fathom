@@ -13,12 +13,20 @@ describe('WorkerLiveFeedService', () => {
     let received: LiveMessage[];
     let statuses: LiveFeedStatus[];
 
-    function follow(): void {
+    function follow(instrumentSymbol = 'BTCUSDT'): void {
         feed.connect({
-            instrumentSymbol: 'BTCUSDT',
+            instrumentSymbol,
             afterMs: RESUME_FROM_MS,
             onMessage: (message) => { received.push(message); },
             onStatusChanged: (status) => { statuses.push(status); },
+        });
+    }
+
+    /** The acknowledgement the collector sends before it starts delivering. */
+    function acknowledge(instrumentSymbol = 'BTCUSDT'): void {
+        feed.handleCollectorEvent({
+            kind: 'live',
+            message: { kind: 'subscribed', instrumentSymbol, priceBucketSize: 10 },
         });
     }
 
@@ -41,6 +49,8 @@ describe('WorkerLiveFeedService', () => {
         // chart cannot tell which half of the product it is talking to.
         const window = buildWindow([buildFrame(RESUME_FROM_MS + 1_000)]);
         follow();
+        acknowledge();
+        received.length = 0;
 
         feed.handleCollectorEvent({ kind: 'live', message: { kind: 'frames', window } });
 
@@ -50,12 +60,57 @@ describe('WorkerLiveFeedService', () => {
     it('counts the acknowledgement as the collector answering', () => {
         follow();
 
-        feed.handleCollectorEvent({
-            kind: 'live',
-            message: { kind: 'subscribed', instrumentSymbol: 'BTCUSDT', priceBucketSize: 10 },
-        });
+        acknowledge();
 
         expect(statuses).toEqual(['connecting', 'streaming']);
+    });
+
+    it('draws nothing the contract it left behind had already sent', () => {
+        // The collector is told to stop, but what it posted before reading that
+        // is already on its way, and a frame message names no instrument.
+        const window = buildWindow([buildFrame(RESUME_FROM_MS + 1_000)]);
+        follow('BTCUSDT');
+        acknowledge('BTCUSDT');
+        feed.disconnect();
+        follow('ETHUSDT');
+        received.length = 0;
+
+        feed.handleCollectorEvent({ kind: 'live', message: { kind: 'frames', window } });
+
+        expect(received).toEqual([]);
+    });
+
+    it('waits for the new acknowledgement when it is pointed straight at another contract', () => {
+        // A tail replaced without being disconnected first: what is already in
+        // flight still belongs to the contract that was being followed.
+        const window = buildWindow([buildFrame(RESUME_FROM_MS + 1_000)]);
+        follow('BTCUSDT');
+        acknowledge('BTCUSDT');
+        follow('ETHUSDT');
+        received.length = 0;
+
+        feed.handleCollectorEvent({ kind: 'live', message: { kind: 'frames', window } });
+
+        expect(received).toEqual([]);
+    });
+
+    it('draws what the contract it moved to sends, once that is acknowledged', () => {
+        const window = buildWindow([buildFrame(RESUME_FROM_MS + 1_000)]);
+        follow('ETHUSDT');
+        acknowledge('ETHUSDT');
+        received.length = 0;
+
+        feed.handleCollectorEvent({ kind: 'live', message: { kind: 'frames', window } });
+
+        expect(received).toEqual([{ kind: 'frames', window }]);
+    });
+
+    it('ignores an acknowledgement for a contract it is not following', () => {
+        follow('ETHUSDT');
+
+        acknowledge('BTCUSDT');
+
+        expect(statuses).toEqual(['connecting']);
     });
 
     it('ignores what the collector says about itself', () => {

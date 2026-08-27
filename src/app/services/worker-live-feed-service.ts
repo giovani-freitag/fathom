@@ -16,6 +16,7 @@ export interface WorkerLiveFeedServiceConfig {
 export class WorkerLiveFeedService implements LiveFeed {
     private readonly config: WorkerLiveFeedServiceConfig;
     private subscription: LiveFeedSubscription | null = null;
+    private isAcknowledged = false;
 
     constructor(config: WorkerLiveFeedServiceConfig) {
         this.config = config;
@@ -29,6 +30,7 @@ export class WorkerLiveFeedService implements LiveFeed {
      */
     connect(subscription: LiveFeedSubscription): void {
         this.subscription = subscription;
+        this.isAcknowledged = false;
         subscription.onStatusChanged('connecting');
         this.config.subscribe(subscription.instrumentSymbol, subscription.afterMs);
     }
@@ -39,6 +41,7 @@ export class WorkerLiveFeedService implements LiveFeed {
     disconnect(): void {
         const subscription = this.subscription;
         this.subscription = null;
+        this.isAcknowledged = false;
         if (subscription === null) {
             return;
         }
@@ -60,7 +63,17 @@ export class WorkerLiveFeedService implements LiveFeed {
         // The first message of a tail is its acknowledgement, which is the only
         // point at which this driver knows the collector is actually answering.
         if (event.message.kind === 'subscribed') {
-            subscription.onStatusChanged('streaming');
+            this.isAcknowledged = event.message.instrumentSymbol === subscription.instrumentSymbol;
+            if (this.isAcknowledged) {
+                subscription.onStatusChanged('streaming');
+            }
+        }
+
+        // Anything before the acknowledgement was posted for the tail that was
+        // asked to stop, and a frame message names no instrument: delivered, it
+        // draws one contract's liquidity onto another contract's chart.
+        if (!this.isAcknowledged) {
+            return;
         }
         subscription.onMessage(event.message);
     }

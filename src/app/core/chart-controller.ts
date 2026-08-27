@@ -230,6 +230,10 @@ export class ChartController {
             return;
         }
 
+        // Let go before the switch, not after the new window lands: a frame
+        // message names no instrument, so anything the old tail delivers in
+        // between is appended to the contract the reader moved to.
+        this.config.liveFeed.disconnect();
         this.windowLoader.reset();
         this.needsPriceFraming = true;
         this.store.update((state) => ({
