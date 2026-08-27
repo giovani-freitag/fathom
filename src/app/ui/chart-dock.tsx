@@ -43,6 +43,8 @@ const QUOTE_SUFFIXES = ['USDT', 'USDC', 'BUSD', 'USD'];
 
 export interface ChartDockProps {
     readonly drawings: DrawingControls;
+    /** False where a bar along the top is already asking the chart's questions. */
+    readonly hasChartControls?: boolean;
     readonly indicators: IndicatorControls;
     readonly instruments: readonly InstrumentCoverage[];
     readonly instrumentSymbol: string | null;
@@ -74,7 +76,7 @@ export interface TimeControls {
  */
 export function ChartDock(props: ChartDockProps): ReactElement {
     const translate = useTranslate();
-    const { drawings } = props;
+    const { drawings, hasChartControls = true } = props;
     const [isPaletteOpen, setIsPaletteOpen] = useState(false);
     const openPalette = useCallback(() => { setIsPaletteOpen(true); }, []);
 
@@ -86,69 +88,75 @@ export function ChartDock(props: ChartDockProps): ReactElement {
             role="toolbar"
             aria-label={translate('dock.label')}
         >
-            <DockPopover
-                label={translate('instrument.label')}
-                trigger={(
-                    <span className="flex items-center gap-1 px-1 text-xs font-semibold">
-                        <Coins size={ICON_SIZE_PX} />
-                        {shortenSymbol(props.instrumentSymbol)}
-                    </span>
-                )}
-            >
-                {/* No title: the button it opened from is the title, and a panel
-                    that repeats it is a line the reader has to read twice. */}
-                <div className="w-56">
-                    <ChoiceGrid
-                        isStacked
+            {hasChartControls && (
+                <>
+                    <DockPopover
                         label={translate('instrument.label')}
-                        value={props.instrumentSymbol ?? ''}
-                        onChoose={props.onInstrumentSelect}
-                        choices={props.instruments.map((instrument) => ({
-                            value: instrument.instrumentSymbol,
-                            label: instrument.instrumentSymbol,
-                        }))}
-                    />
-                </div>
-            </DockPopover>
+                        trigger={(
+                            <span className="flex items-center gap-1 px-1 text-xs font-semibold">
+                                <Coins size={ICON_SIZE_PX} />
+                                {shortenSymbol(props.instrumentSymbol)}
+                            </span>
+                        )}
+                    >
+                        {/* No title: the button it opened from is the title, and a panel
+                        that repeats it is a line the reader has to read twice. */}
+                        <div className="w-56">
+                            <ChoiceGrid
+                                isStacked
+                                label={translate('instrument.label')}
+                                value={props.instrumentSymbol ?? ''}
+                                onChoose={props.onInstrumentSelect}
+                                choices={props.instruments.map((instrument) => ({
+                                    value: instrument.instrumentSymbol,
+                                    label: instrument.instrumentSymbol,
+                                }))}
+                            />
+                        </div>
+                    </DockPopover>
 
-            <DockPopover
-                label={translate('dock.time')}
-                trigger={(
-                    <span className="px-1 text-xs font-semibold">
-                        {formatDuration(props.time.visibleSpanMs, translate)}
-                    </span>
-                )}
-            >
-                <TimePanel time={props.time} />
-            </DockPopover>
+                    <DockPopover
+                        label={translate('dock.time')}
+                        trigger={(
+                            <span className="px-1 text-xs font-semibold">
+                                {formatDuration(props.time.visibleSpanMs, translate)}
+                            </span>
+                        )}
+                    >
+                        <TimePanel time={props.time} />
+                    </DockPopover>
 
-            <DockPopover
-                label={translate('indicators.open')}
-                title={translate('indicators.openWith', { shortcut: readShortcutLabel() })}
-                isOpen={isPaletteOpen}
-                onOpenChange={setIsPaletteOpen}
-                trigger={<ChartSpline size={ICON_SIZE_PX} />}
-            >
-                <IndicatorPalette
-                    onAdd={props.indicators.add}
-                    isFull={props.indicators.isFull}
-                    addedCounts={props.indicators.addedCounts}
-                    hasAutoFocus
-                />
-            </DockPopover>
+                    <DockPopover
+                        label={translate('indicators.open')}
+                        title={translate('indicators.openWith', { shortcut: readShortcutLabel() })}
+                        isOpen={isPaletteOpen}
+                        onOpenChange={setIsPaletteOpen}
+                        trigger={<ChartSpline size={ICON_SIZE_PX} />}
+                    >
+                        <IndicatorPalette
+                            onAdd={props.indicators.add}
+                            isFull={props.indicators.isFull}
+                            addedCounts={props.indicators.addedCounts}
+                            hasAutoFocus
+                        />
+                    </DockPopover>
 
-            <DockPopover
-                label={translate('indicators.onTheChart')}
-                trigger={<Layers size={ICON_SIZE_PX} />}
-            >
-                {/* Wide enough for a reading: a row that truncates its own
-                    figures is a row that has to be opened somewhere else. */}
-                <div className="w-[min(21rem,calc(100vw-3rem))]">
-                    <LayerList controls={props.indicators} onOpenSettings={props.onOpenLayerSettings} />
-                </div>
-            </DockPopover>
+                    <DockPopover
+                        label={translate('indicators.onTheChart')}
+                        trigger={<Layers size={ICON_SIZE_PX} />}
+                    >
+                        {/* Wide enough for a reading: a row that truncates its own
+                        figures is a row that has to be opened somewhere else. */}
+                        <div className="w-[min(21rem,calc(100vw-3rem))]">
+                            <LayerList controls={props.indicators} onOpenSettings={props.onOpenLayerSettings} />
+                        </div>
+                    </DockPopover>
 
-            <Divider />
+                    <Divider />
+                </>
+            )}
+
+
 
             <DockButton
                 label={translate('drawing.select')}

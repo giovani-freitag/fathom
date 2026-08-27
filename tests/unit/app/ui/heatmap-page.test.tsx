@@ -83,6 +83,15 @@ describe('HeatmapPage', () => {
         chart.dispose();
     });
 
+    it('asks the chart questions near the thumb on a screen held in one hand', () => {
+        // No bar along the top: a control up there is one a reader has to
+        // regrip to reach, and the questions are all in the dock instead.
+        const { chart, container } = mountPage();
+
+        expect(container.querySelector('header')).toBeNull();
+        chart.dispose();
+    });
+
     it('says what the chart is doing nowhere else, because nothing else has to', () => {
         // Live or in history is answered by whether the way back is offered at
         // all; a strip repeating it is a line of chrome carried for ever.

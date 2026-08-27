@@ -120,18 +120,19 @@ describe('LayerList', () => {
         expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Hide' }).disabled).toBe(false);
     });
 
-    it('shows what a layer reads, on a line of its own', () => {
-        // A reading is wider than the controls beside it, and squeezed on the
-        // same line the four prices of a bar run off the edge of the panel.
+    it('says what a layer is, not what it reads', () => {
+        // A reading is a different length for every layer. Mixed in, no two rows
+        // were the same height and the run of them read as ragged rather than as
+        // a list. What a layer says belongs beside what it says it about.
         renderList([SMA_FAST]);
 
-        const row = screen.getByRole('listitem');
-        expect(row.children).toHaveLength(2);
+        expect(screen.getByRole('listitem').textContent).toBe('SMA');
     });
 
-    it('shows no reading for a layer that is hidden', () => {
-        renderList([{ ...SMA_FAST, isHidden: true }]);
+    it('gives every layer a row of the same shape', () => {
+        renderList([SMA_FAST, RSI]);
 
-        expect(screen.getByRole('listitem').children).toHaveLength(1);
+        const shapes = new Set(screen.getAllByRole('listitem').map((row) => row.children.length));
+        expect(shapes.size).toBe(1);
     });
 });

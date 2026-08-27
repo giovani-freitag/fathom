@@ -579,9 +579,29 @@ edit on its own terms: a chart holds few marks and each is small, so a stack of
 sets is cheaper to reason about than undoing a move, a recolour and a removal
 three different ways. A drag records one step, not one per frame.
 
+## Two layouts, not one hidden twice
+
+The interface answers to how much room it has, and the two answers are not the
+same controls shown and hidden. A screen held in one hand puts every question
+behind a target near the thumb; a screen with a mouse and a metre of width asks
+them out loud along the top, where hiding them costs a click and buys nothing.
+
+Which is also why the shapes differ. A dropdown is right in a bar, where it is
+the only thing being opened, and wrong in a panel, where it is a second menu
+inside something that already opened. The wide layout uses selects; the narrow
+one lays the same choices out flat.
+
+Read from a media query rather than switched with a class, because rendering
+both and hiding one would mount two of every dialog behind them.
+
+Where there is room, each layer's reading goes back over the chart, beside what
+it reads about. Where there is not, it is not shown at rest at all: those rows
+are most of a phone's chart, and the panel in the dock says which layers are on
+without covering anything.
+
 ## Everything a thumb reaches
 
-The controls sit along the bottom, not in a header: a phone is held by its lower
+On a screen held in one hand the controls sit along the bottom, not in a header: a phone is held by its lower
 half, and a control a thumb cannot reach without regripping is a control that
 does not get used. They are *islands* floating over the chart rather than bars
 of their own, because chrome that takes layout costs the chart its height for as
@@ -597,9 +617,10 @@ There are no layer rows over the chart at all. A layer is its name, what it
 reads, and the four things done to it — hide, split, tune, remove — and all
 three used to be spelled out along a row floating over the very data they were
 about, at sizes of their own, one row per layer whether or not it had anything
-to say. All of it is one panel now, in the dock, where every control is the same
-size as every other and what a layer reads sits on a line of its own beneath its
-name, because a reading is wider than the controls beside it.
+to say. All of it is one panel now, where every control is the same size as every
+other. What a layer *reads* is not in it: a reading is a different length for
+every layer, and mixed in with the controls no two rows were the same height —
+the run of them read as ragged rather than as a list.
 
 What the chart still carries is only what a reader cannot get back on their own:
 the colour ramp the depth map is drawn from, and a notice about a layer they

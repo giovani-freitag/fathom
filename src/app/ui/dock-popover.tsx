@@ -30,6 +30,8 @@ interface DockPopoverProps {
     readonly onOpenChange?: (isOpen: boolean) => void;
     /** Shown on hover, where a chord that opens it can be named. */
     readonly title?: string;
+    /** Which way it opens; above, where a dock is under it, by default. */
+    readonly side?: 'top' | 'bottom';
 }
 
 /**
@@ -47,6 +49,7 @@ export function DockPopover({
     isOpen,
     onOpenChange,
     title,
+    side = 'top',
 }: DockPopoverProps): ReactElement {
     return (
         <Popover.Root
@@ -65,7 +68,7 @@ export function DockPopover({
             </Popover.Trigger>
             <Popover.Portal>
                 <Popover.Content
-                    side="top"
+                    side={side}
                     sideOffset={10}
                     collisionPadding={12}
                     className="z-50 max-h-[60dvh] overflow-y-auto rounded-xl border border-hairline bg-abyss-800 p-3 shadow-2xl shadow-black/60"

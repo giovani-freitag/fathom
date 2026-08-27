@@ -1,3 +1,4 @@
+import { DOCK_BUTTON_CLASSES, DOCK_RESTING_CLASSES } from './dock-popover.tsx';
 import { PanelSection } from './panel-section.tsx';
 import { Menu, X } from 'lucide-react';
 import { Dialog } from 'radix-ui';
@@ -17,7 +18,15 @@ interface SettingsDrawerProps {
     /** The layer to open onto, or null to open onto nothing. */
     readonly expandedLayer: string | null;
     readonly onExpandedLayerChange: (instanceId: string | null) => void;
+    /** True where it sits over the chart rather than in a bar of controls. */
+    readonly isFloating?: boolean;
 }
+
+/** Over the chart it needs a shell of its own; in a bar it takes the bar's. */
+const FLOATING_TRIGGER_CLASSES =
+    'pointer-events-auto grid size-9 shrink-0 place-items-center rounded-lg border border-hairline'
+    + ' bg-abyss-800/95 text-ink-400 shadow-lg backdrop-blur transition-colors'
+    + ' hover:border-hairline-bright hover:text-ink-100';
 
 /**
  * Everything a reader can change, in one drawer.
@@ -28,6 +37,7 @@ function SettingsDrawerShell({
     onOpenChange,
     expandedLayer,
     onExpandedLayerChange,
+    isFloating = false,
 }: SettingsDrawerProps): ReactElement {
     const kernel = useKernel();
     const translate = useTranslate();
@@ -40,7 +50,7 @@ function SettingsDrawerShell({
                     type="button"
                     aria-label={translate('settings.open')}
                     title={translate('settings.open')}
-                    className="pointer-events-auto grid size-9 shrink-0 place-items-center rounded-lg border border-hairline bg-abyss-800/95 text-ink-400 shadow-lg backdrop-blur transition-colors hover:border-hairline-bright hover:text-ink-100"
+                    className={isFloating ? FLOATING_TRIGGER_CLASSES : `${DOCK_BUTTON_CLASSES} ${DOCK_RESTING_CLASSES}`}
                 >
                     <Menu className="size-[18px]" />
                 </button>

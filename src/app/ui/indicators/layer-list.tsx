@@ -8,7 +8,6 @@ import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts
 import type { DrawPlan } from '../../../shared/core/draw-plan.ts';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
 import type { ChartState } from '../../core/chart-controller.ts';
-import { LayerReading } from './layer-reading.tsx';
 import { ToneSwatch } from './tone-swatch.tsx';
 import { translateLabel } from '../../i18n/translator.ts';
 import { useChartSlice } from '../../react/use-chart-state.ts';
@@ -52,7 +51,6 @@ export function LayerList({ controls, onOpenSettings }: LayerListProps): ReactEl
                 <LayerRow
                     key={added.instanceId}
                     added={added}
-                    plan={planFor.get(added.instanceId) ?? null}
                     controls={controls}
                     onOpenSettings={onOpenSettings}
                     banding={resolveBanding(bands, planFor.get(added.instanceId) ?? null)}
@@ -70,8 +68,6 @@ interface Banding {
 
 interface LayerRowProps {
     readonly added: AddedIndicator;
-    /** Absent while the layer is kept without being drawn. */
-    readonly plan: DrawPlan | null;
     readonly controls: IndicatorControls;
     readonly onOpenSettings: (instanceId: string) => void;
     readonly banding: Banding | null;
@@ -79,15 +75,19 @@ interface LayerRowProps {
 
 /**
  * One layer, named, with the four things a reader does to it.
+ *
+ * What it reads is not here. A panel is where a reader acts on layers, and a
+ * reading is a different length for every one of them: mixed in, no two rows
+ * were the same height and the run of them read as ragged rather than as a
+ * list. What each layer says belongs beside what it says it about.
  */
-function LayerRow({ added, plan, controls, onOpenSettings, banding }: LayerRowProps): ReactElement | null {
+function LayerRow({ added, controls, onOpenSettings, banding }: LayerRowProps): ReactElement | null {
     const translate = useTranslate();
     const layer = findChartLayer(added.indicatorId);
     if (layer === null) {
         return null;
     }
 
-    const Readout = findLayerContribution(added.indicatorId)?.Readout;
 
     const isHidden = added.isHidden === true;
     // The depth map has a ramp of its own and the candles two colours that mean
@@ -96,68 +96,57 @@ function LayerRow({ added, plan, controls, onOpenSettings, banding }: LayerRowPr
     const isRemovable = findLayerContribution(added.indicatorId)?.isRemovable !== false;
 
     return (
-        <li className="rounded-md px-1 py-1 hover:bg-abyss-700/50">
-            <div className="flex items-center gap-2">
-                {isTinted
-                    ? <ToneSwatch tone={added.tone} className={`size-2 ${isHidden ? 'opacity-30' : ''}`} />
-                    : <span className="size-2 shrink-0" />}
+        <li className="flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-abyss-700/50">
+            {isTinted
+                ? <ToneSwatch tone={added.tone} className={`size-2 ${isHidden ? 'opacity-30' : ''}`} />
+                : <span className="size-2 shrink-0" />}
 
-                <span className={`min-w-0 flex-1 truncate text-xs ${isHidden ? 'text-ink-600 line-through decoration-ink-700' : 'text-ink-200'}`}>
-                    {translateLabel(translate, layer.labelKey)}
-                </span>
+            <span className={`min-w-0 flex-1 truncate text-xs ${isHidden ? 'text-ink-600 line-through decoration-ink-700' : 'text-ink-200'}`}>
+                {translateLabel(translate, layer.labelKey)}
+            </span>
 
+            <LayerButton
+                label={translate(isHidden ? 'indicators.show' : 'indicators.hide')}
+                onPress={() => { controls.setVisibility(added.instanceId, !isHidden); }}
+            >
+                {isHidden ? <EyeOff size={ICON_SIZE_PX} /> : <Eye size={ICON_SIZE_PX} />}
+            </LayerButton>
+
+            {banding?.isSharing === true && (
                 <LayerButton
-                    label={translate(isHidden ? 'indicators.show' : 'indicators.hide')}
-                    onPress={() => { controls.setVisibility(added.instanceId, !isHidden); }}
+                    label={translate('indicators.splitBand')}
+                    onPress={() => { controls.setBand(added.instanceId, null); }}
                 >
-                    {isHidden ? <EyeOff size={ICON_SIZE_PX} /> : <Eye size={ICON_SIZE_PX} />}
+                    <Split size={ICON_SIZE_PX} />
                 </LayerButton>
-
-                {banding?.isSharing === true && (
-                    <LayerButton
-                        label={translate('indicators.splitBand')}
-                        onPress={() => { controls.setBand(added.instanceId, null); }}
-                    >
-                        <Split size={ICON_SIZE_PX} />
-                    </LayerButton>
-                )}
-
-                {banding !== null && banding.joinable !== null && (
-                    <LayerButton
-                        label={translate('indicators.mergeBand')}
-                        onPress={() => { controls.setBand(added.instanceId, banding.joinable); }}
-                    >
-                        <Combine size={ICON_SIZE_PX} />
-                    </LayerButton>
-                )}
-
-                <LayerButton
-                    label={translate('indicators.tune')}
-                    isDisabled={!isLayerTunable(layer)}
-                    onPress={() => { onOpenSettings(added.instanceId); }}
-                >
-                    <Settings2 size={ICON_SIZE_PX} />
-                </LayerButton>
-
-                <LayerButton
-                    label={translate('indicators.remove')}
-                    isDisabled={!isRemovable}
-                    isDestructive
-                    onPress={() => { controls.remove(added.instanceId); }}
-                >
-                    <X size={ICON_SIZE_PX} />
-                </LayerButton>
-            </div>
-
-            {/* On a line of its own: what a layer reads is wider than what is
-                done to it, and squeezed beside four controls it truncates.
-                It used to be over the chart, on a row that carried both. */}
-            {!isHidden && (
-                <div className="flex flex-wrap items-center gap-x-2 pl-4 empty:hidden">
-                    <LayerReading added={added} plan={plan} layer={layer} />
-                    {Readout !== undefined && <Readout />}
-                </div>
             )}
+
+            {banding !== null && banding.joinable !== null && (
+                <LayerButton
+                    label={translate('indicators.mergeBand')}
+                    onPress={() => { controls.setBand(added.instanceId, banding.joinable); }}
+                >
+                    <Combine size={ICON_SIZE_PX} />
+                </LayerButton>
+            )}
+
+            <LayerButton
+                label={translate('indicators.tune')}
+                isDisabled={!isLayerTunable(layer)}
+                onPress={() => { onOpenSettings(added.instanceId); }}
+            >
+                <Settings2 size={ICON_SIZE_PX} />
+            </LayerButton>
+
+            <LayerButton
+                label={translate('indicators.remove')}
+                isDisabled={!isRemovable}
+                isDestructive
+                onPress={() => { controls.remove(added.instanceId); }}
+            >
+                <X size={ICON_SIZE_PX} />
+            </LayerButton>
+
         </li>
     );
 }
