@@ -35,7 +35,7 @@ export function RangeField({
         <label className="block space-y-1">
             <span className="flex items-baseline justify-between gap-3 field-label">
                 {label}
-                <span className="numeric normal-case tracking-normal text-ink-300">{display}</span>
+                <span className="numeric text-[11px] font-normal normal-case tracking-normal text-ink-300">{display}</span>
             </span>
             <Slider.Root
                 value={[value]}

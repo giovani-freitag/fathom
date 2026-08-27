@@ -1,3 +1,5 @@
+import type { Translate } from '../../i18n/translator.ts';
+import { PanelSection } from '../../ui/panel-section.tsx';
 import type { ReactElement, ReactNode } from 'react';
 import type { ChartState } from '../../core/chart-controller.ts';
 import { formatDuration, formatFixed } from '../../core/formatting.ts';
@@ -24,46 +26,53 @@ interface BookPanelProps {
  * its layer would be a collector nobody could stop.
  */
 export function BookPanel({ state }: BookPanelProps): ReactElement {
-    const kernel = useKernel();
     const translate = useTranslate();
 
     return (
-        <div className="space-y-3 border-t border-hairline pt-3">
-            <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
-                <Stat isLead term={translate('settings.recordedSoFar')}>
-                    {formatDuration(resolveRecordedSpanMs(state.instruments, state.instrumentSymbol), translate)}
-                </Stat>
-                <Stat term={translate('settings.resolution')}>
-                    {translate('settings.perColumn', { value: formatDuration(state.dataset.sampleIntervalMs, translate) })}
-                </Stat>
-                <Stat term={translate('settings.priceBand')}>
-                    {translate('settings.perRow', { value: state.dataset.priceBucketSize })}
-                </Stat>
-                <Stat term={translate('settings.columnsLoaded')}>
-                    {formatFixed(state.dataset.frames.length, 0)}
-                </Stat>
-                <Stat term={translate('settings.gapsInWindow')}>
-                    {formatFixed(state.dataset.gaps.length, 0)}
-                </Stat>
-            </dl>
+        <>
+            <PanelSection
+                title={translate('settings.drawn')}
+                {...(state.instrumentSymbol === null ? {} : { summary: state.instrumentSymbol })}
+            >
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
+                    <Stat isLead term={translate('settings.recordedSoFar')}>
+                        {formatDuration(resolveRecordedSpanMs(state.instruments, state.instrumentSymbol), translate)}
+                    </Stat>
+                    <Stat term={translate('settings.resolution')}>
+                        {translate('settings.perColumn', { value: formatDuration(state.dataset.sampleIntervalMs, translate) })}
+                    </Stat>
+                    <Stat term={translate('settings.priceBand')}>
+                        {translate('settings.perRow', { value: state.dataset.priceBucketSize })}
+                    </Stat>
+                    <Stat term={translate('settings.columnsLoaded')}>
+                        {formatFixed(state.dataset.frames.length, 0)}
+                    </Stat>
+                    <Stat term={translate('settings.gapsInWindow')}>
+                        {formatFixed(state.dataset.gaps.length, 0)}
+                    </Stat>
+                </dl>
+            </PanelSection>
 
-            {kernel.recording === null ? null : (
-                <div className="space-y-3 border-t border-hairline pt-3">
-                    <RecordingPanel
-                        recording={kernel.recording}
-                        onContractsChanged={() => { void kernel.chart.refreshInstruments(); }}
-                        translate={translate}
-                    />
-                    <p className="panel-note">
-                        {translate('settings.recordingIsGlobal')}
-                    </p>
-                    <p className="panel-note">
-                        {translate('settings.backfillNote')}
-                    </p>
-                </div>
-            )}
+            <RecordingSection translate={translate} />
+        </>
+    );
+}
 
-        </div>
+/**
+ * The collector, beside the readings it feeds.
+ */
+function RecordingSection({ translate }: { readonly translate: Translate }): ReactElement | null {
+    const kernel = useKernel();
+    if (kernel.recording === null) {
+        return null;
+    }
+
+    return (
+        <RecordingPanel
+            recording={kernel.recording}
+            onContractsChanged={() => { void kernel.chart.refreshInstruments(); }}
+            translate={translate}
+        />
     );
 }
 

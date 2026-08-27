@@ -159,7 +159,7 @@ interface ToggleFieldProps {
 function ToggleField({ label, isOn, onChange }: ToggleFieldProps): ReactElement {
     return (
         <label className="flex items-center justify-between gap-4">
-            <span className="text-xs text-ink-300">{label}</span>
+            <span className="field-label">{label}</span>
             <ToggleSwitch isOn={isOn} onChange={onChange} />
         </label>
     );

@@ -1,3 +1,4 @@
+import { PanelSection } from '../../ui/panel-section.tsx';
 import { type ReactElement, useCallback, useEffect, useState } from 'react';
 import { ToggleSwitch } from '../../ui/toggle-switch.tsx';
 import type { RecordedContract, RecordingControl, StorageBudget } from '../../../shared/core/recording-control.ts';
@@ -63,20 +64,17 @@ export function RecordingPanel({ recording, onContractsChanged, translate }: Rec
     }, [read]);
 
     if (state === null) {
-        return <p className="text-[11px] text-ink-600">{translate('recording.reading')}</p>;
+        return <p className="panel-note">{translate('recording.reading')}</p>;
     }
 
     return (
-        <div className="space-y-3 border-t border-hairline pt-4">
-            <div className="flex items-baseline justify-between">
-                <span className="text-xs text-ink-300">{translate('recording.title')}</span>
-                <span className="numeric text-[11px] text-ink-500">
-                    {translate('recording.usage', {
-                        used: formatGigabytes(state.budget.usedBytes),
-                        total: formatGigabytes(state.budget.maximumBytes),
-                    })}
-                </span>
-            </div>
+        <PanelSection
+            title={translate('recording.title')}
+            summary={translate('recording.usage', {
+                used: formatGigabytes(state.budget.usedBytes),
+                total: formatGigabytes(state.budget.maximumBytes),
+            })}
+        >
 
             <p className="panel-note">
                 {translate('recording.contractsHelp')}
@@ -119,7 +117,12 @@ export function RecordingPanel({ recording, onContractsChanged, translate }: Rec
             {hasFailed && (
                 <p className="text-[11px] text-ask">{translate('recording.saveFailed')}</p>
             )}
-        </div>
+
+            {/* Both live here rather than beside the readings above: what they
+                warn about is the collector, which is what this section is. */}
+            <p className="panel-note">{translate('settings.recordingIsGlobal')}</p>
+            <p className="panel-note">{translate('settings.backfillNote')}</p>
+        </PanelSection>
     );
 }
 

@@ -1,3 +1,4 @@
+import { PanelSection } from './panel-section.tsx';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { Dialog } from 'radix-ui';
 import { memo, type ReactElement } from 'react';
@@ -66,35 +67,25 @@ function SettingsDrawerShell({
                         </Dialog.Close>
                     </div>
 
-                    <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-                        <span className="block text-xs text-ink-300">
-                            {translate('indicators.title')}
-                        </span>
-                        <DrawerLayers
-                            controls={controls}
-                            expanded={expandedLayer}
-                            onExpandedChange={onExpandedLayerChange}
-                        />
+                    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                        <PanelSection title={translate('indicators.title')} isDivided={false}>
+                            <DrawerLayers
+                                controls={controls}
+                                expanded={expandedLayer}
+                                onExpandedChange={onExpandedLayerChange}
+                            />
+                        </PanelSection>
 
-                        {/*
-                            Its own section, present whether or not the book is
-                            being drawn. Kept inside the layer, taking the book
-                            off the chart would take the only control over a
-                            collector that goes on writing to disk — and an
-                            order book that stopped being recorded cannot be
-                            recovered afterwards.
-                        */}
-                        <span className="block border-t border-hairline pt-5 text-xs text-ink-300">
-                            {translate('settings.appearance')}
-                        </span>
-                        <AppearanceControls
-                            locale={appearance.locale}
-                            themeChoice={appearance.themeChoice}
-                            resolvedTheme={appearance.resolvedTheme}
-                            translate={translate}
-                            onSelectLocale={(locale) => { kernel.appearance.selectLocale(locale); }}
-                            onSelectTheme={(themeChoice) => { kernel.appearance.selectTheme(themeChoice); }}
-                        />
+                        <PanelSection title={translate('settings.appearance')}>
+                            <AppearanceControls
+                                locale={appearance.locale}
+                                themeChoice={appearance.themeChoice}
+                                resolvedTheme={appearance.resolvedTheme}
+                                translate={translate}
+                                onSelectLocale={(locale) => { kernel.appearance.selectLocale(locale); }}
+                                onSelectTheme={(themeChoice) => { kernel.appearance.selectTheme(themeChoice); }}
+                            />
+                        </PanelSection>
 
                         <AboutPanel translate={translate} />
                     </div>

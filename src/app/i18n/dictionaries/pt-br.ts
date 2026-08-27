@@ -175,6 +175,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'language.en': 'Inglês',
     'language.pt-BR': 'Português',
 
+    'settings.drawn': 'O que está desenhado',
     'settings.recordedSoFar': 'Gravado até agora',
     'settings.resolution': 'Resolução',
     'settings.perColumn': '{value} por coluna',

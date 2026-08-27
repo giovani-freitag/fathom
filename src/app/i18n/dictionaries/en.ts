@@ -173,6 +173,7 @@ export const EN_DICTIONARY = {
     'language.en': 'English',
     'language.pt-BR': 'Portuguese',
 
+    'settings.drawn': 'What is drawn',
     'settings.recordedSoFar': 'Recorded so far',
     'settings.resolution': 'Resolution',
     'settings.perColumn': '{value} per column',
