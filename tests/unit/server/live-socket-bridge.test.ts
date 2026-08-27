@@ -2,38 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildFrame, buildWindow } from '../../mocks/chart-services.ts';
 import type { LiveTailService, LiveTailSubscriptionRequest } from '../../../src/server/services/live-tail-service.ts';
 import { LiveSocketBridge } from '../../../src/server/services/live-socket-bridge.ts';
-import type { WebSocket } from '@fastify/websocket';
-
-const OPEN = 1;
-
-interface FakeSocket extends WebSocket {
-    readonly sent: unknown[];
-    readonly closures: { code: number; reason: string }[];
-    fire: (event: string) => void;
-    setReadyState: (state: number) => void;
-}
-
-function openFakeSocket(): FakeSocket {
-    const listeners: Record<string, (() => void)[]> = {};
-    const sent: unknown[] = [];
-    const closures: { code: number; reason: string }[] = [];
-    let readyState = OPEN;
-
-    return {
-        OPEN,
-        get readyState() { return readyState; },
-        send: (payload: unknown) => { sent.push(payload); },
-        close: (code: number, reason: string) => { closures.push({ code, reason }); },
-        on: (event: string, handler: () => void) => { (listeners[event] ??= []).push(handler); },
-        off: (event: string, handler: () => void) => {
-            listeners[event] = (listeners[event] ?? []).filter((existing) => existing !== handler);
-        },
-        sent,
-        closures,
-        fire: (event: string) => { for (const handler of listeners[event] ?? []) { handler(); } },
-        setReadyState: (state: number) => { readyState = state; },
-    } as unknown as FakeSocket;
-}
+import { type FakeSocket, openFakeSocket } from '../../mocks/websocket.ts';
 
 describe('LiveSocketBridge', () => {
     let socket: FakeSocket;
