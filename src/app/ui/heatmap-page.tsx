@@ -175,19 +175,15 @@ export function HeatmapPage(): ReactElement {
 
                 <IndicatorOverlay controls={indicators} />
 
-                {/* An island rather than a bar of its own: drawing is done in
-                    bursts, and a full row of chrome for it costs the chart its
-                    height for as long as the page is open. What can be changed
-                    about the selected mark stacks directly above it.
-
-                    Clear of the time axis, whose labels are read while a mark is
-                    being placed and would otherwise sit under the island. */}
+                {/* What opens over the chart, clear of the time axis: its
+                    labels are read while a mark is being placed and would
+                    otherwise sit under whatever opened. */}
                 <div
                     className="pointer-events-none absolute inset-x-0 flex flex-col items-center gap-2 px-2"
                     style={{ bottom: TIME_AXIS_CLEARANCE_PX }}
                 >
-                    {/* Right-aligned above the islands, which on a phone are
-                        as wide as the screen: anywhere beside them collides. */}
+                    {/* Right-aligned above whatever else is here, which on a
+                        phone is as wide as the screen: beside it collides. */}
                     {!isFollowingLive && (
                         <div className="flex w-full justify-end">
                             <ReturnToLive onReturn={handleReturnToLive} />
@@ -197,11 +193,6 @@ export function HeatmapPage(): ReactElement {
                     {/* Along the bottom rather than down the edge, where on a
                         phone a panel would be most of the chart. */}
                     {!isWide && <ChartProperties drawings={drawings} indicators={indicators} />}
-
-                    {!isWide && <ChartDock
-                        {...chartControls}
-                        drawings={drawings}
-                    />}
                 </div>
 
                 {/* Opened by the selection itself, on the side a reader's eye is
@@ -234,7 +225,18 @@ export function HeatmapPage(): ReactElement {
                 )}
             </main>
 
-            <div className="shrink-0 pb-[env(safe-area-inset-bottom)]" />
+            {/* Below the chart rather than over it. It floated once, to spend no
+                height on chrome — but what it floated over was the volume the
+                reader was trying to read, and a control that covers the thing it
+                is about has taken more than it gave. */}
+            <div className="shrink-0 pb-[env(safe-area-inset-bottom)]">
+                {!isWide && (
+                    <ChartDock
+                        {...chartControls}
+                        drawings={drawings}
+                    />
+                )}
+            </div>
         </div>
     );
 }

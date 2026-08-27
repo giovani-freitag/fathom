@@ -2,6 +2,7 @@ import { BarIntervalControl, SpanControl } from './time-controls.tsx';
 import { type ChartDockProps, Divider, DrawingTools } from './chart-dock.tsx';
 import { Layers } from 'lucide-react';
 import type { ReactElement, ReactNode } from 'react';
+import { CONTROL_BAR_CLASSES } from './control-shell.ts';
 import { DockPopover } from './dock-popover.tsx';
 import { LayerPanel } from './indicators/layer-panel.tsx';
 import { Select } from './select.tsx';
@@ -39,7 +40,7 @@ export function ChartHeader(props: ChartHeaderProps): ReactElement {
     const { time } = props;
 
     return (
-        <header className="flex shrink-0 items-center gap-2 border-b border-hairline px-3 py-2">
+        <header className={`${CONTROL_BAR_CLASSES} border-b border-hairline`}>
             <Select
                 value={props.instrumentSymbol ?? ''}
                 label={translate('instrument.label')}

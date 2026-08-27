@@ -58,10 +58,16 @@ export const CONTROL_RESTING_CLASSES = 'text-ink-400 hover:bg-abyss-700 hover:te
  */
 export const FLOATING_SURFACE_CLASSES = 'border border-hairline bg-abyss-800/95 backdrop-blur';
 
-/** The shell every floating island shares, so they read as one family. */
-export const FLOATING_PANEL_CLASSES =
-    `pointer-events-auto flex items-center gap-1 rounded-2xl ${FLOATING_SURFACE_CLASSES}`
-    + ' px-1.5 py-1 shadow-lg';
+/**
+ * The shell a bar of controls shares, top or bottom.
+ *
+ * Scrollable sideways rather than wrapping: a bar that wraps onto two lines has
+ * stopped being a bar, and on a phone the tools run past the edge of the screen
+ * however few of them there are.
+ */
+export const CONTROL_BAR_CLASSES =
+    'flex shrink-0 items-center gap-2 px-3 py-2 max-w-full overflow-x-auto'
+    + ' [scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
 
 /** The shell every panel that opens over the chart shares. */
 export const FLOATING_CARD_CLASSES =

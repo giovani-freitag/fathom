@@ -43,14 +43,19 @@ that takes one gets the whole gesture — move and release — and the pointer n
 reaches the pan, the pinch, or the drag book. A claimant that declines hears
 about it too, which is what lets pressing bare chart mean *done with that one*.
 
-**The controls live along the bottom, as an island rather than a bar.** A phone
-is held by its lower half, and a rail beside the chart is a regrip away. But
-drawing is done in bursts, and a full-width row for it costs the chart its
-height for as long as the page is open — so the tools are a floating island over
-the chart, clear of the time axis. The resting pointer is shown as a tool rather
-than as nothing, and stepping back and forward sits at the end of the same row:
-undoing is part of drawing, and a row of its own for two glyphs was a second
-place to look.
+**The controls live along the bottom, in a bar below the chart.** A phone is held
+by its lower half, and a rail beside the chart is a regrip away. The resting
+pointer is shown as a tool rather than as nothing, and stepping back and forward
+sits at the end of the same row: undoing is part of drawing, and a row of its
+own for two glyphs was a second place to look.
+
+They floated first, as an island over the chart, on the reasoning that drawing
+is done in bursts and a full-width row costs the chart its height for as long as
+the page is open. That was measured against the wrong cost. What the island
+floated over was the volume pane, which is where the bottom of the chart does
+its reading, and a control that covers the thing it is about has taken more than
+it gave. The bar is the same shell the wide layout puts on top, so the two
+cannot drift apart. What still floats is only what opens for a moment.
 
 **Selecting a mark opens what can be changed about it.** Not a control that then
 opens it — the reader has already said what they want to work on by pressing it,

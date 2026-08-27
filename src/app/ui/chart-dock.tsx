@@ -5,7 +5,7 @@ import {
     CONTROL_ACTIVE_CLASSES,
     CONTROL_BUTTON_CLASSES,
     CONTROL_RESTING_CLASSES,
-    FLOATING_PANEL_CLASSES,
+    CONTROL_BAR_CLASSES,
 } from './control-shell.ts';
 import { DockPopover } from './dock-popover.tsx';
 import { DRAWING_KINDS, type DrawingKind } from '../../shared/core/drawing.ts';
@@ -75,7 +75,7 @@ export function ChartDock(props: ChartDockProps): ReactElement {
 
     return (
         <div
-            className={`${FLOATING_PANEL_CLASSES} max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
+            className={`${CONTROL_BAR_CLASSES} border-t border-hairline`}
             role="toolbar"
             aria-label={translate('dock.label')}
         >

@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+    CONTROL_BAR_CLASSES,
     CONTROL_CHIP_CLASSES,
     CONTROL_HEIGHT,
     CONTROL_INPUT_CLASSES,
     FLOATING_CARD_CLASSES,
-    FLOATING_PANEL_CLASSES,
     FLOATING_SURFACE_CLASSES,
 } from '../../../../src/app/ui/control-shell.ts';
 
@@ -35,8 +35,13 @@ describe('control-shell', () => {
     it('makes every floating shell out of the same material', () => {
         // The shape is each one's own; the hairline, the ground and the blur
         // are not, or the chart looks like it is wearing three interfaces.
-        expect([FLOATING_PANEL_CLASSES, FLOATING_CARD_CLASSES]
-            .every((shell) => shell.includes(FLOATING_SURFACE_CLASSES))).toBe(true);
+        expect(FLOATING_CARD_CLASSES).toContain(FLOATING_SURFACE_CLASSES);
+    });
+
+    it('gives a bar of controls the same shell top or bottom', () => {
+        // The header and the dock ask the same questions in the same shapes;
+        // one of them styled by hand is the one that drifts.
+        expect(CONTROL_BAR_CLASSES).toContain('overflow-x-auto');
     });
 
     it('is the only place the floating ground is named', () => {

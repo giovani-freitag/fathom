@@ -696,10 +696,16 @@ there is still time to change one's mind.
 
 On a screen held in one hand the controls sit along the bottom, not in a header:
 a phone is held by its lower half, and a control a thumb cannot reach without
-regripping is a control that does not get used. They are *islands* floating over the chart rather than bars
-of their own, because chrome that takes layout costs the chart its height for as
-long as the page is open — and most of what is down there is opened once and
-closed again.
+regripping is a control that does not get used. It is a *bar* below the chart,
+the mirror of the one a wide screen puts on top, sharing its shell so the two
+cannot drift apart.
+
+It floated once, as an island over the chart, to spend no height on chrome. What
+it floated over turned out to be the volume pane — the bottom of the chart is
+where the reading is, not spare room — and a control that covers the thing it is
+about has taken more than it gave. What still floats is only what opens for a
+moment: the panel for whatever mark or reading is selected, and the way back to
+the live edge.
 
 Which is what makes it hold so much. Each question the chart is about — which
 contract, how much time is on screen, and what is on it — is one target that
