@@ -1,5 +1,6 @@
 import { BAR_INTERVALS_MS, type BarIntervalMs } from '../core/bar-interval.ts';
 import { formatDuration } from '../core/formatting.ts';
+import { Select } from './select.tsx';
 import { memo, type ReactElement } from 'react';
 import { useTranslate } from '../react/use-appearance.ts';
 
@@ -34,25 +35,23 @@ function IntervalPickerComponent({
     const offered = BAR_INTERVALS_MS.filter((rung) => rung >= Math.max(1, frameIntervalMs));
 
     return (
-        <label className="flex items-center gap-1.5">
-            <span className="sr-only">{translate('interval.label')}</span>
-            <select
-                value={chosen === null ? AUTOMATIC : String(chosen)}
-                onChange={(event) => {
-                    const { value } = event.target;
-                    onSelect(value === AUTOMATIC ? null : (Number(value) as BarIntervalMs));
-                }}
-                title={translate('interval.label')}
-                className="rounded border border-hairline bg-abyss-900 px-2 py-1 text-xs tabular-nums text-ink-100 hover:border-hairline-bright focus:outline-none"
-            >
-                <option value={AUTOMATIC}>
-                    {translate('interval.auto', { interval: formatDuration(effectiveMs, translate) })}
-                </option>
-                {offered.map((rung) => (
-                    <option key={rung} value={rung}>{formatDuration(rung, translate)}</option>
-                ))}
-            </select>
-        </label>
+        <Select
+            value={chosen === null ? AUTOMATIC : String(chosen)}
+            label={translate('interval.label')}
+            onSelect={(value) => {
+                onSelect(value === AUTOMATIC ? null : (Number(value) as BarIntervalMs));
+            }}
+            choices={[
+                {
+                    value: AUTOMATIC,
+                    label: translate('interval.auto', { interval: formatDuration(effectiveMs, translate) }),
+                },
+                ...offered.map((rung) => ({
+                    value: String(rung),
+                    label: formatDuration(rung, translate),
+                })),
+            ]}
+        />
     );
 }
 

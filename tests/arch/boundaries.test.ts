@@ -252,3 +252,16 @@ describe('a settings panel is built from one kind of section', () => {
         expect(spelled).toEqual([]);
     });
 });
+
+describe('a reader is asked to pick in one way', () => {
+    it('has one select, written once', () => {
+        // Three of them once shared a screen: a menu forty-four pixels tall, a
+        // native one at twenty-six, and a third built out of a dropdown. Same
+        // question asked of the reader, three shapes to learn.
+        const rolled = sourceFiles
+            .filter((path) => !path.endsWith('ui/select.tsx'))
+            .filter((path) => /<select|DropdownMenu\.|Select\.Root/.test(read(path)));
+
+        expect(rolled).toEqual([]);
+    });
+});

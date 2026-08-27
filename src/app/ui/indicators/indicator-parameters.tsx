@@ -4,6 +4,7 @@ import { INSTANCE_TONES, readChoice, readSetting, readToggle } from '../../../sh
 import type { PlotTone } from '../../../shared/core/draw-plan.ts';
 import { formatFixed } from '../../core/formatting.ts';
 import { RangeField } from '../range-field.tsx';
+import { Select } from '../select.tsx';
 import { ToggleSwitch } from '../toggle-switch.tsx';
 import { ToneSwatch } from './tone-swatch.tsx';
 import { type ReactElement, useState } from 'react';
@@ -176,22 +177,18 @@ function ChoiceField({ parameter, label, value, onChange }: ChoiceFieldProps): R
     const translate = useTranslate();
 
     return (
-        <label className="flex w-full min-w-0 flex-col gap-1">
-            <span className="field-label">
-                {label}
-            </span>
-            <select
+        <div className="flex w-full min-w-0 flex-col gap-1">
+            <span className="field-label">{label}</span>
+            <Select
                 value={value}
-                onChange={(event) => { onChange(event.target.value); }}
-                className="min-h-9 w-full rounded border border-hairline bg-abyss-900 px-2 text-sm text-ink-100 outline-none focus:border-phosphor/60"
-            >
-                {parameter.choices.map((choice) => (
-                    <option key={choice} value={choice}>
-                        {translateLabel(translate, `${parameter.name}.${choice}`)}
-                    </option>
-                ))}
-            </select>
-        </label>
+                label={label}
+                onSelect={onChange}
+                choices={parameter.choices.map((choice) => ({
+                    value: choice,
+                    label: translateLabel(translate, `${parameter.name}.${choice}`),
+                }))}
+            />
+        </div>
     );
 }
 
