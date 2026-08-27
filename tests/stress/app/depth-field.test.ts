@@ -39,12 +39,12 @@ function buildDataset(frames: LiquidityFrame[]): ChartDataset {
 describe('DepthField over a long live session', () => {
     it('absorbs a streamed second without rebuilding, for the whole headroom', () => {
         const frames = [buildFrame(0), buildFrame(1_000)];
-        const field = new DepthField({ dataset: buildDataset(frames), colourGain: 1 });
+        const field = new DepthField({ dataset: buildDataset(frames), colourGain: 1, bucketsPerBand: 1 });
 
         let absorbed = 0;
         for (let second = 2; second < 560; second += 1) {
             frames.push(buildFrame(second * 1_000));
-            if (field.absorb(buildDataset([...frames]), 1)) {
+            if (field.absorb(buildDataset([...frames]), 1, 1)) {
                 absorbed += 1;
             }
         }
@@ -54,31 +54,31 @@ describe('DepthField over a long live session', () => {
 
     it('asks for a rebuild once the reserved columns run out', () => {
         const frames = [buildFrame(0), buildFrame(1_000)];
-        const field = new DepthField({ dataset: buildDataset(frames), colourGain: 1 });
+        const field = new DepthField({ dataset: buildDataset(frames), colourGain: 1, bucketsPerBand: 1 });
         for (let second = 2; second < 700; second += 1) {
             frames.push(buildFrame(second * 1_000));
-            field.absorb(buildDataset([...frames]), 1);
+            field.absorb(buildDataset([...frames]), 1, 1);
         }
 
         frames.push(buildFrame(1_200_000));
 
-        expect(field.absorb(buildDataset([...frames]), 1)).toBe(false);
+        expect(field.absorb(buildDataset([...frames]), 1, 1)).toBe(false);
     });
 
     it('asks for a rebuild once price walks off the painted band', () => {
         const frames = [buildFrame(0), buildFrame(1_000)];
-        const field = new DepthField({ dataset: buildDataset(frames), colourGain: 1 });
+        const field = new DepthField({ dataset: buildDataset(frames), colourGain: 1, bucketsPerBand: 1 });
 
         frames.push(buildFrame(2_000, MID_PRICE * 1.5));
 
-        expect(field.absorb(buildDataset([...frames]), 1)).toBe(false);
+        expect(field.absorb(buildDataset([...frames]), 1, 1)).toBe(false);
     });
 
     it('builds a full-width window inside a frame budget', () => {
         const frames = Array.from({ length: 2_000 }, (_unused, index) => buildFrame(index * 1_000));
         const started = performance.now();
 
-        const field = new DepthField({ dataset: buildDataset(frames), colourGain: 1 });
+        const field = new DepthField({ dataset: buildDataset(frames), colourGain: 1, bucketsPerBand: 1 });
 
         expect([field.columnCount, performance.now() - started < 900]).toEqual([2_000, true]);
     });
@@ -89,7 +89,7 @@ describe('DepthField over a long live session', () => {
             MID_PRICE + index * 500,
         ));
 
-        const field = new DepthField({ dataset: buildDataset(frames), colourGain: 1 });
+        const field = new DepthField({ dataset: buildDataset(frames), colourGain: 1, bucketsPerBand: 1 });
 
         expect(field.canvas.width * field.canvas.height).toBeLessThanOrEqual(8_000_000);
     });
@@ -100,7 +100,7 @@ describe('DepthField over a long live session', () => {
             index < 190 ? MID_PRICE : MID_PRICE + 900_000,
         ));
 
-        const field = new DepthField({ dataset: buildDataset(frames), colourGain: 1 });
+        const field = new DepthField({ dataset: buildDataset(frames), colourGain: 1, bucketsPerBand: 1 });
         const highestBucket = field.lowestBucketIndex + field.bucketCount - 1;
 
         expect(TOUCH_BUCKET >= field.lowestBucketIndex && TOUCH_BUCKET <= highestBucket).toBe(true);

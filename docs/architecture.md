@@ -548,6 +548,26 @@ indicator now costs its price when something changes rather than sixty times a
 second, which is what makes the surface affordable to grow. ADR 0010 records the
 measurements.
 
+### Rows a reader can follow
+
+The depth map is a bitmap: one pixel per price bucket per sampled instant. That
+is the right grid to hold it on and the wrong one to draw it at, once a window
+of days spreads thousands of prices over a few hundred pixels. A row a pixel or
+two high is a hairline — it reads as scattered specks rather than as the walls
+price kept turning at, and the ones that land on a half pixel come out fainter
+still.
+
+So the buckets are folded into bands before the image is built, enough of them
+that a drawn band is at least three pixels tall, and none at all while a bucket
+is already several pixels high and the price detail is the point. How many is
+quantised to powers of two, because the price band follows the market: an answer
+that moved with it would rebuild the whole field between one frame and the next.
+
+A band carries **the largest resting size anywhere in it**, never the total. A
+colour then means the same thing at every zoom — how big the biggest wall around
+here is — and a wall does not dim as the window widens and the empty prices
+either side of it are folded in with it.
+
 ## What a reader draws themselves
 
 A level, a trend line: a mark a reader leaves is about the market, not about the

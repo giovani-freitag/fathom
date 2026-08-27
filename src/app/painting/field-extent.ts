@@ -2,9 +2,12 @@ import type { LiquidityFrame } from '../../shared/core/liquidity-frame.ts';
 import type { ChartDataset } from '../core/chart-dataset.ts';
 
 /**
- * Bucket rows the source image is allowed to hold.
+ * Rows the source image is allowed to hold.
+ *
+ * Counted in drawn rows rather than in price buckets: a wide window folds many
+ * buckets into one row, and it is the rows that cost memory.
  */
-const MAXIMUM_BUCKET_ROWS = 6_000;
+const MAXIMUM_IMAGE_ROWS = 6_000;
 
 /**
  * Total pixels the field may allocate, at four bytes each.
@@ -21,10 +24,18 @@ export interface FieldExtent {
     readonly columnCount: number;
     readonly columnCapacity: number;
     readonly lowestBucketIndex: number;
+    /** Price buckets the field covers, always a whole number of bands. */
     readonly bucketCount: number;
 }
 
-export function measureExtent(dataset: ChartDataset): FieldExtent {
+/**
+ * The grid a field should be built on.
+ *
+ * @param dataset - The window to cover.
+ * @param bucketsPerBand - Price buckets folded into one drawn row.
+ * @returns Where the field starts, how far it reaches, and how much it holds.
+ */
+export function measureExtent(dataset: ChartDataset, bucketsPerBand = 1): FieldExtent {
     const firstFrame = dataset.frames[0];
     const lastFrame = dataset.frames[dataset.frames.length - 1];
     if (firstFrame === undefined || lastFrame === undefined) {
@@ -54,9 +65,13 @@ export function measureExtent(dataset: ChartDataset): FieldExtent {
         );
     }
 
-    const requestedRows = Math.max(1, highestBucketIndex - lowestBucketIndex + 1);
+    const bandSize = Math.max(1, Math.floor(bucketsPerBand));
+    const requestedRows = Math.ceil(Math.max(1, highestBucketIndex - lowestBucketIndex + 1) / bandSize);
     const pixelBudgetRows = Math.floor(MAXIMUM_FIELD_PIXELS / Math.max(1, columnCapacity));
-    const bucketCount = Math.max(1, Math.min(requestedRows, MAXIMUM_BUCKET_ROWS, pixelBudgetRows));
+    const rowCount = Math.max(1, Math.min(requestedRows, MAXIMUM_IMAGE_ROWS, pixelBudgetRows));
+    // Whole bands only: half a band at the edge would draw a row from prices
+    // the field never covered.
+    const bucketCount = rowCount * bandSize;
 
     return {
         baseTimestampMs: firstFrame.capturedAtMs,

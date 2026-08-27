@@ -1,28 +1,27 @@
 import type { LiquidityFrame } from '../../../shared/core/liquidity-frame.ts';
 import { DepthColourScale } from './depth-colour-scale.ts';
+import { DepthRowFolder, type TouchedRows } from './depth-row-folder.ts';
 import type { ChartDataset } from '../../core/chart-dataset.ts';
 import { measureExtent } from '../../painting/field-extent.ts';
 
 export interface DepthFieldConfig {
     readonly dataset: ChartDataset;
     readonly colourGain: number;
+    /**
+     * Price buckets folded into one drawn row.
+     *
+     * One at close range, where every bucket has a pixel of its own. More as the
+     * window widens, because a row thinner than a pixel is not something the
+     * browser can draw: the walls a reader is looking for come out as scattered
+     * specks, and half of them are dropped entirely.
+     */
+    readonly bucketsPerBand: number;
 }
 
 interface FramePaint {
     readonly image: ImageData;
     readonly frame: LiquidityFrame;
     readonly columnOffset: number;
-    readonly imageWidth: number;
-}
-
-/**
- * One side of one frame, named because the two figures that place it are both
- * numbers: where the column sits, and how wide the image it sits in is.
- */
-interface LadderPaint {
-    readonly image: ImageData;
-    readonly ladder: LiquidityFrame['bids'];
-    readonly column: number;
     readonly imageWidth: number;
 }
 
@@ -36,6 +35,9 @@ export class DepthField {
     readonly lowestBucketIndex: number;
     readonly bucketCount: number;
     readonly priceBucketSize: number;
+    readonly bucketsPerBand: number;
+    /** Rows the image holds, one per band of buckets. */
+    readonly rowCount: number;
     readonly saturationQuantity: number;
     readonly floorQuantity: number;
     readonly canvas: HTMLCanvasElement;
@@ -46,13 +48,24 @@ export class DepthField {
     private readonly instrumentSymbol: string;
     private readonly colourGain: number;
 
+    /** Folds a frame's buckets into the rows they are drawn as. */
+    private readonly folder: DepthRowFolder;
+
     private paintedFrameCount = 0;
     private lastPaintedFrame: LiquidityFrame | null = null;
 
     constructor(config: DepthFieldConfig) {
         const { dataset } = config;
-        const extent = measureExtent(dataset);
+        const bucketsPerBand = Math.max(1, Math.floor(config.bucketsPerBand));
+        const extent = measureExtent(dataset, bucketsPerBand);
 
+        this.bucketsPerBand = bucketsPerBand;
+        this.rowCount = extent.bucketCount / bucketsPerBand;
+        this.folder = new DepthRowFolder({
+            rowCount: this.rowCount,
+            highestBucketIndex: extent.lowestBucketIndex + extent.bucketCount - 1,
+            bucketsPerBand,
+        });
         this.instrumentSymbol = dataset.instrumentSymbol;
         this.colourGain = config.colourGain;
         this.priceBucketSize = dataset.priceBucketSize;
@@ -72,7 +85,7 @@ export class DepthField {
 
         this.canvas = document.createElement('canvas');
         this.canvas.width = Math.max(1, extent.columnCapacity);
-        this.canvas.height = Math.max(1, extent.bucketCount);
+        this.canvas.height = Math.max(1, this.rowCount);
         this.context = this.canvas.getContext('2d');
 
         this.paintRange(dataset.frames, 0);
@@ -89,6 +102,13 @@ export class DepthField {
     }
 
     /**
+     * How much price one drawn row covers.
+     */
+    get priceRowSize(): number {
+        return this.priceBucketSize * this.bucketsPerBand;
+    }
+
+    /**
      * Row a price maps to, with price growing upward.
      *
      * @param price - Price in quote currency.
@@ -96,7 +116,7 @@ export class DepthField {
      */
     priceToRow(price: number): number {
         const highestBucketIndex = this.lowestBucketIndex + this.bucketCount - 1;
-        return highestBucketIndex - price / this.priceBucketSize + 1;
+        return (highestBucketIndex - price / this.priceBucketSize + 1) / this.bucketsPerBand;
     }
 
     /**
@@ -107,8 +127,9 @@ export class DepthField {
      * @returns True when the image now represents the dataset; false when the
      *          window changed in a way that needs a fresh field.
      */
-    absorb(dataset: ChartDataset, colourGain: number): boolean {
-        if (!this.sharesGridWith(dataset, colourGain) || dataset.frames.length < this.paintedFrameCount) {
+    absorb(dataset: ChartDataset, colourGain: number, bucketsPerBand: number): boolean {
+        if (!this.sharesGridWith(dataset, colourGain, bucketsPerBand)
+            || dataset.frames.length < this.paintedFrameCount) {
             return false;
         }
 
@@ -131,8 +152,13 @@ export class DepthField {
         return true;
     }
 
-    private sharesGridWith(dataset: ChartDataset, colourGain: number): boolean {
-        return dataset.instrumentSymbol === this.instrumentSymbol
+    private sharesGridWith(
+        dataset: ChartDataset,
+        colourGain: number,
+        bucketsPerBand: number,
+    ): boolean {
+        return Math.max(1, Math.floor(bucketsPerBand)) === this.bucketsPerBand
+            && dataset.instrumentSymbol === this.instrumentSymbol
             && dataset.priceBucketSize === this.priceBucketSize
             && dataset.sampleIntervalMs === this.sampleIntervalMs
             && dataset.saturationQuantity === this.saturationQuantity
@@ -182,7 +208,7 @@ export class DepthField {
         }
 
         const width = bounds.lastColumn - bounds.firstColumn + 1;
-        const image = context.createImageData(width, this.bucketCount);
+        const image = context.createImageData(width, this.rowCount);
         for (const frame of frames) {
             this.paintFrame({ image, frame, columnOffset: bounds.firstColumn, imageWidth: width });
         }
@@ -213,24 +239,26 @@ export class DepthField {
         if (column < 0 || column >= imageWidth) {
             return;
         }
-        this.paintLadder({ image, ladder: frame.bids, column, imageWidth });
-        this.paintLadder({ image, ladder: frame.asks, column, imageWidth });
+
+        const touched = this.folder.fold(frame);
+        if (touched === null) {
+            return;
+        }
+
+        this.paintRows({ image, column, imageWidth }, touched);
+        this.folder.clear(touched);
     }
 
-    private paintLadder(request: LadderPaint): void {
-        const { image, ladder, column, imageWidth } = request;
+    /**
+     * Writes the folded rows of one column into the image.
+     */
+    private paintRows(target: RowTarget, touched: TouchedRows): void {
         const ramp = DepthColourScale.ramp();
-        const highestRow = this.lowestBucketIndex + this.bucketCount - 1;
-        const { quantities, lowestBucketIndex } = ladder;
+        const { image, column, imageWidth } = target;
 
-        for (let offset = 0; offset < quantities.length; offset += 1) {
-            const quantity = quantities[offset]!;
+        for (let row = touched.lowRow; row <= touched.highRow; row += 1) {
+            const quantity = this.folder.quantityAt(row);
             if (quantity <= 0) {
-                continue;
-            }
-
-            const row = highestRow - (lowestBucketIndex + offset);
-            if (row < 0 || row >= this.bucketCount) {
                 continue;
             }
 
@@ -242,4 +270,11 @@ export class DepthField {
             image.data[pixelOffset + 3] = ramp[rampOffset + 3]!;
         }
     }
+}
+
+/** Where one column of the image is being written. */
+interface RowTarget {
+    readonly image: ImageData;
+    readonly column: number;
+    readonly imageWidth: number;
 }
