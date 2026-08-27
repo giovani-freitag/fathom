@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.0](https://github.com/giovani-freitag/fathom/compare/v0.7.0...v0.8.0) (2026-08-27)
+
+
+### Features
+
+* fetch candles and volume from the venue so the chart opens on history ([10700ab](https://github.com/giovani-freitag/fathom/commit/10700ab906106b538916e4105e39029291a4e923))
+
+
+### Bug Fixes
+
+* put the tool bar below the chart instead of floating it over the volume ([fb23eef](https://github.com/giovani-freitag/fathom/commit/fb23eefb1d5d41c08c956593715631260639dd91))
+
 ## [0.7.0](https://github.com/giovani-freitag/fathom/compare/v0.6.0...v0.7.0) (2026-08-27)
 
 
