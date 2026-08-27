@@ -27,12 +27,17 @@ interface Harness {
     readonly supervisor: CollectorSupervisor;
     readonly log: MockCollectorLog;
     readonly listContracts: ReturnType<typeof vi.fn>;
+    readonly archive: LiquidityArchive;
+    readonly pruneToBudget: ReturnType<typeof vi.fn>;
     setNowMs: (nowMs: number) => void;
+    setContracts: (contracts: readonly RecordedContract[]) => void;
 }
 
 function buildHarness(contracts: readonly RecordedContract[]): Harness {
     const log = createMockCollectorLog();
     const listContracts = vi.fn().mockResolvedValue(contracts);
+    const archive = buildArchive();
+    const pruneToBudget = vi.fn().mockResolvedValue(0);
     let nowMs = 1_000_000;
 
     const supervisor = new CollectorSupervisor({
@@ -41,9 +46,9 @@ function buildHarness(contracts: readonly RecordedContract[]): Harness {
             saveContract: vi.fn().mockResolvedValue(undefined),
             readBudget: vi.fn().mockResolvedValue({ maximumBytes: 1, usedBytes: 0, availableBytes: null }),
             setBudget: vi.fn().mockResolvedValue(undefined),
-            pruneToBudget: vi.fn().mockResolvedValue(0),
+            pruneToBudget,
         },
-        archive: buildArchive(),
+        archive,
         openSocket: openSilentMarketDataSocket,
         log: log.log,
         shared: {
@@ -57,7 +62,15 @@ function buildHarness(contracts: readonly RecordedContract[]): Harness {
         readNowMs: () => nowMs,
     });
 
-    return { supervisor, log, listContracts, setNowMs: (next) => { nowMs = next; } };
+    return {
+        supervisor,
+        log,
+        listContracts,
+        archive,
+        pruneToBudget,
+        setNowMs: (next) => { nowMs = next; },
+        setContracts: (next) => { listContracts.mockResolvedValue(next); },
+    };
 }
 
 describe('CollectorSupervisor liveness', () => {
@@ -128,5 +141,139 @@ describe('CollectorSupervisor logging', () => {
 
         expect(harness.log.lines.map((line) => line.message))
             .toContain('Could not reconcile the recording');
+    });
+});
+
+describe('CollectorSupervisor shutdown', () => {
+    it('stops every collector it was running', async () => {
+        const harness = buildHarness([buildContract('BTCUSDT'), buildContract('ETHUSDT')]);
+        await harness.supervisor.start();
+
+        await harness.supervisor.stop();
+
+        expect(harness.supervisor.recording).toEqual([]);
+    });
+
+    it('releases the archive the collectors shared', async () => {
+        const harness = buildHarness([buildContract('BTCUSDT')]);
+        await harness.supervisor.start();
+
+        await harness.supervisor.stop();
+
+        expect(harness.archive.close).toHaveBeenCalled();
+    });
+
+    it('brings nothing back up after it was stopped', async () => {
+        const harness = buildHarness([buildContract('BTCUSDT')]);
+        await harness.supervisor.start();
+        await harness.supervisor.stop();
+
+        await harness.supervisor.reconcileNow();
+
+        expect(harness.supervisor.recording).toEqual([]);
+    });
+
+    it('asks nothing of the database once it has been stopped', async () => {
+        // The archive it read through is closed, and a pass against a closed
+        // archive spends the shutdown logging failures nobody can act on.
+        const harness = buildHarness([buildContract('BTCUSDT')]);
+        await harness.supervisor.start();
+        await harness.supervisor.stop();
+        const contractsListed = harness.listContracts.mock.calls.length;
+
+        await harness.supervisor.reconcileNow();
+
+        expect(harness.listContracts.mock.calls.length).toBe(contractsListed);
+    });
+
+    it('brings nothing up when it is stopped before the first pass begins', async () => {
+        const harness = buildHarness([buildContract('BTCUSDT')]);
+        const starting = harness.supervisor.start();
+
+        await harness.supervisor.stop();
+        await starting;
+
+        expect(harness.supervisor.recording).toEqual([]);
+    });
+
+    it('leaves nothing running that a pass in flight was still starting', async () => {
+        // A collector started after the drain holds its socket and its write
+        // buffer for the life of the process, and nothing ever stops it.
+        const harness = buildHarness([buildContract('BTCUSDT')]);
+        const reachedVenue = Promise.withResolvers<void>();
+        const releaseVenue = Promise.withResolvers<void>();
+        vi.mocked(harness.archive.registerInstrument).mockImplementationOnce(async () => {
+            reachedVenue.resolve();
+            await releaseVenue.promise;
+        });
+        const starting = harness.supervisor.start();
+        await reachedVenue.promise;
+
+        await harness.supervisor.stop();
+        releaseVenue.resolve();
+        await starting;
+
+        expect(harness.supervisor.recording).toEqual([]);
+    });
+});
+
+describe('CollectorSupervisor reconciling', () => {
+    it('stops a collector whose contract was switched off', async () => {
+        const harness = buildHarness([buildContract('BTCUSDT'), buildContract('ETHUSDT')]);
+        await harness.supervisor.start();
+
+        harness.setContracts([buildContract('BTCUSDT'), { ...buildContract('ETHUSDT'), isEnabled: false }]);
+        await harness.supervisor.reconcileNow();
+
+        expect(harness.supervisor.recording).toEqual(['BTCUSDT']);
+    });
+
+    it('says which contract it stopped recording', async () => {
+        const harness = buildHarness([buildContract('ETHUSDT')]);
+        await harness.supervisor.start();
+
+        harness.setContracts([{ ...buildContract('ETHUSDT'), isEnabled: false }]);
+        await harness.supervisor.reconcileNow();
+
+        expect(harness.log.lines).toContainEqual({
+            level: 'info',
+            message: 'Stopped recording',
+            fields: { instrumentSymbol: 'ETHUSDT' },
+        });
+    });
+
+    it('says how much history the disk budget cost', async () => {
+        const harness = buildHarness([buildContract('BTCUSDT')]);
+        harness.pruneToBudget.mockResolvedValue(3);
+
+        await harness.supervisor.start();
+
+        expect(harness.log.lines).toContainEqual({
+            level: 'warning',
+            message: 'Dropped the oldest partitions to stay inside the disk budget',
+            fields: { partitions: 3 },
+        });
+    });
+
+    it('says nothing about the budget when it dropped no history', async () => {
+        const harness = buildHarness([buildContract('BTCUSDT')]);
+
+        await harness.supervisor.start();
+
+        expect(harness.log.lines.map((line) => line.message)).not.toContain(
+            'Dropped the oldest partitions to stay inside the disk budget',
+        );
+    });
+
+    it('keeps recording when a contract cannot be listed', async () => {
+        // The next pass tries again: a database blip must not take the whole
+        // recording down with it.
+        const harness = buildHarness([buildContract('BTCUSDT')]);
+        await harness.supervisor.start();
+
+        harness.listContracts.mockRejectedValueOnce(new Error('database unreachable'));
+        await harness.supervisor.reconcileNow();
+
+        expect(harness.supervisor.recording).toEqual(['BTCUSDT']);
     });
 });

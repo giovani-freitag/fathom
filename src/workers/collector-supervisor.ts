@@ -37,7 +37,7 @@ export class CollectorSupervisor {
     /** When each runtime was started, which is its liveness before its first frame. */
     private readonly startedAtMs = new Map<string, number>();
     private reconcileTimer: TimerHandle | null = null;
-    private isReconciling = false;
+    private reconcilePass: Promise<void> | null = null;
     private wasStopped = false;
 
     constructor(config: CollectorSupervisorConfig) {
@@ -89,11 +89,21 @@ export class CollectorSupervisor {
      * @returns Once the pass has finished, or immediately when one is under way.
      */
     async reconcileNow(): Promise<void> {
-        if (this.isReconciling || this.wasStopped) {
+        if (this.reconcilePass !== null || this.wasStopped) {
             return;
         }
-        this.isReconciling = true;
+        this.reconcilePass = this.runPass();
+        try {
+            await this.reconcilePass;
+        } finally {
+            this.reconcilePass = null;
+        }
+    }
 
+    /**
+     * One pass at closing that difference.
+     */
+    private async runPass(): Promise<void> {
         try {
             const registered = await this.config.control.listContracts();
             await this.stopDisabled(registered);
@@ -104,8 +114,6 @@ export class CollectorSupervisor {
             this.config.log.warning('Could not reconcile the recording', {
                 reason: describeError(error),
             });
-        } finally {
-            this.isReconciling = false;
         }
     }
 
@@ -149,6 +157,15 @@ export class CollectorSupervisor {
         }
     }
 
+    /**
+     * Whether shutdown began, read fresh rather than assumed across an await.
+     *
+     * @returns True once `stop` has been called.
+     */
+    private hasShutdownBegun(): boolean {
+        return this.wasStopped;
+    }
+
     private async discard(symbol: string, runtime: CollectorRuntime): Promise<void> {
         await runtime.stop();
         this.running.delete(symbol);
@@ -157,6 +174,9 @@ export class CollectorSupervisor {
 
     private async startEnabled(registered: readonly RecordedContract[]): Promise<void> {
         for (const instrument of registered) {
+            if (this.hasShutdownBegun()) {
+                return;
+            }
             if (!instrument.isEnabled || this.running.has(instrument.instrumentSymbol)) {
                 continue;
             }
@@ -178,6 +198,13 @@ export class CollectorSupervisor {
 
             try {
                 await runtime.start();
+                if (this.hasShutdownBegun()) {
+                    // Stopped while this one was still coming up. Nothing drains
+                    // the running collectors again, so it lets go here or it
+                    // holds its socket and its write buffer for good.
+                    await runtime.stop();
+                    return;
+                }
                 this.running.set(instrument.instrumentSymbol, runtime);
                 this.startedAtMs.set(instrument.instrumentSymbol, this.config.readNowMs());
             } catch (error) {
