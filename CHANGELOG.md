@@ -1,5 +1,57 @@
 # Changelog
 
+## [0.6.0](https://github.com/giovani-freitag/fathom/compare/v0.5.0...v0.6.0) (2026-08-27)
+
+
+### Features
+
+* drop the header and answer what it said where it belongs ([70350e7](https://github.com/giovani-freitag/fathom/commit/70350e716c845737c974d1931ae512e5dc32fbd0))
+* fold the book into bands a reader can follow when the window widens ([441781e](https://github.com/giovani-freitag/fathom/commit/441781ea3308b42d59909438a3da885b88b6aa20))
+* fold the rows over the price behind one control ([a178645](https://github.com/giovani-freitag/fathom/commit/a1786455aee38d2f90fe86b0f36b8523ba6f1fc4))
+* gather every layer control into one panel in the dock ([25c7930](https://github.com/giovani-freitag/fathom/commit/25c79309a69e9cf027a2facb460863c0f7f3b92b))
+* give a wide screen its bar back and a narrow one its dock ([2b6e34d](https://github.com/giovani-freitag/fathom/commit/2b6e34d46c3ab9f2702a05c9fd3a1d5f6460e92c))
+* give every control one height and every layer one home ([036afb0](https://github.com/giovani-freitag/fathom/commit/036afb02febccb223051dfc9765aedcc3a41b070))
+* keep every layer in the dock and open panels onto choices ([b804a70](https://github.com/giovani-freitag/fathom/commit/b804a7017ebda6c62f762a1a79004192a4899cd3))
+* mark the chart up with price levels and trend lines ([484d799](https://github.com/giovani-freitag/fathom/commit/484d799ccfdd2003f146f79d69142e50cbdd77ef))
+* move the chart's controls into the dock and add undo ([23c9620](https://github.com/giovani-freitag/fathom/commit/23c9620163b878185762ad568e22e8a5bcbb4432))
+* open a mark's properties when it is selected ([eaf5f47](https://github.com/giovani-freitag/fathom/commit/eaf5f4733312d670b4ffc21ef59ef9cdeb9d2fcd))
+* open an indicator's settings by tapping the line it drew ([2b33093](https://github.com/giovani-freitag/fathom/commit/2b33093d4c2883c25bef28e28b6ccd30a4dfccff))
+* put the drawing tools along the bottom, with zones and colour ([dae6a4c](https://github.com/giovani-freitag/fathom/commit/dae6a4c13efd576756d4b0145cf22683408d2077))
+* remove a mark with Delete and put the tool down with Escape ([aa1111a](https://github.com/giovani-freitag/fathom/commit/aa1111a5413b452202b1286dd6c3d891676657f8))
+* reshape a mark by its ends and measure a move in money and percent ([b377567](https://github.com/giovani-freitag/fathom/commit/b377567cb115ee23831ef5486de8a8e945187536))
+
+
+### Bug Fixes
+
+* close a socket the venue already hung up on without waiting ([e4b5da5](https://github.com/giovani-freitag/fathom/commit/e4b5da56229c84cb19c35d3635997c43946b3940))
+* close the live socket when the archive cannot answer ([485c0f3](https://github.com/giovani-freitag/fathom/commit/485c0f327c5740eb89b1ec7dc291ffe2732551f4))
+* do not move a mark when a click meant to select it twitches ([70d63f1](https://github.com/giovani-freitag/fathom/commit/70d63f1ded1dc24b6f03ab5da5e7ddd8c81d3520))
+* float the drawing tools as one island instead of a second bar ([3d72570](https://github.com/giovani-freitag/fathom/commit/3d72570a7438c29435cbea368b7ad5d7b22833a6))
+* fold a recording gap that carries on from the one before it ([f49ecf2](https://github.com/giovani-freitag/fathom/commit/f49ecf2a0c425002235ba77c14126a4d3115781a))
+* give a row over the chart only to a layer that reads something there ([a2ce111](https://github.com/giovani-freitag/fathom/commit/a2ce1115ee838658ef5de74da7d4b327cec49cb6))
+* give a settings panel one shape for a section and one voice for a label ([1159d48](https://github.com/giovani-freitag/fathom/commit/1159d48617ad777d1bf9ddfc3a0aaf438d1b0b10))
+* give the rule between two sections breath on both sides ([208785a](https://github.com/giovani-freitag/fathom/commit/208785a4c67b243af1dce92464126dcd50a91100))
+* keep following a database channel whose connection died ([d08b1f1](https://github.com/giovani-freitag/fathom/commit/d08b1f17bb36f9dcc00fc9141438d97ea7967ef4))
+* keep the drawing rail clear of the volume pane and the time axis ([7cabd95](https://github.com/giovani-freitag/fathom/commit/7cabd95a52d8fdba89bb7b5381b8d89f542260e2))
+* let the browser collector finish writing before it is terminated ([8ec1364](https://github.com/giovani-freitag/fathom/commit/8ec13646ab883d49dd98af9b208a91fe353a3bb4))
+* never draw one contract's liquidity onto another's chart ([d8d28c9](https://github.com/giovani-freitag/fathom/commit/d8d28c9ae66bc2f787412d1767f292873d3743c9))
+* never drop the partition the collector is writing into ([d43ed2e](https://github.com/giovani-freitag/fathom/commit/d43ed2e304fe7daef61da5185c8d4608156e212a))
+* never serve the working directory as the viewer ([eeceaef](https://github.com/giovani-freitag/fathom/commit/eeceaef80ab262cea257ba4834ca6bf6a1cce050))
+* open a window no wider than what has been recorded into it ([c6c5fff](https://github.com/giovani-freitag/fathom/commit/c6c5fff415e34ffbe1b724ef65874d95cd4619e9))
+* put a layer's name and its way out on one line, and size a menu to its trigger ([8237a63](https://github.com/giovani-freitag/fathom/commit/8237a6305f77612413796e21a357c88a4128fc05))
+* read a blank instrument symbol as the default ([bff1319](https://github.com/giovani-freitag/fathom/commit/bff13195c7b2186e40b27637653383fc422291e2))
+* refuse a chunk size that would never advance ([de4307b](https://github.com/giovani-freitag/fathom/commit/de4307bb153bde1c0c2695c6a1d892bcc1857a17))
+* refuse a depth ladder the venue did not serve ([edca1cb](https://github.com/giovani-freitag/fathom/commit/edca1cb603e8ae6f53fa593726db099533aa649a))
+* refuse a gateway whose frames this viewer cannot read ([e7026e4](https://github.com/giovani-freitag/fathom/commit/e7026e41d6cc471c595d705dc022027754a2a431))
+* refuse a stream frame the venue did not send whole ([f4f7dd3](https://github.com/giovani-freitag/fathom/commit/f4f7dd3d76fdffa9a2497581af4ed54a1a407ece))
+* report an unreadable gateway body as a gateway failure ([ed7a83a](https://github.com/giovani-freitag/fathom/commit/ed7a83a4ee99738834e3dc8328606dcf0b11c41c))
+* say what Volume and VWAP are instead of showing their keys ([4800a57](https://github.com/giovani-freitag/fathom/commit/4800a577e4d78d70886b632c3fd14df24fc3f4b8))
+* spend the bar budget on the newest bars, not the oldest ([4a901f5](https://github.com/giovani-freitag/fathom/commit/4a901f5cadfd3bf6e09a36aa03dbb1882681a2c6))
+* stop a collector that came up during shutdown ([b6e0b85](https://github.com/giovani-freitag/fathom/commit/b6e0b856d3213b9ce14596a3d1860d463c909ec1))
+* take the fuller reading of an execution bucket still filling ([23cad3b](https://github.com/giovani-freitag/fathom/commit/23cad3bcfaceb6bfdc82773599be014c5f5b8659))
+* wrap a bar's four prices instead of running them off the panel ([e431cf8](https://github.com/giovani-freitag/fathom/commit/e431cf89afa76f185981ee8542007b6ea479af12))
+* write what was queued while a flush was already running ([11fd1a1](https://github.com/giovani-freitag/fathom/commit/11fd1a1aa7f8aea335ebb6f1aee1f4714189a192))
+
 ## [0.5.0](https://github.com/giovani-freitag/fathom/compare/v0.4.0...v0.5.0) (2026-08-27)
 
 
