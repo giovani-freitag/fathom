@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { DepthSnapshot } from '../../../src/workers/core/depth-types.ts';
 import { OrderBookService } from '../../../src/workers/core/order-book-service.ts';
 import { buildDiff, buildSnapshot, createSnapshotSource } from '../../mocks/depth-fixtures.ts';
 
@@ -139,6 +140,44 @@ describe('OrderBookService', () => {
         service.start();
 
         expect(() => service.start()).toThrow();
+    });
+});
+
+describe('OrderBookService rebuilding after a bad ladder', () => {
+    it('keeps trying after a ladder it cannot build a book from', async () => {
+        // The rebuild loop is the mirror's only way back. An exception escaping
+        // it leaves the collector desynchronised for the rest of the session,
+        // buffering updates nobody will ever apply.
+        const { service, source } = buildHarness(100);
+        source.fetchDepthSnapshot.mockResolvedValueOnce({
+            lastUpdateId: 100,
+            bidLevels: undefined,
+            askLevels: undefined,
+        } as unknown as DepthSnapshot);
+        service.start();
+        service.ingestDiff(buildDiff({ firstUpdateId: 95, finalUpdateId: 105 }));
+
+        await vi.waitFor(() => { expect(service.isSynchronized).toBe(true); });
+
+        expect(service.readBook()?.bidQuantityByPrice.get(100)).toBe(5);
+    });
+
+    it('does not throw at the update that finds the bad ladder waiting', async () => {
+        // A ladder with nothing buffered to overlap it is held for the next
+        // update to activate, so the failure surfaces inside the socket's own
+        // message handler rather than in the rebuild loop.
+        const { service, source } = buildHarness(100);
+        source.fetchDepthSnapshot.mockResolvedValue({
+            lastUpdateId: 100,
+            bidLevels: undefined,
+            askLevels: undefined,
+        } as unknown as DepthSnapshot);
+        service.start();
+        await vi.waitFor(() => { expect(source.fetchDepthSnapshot).toHaveBeenCalled(); });
+
+        expect(() => {
+            service.ingestDiff(buildDiff({ firstUpdateId: 95, finalUpdateId: 105 }));
+        }).not.toThrow();
     });
 });
 

@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BinanceDepthFeedService } from '../../../src/workers/services/binance-depth-feed-service.ts';
+import {
+    BinanceDepthFeedService,
+    DepthLadderUnavailableError,
+} from '../../../src/workers/services/binance-depth-feed-service.ts';
 import { type FakeMarketDataSocket, openFakeMarketDataSocket } from '../../mocks/market-data-socket.ts';
 
 const SILENCE_TIMEOUT_MS = 20_000;
@@ -151,5 +154,66 @@ describe('BinanceDepthFeedService', () => {
         await harness.feed.disconnect();
 
         expect(() => { harness.feed.connect(); }).toThrow();
+    });
+});
+
+describe('BinanceDepthFeedService fetching a depth ladder', () => {
+    /** Answers the ladder endpoint with one prepared response. */
+    function answerLadderWith(response: Response): void {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
+    }
+
+    afterEach(() => { vi.unstubAllGlobals(); });
+
+    it('reads the ladder the venue served', async () => {
+        const { feed } = buildHarness();
+        answerLadderWith(Response.json({
+            lastUpdateId: 42,
+            bids: [['100', '5']],
+            asks: [['101', '6']],
+        }));
+
+        const ladder = await feed.fetchDepthSnapshot();
+
+        expect(ladder).toEqual({
+            lastUpdateId: 42,
+            bidLevels: [['100', '5']],
+            askLevels: [['101', '6']],
+        });
+    });
+
+    it('refuses a response the venue rejected', async () => {
+        const { feed } = buildHarness();
+        answerLadderWith(new Response('too many requests', { status: 429 }));
+
+        await expect(feed.fetchDepthSnapshot()).rejects.toThrow(DepthLadderUnavailableError);
+    });
+
+    it('refuses a body that is not JSON at all', async () => {
+        // A proxy or gateway in front of the venue answers 200 with an HTML
+        // error page, and the collector must read that as no ladder.
+        const { feed } = buildHarness();
+        answerLadderWith(new Response('<html>gateway timeout</html>', {
+            status: 200,
+            headers: { 'content-type': 'text/html' },
+        }));
+
+        await expect(feed.fetchDepthSnapshot()).rejects.toThrow(DepthLadderUnavailableError);
+    });
+
+    it('refuses a body that carries a venue error instead of a ladder', async () => {
+        // Binance answers some rejections with HTTP 200 and a `code`/`msg` body.
+        // Read as a ladder it yields undefined sides, which reach the mirror.
+        const { feed } = buildHarness();
+        answerLadderWith(Response.json({ code: -1121, msg: 'Invalid symbol.' }));
+
+        await expect(feed.fetchDepthSnapshot()).rejects.toThrow(DepthLadderUnavailableError);
+    });
+
+    it('refuses a ladder whose sides are not lists of levels', async () => {
+        const { feed } = buildHarness();
+        answerLadderWith(Response.json({ lastUpdateId: 42, bids: 'none', asks: [] }));
+
+        await expect(feed.fetchDepthSnapshot()).rejects.toThrow(DepthLadderUnavailableError);
     });
 });

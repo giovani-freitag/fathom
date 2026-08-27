@@ -111,7 +111,7 @@ export class BinanceDepthFeedService {
             throw new DepthLadderUnavailableError(`Depth ladder request returned status ${response.status}`);
         }
 
-        const payload = (await response.json()) as BinanceDepthLadderPayload;
+        const payload = await readLadderPayload(response);
         return {
             lastUpdateId: payload.lastUpdateId,
             bidLevels: payload.bids,
@@ -225,6 +225,43 @@ export class BinanceDepthFeedService {
         this.proactiveReconnectTimer = null;
         this.reconnectTimer = null;
     }
+}
+
+/**
+ * Reads a ladder out of a response the venue called successful.
+ *
+ * @param response - The answered ladder request.
+ * @returns The ladder payload, once the body turns out to be one.
+ * @throws DepthLadderUnavailableError when the body carries no ladder.
+ */
+async function readLadderPayload(response: Response): Promise<BinanceDepthLadderPayload> {
+    let body: unknown;
+    try {
+        body = await response.json();
+    } catch (error) {
+        throw new DepthLadderUnavailableError('Depth ladder response was not JSON', { cause: error });
+    }
+
+    if (!isDepthLadderPayload(body)) {
+        throw new DepthLadderUnavailableError('Depth ladder response carried no ladder');
+    }
+    return body;
+}
+
+/**
+ * Whether a decoded body is a depth ladder.
+ *
+ * @param body - Whatever the response decoded to.
+ * @returns True when both sides and the update identifier are there.
+ */
+function isDepthLadderPayload(body: unknown): body is BinanceDepthLadderPayload {
+    // The venue answers some rejections with HTTP 200 and a `code`/`msg` body.
+    // Read as a ladder that yields undefined sides, and an undefined side reaches
+    // the mirror as a book with nothing in it.
+    const candidate = body as Partial<BinanceDepthLadderPayload> | null;
+    return typeof candidate?.lastUpdateId === 'number'
+        && Array.isArray(candidate.bids)
+        && Array.isArray(candidate.asks);
 }
 
 function buildStreamUrl(config: BinanceDepthFeedServiceConfig): string {

@@ -8,7 +8,7 @@ type SynchronizationState = 'stopped' | 'desynchronized' | 'awaitingSnapshot' | 
 /**
  * Why an activation attempt did not produce a usable book.
  */
-type ActivationOutcome = 'activated' | 'awaitingUpdates' | 'ladderTooOld';
+type ActivationOutcome = 'activated' | 'awaitingUpdates' | 'ladderUnusable';
 
 export interface OrderBookServiceConfig {
     readonly fetchDepthSnapshot: () => Promise<DepthSnapshot>;
@@ -89,7 +89,7 @@ export class OrderBookService {
         if (this.pendingSnapshot === null) {
             return;
         }
-        if (this.tryActivate(this.pendingSnapshot) === 'ladderTooOld') {
+        if (this.tryActivate(this.pendingSnapshot) === 'ladderUnusable') {
             this.pendingSnapshot = null;
             this.enterState('desynchronized');
             void this.synchronize();
@@ -191,13 +191,23 @@ export class OrderBookService {
      * after the configured wait.
      */
     private async attemptSynchronization(): Promise<boolean> {
-        let snapshot: DepthSnapshot;
         try {
-            snapshot = await this.config.fetchDepthSnapshot();
+            return await this.buildFromFreshLadder();
         } catch {
+            // Another ladder is the mirror's only way back, so nothing may leave
+            // this loop: an escaping failure would desynchronise the collector
+            // for the rest of the session, buffering updates nobody applies.
             return false;
         }
+    }
 
+    /**
+     * Rebuilds the book from a ladder the venue serves now.
+     *
+     * @returns True when nothing further should be attempted.
+     */
+    private async buildFromFreshLadder(): Promise<boolean> {
+        const snapshot = await this.config.fetchDepthSnapshot();
         if (!this.isAwaitingSnapshot) {
             return true;
         }
@@ -207,10 +217,17 @@ export class OrderBookService {
             // The next update decides; ingesting one retries activation.
             this.pendingSnapshot = snapshot;
         }
-        return outcome !== 'ladderTooOld';
+        return outcome !== 'ladderUnusable';
     }
 
     private tryActivate(snapshot: DepthSnapshot): ActivationOutcome {
+        // A source that answers with something other than a ladder must not be
+        // able to throw out of here: activation is attempted both from the
+        // rebuild loop and from the socket's own message handler.
+        if (!Array.isArray(snapshot.bidLevels) || !Array.isArray(snapshot.askLevels)) {
+            return 'ladderUnusable';
+        }
+
         // Anything the ladder already contains is redundant.
         while (this.bufferedDiffs.length > 0 && this.bufferedDiffs[0]!.finalUpdateId < snapshot.lastUpdateId) {
             this.bufferedDiffs.shift();
@@ -224,7 +241,7 @@ export class OrderBookService {
         // The ladder predates the buffer, so the updates between them are lost
         // and no book can be built from this pair.
         if (firstApplicableDiff.firstUpdateId > snapshot.lastUpdateId) {
-            return 'ladderTooOld';
+            return 'ladderUnusable';
         }
 
         this.state.replaceWith(snapshot.bidLevels, snapshot.askLevels);
