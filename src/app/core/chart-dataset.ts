@@ -320,22 +320,37 @@ export function appendClusters(
         return dataset;
     }
 
+    // The newest bucket is included, not skipped: it is still filling, and the
+    // tail re-reads it whole on every pass. Treated as already known it would
+    // stay frozen at whatever had landed the first time, so every live bucket
+    // would end up drawn short of what traded in it.
     const newestLoadedMs = dataset.clusters[dataset.clusters.length - 1]?.executedAtMs ?? -Infinity;
     const groupSize = Math.max(1, Math.round(dataset.clusterPriceBucketSize / dataset.priceBucketSize));
-    const freshClusters = clusters
-        .filter((cluster) => cluster.executedAtMs > newestLoadedMs)
+    const arrivals = clusters
+        .filter((cluster) => cluster.executedAtMs >= newestLoadedMs)
         .map((cluster) => (groupSize === 1
             ? cluster
             : { ...cluster, priceBucketIndex: Math.floor(cluster.priceBucketIndex / groupSize) }));
 
-    if (freshClusters.length === 0) {
+    if (arrivals.length === 0) {
         return dataset;
     }
 
+    // Whole buckets are replaced rather than added to, because each arrival
+    // carries a bucket's running total and not what changed since the last one.
+    const rewrittenFromMs = arrivals.reduce(
+        (earliest, cluster) => Math.min(earliest, cluster.executedAtMs),
+        Number.POSITIVE_INFINITY,
+    );
+    const kept = dataset.clusters.filter((cluster) => cluster.executedAtMs < rewrittenFromMs);
+    const freshClusters = arrivals.filter((cluster) => cluster.executedAtMs > newestLoadedMs);
+
     return {
         ...dataset,
+        // Only what is genuinely new moves the forming bar; a bucket read again
+        // would otherwise count its volume once per pass.
         bars: absorbIntoFormingBar(dataset.bars, freshClusters),
-        clusters: [...dataset.clusters, ...freshClusters],
+        clusters: [...kept, ...arrivals],
         revision: dataset.revision + 1,
     };
 }

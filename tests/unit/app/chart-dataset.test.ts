@@ -112,29 +112,66 @@ describe('appendFrames', () => {
 });
 
 describe('appendClusters', () => {
-    it('drops clusters at or before the newest one held', () => {
-        const dataset = {
-            ...EMPTY_DATASET,
-            clusters: [{
-                executedAtMs: 2_000,
-                priceBucketIndex: 10,
-                buyQuantity: 1,
-                sellQuantity: 0,
-                tradeCount: 1,
-                largestTradeQuantity: 1,
-            }],
-        };
-
-        const extended = appendClusters(dataset, [{
-            executedAtMs: 1_000,
-            priceBucketIndex: 10,
-            buyQuantity: 1,
+    /** One cell of the execution grid. */
+    function buildCell(
+        executedAtMs: number,
+        priceBucketIndex: number,
+        buyQuantity: number,
+    ): TradeCluster {
+        return {
+            executedAtMs,
+            priceBucketIndex,
+            buyQuantity,
             sellQuantity: 0,
             tradeCount: 1,
-            largestTradeQuantity: 1,
-        }]);
+            largestTradeQuantity: buyQuantity,
+        };
+    }
 
-        expect(extended).toBe(dataset);
+    /** A dataset already holding one cell of the newest bucket. */
+    function buildHolding(...cells: TradeCluster[]) {
+        return { ...EMPTY_DATASET, clusters: cells };
+    }
+
+    it('drops a cluster older than the newest bucket it holds', () => {
+        const dataset = buildHolding(buildCell(2_000, 10, 1));
+
+        expect(appendClusters(dataset, [buildCell(1_000, 10, 1)])).toBe(dataset);
+    });
+
+    it('takes the fuller reading of a bucket that is still filling', () => {
+        // The tail re-reads the newest bucket every pass because it is still
+        // filling. Skipped as already known, it stays frozen at whatever had
+        // landed the first time, and every live bucket ends up under-reported.
+        const dataset = buildHolding(buildCell(2_000, 10, 1));
+
+        const extended = appendClusters(dataset, [buildCell(2_000, 10, 7)]);
+
+        expect(extended.clusters).toEqual([buildCell(2_000, 10, 7)]);
+    });
+
+    it('takes a price the newest bucket had not traded at yet', () => {
+        const dataset = buildHolding(buildCell(2_000, 10, 1));
+
+        const extended = appendClusters(dataset, [buildCell(2_000, 10, 1), buildCell(2_000, 11, 4)]);
+
+        expect(extended.clusters).toHaveLength(2);
+    });
+
+    it('leaves the buckets before the newest one alone', () => {
+        const dataset = buildHolding(buildCell(1_000, 10, 1), buildCell(2_000, 10, 1));
+
+        const extended = appendClusters(dataset, [buildCell(2_000, 10, 7)]);
+
+        expect(extended.clusters[0]).toEqual(buildCell(1_000, 10, 1));
+    });
+
+    it('appends a bucket newer than everything it holds', () => {
+        const dataset = buildHolding(buildCell(2_000, 10, 1));
+
+        const extended = appendClusters(dataset, [buildCell(3_000, 10, 4)]);
+
+        expect(extended.clusters).toEqual([buildCell(2_000, 10, 1), buildCell(3_000, 10, 4)]);
     });
 });
 
@@ -441,6 +478,18 @@ describe('appendClusters volume', () => {
         const next = appendClusters(dataset, [buildCluster(500_000, 2, 3)]);
 
         expect(next.bars.bars[0]?.buyVolume).toBe(5);
+    });
+
+    it('counts a bucket read again only once towards the bar', () => {
+        // Each arrival carries a bucket's running total, not what changed since
+        // the last pass, so a bucket the tail re-reads while it fills would add
+        // its whole volume to the bar again on every pass.
+        const dataset = buildDataset(false);
+        const afterFirstPass = appendClusters(dataset, [buildCluster(90_000, 2, 3)]);
+
+        const afterSecondPass = appendClusters(afterFirstPass, [buildCluster(90_000, 2, 3)]);
+
+        expect(afterSecondPass.bars.bars[0]?.buyVolume).toBe(7);
     });
 });
 
