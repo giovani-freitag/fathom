@@ -157,6 +157,12 @@ export class ChartGestureController {
         this.config.surface.setPointerCapture(event.pointerId);
         const position = this.toLocalPosition(event);
 
+        // A second finger while one is drawing is a hand resting on the glass,
+        // not a pinch: taking it would scale the view out from under the mark.
+        if (this.claimedPointerId !== null) {
+            return;
+        }
+
         // Claimed presses never reach the pointer book, so no drag and no pinch
         // can be built from one: the view holds still while the reader draws.
         if (this.resolveRegion(position) === 'plot' && this.config.claimant?.offerPress(position) === true) {

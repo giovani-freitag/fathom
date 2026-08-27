@@ -573,8 +573,17 @@ Delete and Backspace remove what is selected, Escape puts the tool down and lets
 the selection go, and neither fires while a reader is typing into a field. Those
 are the keys a reader tries before they find the button.
 
-A new tool is a kind in one table, a case in the painter's span arithmetic, and
-two dictionary entries. The gesture controller learns nothing: it knows only that
+The controls sit along the bottom of the app, not down a rail beside the chart:
+a phone is held by its lower half, and a control a thumb cannot reach without
+regripping is a control that does not get used. The tool row is always there,
+with the pointer shown as a tool of its own so the resting state reads as a
+choice rather than as nothing being on. What can be changed about the mark that
+is selected — its colour — floats over the chart directly above that row, and
+only while something is selected.
+
+A new tool is a kind in one table, a case in the painter's shape arithmetic, and
+two dictionary entries. The zone was added that way after the first two, which
+is the check the seam had to pass. The gesture controller learns nothing: it knows only that
 something took the press. ADR 0020 records the reasoning.
 
 ## How the tree is arranged

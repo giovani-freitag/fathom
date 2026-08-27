@@ -154,6 +154,48 @@ describe('DrawingPainter drawing a segment', () => {
     });
 });
 
+describe('DrawingPainter drawing a zone', () => {
+    const painter = new DrawingPainter();
+    let recording: RecordingContext;
+
+    function buildZone(overrides: Partial<Drawing> = {}): Drawing {
+        return { ...buildTrend(), id: 'zone', kind: 'zone', ...overrides };
+    }
+
+    beforeEach(() => { recording = createRecordingContext(); });
+
+    it('tints the ground it covers, so what is under it still reads', () => {
+        painter.paint(buildContext(recording, { settled: [buildZone()] }));
+
+        expect(recording.callsTo('fillRect')).toHaveLength(1);
+    });
+
+    it('outlines it as well, so its edges are where a reader put them', () => {
+        painter.paint(buildContext(recording, { settled: [buildZone()] }));
+
+        expect(recording.callsTo('strokeRect')).toHaveLength(1);
+    });
+
+    it('boxes it the same way round however it was dragged out', () => {
+        const forwards = buildContext(recording, { settled: [buildZone()] });
+        painter.paint(forwards);
+        const drawn = recording.callsTo('strokeRect')[0]?.args;
+
+        const backwards = createRecordingContext();
+        painter.paint(buildContext(backwards, {
+            settled: [buildZone({ anchors: [...buildTrend().anchors].reverse() })],
+        }));
+
+        expect(backwards.callsTo('strokeRect')[0]?.args).toEqual(drawn);
+    });
+
+    it('grips both corners when it is selected', () => {
+        painter.paint(buildContext(recording, { settled: [buildZone()], selectedId: 'zone' }));
+
+        expect(recording.callsTo('arc')).toHaveLength(2);
+    });
+});
+
 describe('describeDrawings', () => {
     it('answers the same for the same marks', () => {
         const view = { ...EMPTY_DRAWINGS_VIEW, settled: [buildLevel()] };

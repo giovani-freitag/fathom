@@ -1,4 +1,4 @@
-import type { Drawing } from '../../shared/core/drawing.ts';
+import { boundDrawing, type Drawing } from '../../shared/core/drawing.ts';
 import type { FieldLayerPainter, PaintContext, RenderRequest } from '../painting/render-types.ts';
 import { RENDER_PALETTE, resolveToneColour } from '../painting/render-palette.ts';
 import type { ViewportProjector } from '../core/viewport-projector.ts';
@@ -9,10 +9,13 @@ const DRAWING_ORDER = 900;
 const LINE_WIDTH_PX = 1.5;
 
 /** Radius of the grip shown at each anchor of the selected mark. */
-const HANDLE_RADIUS_PX = 3.5;
+const HANDLE_RADIUS_PX = 5;
 
 /** A mark still being dragged out reads as provisional. */
 const DRAFT_DASH = [5, 4];
+
+/** How much of a zone's colour survives, so the depth map under it still reads. */
+const ZONE_FILL_ALPHA = 0.12;
 
 /**
  * What the reader has drawn on this chart, and what they are drawing now.
@@ -50,37 +53,66 @@ export class DrawingPainter implements FieldLayerPainter {
     paint(paint: PaintContext): void {
         const { drawings } = paint.request;
         for (const drawing of readOwnDrawings(paint.request)) {
-            this.strokeDrawing({ paint, drawing, isSelected: drawing.id === drawings.selectedId });
+            this.drawOne({ paint, drawing, isSelected: drawing.id === drawings.selectedId });
         }
         if (drawings.draft !== null) {
-            this.strokeDrawing({ paint, drawing: drawings.draft, isSelected: false, dash: DRAFT_DASH });
+            this.drawOne({ paint, drawing: drawings.draft, isSelected: false, dash: DRAFT_DASH });
         }
     }
 
     /**
-     * Strokes one mark across the span it is drawn over.
+     * Draws one mark in whatever shape its kind takes.
      */
-    private strokeDrawing(stroke: DrawingStroke): void {
+    private drawOne(stroke: DrawingStroke): void {
         const { paint, drawing, isSelected } = stroke;
-        const { context, layout, projector } = paint;
-        const span = resolveSpan(drawing, layout.plotWidth, projector);
-        if (span === null) {
-            return;
-        }
+        paint.context.save();
+        paint.context.strokeStyle = resolveToneColour(drawing.tone);
+        paint.context.lineWidth = isSelected ? LINE_WIDTH_PX * 2 : LINE_WIDTH_PX;
+        paint.context.setLineDash([...stroke.dash ?? []]);
 
-        context.save();
-        context.strokeStyle = resolveToneColour(drawing.tone);
-        context.lineWidth = isSelected ? LINE_WIDTH_PX * 2 : LINE_WIDTH_PX;
-        context.setLineDash([...stroke.dash ?? []]);
-        context.beginPath();
-        context.moveTo(span.fromX, span.fromY);
-        context.lineTo(span.toX, span.toY);
-        context.stroke();
-        context.restore();
+        if (drawing.kind === 'zone') {
+            this.strokeZone(stroke);
+        } else {
+            this.strokeLine(stroke);
+        }
+        paint.context.restore();
 
         if (isSelected) {
             this.markAnchors(paint, drawing);
         }
+    }
+
+    /**
+     * Strokes a level or a segment across the span it is drawn over.
+     */
+    private strokeLine(stroke: DrawingStroke): void {
+        const { paint, drawing } = stroke;
+        const span = resolveSpan(drawing, paint.layout.plotWidth, paint.projector);
+        if (span === null) {
+            return;
+        }
+
+        paint.context.beginPath();
+        paint.context.moveTo(span.fromX, span.fromY);
+        paint.context.lineTo(span.toX, span.toY);
+        paint.context.stroke();
+    }
+
+    /**
+     * Outlines a zone and tints what it covers.
+     */
+    private strokeZone(stroke: DrawingStroke): void {
+        const { paint, drawing } = stroke;
+        const box = resolveBox(drawing, paint.projector);
+        if (box === null) {
+            return;
+        }
+
+        paint.context.globalAlpha = ZONE_FILL_ALPHA;
+        paint.context.fillStyle = resolveToneColour(drawing.tone);
+        paint.context.fillRect(box.x, box.y, box.width, box.height);
+        paint.context.globalAlpha = 1;
+        paint.context.strokeRect(box.x, box.y, box.width, box.height);
     }
 
     /**
@@ -91,7 +123,7 @@ export class DrawingPainter implements FieldLayerPainter {
         context.save();
         context.fillStyle = resolveToneColour(drawing.tone);
         context.strokeStyle = RENDER_PALETTE.surface;
-        context.lineWidth = 1;
+        context.lineWidth = 2;
 
         for (const anchor of drawing.anchors) {
             // A level is pinned to a price and drawn across the whole window, so
@@ -125,8 +157,15 @@ interface DrawnSpan {
     readonly toY: number;
 }
 
+export interface DrawnBox {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+}
+
 /**
- * Where a mark starts and ends on the surface.
+ * Where a line starts and ends on the surface.
  *
  * @param drawing - The mark to place.
  * @param plotWidth - How wide the plot is, for a level that crosses all of it.
@@ -152,6 +191,29 @@ function resolveSpan(
         fromY: projector.priceToY(first.price),
         toX: projector.timeToX(second.atMs),
         toY: projector.priceToY(second.price),
+    };
+}
+
+/**
+ * The rectangle a zone covers, in surface pixels.
+ *
+ * @param drawing - The zone to place.
+ * @param projector - What turns chart coordinates into pixels.
+ * @returns The box, or null when the mark has no two anchors.
+ */
+export function resolveBox(drawing: Drawing, projector: ViewportProjector): DrawnBox | null {
+    const bounds = boundDrawing(drawing);
+    if (bounds === null) {
+        return null;
+    }
+
+    const x = projector.timeToX(bounds.fromMs);
+    const y = projector.priceToY(bounds.highPrice);
+    return {
+        x,
+        y,
+        width: projector.timeToX(bounds.toMs) - x,
+        height: projector.priceToY(bounds.lowPrice) - y,
     };
 }
 

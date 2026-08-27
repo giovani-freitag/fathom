@@ -1,9 +1,13 @@
-import type { Drawing } from '../../shared/core/drawing.ts';
-import { priceAtTime } from '../../shared/core/drawing.ts';
+import { boundDrawing, type Drawing, priceAtTime } from '../../shared/core/drawing.ts';
 import type { ViewportProjector } from '../core/viewport-projector.ts';
 
-/** How near the pointer has to be, in CSS pixels, to land on a mark. */
-export const DRAWING_GRAB_TOLERANCE_PX = 6;
+/**
+ * How near the pointer has to be, in CSS pixels, to land on a mark.
+ *
+ * Sized for a fingertip rather than a mouse: a line one pixel wide is not
+ * something anybody hits on a phone, and a tap that misses pans the chart.
+ */
+export const DRAWING_GRAB_TOLERANCE_PX = 14;
 
 export interface DrawingHitRequest {
     readonly drawings: readonly Drawing[];
@@ -20,7 +24,6 @@ export interface DrawingHitRequest {
  */
 export function findDrawingAt(request: DrawingHitRequest): string | null {
     const { drawings, projector, point } = request;
-    const atMs = projector.xToTime(point.x);
 
     let nearestId: string | null = null;
     let nearestDistance = DRAWING_GRAB_TOLERANCE_PX;
@@ -28,7 +31,7 @@ export function findDrawingAt(request: DrawingHitRequest): string | null {
     // Latest first, so a mark drawn over another is the one that gets grabbed.
     for (let index = drawings.length - 1; index >= 0; index -= 1) {
         const drawing = drawings[index]!;
-        const distance = measureDistance({ drawing, atMs, y: point.y, projector });
+        const distance = measureDistance({ drawing, point, projector });
         if (distance !== null && distance < nearestDistance) {
             nearestDistance = distance;
             nearestId = drawing.id;
@@ -39,26 +42,57 @@ export function findDrawingAt(request: DrawingHitRequest): string | null {
 
 interface DistanceRequest {
     readonly drawing: Drawing;
-    readonly atMs: number;
-    readonly y: number;
+    readonly point: { readonly x: number; readonly y: number };
     readonly projector: ViewportProjector;
 }
 
 /**
- * How far the pointer is from a mark, vertically, in pixels.
+ * How far the pointer is from a mark, in pixels.
  *
- * @returns The distance, or null when the mark does not reach that instant.
+ * @returns The distance, or null when the mark is not drawn there at all.
  */
 function measureDistance(request: DistanceRequest): number | null {
-    const { drawing, atMs } = request;
+    return request.drawing.kind === 'zone'
+        ? measureZoneDistance(request)
+        : measureLineDistance(request);
+}
+
+/**
+ * How far the pointer is from a level or a segment, vertically.
+ */
+function measureLineDistance(request: DistanceRequest): number | null {
+    const { drawing, point, projector } = request;
+    const atMs = projector.xToTime(point.x);
     if (!coversInstant(drawing, atMs)) {
         return null;
     }
+
     const price = priceAtTime(drawing, atMs);
-    if (price === null) {
+    return price === null ? null : Math.abs(projector.priceToY(price) - point.y);
+}
+
+/**
+ * How far the pointer is from a zone, counting anywhere inside it as on it.
+ *
+ * A trading zone is read as an area, and hunting for its one-pixel outline with
+ * a fingertip is not something anybody should have to do.
+ */
+function measureZoneDistance(request: DistanceRequest): number | null {
+    const bounds = boundDrawing(request.drawing);
+    if (bounds === null) {
         return null;
     }
-    return Math.abs(request.projector.priceToY(price) - request.y);
+
+    const { point, projector } = request;
+    const left = projector.timeToX(bounds.fromMs);
+    const right = projector.timeToX(bounds.toMs);
+    const top = projector.priceToY(bounds.highPrice);
+    const bottom = projector.priceToY(bounds.lowPrice);
+
+    return Math.hypot(
+        Math.max(left - point.x, 0, point.x - right),
+        Math.max(top - point.y, 0, point.y - bottom),
+    );
 }
 
 /**

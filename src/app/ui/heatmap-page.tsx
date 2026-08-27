@@ -22,7 +22,8 @@ import { SpanPresets } from './span-presets.tsx';
 import { IndicatorOverlay, IndicatorTrigger } from './indicators/indicator-controls.tsx';
 import { useIndicators } from '../react/use-indicators.ts';
 import { useDrawings } from '../react/use-drawings.ts';
-import { DrawingToolbar } from './drawing-toolbar.tsx';
+import { DrawingDock } from './drawing-dock.tsx';
+import { DrawingProperties } from './drawing-properties.tsx';
 import { useChartLayout } from '../react/use-chart-layout.ts';
 
 /* Declared once each, so every subscription is the same one on every render. */
@@ -154,10 +155,10 @@ export function HeatmapPage(): ReactElement {
                     onOpenSettings={handleOpenSettings}
                 />
 
-                {/* A rail down the left edge, clear of the rows at the top and
-                    of the time axis at the bottom, both of which it crowded. */}
-                <div className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2">
-                    <DrawingToolbar controls={drawings} />
+                {/* Directly over the dock it belongs to, and only while there is
+                    something selected to change. */}
+                <div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center">
+                    <DrawingProperties controls={drawings} />
                 </div>
 
                 {!isFollowingLive && <ReturnToLive onReturn={handleReturnToLive} />}
@@ -179,6 +180,11 @@ export function HeatmapPage(): ReactElement {
                     />
                 )}
             </main>
+
+            {/* Along the bottom, where a thumb already is on a phone. */}
+            <div className="shrink-0 border-t border-hairline bg-abyss-900">
+                <DrawingDock controls={drawings} />
+            </div>
 
             <footer className="shrink-0 border-t border-hairline pb-[env(safe-area-inset-bottom)]">
                 <SpanPresets

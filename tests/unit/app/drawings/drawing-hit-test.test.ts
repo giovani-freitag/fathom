@@ -41,6 +41,61 @@ function buildTrend(id: string): Drawing {
     };
 }
 
+function buildZone(id: string): Drawing {
+    return {
+        id,
+        kind: 'zone',
+        instrumentSymbol: 'BTCUSDT',
+        anchors: [{ atMs: 20_000, price: 20 }, { atMs: 60_000, price: 60 }],
+        tone: 'cyan',
+    };
+}
+
+/** Below this, a fingertip cannot reliably land on a one-pixel line. */
+const FINGERTIP_TOLERANCE_PX = 10;
+
+describe('DRAWING_GRAB_TOLERANCE_PX', () => {
+    it('is sized for a fingertip rather than a cursor', () => {
+        // A tap that misses pans the chart instead, which reads as the mark
+        // having been ignored.
+        expect(DRAWING_GRAB_TOLERANCE_PX).toBeGreaterThanOrEqual(FINGERTIP_TOLERANCE_PX);
+    });
+});
+
+describe('findDrawingAt over a zone', () => {
+    it('takes a press anywhere inside it', () => {
+        // A trading zone is read as an area, and hunting for its one-pixel
+        // outline with a fingertip is not something anybody should have to do.
+        const hit = findDrawingAt({
+            drawings: [buildZone('zone')],
+            projector,
+            point: { x: projector.timeToX(40_000), y: yOf(40) },
+        });
+
+        expect(hit).toBe('zone');
+    });
+
+    it('takes a press just outside its edge', () => {
+        const hit = findDrawingAt({
+            drawings: [buildZone('zone')],
+            projector,
+            point: { x: projector.timeToX(40_000), y: yOf(60) - DRAWING_GRAB_TOLERANCE_PX + 1 },
+        });
+
+        expect(hit).toBe('zone');
+    });
+
+    it('leaves a press well clear of it alone', () => {
+        const hit = findDrawingAt({
+            drawings: [buildZone('zone')],
+            projector,
+            point: { x: projector.timeToX(90_000), y: yOf(90) },
+        });
+
+        expect(hit).toBeNull();
+    });
+});
+
 describe('findDrawingAt', () => {
     it('finds a level the pointer is on', () => {
         const hit = findDrawingAt({

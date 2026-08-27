@@ -43,6 +43,11 @@ that takes one gets the whole gesture — move and release — and the pointer n
 reaches the pan, the pinch, or the drag book. A claimant that declines hears
 about it too, which is what lets pressing bare chart mean *done with that one*.
 
+**The controls live along the bottom.** A phone is held by its lower half, and a
+rail beside the chart is a regrip away. The tool row is always present, the
+resting pointer is shown as a tool rather than as nothing, and the properties of
+whatever is selected float above that row instead of pushing the chart smaller.
+
 **A mark belongs to a contract.** It is drawn about `BTCUSDT`, shown on no other
 chart, and a stored mark naming a kind this build cannot draw is dropped on the
 way in rather than carried for ever.
@@ -56,9 +61,16 @@ A mark survives a reload because it is stored the way it is drawn — as instant
 and prices, in the one preferences record.
 
 The claimant seam is the whole extension point. A new tool is a kind in one
-table, a case in the painter's span arithmetic, and two dictionary entries; it
+table, a case in the painter's shape arithmetic, and two dictionary entries; it
 is not a branch in the gesture controller, which knows only that *something*
-took the press.
+took the press. The zone was added that way, after the fact, which is the check
+the seam had to pass.
+
+Grabbing is sized for a fingertip rather than a cursor, and a zone counts as
+grabbed anywhere inside it: hunting a one-pixel outline with a thumb is not
+something anybody should have to do. A second finger arriving while one is
+drawing is ignored rather than read as a pinch, because it is a hand resting on
+the glass.
 
 The cost is that the overlay repaints while a mark is dragged. That was measured
 against the alternative — a fourth canvas for marks alone — and rejected: a drag

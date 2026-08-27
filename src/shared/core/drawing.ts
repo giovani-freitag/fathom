@@ -12,15 +12,16 @@ export interface DrawingAnchor {
 }
 
 /** The kinds of mark a reader can leave on the chart. */
-export type DrawingKind = 'horizontal-line' | 'trend-line';
+export type DrawingKind = 'horizontal-line' | 'trend-line' | 'zone';
 
-/** Every kind, in the order the toolbar offers them. */
-export const DRAWING_KINDS: readonly DrawingKind[] = ['horizontal-line', 'trend-line'];
+/** Every kind, in the order the dock offers them. */
+export const DRAWING_KINDS: readonly DrawingKind[] = ['horizontal-line', 'trend-line', 'zone'];
 
 /** Anchors each kind is pinned by. */
 export const ANCHORS_PER_KIND: Readonly<Record<DrawingKind, number>> = {
     'horizontal-line': 1,
     'trend-line': 2,
+    zone: 2,
 };
 
 /**
@@ -85,6 +86,11 @@ export function priceAtTime(drawing: Drawing, atMs: number): number | null {
     if (second === undefined) {
         return first.price;
     }
+    // A zone is a box rather than a path: it has no one price at an instant, so
+    // asking for one would answer with a diagonal nobody drew.
+    if (drawing.kind === 'zone') {
+        return null;
+    }
 
     // Extrapolated past both ends on purpose: a trend line is read for where it
     // says price is going, which is beyond the two points that set it.
@@ -107,6 +113,32 @@ export interface DrawingShift {
  * @param shift - How far to move it, in chart coordinates.
  * @returns The moved mark.
  */
+/**
+ * The corners of a mark, whichever way round it was dragged out.
+ *
+ * @param drawing - The mark to bound.
+ * @returns The box it occupies, or null when it has no two anchors.
+ */
+export function boundDrawing(drawing: Drawing): DrawingBounds | null {
+    const [first, second] = drawing.anchors;
+    if (first === undefined || second === undefined) {
+        return null;
+    }
+    return {
+        fromMs: Math.min(first.atMs, second.atMs),
+        toMs: Math.max(first.atMs, second.atMs),
+        lowPrice: Math.min(first.price, second.price),
+        highPrice: Math.max(first.price, second.price),
+    };
+}
+
+export interface DrawingBounds {
+    readonly fromMs: number;
+    readonly toMs: number;
+    readonly lowPrice: number;
+    readonly highPrice: number;
+}
+
 export function shiftDrawing(drawing: Drawing, shift: DrawingShift): Drawing {
     return {
         ...drawing,

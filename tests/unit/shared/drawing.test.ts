@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
     ANCHORS_PER_KIND,
+    boundDrawing,
     type Drawing,
+    DRAWING_KINDS,
     isDrawing,
     priceAtTime,
     shiftDrawing,
@@ -118,7 +120,38 @@ describe('shiftDrawing', () => {
 });
 
 describe('ANCHORS_PER_KIND', () => {
-    it('pins a level by one point and a segment by two', () => {
-        expect(ANCHORS_PER_KIND).toEqual({ 'horizontal-line': 1, 'trend-line': 2 });
+    it('pins a level by one point, and a segment and a zone by two', () => {
+        expect(ANCHORS_PER_KIND).toEqual({ 'horizontal-line': 1, 'trend-line': 2, zone: 2 });
+    });
+
+    it('says how to pin every kind the dock offers', () => {
+        expect(DRAWING_KINDS.every((kind) => ANCHORS_PER_KIND[kind] > 0)).toBe(true);
+    });
+});
+
+describe('boundDrawing', () => {
+    it('boxes a zone whichever way round it was dragged out', () => {
+        const dragged: Drawing = {
+            ...buildTrend(),
+            kind: 'zone',
+            anchors: [{ atMs: 3_000, price: 100 }, { atMs: 1_000, price: 200 }],
+        };
+
+        expect(boundDrawing(dragged))
+            .toEqual({ fromMs: 1_000, toMs: 3_000, lowPrice: 100, highPrice: 200 });
+    });
+
+    it('boxes nothing when a mark has only one anchor', () => {
+        expect(boundDrawing(buildLevel(100))).toBeNull();
+    });
+});
+
+describe('priceAtTime of a zone', () => {
+    it('reads no price, because a zone is an area and not a path', () => {
+        // Answered with the diagonal between its corners, a zone would be
+        // grabbable along a line nobody drew.
+        const zone: Drawing = { ...buildTrend(), kind: 'zone' };
+
+        expect(priceAtTime(zone, 2_000)).toBeNull();
     });
 });

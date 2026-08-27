@@ -5,7 +5,7 @@ import {
     type DrawingKind,
     shiftDrawing,
 } from '../../shared/core/drawing.ts';
-import { INSTANCE_TONES } from '../../shared/core/draw-plan.ts';
+import { INSTANCE_TONES, type PlotTone } from '../../shared/core/draw-plan.ts';
 import { ObservableStore } from '../core/observable-store.ts';
 import type { PreferencesService } from '../services/preferences-service.ts';
 
@@ -137,6 +137,22 @@ export class DrawingsController {
                 drawings: keepNewest([...state.drawings, draft]),
             }));
         }
+        this.persist();
+    }
+
+    /**
+     * Paints one mark in another tone.
+     *
+     * @param drawingId - The mark to recolour.
+     * @param tone - The tone to give it.
+     */
+    recolour(drawingId: string, tone: PlotTone): void {
+        this.store.update((state) => ({
+            ...state,
+            drawings: state.drawings.map(
+                (drawing) => (drawing.id === drawingId ? { ...drawing, tone } : drawing),
+            ),
+        }));
         this.persist();
     }
 

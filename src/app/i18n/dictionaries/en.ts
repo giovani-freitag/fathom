@@ -8,6 +8,9 @@ export const EN_DICTIONARY = {
     'drawing.horizontalLine': 'Price level',
     'drawing.trendLine': 'Trend line',
     'drawing.remove': 'Remove the selected mark',
+    'drawing.zone': 'Zone',
+    'drawing.select': 'Move and select',
+    'drawing.tone': 'Colour',
 
     'layer.depth': 'Book',
     'layer.depth.help': 'Resting size at every price, as it changed through time',

@@ -268,6 +268,39 @@ describe('DrawingsController remembering what was drawn', () => {
     });
 });
 
+describe('DrawingsController recolouring a mark', () => {
+    let harness: Harness;
+
+    beforeEach(() => {
+        harness = buildHarness();
+        harness.drawings.arm('horizontal-line');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.settle();
+    });
+
+    it('paints it in the tone it was given', () => {
+        harness.drawings.recolour('mark-1', 'cyan');
+
+        expect(harness.drawings.store.read().drawings[0]?.tone).toBe('cyan');
+    });
+
+    it('writes the colour out, so it comes back the same next session', () => {
+        harness.drawings.recolour('mark-1', 'cyan');
+
+        expect(readPersisted(harness)[0]?.tone).toBe('cyan');
+    });
+
+    it('leaves the other marks alone', () => {
+        harness.drawings.arm('horizontal-line');
+        harness.drawings.begin({ anchor: at(2_000, 200), hitId: null });
+        harness.drawings.settle();
+
+        harness.drawings.recolour('mark-1', 'cyan');
+
+        expect(harness.drawings.store.read().drawings[1]?.tone).not.toBe('cyan');
+    });
+});
+
 describe('DrawingsController removing a mark', () => {
     let harness: Harness;
 

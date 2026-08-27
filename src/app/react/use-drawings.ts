@@ -1,4 +1,5 @@
 import type { DrawingKind } from '../../shared/core/drawing.ts';
+import type { PlotTone } from '../../shared/core/draw-plan.ts';
 import type { DrawingsState } from '../drawings/drawings-controller.ts';
 import { useEffect } from 'react';
 import { useKernel } from './kernel-context.ts';
@@ -22,6 +23,8 @@ function isTypingInto(target: EventTarget | null): boolean {
 /* Declared once each, so every subscription is the same one on every render. */
 const readArmedTool = (state: DrawingsState): DrawingKind | null => state.armedTool;
 const readSelectedId = (state: DrawingsState): string | null => state.selectedId;
+const readSelectedTone = (state: DrawingsState): PlotTone | null => state.drawings
+    .find((drawing) => drawing.id === state.selectedId)?.tone ?? null;
 
 /**
  * What the drawing controls need to show, and what a press of one does.
@@ -29,8 +32,14 @@ const readSelectedId = (state: DrawingsState): string | null => state.selectedId
 export interface DrawingControls {
     readonly armedTool: DrawingKind | null;
     readonly selectedId: string | null;
+    /** The tone of the selected mark, for the swatch that shows it. */
+    readonly selectedTone: PlotTone | null;
     /** Arms a tool, or disarms the one already armed. */
     readonly toggleTool: (kind: DrawingKind) => void;
+    /** Puts every tool down, so the pointer pans and selects again. */
+    readonly disarm: () => void;
+    /** Paints the selected mark in another tone. */
+    readonly recolourSelected: (tone: PlotTone) => void;
     /** Takes the selected mark off the chart. */
     readonly removeSelected: () => void;
 }
@@ -44,6 +53,7 @@ export function useDrawings(): DrawingControls {
     const kernel = useKernel();
     const armedTool = useStoreSlice(kernel.drawings.store, readArmedTool);
     const selectedId = useStoreSlice(kernel.drawings.store, readSelectedId);
+    const selectedTone = useStoreSlice(kernel.drawings.store, readSelectedTone);
 
     // Every reader reaches for Delete before they reach for the button, and for
     // Escape when they change their mind about the tool they armed.
@@ -69,9 +79,16 @@ export function useDrawings(): DrawingControls {
     return {
         armedTool,
         selectedId,
+        selectedTone,
         // Pressing the armed tool again is how a reader says they are done
         // drawing, which is the only way back to a pointer that pans.
         toggleTool: (kind) => { kernel.drawings.arm(armedTool === kind ? null : kind); },
+        disarm: () => { kernel.drawings.arm(null); },
+        recolourSelected: (tone) => {
+            if (selectedId !== null) {
+                kernel.drawings.recolour(selectedId, tone);
+            }
+        },
         removeSelected: () => {
             if (selectedId !== null) {
                 kernel.drawings.remove(selectedId);

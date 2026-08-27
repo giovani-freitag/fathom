@@ -442,8 +442,12 @@ describe('ChartGestureController offering a press to a claimant', () => {
         readonly settles: number[];
     }
 
-    /** A controller whose claimant takes every press over the plot. */
-    function buildClaimed(doesClaim: boolean): ClaimedHarness {
+    /**
+     * A controller with a claimant behind it.
+     *
+     * @param doesClaim - Whether it takes a press, given how many it has seen.
+     */
+    function buildClaimed(doesClaim: boolean | ((offersSoFar: number) => boolean)): ClaimedHarness {
         const surface = createGestureSurface(VIEWPORT);
         const offers: PointerPosition[] = [];
         const moves: PointerPosition[] = [];
@@ -462,7 +466,10 @@ describe('ChartGestureController offering a press to a claimant', () => {
             onPointerMove: (pointer) => surface.pointers.push(pointer),
             onRefitPrice: () => { surface.refits += 1; },
             claimant: {
-                offerPress: (point) => { offers.push(point); return doesClaim; },
+                offerPress: (point) => {
+                    offers.push(point);
+                    return typeof doesClaim === 'boolean' ? doesClaim : doesClaim(offers.length);
+                },
                 moveClaim: (point) => { moves.push(point); },
                 settleClaim: () => { settles.push(1); },
             },
@@ -512,6 +519,27 @@ describe('ChartGestureController offering a press to a claimant', () => {
         dragBy(harness.surface, 100, 0);
 
         expect(harness.surface.published).toHaveLength(1);
+    });
+
+    it('ignores a second finger while one is drawing', () => {
+        // A hand resting on the glass is not a pinch, and taking it would scale
+        // the view out from under the mark being placed.
+        const harness = buildClaimed((offersSoFar) => offersSoFar === 1);
+        harness.surface.fire('pointerdown', { pointerId: 1, clientX: 400, clientY: 250 });
+
+        harness.surface.fire('pointerdown', { pointerId: 2, clientX: 600, clientY: 350 });
+        harness.surface.fire('pointermove', { pointerId: 2, clientX: 650, clientY: 400 });
+
+        expect(harness.surface.published).toEqual([]);
+    });
+
+    it('is not even offered a second finger while one is drawing', () => {
+        const harness = buildClaimed((offersSoFar) => offersSoFar === 1);
+        harness.surface.fire('pointerdown', { pointerId: 1, clientX: 400, clientY: 250 });
+
+        harness.surface.fire('pointerdown', { pointerId: 2, clientX: 600, clientY: 350 });
+
+        expect(harness.offers).toHaveLength(1);
     });
 
     it('keeps the crosshair following a press it took', () => {
