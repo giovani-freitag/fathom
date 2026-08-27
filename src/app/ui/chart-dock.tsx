@@ -1,6 +1,6 @@
 import { ChartSpline, Coins, Layers, Minus, MousePointer2, Square, TrendingUp } from 'lucide-react';
 import { type ComponentType, type ReactElement, useCallback, useEffect, useState } from 'react';
-import type { BarIntervalMs } from '../core/bar-interval.ts';
+import { BAR_INTERVALS_MS, type BarIntervalMs } from '../core/bar-interval.ts';
 import {
     DOCK_ACTIVE_CLASSES,
     DOCK_BUTTON_CLASSES,
@@ -14,9 +14,8 @@ import { formatDuration } from '../core/formatting.ts';
 import type { IndicatorControls } from '../react/use-indicators.ts';
 import { IndicatorPalette } from './indicators/indicator-palette.tsx';
 import { LayerList } from './indicators/layer-list.tsx';
-import { InstrumentPicker } from './instrument-picker.tsx';
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
-import { IntervalPicker } from './interval-picker.tsx';
+import { ChoiceGrid } from './choice-grid.tsx';
 import { PanelSection } from './panel-section.tsx';
 import { SpanPresets } from './span-presets.tsx';
 import type { TranslationKey } from '../i18n/dictionaries/en.ts';
@@ -35,6 +34,9 @@ const TOOL_FACES: Readonly<Record<DrawingKind, ToolFace>> = {
 };
 
 const ICON_SIZE_PX = 18;
+
+/** The value the interval choices carry while the window is deciding for itself. */
+const AUTOMATIC_INTERVAL = 'auto';
 
 /** The base asset, which is what a reader recognises the contract by. */
 const QUOTE_SUFFIXES = ['USDT', 'USDC', 'BUSD', 'USD'];
@@ -95,11 +97,16 @@ export function ChartDock(props: ChartDockProps): ReactElement {
             >
                 {/* No title: the button it opened from is the title, and a panel
                     that repeats it is a line the reader has to read twice. */}
-                <div className="w-52">
-                    <InstrumentPicker
-                        instruments={props.instruments}
-                        selectedSymbol={props.instrumentSymbol}
-                        onSelect={props.onInstrumentSelect}
+                <div className="w-56">
+                    <ChoiceGrid
+                        isStacked
+                        label={translate('instrument.label')}
+                        value={props.instrumentSymbol ?? ''}
+                        onChoose={props.onInstrumentSelect}
+                        choices={props.instruments.map((instrument) => ({
+                            value: instrument.instrumentSymbol,
+                            label: instrument.instrumentSymbol,
+                        }))}
                     />
                 </div>
             </DockPopover>
@@ -134,7 +141,9 @@ export function ChartDock(props: ChartDockProps): ReactElement {
                 label={translate('indicators.onTheChart')}
                 trigger={<Layers size={ICON_SIZE_PX} />}
             >
-                <div className="w-64">
+                {/* Wide enough for a reading: a row that truncates its own
+                    figures is a row that has to be opened somewhere else. */}
+                <div className="w-[min(21rem,calc(100vw-3rem))]">
                     <LayerList controls={props.indicators} onOpenSettings={props.onOpenLayerSettings} />
                 </div>
             </DockPopover>
@@ -186,11 +195,28 @@ function TimePanel({ time }: { readonly time: TimeControls }): ReactElement {
                 />
             </PanelSection>
             <PanelSection isDivided title={translate('interval.label')}>
-                <IntervalPicker
-                    chosen={time.barIntervalMs}
-                    effectiveMs={time.effectiveIntervalMs}
-                    frameIntervalMs={time.frameIntervalMs}
-                    onSelect={time.onIntervalSelect}
+                <ChoiceGrid
+                    label={translate('interval.label')}
+                    value={time.barIntervalMs === null ? AUTOMATIC_INTERVAL : String(time.barIntervalMs)}
+                    onChoose={(value) => {
+                        time.onIntervalSelect(
+                            value === AUTOMATIC_INTERVAL ? null : (Number(value) as BarIntervalMs),
+                        );
+                    }}
+                    choices={[
+                        {
+                            value: AUTOMATIC_INTERVAL,
+                            label: translate('interval.auto', {
+                                interval: formatDuration(time.effectiveIntervalMs, translate),
+                            }),
+                        },
+                        ...BAR_INTERVALS_MS
+                            .filter((rung) => rung >= Math.max(1, time.frameIntervalMs))
+                            .map((rung) => ({
+                                value: String(rung),
+                                label: formatDuration(rung, translate),
+                            })),
+                    ]}
                 />
             </PanelSection>
         </div>

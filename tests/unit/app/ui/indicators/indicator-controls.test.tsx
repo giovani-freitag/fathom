@@ -4,7 +4,6 @@ import { type ReactElement } from 'react';
 import { createIndicatorKernel, renderWithKernel } from '../../../../mocks/indicator-kernel.tsx';
 import type { AddedIndicator } from '../../../../../src/shared/core/indicator-selection.ts';
 import { IndicatorOverlay } from '../../../../../src/app/ui/indicators/indicator-controls.tsx';
-import { EMPTY_LAYOUT } from '../../../../../src/app/painting/chart-layout.ts';
 import { LayerList } from '../../../../../src/app/ui/indicators/layer-list.tsx';
 import { type IndicatorControls, useIndicators } from '../../../../../src/app/react/use-indicators.ts';
 
@@ -23,7 +22,7 @@ function OverlayHarness(): ReactElement {
     return (
         <>
             <LayerList controls={controls} onOpenSettings={() => undefined} />
-            <IndicatorOverlay controls={controls} layout={EMPTY_LAYOUT} onOpenSettings={() => undefined} />
+            <IndicatorOverlay controls={controls} />
         </>
     );
 }

@@ -22,7 +22,6 @@ import { useIndicators } from '../react/use-indicators.ts';
 import { useDrawings } from '../react/use-drawings.ts';
 import { ChartDock } from './chart-dock.tsx';
 import { DrawingActions } from './drawing-actions.tsx';
-import { useChartLayout } from '../react/use-chart-layout.ts';
 
 /** Enough to clear the time axis the renderer reserves along the bottom. */
 const TIME_AXIS_CLEARANCE_PX = 32;
@@ -62,10 +61,7 @@ export function HeatmapPage(): ReactElement {
     const translate = useTranslate();
     const indicators = useIndicators();
     const drawings = useDrawings();
-    // Measured here rather than read back from the renderer, so the rows placed
-    // over each band are placed by the same arithmetic that drew it.
     const surfaceRef = useRef<HTMLElement>(null);
-    const surfaceLayout = useChartLayout(surfaceRef);
     // The drawer is where a layer is configured, so a row on the chart has to be
     // able to open it onto itself rather than carrying a panel of its own.
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -145,11 +141,7 @@ export function HeatmapPage(): ReactElement {
                     ))}
                 </div>
 
-                <IndicatorOverlay
-                    controls={indicators}
-                    layout={surfaceLayout}
-                    onOpenSettings={handleOpenSettings}
-                />
+                <IndicatorOverlay controls={indicators} />
 
                 {/* An island rather than a bar of its own: drawing is done in
                     bursts, and a full row of chrome for it costs the chart its
