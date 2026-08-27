@@ -63,4 +63,19 @@ describe('HeatmapApiService', () => {
 
         await expect(service.fetchInstruments()).rejects.not.toBeInstanceOf(HeatmapApiError);
     });
+
+    it('reports a body it cannot read as the gateway failing', async () => {
+        // A tunnel or proxy in front of the gateway answers 200 with its own
+        // HTML. Left to escape as a parse error, the viewer shows nothing at all
+        // rather than saying the gateway is unreachable.
+        answerWith({ json: () => Promise.reject(new SyntaxError('Unexpected token <')) });
+
+        await expect(service.fetchInstruments()).rejects.toThrow(HeatmapApiError);
+    });
+
+    it('says nothing answered when the body could not be read', async () => {
+        answerWith({ json: () => Promise.reject(new SyntaxError('Unexpected token <')) });
+
+        await expect(service.fetchInstruments()).rejects.toMatchObject({ status: 0 });
+    });
 });

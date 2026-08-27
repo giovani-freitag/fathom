@@ -98,6 +98,11 @@ export class RecordingApiService implements RecordingControl {
         if (!response.ok) {
             throw new HeatmapSourceError('The gateway refused the change', response.status);
         }
-        return (await response.json()) as RecordingStateResponse;
+
+        try {
+            return (await response.json()) as RecordingStateResponse;
+        } catch (error) {
+            throw new HeatmapSourceError('The gateway answered something that is not JSON', 0, { cause: error });
+        }
     }
 }

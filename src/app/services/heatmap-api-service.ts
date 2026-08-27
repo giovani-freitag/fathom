@@ -147,7 +147,14 @@ export class HeatmapApiService implements HeatmapSource {
         signal?: AbortSignal,
     ): Promise<TPayload> {
         const response = await this.request(route, parameters, signal);
-        return (await response.json()) as TPayload;
+        try {
+            return (await response.json()) as TPayload;
+        } catch (error) {
+            // A tunnel or proxy in front of the gateway answers 200 with its own
+            // HTML. Left to escape as a parse error it reaches no handler, and
+            // the viewer shows nothing rather than saying what went wrong.
+            throw new HeatmapApiError('Gateway answered something that is not JSON', 0, { cause: error });
+        }
     }
 
     private async request(
