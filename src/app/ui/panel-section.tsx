@@ -12,11 +12,14 @@ interface PanelSectionProps {
 /**
  * One titled stretch of a settings panel.
  *
- * Written once because the same idea — a rule, a breath, a title, then the
- * controls — had been spelled out four times with three different amounts of
- * breath, and one of them had no title at all: a run of figures started
- * immediately under a pair of switches, with nothing saying they were a
+ * Written once because the same idea — a breath, a rule, a breath, a title,
+ * then the controls — had been spelled out four times with three different
+ * amounts of breath, and one of them had no title at all: a run of figures
+ * started immediately under a pair of switches, with nothing saying they were a
  * different subject.
+ *
+ * The breath is on both sides of the rule. With it only underneath, the rule
+ * reads as belonging to the control above it rather than dividing the two.
  */
 export function PanelSection({
     title,
@@ -25,7 +28,7 @@ export function PanelSection({
     isDivided = true,
 }: PanelSectionProps): ReactElement {
     return (
-        <section className={`space-y-3 ${isDivided ? 'border-t border-hairline pt-4' : ''}`}>
+        <section className={`space-y-3 ${isDivided ? 'mt-4 border-t border-hairline pt-4' : ''}`}>
             <div className="flex items-baseline justify-between gap-3">
                 <span className="text-xs text-ink-300">{title}</span>
                 {summary !== undefined && (
