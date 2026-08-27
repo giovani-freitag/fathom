@@ -71,7 +71,6 @@ function renderDock(overrides: Partial<DrawingControls> = {}): Pressed {
             onSpanSelect: () => undefined,
             barIntervalMs: null,
             effectiveIntervalMs: 5_000,
-            frameIntervalMs: 1_000,
             onIntervalSelect: () => undefined,
         },
     };

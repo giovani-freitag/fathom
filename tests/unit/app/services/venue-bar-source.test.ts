@@ -52,30 +52,22 @@ describe('VenueBarSource', () => {
         expect([window.instrumentSymbol, asked.archive]).toEqual(['venue', []]);
     });
 
-    it('takes them from the archive below a minute, which no venue publishes', async () => {
+    it('never asks the archive for one, whatever the rung', async () => {
+        // One source for a candle. A bar that came from the venue on a good day
+        // and from the recording on a bad one would be a bar whose meaning
+        // depended on the network.
         const asked: Asked = { archive: [], venue: [] };
 
-        const window = await buildSource(asked).fetchPriceBars({ ...QUERY, intervalMs: 1_000 });
+        await buildSource(asked).fetchPriceBars({ ...QUERY, intervalMs: 86_400_000 });
 
-        expect([window.instrumentSymbol, asked.venue]).toEqual(['archive', []]);
+        expect(asked.archive).toEqual([]);
     });
 
-    it('falls back to what was recorded when the venue cannot be reached', async () => {
-        // A venue that is unreachable is not a chart that cannot be drawn: what
-        // was recorded is still there, and drawing that beats drawing nothing.
+    it('says so when the venue cannot be reached, rather than drawing something else', async () => {
         const asked: Asked = { archive: [], venue: [] };
 
-        const window = await buildSource(asked, true).fetchPriceBars(QUERY);
-
-        expect(window.instrumentSymbol).toBe('archive');
-    });
-
-    it('gives up when the window that asked has moved on', async () => {
-        const controller = new AbortController();
-        controller.abort();
-
-        await expect(buildSource({ archive: [], venue: [] }, true)
-            .fetchPriceBars(QUERY, controller.signal)).rejects.toThrow();
+        await expect(buildSource(asked, true).fetchPriceBars(QUERY)).rejects.toThrow('venue is down');
+        expect(asked.archive).toEqual([]);
     });
 
     it('leaves the book to the archive, which is the only thing that has it', async () => {

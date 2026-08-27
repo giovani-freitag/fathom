@@ -49,6 +49,15 @@ import { isPlanWithinBudget, recolourPlan } from '../../shared/core/draw-plan.ts
 /** Bars of clear space kept after the newest one. */
 const RIGHT_MARGIN_BARS = 5;
 
+/**
+ * The most of the window that clear space may take.
+ *
+ * A handful of bars is the right amount of room until a bar is wide: five
+ * minute-bars on a quarter-hour window is a third of the chart left empty, and
+ * a reader looking at fifteen minutes did not ask for five of nothing.
+ */
+const RIGHT_MARGIN_SPAN_RATIO = 0.04;
+
 const COVERAGE_REFRESH_MS = 5_000;
 
 export type ChartPhase = 'initialising' | 'ready' | 'empty' | 'failed';
@@ -654,10 +663,15 @@ function resolveWindowSources(state: ChartState): readonly WindowSource[] {
  *
  * Measured in bars rather than pixels, so it is the same amount of chart at
  * every zoom: a handful of bars of clear space, which is what makes the one
- * being built readable instead of pressed against the axis.
+ * being built readable instead of pressed against the axis. Capped by a share
+ * of the window, because a handful of wide bars is most of a narrow one.
  */
 function resolveRightMarginMs(state: ChartState): number {
-    return RIGHT_MARGIN_BARS * state.dataset.bars.intervalMs;
+    const spanMs = state.viewport.toMs - state.viewport.fromMs;
+    return Math.min(
+        RIGHT_MARGIN_BARS * state.dataset.bars.intervalMs,
+        spanMs * RIGHT_MARGIN_SPAN_RATIO,
+    );
 }
 
 function hasAnything(dataset: ChartDataset): boolean {

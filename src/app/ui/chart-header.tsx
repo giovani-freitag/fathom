@@ -55,7 +55,6 @@ export function ChartHeader(props: ChartHeaderProps): ReactElement {
                 isCollapsed
                 barIntervalMs={time.barIntervalMs}
                 effectiveIntervalMs={time.effectiveIntervalMs}
-                frameIntervalMs={time.frameIntervalMs}
                 onSelect={time.onIntervalSelect}
             />
 

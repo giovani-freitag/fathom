@@ -110,13 +110,6 @@ export function HeatmapPage(): ReactElement {
     const columnSummary = isDepthVisible
         ? `${formatDuration(sampleIntervalMs, translate)}${translate('coverage.perColumn')}`
         : null;
-    // The grid the contract is recorded on, not the one this window happens to
-    // be sampled at: sampling coarsens as the view widens, and the rungs a
-    // reader may pick must not come and go with the zoom.
-    const recordedIntervalMs = instruments.find(
-        (instrument) => instrument.instrumentSymbol === instrumentSymbol,
-    )?.frameIntervalMs ?? 1_000;
-
     const chartControls = {
         indicators,
         instruments,
@@ -127,7 +120,6 @@ export function HeatmapPage(): ReactElement {
             onSpanSelect: handleSpanSelect,
             barIntervalMs,
             effectiveIntervalMs: barWindowIntervalMs,
-            frameIntervalMs: recordedIntervalMs,
             onIntervalSelect: handleIntervalSelect,
             ...columnSummary === null ? {} : { columnSummary },
         },

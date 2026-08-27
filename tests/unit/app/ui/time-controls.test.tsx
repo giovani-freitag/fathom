@@ -31,7 +31,7 @@ function renderSpans(options: { isCollapsed?: boolean } = {}): Chosen {
     return chosen;
 }
 
-function renderIntervals(frameIntervalMs: number): Chosen {
+function renderIntervals(): Chosen {
     const chosen: Chosen = { spans: [], intervals: [] };
     const kernel = createIndicatorKernel();
 
@@ -39,8 +39,7 @@ function renderIntervals(frameIntervalMs: number): Chosen {
         <KernelProvider container={kernel.container}>
             <BarIntervalControl
                 barIntervalMs={null}
-                effectiveIntervalMs={5_000}
-                frameIntervalMs={frameIntervalMs}
+                effectiveIntervalMs={60_000}
                 onSelect={(intervalMs) => { chosen.intervals.push(intervalMs); }}
             />
         </KernelProvider>,
@@ -121,21 +120,21 @@ describe('SpanControl folded into a menu', () => {
 
 describe('BarIntervalControl', () => {
     it('offers the window the chance to decide for itself', () => {
-        renderIntervals(1_000);
+        renderIntervals();
 
-        expect(screen.getByRole('radio', { name: 'Auto · 5s' })).toBeTruthy();
+        expect(screen.getByRole('radio', { name: 'Auto · 1min' })).toBeTruthy();
     });
 
-    it('offers no rung finer than the contract was recorded at', () => {
-        // A bar drawn from a grid the recording never had is a bar out of
-        // nothing, whatever it looks like.
-        renderIntervals(60_000);
+    it('offers only rungs the venue publishes a candle for', () => {
+        // Every rung on the ladder is one; a width no venue serves would be a
+        // choice that answers with nothing.
+        renderIntervals();
 
         expect(screen.queryByRole('radio', { name: '1s' })).toBeNull();
     });
 
     it('hands the decision back when the automatic choice is pressed', () => {
-        const chosen = renderIntervals(1_000);
+        const chosen = renderIntervals();
 
         screen.getAllByRole('radio')[0]!.click();
 

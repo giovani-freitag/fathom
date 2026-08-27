@@ -1,12 +1,14 @@
 import { BAR_INTERVALS_MS, chooseBarIntervalMs, resolveBarIntervalMs } from '../../../src/app/core/bar-interval.ts';
 import { describe, expect, it } from 'vitest';
+import { nameVenueInterval } from '../../../src/shared/core/venue-bar-interval.ts';
 
 const HOUR_MS = 3_600_000;
 
 describe('chooseBarIntervalMs', () => {
     it('answers with a rung of the ladder and never a computed number', () => {
         const chosen = chooseBarIntervalMs({
-            viewportSpanMs: 7 * 60_000, targetBarCount: 3, frameIntervalMs: 1_000,
+            viewportSpanMs: 7 * 60_000,
+            targetBarCount: 3,
         });
 
         expect(BAR_INTERVALS_MS).toContain(chosen);
@@ -16,38 +18,35 @@ describe('chooseBarIntervalMs', () => {
         // The bug this replaces: bins came from plot width, so the same viewport
         // measured 4.7x apart between a phone and a desktop.
         const forSpan = (viewportSpanMs: number) =>
-            chooseBarIntervalMs({ viewportSpanMs, targetBarCount: 120, frameIntervalMs: 1_000 });
+            chooseBarIntervalMs({ viewportSpanMs, targetBarCount: 120 });
 
         expect(new Set([forSpan(HOUR_MS), forSpan(HOUR_MS), forSpan(HOUR_MS)]).size).toBe(1);
     });
 
     it('widens the rung as the window widens', () => {
-        const narrow = chooseBarIntervalMs({ viewportSpanMs: HOUR_MS, targetBarCount: 120, frameIntervalMs: 1_000 });
-        const wide = chooseBarIntervalMs({ viewportSpanMs: 24 * HOUR_MS, targetBarCount: 120, frameIntervalMs: 1_000 });
+        const narrow = chooseBarIntervalMs({ viewportSpanMs: HOUR_MS, targetBarCount: 120 });
+        const wide = chooseBarIntervalMs({ viewportSpanMs: 24 * HOUR_MS, targetBarCount: 120 });
 
         expect(wide).toBeGreaterThan(narrow);
     });
 
-    it('never goes finer than the grid the instrument was recorded on', () => {
-        const chosen = chooseBarIntervalMs({
-            viewportSpanMs: 60_000, targetBarCount: 600, frameIntervalMs: 5_000,
-        });
-
-        expect(chosen).toBeGreaterThanOrEqual(5_000);
+    it('holds at the finest rung rather than inventing one below it', () => {
+        // Which is a minute: the finest candle any venue publishes, and so the
+        // finest bar there is anything to draw.
+        expect(chooseBarIntervalMs({ viewportSpanMs: 100, targetBarCount: 120 })).toBe(60_000);
     });
 
-    it('holds at the finest rung rather than inventing one below it', () => {
-        expect(chooseBarIntervalMs({ viewportSpanMs: 100, targetBarCount: 120, frameIntervalMs: 1_000 }))
-            .toBe(1_000);
+    it('offers only rungs the venue publishes a candle for', () => {
+        const unpublished = BAR_INTERVALS_MS.filter((rung) => nameVenueInterval(rung) === null);
+
+        expect(unpublished).toEqual([]);
     });
 });
 
 describe('chooseBarIntervalMs and the count it produces', () => {
     /** How many bars a span would hold at the chosen rung. */
     function barsAcross(viewportSpanMs: number, targetBarCount: number): number {
-        return viewportSpanMs / chooseBarIntervalMs({
-            viewportSpanMs, targetBarCount, frameIntervalMs: 1_000,
-        });
+        return viewportSpanMs / chooseBarIntervalMs({ viewportSpanMs, targetBarCount });
     }
 
     it('never draws more bars than were asked for', () => {
@@ -59,13 +58,20 @@ describe('chooseBarIntervalMs and the count it produces', () => {
         }
     });
 
-    it('stays close to the count rather than collapsing to a handful', () => {
-        expect(barsAcross(900_000, 240)).toBeGreaterThan(120);
+    it('stays close to the count wherever the ladder has a rung for it', () => {
+        expect(barsAcross(4 * HOUR_MS, 240)).toBeGreaterThan(120);
+    });
+
+    it('gives a narrow window the minute, which is the finest candle there is', () => {
+        // A quarter of an hour holds fifteen of them. It held nine hundred when
+        // bars came out of the recorded book, and that is the price of a candle
+        // that means the same thing on every chart that draws one.
+        expect(barsAcross(900_000, 240)).toBe(15);
     });
 });
 
 describe('resolveBarIntervalMs', () => {
-    const WINDOW = { viewportSpanMs: 15 * 60_000, targetBarCount: 240, frameIntervalMs: 1_000 };
+    const WINDOW = { viewportSpanMs: 15 * 60_000, targetBarCount: 240 };
 
     it('fits the window when the reader has named nothing', () => {
         expect(resolveBarIntervalMs(null, WINDOW)).toBe(chooseBarIntervalMs(WINDOW));
@@ -77,8 +83,7 @@ describe('resolveBarIntervalMs', () => {
         expect(resolveBarIntervalMs(HOUR_MS, WINDOW)).toBe(HOUR_MS);
     });
 
-    it('never draws finer than the grid the instrument was recorded on', () => {
-        // A bar under the recording would be claiming detail nobody captured.
-        expect(resolveBarIntervalMs(1_000, { ...WINDOW, frameIntervalMs: 60_000 })).toBe(60_000);
+    it('draws the rung named even where the window would have fitted another', () => {
+        expect(resolveBarIntervalMs(86_400_000, WINDOW)).toBe(86_400_000);
     });
 });

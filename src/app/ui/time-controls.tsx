@@ -64,8 +64,6 @@ interface BarIntervalControlProps {
     readonly barIntervalMs: BarIntervalMs | null;
     /** What the window settled on, for the choice that hands it the decision. */
     readonly effectiveIntervalMs: number;
-    /** The grid the contract is recorded on, below which no rung is offered. */
-    readonly frameIntervalMs: number;
     readonly onSelect: (barIntervalMs: BarIntervalMs | null) => void;
     readonly isCollapsed?: boolean;
 }
@@ -123,14 +121,14 @@ function listSpanChoices(translate: Translate): readonly Choice[] {
 }
 
 /**
- * The bar rungs the chart offers for this contract.
+ * The bar rungs the chart offers.
  *
- * @param request - The grid it is recorded on, and what the window settled on.
+ * @param request - What the window settled on, for the automatic choice.
  * @param translate - The reader's words.
  * @returns The automatic choice, then every rung the recording can carry.
  */
 function listIntervalChoices(
-    request: Pick<BarIntervalControlProps, 'effectiveIntervalMs' | 'frameIntervalMs'>,
+    request: Pick<BarIntervalControlProps, 'effectiveIntervalMs'>,
     translate: Translate,
 ): readonly Choice[] {
     return [
@@ -140,9 +138,11 @@ function listIntervalChoices(
                 interval: formatDuration(request.effectiveIntervalMs, translate),
             }),
         },
-        // A rung below what was recorded would draw bars out of nothing.
-        ...BAR_INTERVALS_MS
-            .filter((rung) => rung >= Math.max(1, request.frameIntervalMs))
-            .map((rung) => ({ value: String(rung), label: formatDuration(rung, translate) })),
+        // Every rung, because every rung is one the venue publishes a candle
+        // for. They were filtered by the recording when bars came out of it.
+        ...BAR_INTERVALS_MS.map((rung) => ({
+            value: String(rung),
+            label: formatDuration(rung, translate),
+        })),
     ];
 }

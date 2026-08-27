@@ -232,7 +232,6 @@ export class WindowLoader {
         const barIntervalMs = resolveBarIntervalMs(request.barIntervalMs, {
             viewportSpanMs: spanMs,
             targetBarCount: TARGET_BAR_COUNT,
-            frameIntervalMs: request.frameIntervalMs,
         });
 
         return {

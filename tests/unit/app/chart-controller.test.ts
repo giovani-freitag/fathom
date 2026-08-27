@@ -1,6 +1,7 @@
 import { ChartController } from '../../../src/app/core/chart-controller.ts';
 import { act } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { EMPTY_BAR_WINDOW } from '../../../src/shared/core/price-bar.ts';
 import { EN_DICTIONARY } from '../../../src/app/i18n/dictionaries/en.ts';
 import {
     buildFrame,
@@ -520,6 +521,33 @@ describe('ChartController on an archive that starts empty', () => {
 
         const { viewport } = controller.store.read();
         expect(viewport.toMs - viewport.fromMs).toBe(900_000);
+    });
+});
+
+describe('ChartController leaving room after the newest bar', () => {
+    it('keeps the clear space to a sliver of a narrow window', async () => {
+        // Five minute-bars on a quarter-hour window is a third of the chart
+        // left empty, and a reader looking at fifteen minutes did not ask for
+        // five minutes of nothing.
+        const mocks = createChartServiceMocks();
+        const nowMs = Date.now();
+        mocks.fetchPriceBars.mockResolvedValue({ ...EMPTY_BAR_WINDOW, intervalMs: 60_000 });
+        const controller = buildController(mocks);
+        await controller.initialize();
+
+        controller.applyView({
+            viewport: { ...controller.store.read().viewport, fromMs: nowMs - 900_000, toMs: nowMs },
+            surfaceWidthPx: 1_000,
+            isFollowingLive: true,
+        });
+        await vi.waitFor(() => {
+            expect(controller.store.read().dataset.bars.intervalMs).toBe(60_000);
+        });
+
+        act(() => { mocks.deliverFrames(buildWindow([buildFrame(nowMs, 79_000)])); });
+
+        const { viewport } = controller.store.read();
+        expect(viewport.toMs - nowMs).toBeLessThan((viewport.toMs - viewport.fromMs) * 0.1);
     });
 });
 

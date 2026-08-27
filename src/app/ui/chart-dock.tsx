@@ -55,7 +55,6 @@ export interface TimeControls {
     readonly onSpanSelect: (spanMs: number) => void;
     readonly barIntervalMs: BarIntervalMs | null;
     readonly effectiveIntervalMs: number;
-    readonly frameIntervalMs: number;
     readonly onIntervalSelect: (intervalMs: BarIntervalMs | null) => void;
     /** How wide a drawn column of the book is, or absent when none is drawn. */
     readonly columnSummary?: string;
@@ -218,7 +217,6 @@ function TimePanel({ time }: { readonly time: TimeControls }): ReactElement {
                 <BarIntervalControl
                     barIntervalMs={time.barIntervalMs}
                     effectiveIntervalMs={time.effectiveIntervalMs}
-                    frameIntervalMs={time.frameIntervalMs}
                     onSelect={time.onIntervalSelect}
                 />
             </PanelSection>

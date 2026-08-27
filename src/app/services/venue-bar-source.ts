@@ -5,7 +5,6 @@ import type {
     TradeClusterResult,
 } from '../../shared/core/heatmap-source.ts';
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
-import { isVenueInterval } from '../../shared/core/venue-bar-interval.ts';
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import type { PriceBarQuery, PriceBarWindow } from '../../shared/core/price-bar.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
@@ -25,8 +24,9 @@ export interface VenueBarSourceConfig {
  * only this recording knows, and the price that moved through them is the one
  * thing any venue will hand over for every past day.
  *
- * The archive still answers below a minute. No venue publishes a candle that
- * fine, and a chart zoomed in that far is looking at what was recorded anyway.
+ * One source for a candle and one for the book, never a choice between two. A
+ * bar that came from the venue on a good day and from the recording on a bad one
+ * would be a bar whose meaning depended on the network.
  */
 export class VenueBarSource implements HeatmapSource {
     private readonly config: VenueBarSourceConfig;
@@ -43,21 +43,7 @@ export class VenueBarSource implements HeatmapSource {
      * @returns The bars, oldest first.
      */
     async fetchPriceBars(query: PriceBarQuery, signal?: AbortSignal): Promise<PriceBarWindow> {
-        if (!isVenueInterval(query.intervalMs)) {
-            return this.config.archive.fetchPriceBars(query, signal);
-        }
-
-        try {
-            return await this.config.candles.fetchPriceBars(query, signal);
-        } catch (cause) {
-            // A venue that cannot be reached is not a chart that cannot be
-            // drawn: what was recorded is still there, and drawing that is
-            // better than drawing nothing.
-            if (signal?.aborted === true) {
-                throw cause;
-            }
-            return this.config.archive.fetchPriceBars(query, signal);
-        }
+        return this.config.candles.fetchPriceBars(query, signal);
     }
 
     /**
