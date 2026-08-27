@@ -1,10 +1,10 @@
 import type { ChoiceParameter, IndicatorParameter, NumericParameter, Tunable } from '../../../shared/core/draw-plan.ts';
 import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts';
 import { INSTANCE_TONES, readChoice, readSetting, readToggle } from '../../../shared/core/draw-plan.ts';
-import { Switch } from 'radix-ui';
 import type { PlotTone } from '../../../shared/core/draw-plan.ts';
 import { formatFixed } from '../../core/formatting.ts';
 import { RangeField } from '../range-field.tsx';
+import { ToggleSwitch } from '../toggle-switch.tsx';
 import { ToneSwatch } from './tone-swatch.tsx';
 import { type ReactElement, useState } from 'react';
 import { useTranslate } from '../../react/use-appearance.ts';
@@ -160,13 +160,7 @@ function ToggleField({ label, isOn, onChange }: ToggleFieldProps): ReactElement 
     return (
         <label className="flex items-center justify-between gap-4">
             <span className="text-xs text-ink-300">{label}</span>
-            <Switch.Root
-                checked={isOn}
-                onCheckedChange={onChange}
-                className="relative h-5 w-9 shrink-0 rounded-full bg-abyss-600 outline-none transition-colors data-[state=checked]:bg-phosphor/70"
-            >
-                <Switch.Thumb className="block size-4 translate-x-0.5 rounded-full bg-ink-100 transition-transform data-[state=checked]:translate-x-4" />
-            </Switch.Root>
+            <ToggleSwitch isOn={isOn} onChange={onChange} />
         </label>
     );
 }

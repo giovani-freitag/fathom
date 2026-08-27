@@ -162,3 +162,24 @@ describe('type safety', () => {
         expect(sourceFiles.filter((path) => /TODO(?!\()/.test(read(path)))).toEqual([]);
     });
 });
+
+describe('controls that mean the same thing look the same', () => {
+    it('has one switch, written once', () => {
+        // Two of them once sat in the same panel with knobs of different
+        // colours travelling different distances, which reads as two kinds of
+        // control rather than one control used twice.
+        const rolled = sourceFiles
+            .filter((path) => !path.endsWith('ui/toggle-switch.tsx'))
+            .filter((path) => read(path).includes('Switch.Root'));
+
+        expect(rolled).toEqual([]);
+    });
+
+    it('parks the knob where the geometry puts it', () => {
+        // A track of thirty-six less a knob of sixteen leaves two pixels of
+        // clearance at each end. Sixteen parks it off-centre against the edge.
+        const written = read('src/app/ui/toggle-switch.tsx');
+
+        expect(written).toContain('translate-x-[18px]');
+    });
+});

@@ -1,6 +1,6 @@
 import { type ReactElement, useCallback, useEffect, useState } from 'react';
+import { ToggleSwitch } from '../../ui/toggle-switch.tsx';
 import type { RecordedContract, RecordingControl, StorageBudget } from '../../../shared/core/recording-control.ts';
-import { Switch } from 'radix-ui';
 import { formatFixed } from '../../core/formatting.ts';
 import { RangeField } from '../../ui/range-field.tsx';
 import type { Translate } from '../../i18n/translator.ts';
@@ -91,19 +91,16 @@ export function RecordingPanel({ recording, onContractsChanged, translate }: Rec
                                 {translate('settings.perRow', { value: instrument.priceBucketSize })}
                             </span>
                         </span>
-                        <Switch.Root
-                            checked={instrument.isEnabled}
-                            disabled={isSaving}
-                            onCheckedChange={(isEnabled) => {
+                        <ToggleSwitch
+                            isOn={instrument.isEnabled}
+                            isDisabled={isSaving}
+                            onChange={(isEnabled) => {
                                 void apply(
                                     recording.saveContract({ ...instrument, isEnabled }),
                                 ).then(onContractsChanged);
                             }}
-                            className="relative h-5 w-9 shrink-0 rounded-full bg-abyss-600 outline-none data-[state=checked]:bg-phosphor/70 disabled:opacity-50"
-                            aria-label={translate('recording.toggle', { symbol: instrument.instrumentSymbol })}
-                        >
-                            <Switch.Thumb className="block size-4 translate-x-0.5 rounded-full bg-abyss-950 transition-transform data-[state=checked]:translate-x-[18px]" />
-                        </Switch.Root>
+                            label={translate('recording.toggle', { symbol: instrument.instrumentSymbol })}
+                        />
                     </li>
                 ))}
             </ul>
