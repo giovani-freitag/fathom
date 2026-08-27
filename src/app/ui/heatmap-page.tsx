@@ -14,7 +14,7 @@ import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
 import { ReturnToLive } from './return-to-live.tsx';
 import { ChartAlert } from './chart-alert.tsx';
 import { ChartHeader } from './chart-header.tsx';
-import { useIsWideViewport } from '../react/use-viewport-width.ts';
+import { useIsViewportAtLeast } from '../react/use-viewport-width.ts';
 import { formatDuration } from '../core/formatting.ts';
 import { listDrawnOverlays } from '../indicators/layer-contributions.ts';
 import { SettingsDrawer } from './settings-drawer.tsx';
@@ -67,7 +67,7 @@ export function HeatmapPage(): ReactElement {
     const indicators = useIndicators();
     const drawings = useDrawings();
     const surfaceRef = useRef<HTMLElement>(null);
-    const isWide = useIsWideViewport();
+    const isWide = useIsViewportAtLeast('lg');
     // The drawer is where a layer is configured, so a row on the chart has to be
     // able to open it onto itself rather than carrying a panel of its own.
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);

@@ -660,17 +660,30 @@ them out loud along the top, where hiding them costs a click and buys nothing.
 
 Which is also why the shapes differ. A dropdown is right in a bar, where it is
 the only thing being opened, and wrong in a panel, where it is a second menu
-inside something that already opened. The wide layout uses selects; the narrow
-one lays the same choices out flat.
+inside something that already opened. The wide layout folds its choices; the
+narrow one lays the same choices out flat.
 
-Read from a media query rather than switched with a class, because rendering
-both and hiding one would mount two of every dialog behind them.
+Read from named breakpoints rather than switched with a class, because rendering
+both and hiding one would mount two of every dialog behind them. There are two
+of them, and they answer different questions. `lg` is where the questions come
+out from behind the thumb and onto a bar. `xl` is where that bar has room to lay
+the eight span presets out rather than fold them into one more control — below
+it they collapse, because a bar that wraps onto two lines has stopped being a
+bar.
 
-Within a layout there is **one control height**. It had drifted to four in a
-single bar — a select at forty-four beside one at thirty-two, chips at
-forty-four and glyphs at forty — and a row of controls that do the same kind of
-thing at four different heights reads as a row that was assembled rather than
-designed.
+**A choice is one thing, described once.** The spans and the bar rungs are each
+listed in one place, and the two shapes — laid out, or folded into a menu — are
+two renderings of that list rather than two lists. Described twice, they drift:
+one shape offers a span the recording cannot fill and the other does not, and
+which answer a reader gets depends on how wide their window happens to be.
+
+Within a layout there is **one control height, and one palette to go with it**.
+Both had drifted — a select at forty-four beside one at thirty-two, chips at
+forty-four and glyphs at forty; a chip that faded to thirty per cent when it
+could not be pressed beside one that faded to forty. They are tokens now, and
+every control the reader presses is built from them, so a row of controls that
+do the same kind of thing reads as a row that was designed rather than
+assembled.
 
 Nothing is drawn over the chart but the colour ramp the depth map is read from,
 a mark when a refetch has failed, and a notice about a layer just removed while

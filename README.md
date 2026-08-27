@@ -43,7 +43,11 @@ not recorded is gone. Fathom exists to be running before you need the data.
 - 🫧 **Aggressor bubbles** — trades sized by volume, coloured by which side crossed
 - 📊 **Depth ladder** — resting size and traded volume per price, beside the chart
 - 🎚️ **Two-cut colour map** — mute the background churn so real walls stand alone
+- 🔭 **Bands that hold up zoomed out** — over days, prices fold into rows you can still follow
 - 🕳️ **Honest gaps** — stretches that were not recorded are drawn as holes, never smoothed
+- ✏️ **Mark it up** — levels, trend lines and zones, pinned to time and price rather than pixels
+- 📏 **Measure a move** — drag a stretch and read it in money and in percent
+- 🎯 **Press what you mean** — a mark or a plotted line opens its own settings where you pressed it
 - 📱 **Touch first** — one finger pans, two pinch both axes, the axes are scale handles
 - ⚡ **Live tail** — a WebSocket appends each new second without refetching the window
 - 🎛️ **Recording control** — pick which contracts record and cap the disk, from the chart itself

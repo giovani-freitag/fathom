@@ -1,25 +1,12 @@
 import { Check, ChevronDown } from 'lucide-react';
-import type { ReactElement, ReactNode } from 'react';
+import type { Choice } from './choice.ts';
+import type { ReactElement } from 'react';
 import { CONTROL_HEIGHT } from './control-shell.ts';
 import { Select as RadixSelect } from 'radix-ui';
 
-export interface SelectChoice {
-    readonly value: string;
-    readonly label: string;
-    /** Set beside the label, for a figure the choice is about. */
-    readonly detail?: string;
-    /**
-     * Shown before the label, in the menu and on the trigger alike.
-     *
-     * A flag, or the shape a theme takes: what the reader recognises before
-     * they have read the word.
-     */
-    readonly icon?: ReactNode;
-}
-
 interface SelectProps {
     readonly value: string;
-    readonly choices: readonly SelectChoice[];
+    readonly choices: readonly Choice[];
     readonly onSelect: (value: string) => void;
     readonly label: string;
 }
@@ -65,7 +52,9 @@ export function Select({ value, choices, onSelect, label }: SelectProps): ReactE
                             <RadixSelect.Item
                                 key={choice.value}
                                 value={choice.value}
-                                className="flex min-h-9 cursor-pointer select-none items-center justify-between gap-6 rounded-md px-3 text-xs text-ink-300 outline-none data-[highlighted]:bg-abyss-700 data-[highlighted]:text-ink-100"
+                                disabled={choice.isDisabled === true}
+                                {...choice.title === undefined ? {} : { title: choice.title }}
+                                className="flex min-h-9 cursor-pointer select-none items-center justify-between gap-6 rounded-md px-3 text-xs text-ink-300 outline-none data-[disabled]:cursor-default data-[disabled]:opacity-40 data-[highlighted]:bg-abyss-700 data-[highlighted]:text-ink-100"
                             >
                                 <RadixSelect.ItemText>
                                     <span className="flex items-center gap-2">

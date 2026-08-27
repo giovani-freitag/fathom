@@ -1,6 +1,6 @@
 import { Coins, Layers, Minus, MousePointer2, Redo2, Ruler, Square, TrendingUp, Undo2 } from 'lucide-react';
 import type { ComponentType, ReactElement } from 'react';
-import { BAR_INTERVALS_MS, type BarIntervalMs } from '../core/bar-interval.ts';
+import type { BarIntervalMs } from '../core/bar-interval.ts';
 import {
     CONTROL_ACTIVE_CLASSES,
     CONTROL_BUTTON_CLASSES,
@@ -14,9 +14,9 @@ import { formatDuration } from '../core/formatting.ts';
 import type { IndicatorControls } from '../react/use-indicators.ts';
 import { LayerPanel } from './indicators/layer-panel.tsx';
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
+import { BarIntervalControl, SpanControl } from './time-controls.tsx';
 import { ChoiceGrid } from './choice-grid.tsx';
 import { PanelSection } from './panel-section.tsx';
-import { SpanPresets } from './span-presets.tsx';
 import type { TranslationKey } from '../i18n/dictionaries/en.ts';
 import { useTranslate } from '../react/use-appearance.ts';
 
@@ -34,9 +34,6 @@ const TOOL_FACES: Readonly<Record<DrawingKind, ToolFace>> = {
 };
 
 const ICON_SIZE_PX = 18;
-
-/** The value the interval choices carry while the window is deciding for itself. */
-const AUTOMATIC_INTERVAL = 'auto';
 
 /** The base asset, which is what a reader recognises the contract by. */
 const QUOTE_SUFFIXES = ['USDT', 'USDC', 'BUSD', 'USD'];
@@ -213,35 +210,18 @@ function TimePanel({ time }: { readonly time: TimeControls }): ReactElement {
                 title={translate('span.label')}
                 {...time.columnSummary === undefined ? {} : { summary: time.columnSummary }}
             >
-                <SpanPresets
+                <SpanControl
                     activeSpanMs={time.visibleSpanMs}
                     recordedSpanMs={time.recordedSpanMs}
                     onSelect={time.onSpanSelect}
                 />
             </PanelSection>
             <PanelSection isDivided title={translate('interval.label')}>
-                <ChoiceGrid
-                    label={translate('interval.label')}
-                    value={time.barIntervalMs === null ? AUTOMATIC_INTERVAL : String(time.barIntervalMs)}
-                    onChoose={(value) => {
-                        time.onIntervalSelect(
-                            value === AUTOMATIC_INTERVAL ? null : (Number(value) as BarIntervalMs),
-                        );
-                    }}
-                    choices={[
-                        {
-                            value: AUTOMATIC_INTERVAL,
-                            label: translate('interval.auto', {
-                                interval: formatDuration(time.effectiveIntervalMs, translate),
-                            }),
-                        },
-                        ...BAR_INTERVALS_MS
-                            .filter((rung) => rung >= Math.max(1, time.frameIntervalMs))
-                            .map((rung) => ({
-                                value: String(rung),
-                                label: formatDuration(rung, translate),
-                            })),
-                    ]}
+                <BarIntervalControl
+                    barIntervalMs={time.barIntervalMs}
+                    effectiveIntervalMs={time.effectiveIntervalMs}
+                    frameIntervalMs={time.frameIntervalMs}
+                    onSelect={time.onIntervalSelect}
                 />
             </PanelSection>
         </div>

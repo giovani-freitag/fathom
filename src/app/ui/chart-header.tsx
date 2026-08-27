@@ -1,16 +1,12 @@
+import { BarIntervalControl, SpanControl } from './time-controls.tsx';
+import { type ChartDockProps, Divider, DrawingTools } from './chart-dock.tsx';
 import { Layers } from 'lucide-react';
 import type { ReactElement, ReactNode } from 'react';
-import { BAR_INTERVALS_MS, type BarIntervalMs } from '../core/bar-interval.ts';
-import { type ChartDockProps, Divider, DrawingTools, type TimeControls } from './chart-dock.tsx';
 import { DockPopover } from './dock-popover.tsx';
-import { formatDuration } from '../core/formatting.ts';
 import { LayerPanel } from './indicators/layer-panel.tsx';
 import { Select } from './select.tsx';
-import { SpanPresets } from './span-presets.tsx';
+import { useIsViewportAtLeast } from '../react/use-viewport-width.ts';
 import { useTranslate } from '../react/use-appearance.ts';
-
-/** The value the interval choices carry while the window is deciding for itself. */
-const AUTOMATIC_INTERVAL = 'auto';
 
 const ICON_SIZE_PX = 18;
 
@@ -34,6 +30,10 @@ export interface ChartHeaderProps extends ChartDockProps {
 export function ChartHeader(props: ChartHeaderProps): ReactElement {
     const translate = useTranslate();
     const { time } = props;
+    // The presets are eight targets in a row; below this there is no room for
+    // them beside everything else, and a bar that wraps to two lines has stopped
+    // being a bar. Folded, they cost a press and take the width of one control.
+    const hasRoomForPresets = useIsViewportAtLeast('xl');
 
     return (
         <header className="flex shrink-0 items-center gap-2 border-b border-hairline px-3 py-2">
@@ -47,28 +47,20 @@ export function ChartHeader(props: ChartHeaderProps): ReactElement {
                 }))}
             />
 
-            <Select
-                value={time.barIntervalMs === null ? AUTOMATIC_INTERVAL : String(time.barIntervalMs)}
-                label={translate('interval.label')}
-                onSelect={(value) => {
-                    time.onIntervalSelect(
-                        value === AUTOMATIC_INTERVAL ? null : (Number(value) as BarIntervalMs),
-                    );
-                }}
-                choices={[
-                    {
-                        value: AUTOMATIC_INTERVAL,
-                        label: translate('interval.auto', {
-                            interval: formatDuration(time.effectiveIntervalMs, translate),
-                        }),
-                    },
-                    ...BAR_INTERVALS_MS
-                        .filter((rung) => rung >= Math.max(1, time.frameIntervalMs))
-                        .map((rung) => ({ value: String(rung), label: formatDuration(rung, translate) })),
-                ]}
+            <BarIntervalControl
+                isCollapsed
+                barIntervalMs={time.barIntervalMs}
+                effectiveIntervalMs={time.effectiveIntervalMs}
+                frameIntervalMs={time.frameIntervalMs}
+                onSelect={time.onIntervalSelect}
             />
 
-            <SpanRow time={time} />
+            <SpanControl
+                isCollapsed={!hasRoomForPresets}
+                activeSpanMs={time.visibleSpanMs}
+                recordedSpanMs={time.recordedSpanMs}
+                onSelect={time.onSpanSelect}
+            />
 
             <Divider />
 
@@ -88,20 +80,5 @@ export function ChartHeader(props: ChartHeaderProps): ReactElement {
 
             {props.settings}
         </header>
-    );
-}
-
-/**
- * The spans, laid along the bar rather than folded into a panel.
- */
-function SpanRow({ time }: { readonly time: TimeControls }): ReactElement {
-    return (
-        <div className="min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <SpanPresets
-                activeSpanMs={time.visibleSpanMs}
-                recordedSpanMs={time.recordedSpanMs}
-                onSelect={time.onSpanSelect}
-            />
-        </div>
     );
 }

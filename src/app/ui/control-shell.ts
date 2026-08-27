@@ -11,6 +11,26 @@
  */
 export const CONTROL_HEIGHT = 'h-10';
 
+/**
+ * A control the reader picks between, whatever shape it is laid out in.
+ *
+ * The width and the justification are left to whoever lays it out: a chip in a
+ * row is a target and is centred on its word, a choice on a line of its own
+ * reads left to right like the rest of the panel. Everything else about it —
+ * the height, the border, the weight, what it looks like unpickable — is the
+ * same wherever it appears.
+ */
+export const CONTROL_CHIP_CLASSES =
+    `inline-flex ${CONTROL_HEIGHT} items-center gap-2 rounded-lg border px-3 text-xs`
+    + ' font-semibold tracking-wide transition-colors disabled:opacity-40';
+
+/** What a control looks like once it is the one in force. */
+export const CONTROL_CHOSEN_CLASSES = 'border-phosphor/60 bg-phosphor/12 text-phosphor';
+
+/** What it looks like while it is only on offer. */
+export const CONTROL_OFFERED_CLASSES =
+    'border-hairline bg-abyss-800/80 text-ink-300 hover:border-hairline-bright hover:text-ink-100';
+
 /** A control that is only a glyph, square at that height. */
 export const CONTROL_BUTTON_CLASSES =
     `grid ${CONTROL_HEIGHT} min-w-10 shrink-0 place-items-center rounded-lg px-1 transition-colors`;

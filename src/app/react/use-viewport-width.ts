@@ -1,42 +1,76 @@
 import { useSyncExternalStore } from 'react';
 
 /**
- * Where the interface stops being held in one hand.
+ * Where the interface changes shape, named as Tailwind names them.
  *
- * Tailwind's `lg`, so a class and this hook cannot drift apart about what wide
- * means.
+ * Tailwind's own breakpoints, so a class and this hook cannot drift apart about
+ * what wide means.
  */
-const WIDE_VIEWPORT_QUERY = '(min-width: 1024px)';
+export type ViewportWidth = 'lg' | 'xl';
+
+const WIDTH_QUERIES: Readonly<Record<ViewportWidth, string>> = {
+    lg: '(min-width: 1024px)',
+    xl: '(min-width: 1280px)',
+};
 
 // Feature-detected rather than assumed: a test host renders the tree without
 // implementing media queries, and the narrow layout is the right answer there.
-const wideViewport = typeof globalThis.matchMedia === 'function'
-    ? globalThis.matchMedia(WIDE_VIEWPORT_QUERY)
-    : null;
+const watchers = new Map<ViewportWidth, MediaQueryList | null>();
 
 /**
- * Subscribes to the one query, so every caller shares the same listener.
+ * The one query list per width, so every caller shares the same listener.
  */
-function watchWidth(onChange: () => void): () => void {
-    wideViewport?.addEventListener('change', onChange);
-    return () => { wideViewport?.removeEventListener('change', onChange); };
+function readWatcher(width: ViewportWidth): MediaQueryList | null {
+    if (!watchers.has(width)) {
+        watchers.set(width, typeof globalThis.matchMedia === 'function'
+            ? globalThis.matchMedia(WIDTH_QUERIES[width])
+            : null);
+    }
+    return watchers.get(width) ?? null;
 }
 
 /**
- * Whether there is room for controls to sit out in the open.
+ * The one subscribe function per width, held so React does not resubscribe.
  *
- * Read rather than guessed from a class, because the two layouts are not the
- * same controls hidden and shown: a screen held in one hand puts its questions
- * behind one target near the thumb, and a screen that has room asks them out
- * loud along the top. Rendering both and hiding one would mount two of every
- * dialog behind them.
- *
- * @returns True on a viewport wide enough for a bar of its own.
+ * A fresh closure per render is a listener removed and added on every one of
+ * them, which is a resize handler that churns while the reader is resizing.
  */
-export function useIsWideViewport(): boolean {
+const subscribers = new Map<ViewportWidth, (onChange: () => void) => () => void>();
+
+/**
+ * Subscribes to one width's query, sharing the listener with every caller.
+ */
+function readSubscriber(width: ViewportWidth): (onChange: () => void) => () => void {
+    const held = subscribers.get(width);
+    if (held !== undefined) {
+        return held;
+    }
+
+    const subscribe = (onChange: () => void): (() => void) => {
+        const watcher = readWatcher(width);
+        watcher?.addEventListener('change', onChange);
+        return () => { watcher?.removeEventListener('change', onChange); };
+    };
+    subscribers.set(width, subscribe);
+    return subscribe;
+}
+
+/**
+ * Whether the viewport has at least the room a breakpoint asks for.
+ *
+ * Read rather than guessed from a class, because the layouts either side of a
+ * breakpoint are not the same controls hidden and shown: a screen held in one
+ * hand puts its questions behind one target near the thumb, and a screen that
+ * has room asks them out loud along the top. Rendering both and hiding one
+ * would mount two of every dialog behind them.
+ *
+ * @param width - The breakpoint to ask about.
+ * @returns True on a viewport at least that wide.
+ */
+export function useIsViewportAtLeast(width: ViewportWidth): boolean {
     return useSyncExternalStore(
-        watchWidth,
-        () => wideViewport?.matches ?? false,
+        readSubscriber(width),
+        () => readWatcher(width)?.matches ?? false,
         () => false,
     );
 }

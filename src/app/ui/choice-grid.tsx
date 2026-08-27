@@ -1,14 +1,11 @@
 import type { ReactElement, ReactNode } from 'react';
-
-export interface Choice {
-    readonly value: string;
-    readonly label: string;
-    /** Set beside the label, for a figure the choice is about. */
-    readonly detail?: string;
-    readonly isDisabled?: boolean;
-    /** Why it cannot be picked, for the reader who tries. */
-    readonly title?: string;
-}
+import type { Choice } from './choice.ts';
+import { ControlButton } from './control-button.tsx';
+import {
+    CONTROL_CHIP_CLASSES,
+    CONTROL_CHOSEN_CLASSES,
+    CONTROL_OFFERED_CLASSES,
+} from './control-shell.ts';
 
 interface ChoiceGridProps {
     readonly label: string;
@@ -18,14 +15,6 @@ interface ChoiceGridProps {
     /** True where each choice needs a line of its own rather than a chip. */
     readonly isStacked?: boolean;
 }
-
-const CHIP_CLASSES =
-    'min-h-9 shrink-0 rounded-lg border px-3 text-xs font-semibold transition-colors disabled:opacity-30';
-const ROW_CLASSES =
-    'flex min-h-9 w-full items-center justify-between gap-3 rounded-lg border px-3 text-xs transition-colors';
-
-const CHOSEN_CLASSES = 'border-phosphor/60 bg-phosphor/12 text-phosphor';
-const OFFERED_CLASSES = 'border-hairline bg-abyss-800/80 text-ink-300 hover:border-hairline-bright hover:text-ink-100';
 
 /**
  * A set of choices laid out where a reader can see all of them at once.
@@ -72,21 +61,47 @@ interface ChoiceButtonProps {
  * One of the choices, shaped by whether it shares a line or takes one.
  */
 function ChoiceButton({ choice, isChosen, isStacked, onChoose }: ChoiceButtonProps): ReactElement {
-    const shape = isStacked ? ROW_CLASSES : CHIP_CLASSES;
+    const label = (
+        <span className="flex items-center gap-2">
+            {choice.icon}
+            {choice.label}
+        </span>
+    );
+    const detail = choice.detail === undefined ? null : <Detail>{choice.detail}</Detail>;
+
+    // A choice on a line of its own reads left to right like the rest of the
+    // panel; one sharing a row is a target, and is centred on its word.
+    if (isStacked) {
+        return (
+            <button
+                type="button"
+                role="radio"
+                aria-checked={isChosen}
+                disabled={choice.isDisabled === true}
+                {...choice.title === undefined ? {} : { title: choice.title }}
+                onClick={() => { onChoose(choice.value); }}
+                className={`${CONTROL_CHIP_CLASSES} w-full justify-between ${
+                    isChosen ? CONTROL_CHOSEN_CLASSES : CONTROL_OFFERED_CLASSES}`}
+            >
+                {label}
+                {detail}
+            </button>
+        );
+    }
 
     return (
-        <button
-            type="button"
+        <ControlButton
             role="radio"
             aria-checked={isChosen}
+            isActive={isChosen}
             disabled={choice.isDisabled === true}
             {...choice.title === undefined ? {} : { title: choice.title }}
             onClick={() => { onChoose(choice.value); }}
-            className={`${shape} ${isChosen ? CHOSEN_CLASSES : OFFERED_CLASSES}`}
+            className="shrink-0"
         >
-            <span className={isStacked ? 'font-semibold' : ''}>{choice.label}</span>
-            {choice.detail !== undefined && <Detail>{choice.detail}</Detail>}
-        </button>
+            {label}
+            {detail}
+        </ControlButton>
     );
 }
 

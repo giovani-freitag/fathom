@@ -70,3 +70,6 @@ export function resolveBarIntervalMs(
     const floor = Math.max(1, request.frameIntervalMs);
     return BAR_INTERVALS_MS.find((rung) => rung >= chosen && rung >= floor) ?? COARSEST_INTERVAL_MS;
 }
+
+/** The value the interval choices carry while the window is deciding for itself. */
+export const AUTOMATIC_INTERVAL = 'auto';

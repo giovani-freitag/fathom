@@ -18,3 +18,23 @@ export const SPAN_PRESETS: readonly SpanPreset[] = [
     { labelKey: 'span.3d', spanMs: 259_200_000 },
     { labelKey: 'span.1w', spanMs: 604_800_000 },
 ];
+
+/**
+ * How far a span may be from a preset and still be counted as it.
+ *
+ * A reader who pressed an hour and then nudged the view is still looking at an
+ * hour, and a row that let go of its mark at the first drag would say nothing
+ * about where they are.
+ */
+const SPAN_MATCH_TOLERANCE = 0.12;
+
+/**
+ * Whether a span on screen is the one a preset offers.
+ *
+ * @param activeSpanMs - What is on screen.
+ * @param presetSpanMs - What the preset would set.
+ * @returns True when the two are near enough to be the same answer.
+ */
+export function matchesSpan(activeSpanMs: number, presetSpanMs: number): boolean {
+    return Math.abs(activeSpanMs - presetSpanMs) < presetSpanMs * SPAN_MATCH_TOLERANCE;
+}
