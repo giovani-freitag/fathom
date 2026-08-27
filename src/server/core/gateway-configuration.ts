@@ -1,3 +1,4 @@
+import { MAXIMUM_WINDOW_MS } from '../../shared/core/api-contract.ts';
 /** Raised when the environment cannot produce a usable configuration. */
 export class ConfigurationError extends Error {
     constructor(message: string) {
@@ -32,7 +33,7 @@ export const LIVE_TAIL_SETTINGS = {
 } as const;
 
 export const QUERY_LIMITS = {
-    maximumRangeMs: 90 * 24 * 60 * 60 * 1_000,
+    maximumRangeMs: MAXIMUM_WINDOW_MS,
     maximumClusters: 60_000,
 } as const;
 

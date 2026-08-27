@@ -72,7 +72,9 @@ describe('DemoShell', () => {
 
         await vi.advanceTimersByTimeAsync(2_000);
 
-        expect(screen.queryByTestId('chart')).not.toBeNull();
+        // Waited for rather than asserted straight after the tick: advancing a
+        // timer starts the read, and the answer lands a promise later.
+        await vi.waitFor(() => { expect(screen.queryByTestId('chart')).not.toBeNull(); });
     });
 
     it('explains itself when the browser will not let the page record', async () => {

@@ -1,6 +1,7 @@
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
+import { MAXIMUM_WINDOW_MS } from '../../shared/core/api-contract.ts';
 import { type BarIntervalMs, resolveBarIntervalMs, TARGET_BAR_COUNT } from './bar-interval.ts';
 import type { ChartViewport } from './chart-viewport.ts';
 import type { PriceBarWindow } from '../../shared/core/price-bar.ts';
@@ -212,7 +213,12 @@ export class WindowLoader {
 
     private resolveRange(request: WindowLoadRequest): ResolvedRange {
         const spanMs = request.viewport.toMs - request.viewport.fromMs;
-        const overscanMs = spanMs * OVERSCAN_RATIO;
+        // Held to what the archive will answer for. Asking past it earns a
+        // refusal rather than an answer, and a chart that asked would go blank
+        // exactly when somebody had recorded enough history to zoom out that
+        // far.
+        const room = Math.max(0, (MAXIMUM_WINDOW_MS - spanMs) / 2);
+        const overscanMs = Math.min(spanMs * OVERSCAN_RATIO, room);
         const fromMs = request.viewport.fromMs - overscanMs;
         const toMs = request.viewport.toMs + overscanMs;
         const maxColumns = Math.min(

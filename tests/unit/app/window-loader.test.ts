@@ -1,3 +1,4 @@
+import { MAXIMUM_WINDOW_MS } from '../../../src/shared/core/api-contract.ts';
 import { WindowLoader, type WindowSource } from '../../../src/app/core/window-loader.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { buildWindow, buildFrame, createChartServiceMocks } from '../../mocks/chart-services.ts';
@@ -258,5 +259,35 @@ describe('WindowLoader sources', () => {
         await loader.load(buildRequest({ sources: ['frames'] }));
 
         expect(mocks.api.fetchFrameWindow).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('WindowLoader against what the archive will answer', () => {
+    it('never asks for a window wider than the gateway answers', async () => {
+        // The widest view plus the overscan around it used to come to more than
+        // twice the ceiling. Nobody saw it because nobody had recorded enough
+        // history to zoom out that far; the chart would have gone blank for the
+        // first reader who had.
+        const harness = buildHarness();
+        const widest = MAXIMUM_WINDOW_MS;
+        const toMs = 2_000_000_000_000;
+
+        await harness.loader.load(buildRequest({
+            viewport: { ...VIEWPORT, fromMs: toMs - widest, toMs },
+        }));
+
+        const asked = harness.mocks.fetchPriceBars.mock.calls.at(-1)?.[0] as { fromMs: number; toMs: number };
+        expect(asked.toMs - asked.fromMs).toBeLessThanOrEqual(MAXIMUM_WINDOW_MS);
+    });
+
+    it('still overscans a window with room to spare around it', async () => {
+        // The ceiling only bites at the far end; a fifteen-minute view must
+        // still fetch a pan's worth either side of what it shows.
+        const harness = buildHarness();
+
+        await harness.loader.load(buildRequest({}));
+
+        const asked = harness.mocks.fetchPriceBars.mock.calls.at(-1)?.[0] as { fromMs: number; toMs: number };
+        expect(asked.toMs - asked.fromMs).toBeGreaterThan(VIEWPORT.toMs - VIEWPORT.fromMs);
     });
 });

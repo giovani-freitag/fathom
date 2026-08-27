@@ -90,3 +90,130 @@ describe('PlotPainter', () => {
         expect(recording.callsTo('stroke')).toEqual([]);
     });
 });
+
+describe('PlotPainter drawing a histogram', () => {
+    function paintHistogram(overrides: Partial<PlotSeries> = {}) {
+        const recording = createRecordingContext();
+        new PlotPainter().paintOverPrice(buildPaintContext(recording, {
+            plans: [buildPlan({
+                scale: { kind: 'overlay', heightRatio: 0.2 },
+                series: [buildSeries({
+                    shape: 'histogram',
+                    baseline: 0,
+                    atMs: Float64Array.from([1_200_000, 1_400_000, 1_600_000]),
+                    value: Float64Array.from([5, -3, 8]),
+                    ...overrides,
+                })],
+            })],
+        }));
+        return recording;
+    }
+
+    it('draws a column for each bar it was given', () => {
+        expect(paintHistogram().callsTo('fillRect').length).toBe(3);
+    });
+
+    it('leaves out a bar the arithmetic had nothing to say about', () => {
+        // A blank is not a nought: a column drawn at nought would claim the
+        // reading was zero there rather than absent.
+        const recording = paintHistogram({ value: Float64Array.from([5, Number.NaN, 8]) });
+
+        expect(recording.callsTo('fillRect').length).toBe(2);
+    });
+
+    it('never collapses a column to nothing, however small the reading', () => {
+        const recording = paintHistogram({ value: Float64Array.from([1e-9, 1e-9, 1e-9]) });
+
+        for (const call of recording.callsTo('fillRect')) {
+            expect(Number(call.args[3])).toBeGreaterThanOrEqual(1);
+        }
+    });
+
+    it('colours a bar under the baseline in its own tone', () => {
+        // What makes a MACD histogram readable: the sign is the reading. A
+        // symmetric scale takes a band of its own, so it is painted there.
+        const recording = createRecordingContext();
+        new PlotPainter().paintInPanes(buildPaintContext(recording, {
+            plans: [buildPlan({
+                scale: { kind: 'symmetric' },
+                series: [buildSeries({
+                    shape: 'histogram',
+                    baseline: 0,
+                    negativeTone: 'ask',
+                    value: Float64Array.from([5, -3, 8]),
+                })],
+            })],
+        }));
+
+        const tones = new Set(recording.callsTo('fillRect').map((call) => call.fillStyle));
+        expect(tones.size).toBe(2);
+    });
+});
+
+describe('PlotPainter shading a band', () => {
+    function paintBand() {
+        const recording = createRecordingContext();
+        new PlotPainter().paintOverPrice(buildPaintContext(recording, {
+            plans: [buildPlan({
+                indicatorId: 'bollinger',
+                series: [
+                    buildSeries({ value: Float64Array.from([78_700, 78_800, 78_750]) }),
+                    buildSeries({ value: Float64Array.from([78_300, 78_400, 78_350]) }),
+                ],
+                bands: [{ tone: 'violet', upperSeriesIndex: 0, lowerSeriesIndex: 1 }],
+            })],
+        }));
+        return recording;
+    }
+
+    it('fills the region between the two series it names', () => {
+        expect(paintBand().callsTo('fill').length).toBeGreaterThan(0);
+    });
+
+    it('draws the two series as well as the shading between them', () => {
+        expect(paintBand().callsTo('stroke').length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('shades nothing when the band names a series that is not there', () => {
+        const recording = createRecordingContext();
+        new PlotPainter().paintOverPrice(buildPaintContext(recording, {
+            plans: [buildPlan({
+                bands: [{ tone: 'violet', upperSeriesIndex: 0, lowerSeriesIndex: 9 }],
+            })],
+        }));
+
+        expect(recording.callsTo('fill')).toEqual([]);
+    });
+});
+
+describe('PlotPainter drawing a level', () => {
+    function paintLevels(isDashed: boolean) {
+        const recording = createRecordingContext();
+        new PlotPainter().paintInPanes(buildPaintContext(recording, {
+            plans: [buildPlan({
+                indicatorId: 'rsi',
+                scale: { kind: 'fixed', low: 0, high: 100 },
+                series: [buildSeries({ value: Float64Array.from([40, 60, 55]) })],
+                levels: [{ value: 30, tone: 'muted', isDashed }, { value: 70, tone: 'muted', isDashed }],
+            })],
+        }));
+        return recording;
+    }
+
+    it('rules a line across the band at each level it was given', () => {
+        // The thirty and the seventy are what make a strength reading mean
+        // anything; a band without them is a wiggle between nought and a hundred.
+        expect(paintLevels(true).callsTo('stroke').length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('dashes the ones that ask to be dashed, and only those', () => {
+        const dashed = paintLevels(true).callsTo('setLineDash').filter(
+            (call) => Array.isArray(call.args[0]) && (call.args[0] as unknown[]).length > 0,
+        );
+        const solid = paintLevels(false).callsTo('setLineDash').filter(
+            (call) => Array.isArray(call.args[0]) && (call.args[0] as unknown[]).length > 0,
+        );
+
+        expect(dashed.length).toBeGreaterThan(solid.length);
+    });
+});

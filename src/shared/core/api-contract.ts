@@ -1,6 +1,14 @@
 import type { RecordingGap } from './recording-gap.ts';
 import type { TradeCluster } from './trade-cluster.ts';
 
+/**
+ * The widest window the archive will answer for.
+ *
+ * Declared with the routes because it is part of what they promise: a caller
+ * that asks past it is refused, so a caller had better know where it is.
+ */
+export const MAXIMUM_WINDOW_MS = 90 * 24 * 60 * 60 * 1_000;
+
 export const API_ROUTES = {
     health: '/api/health',
     instruments: '/api/instruments',
