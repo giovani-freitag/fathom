@@ -56,12 +56,14 @@ export class ArchiveWriteBuffer {
     }
 
     /**
-     * Writes everything queued, coalescing with any flush already running.
+     * Writes everything queued when it was called.
      */
     async flush(): Promise<void> {
-        if (this.flushInFlight !== null) {
+        // A flush already running took its work off the queues before this call,
+        // so waiting for it is not the same as having written what is queued
+        // now — and the flush at shutdown is the one with no next chance.
+        while (this.flushInFlight !== null) {
             await this.flushInFlight;
-            return;
         }
         this.flushInFlight = this.writePending();
         try {
