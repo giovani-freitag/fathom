@@ -154,12 +154,22 @@ export class IndexedDbHeatmapSource implements HeatmapSource {
             ),
         );
 
-        const bars = foldRecordsIntoBars({
+        const clusters = await this.read<TradeClusterRecord>(
+            STORES.tradeCluster,
+            IDBKeyRange.bound(
+                [query.symbol, fromMs],
+                [query.symbol, alignUp(query.toMs, intervalMs), Number.POSITIVE_INFINITY],
+                false,
+                true,
+            ),
+        );
+
+        const bars = addVolume(foldRecordsIntoBars({
             records,
             intervalMs,
             expectedFrames: Math.max(1, Math.round(intervalMs / frameIntervalMs)),
             closedBeforeMs: Date.now() - intervalMs,
-        });
+        }), clusters, intervalMs);
 
         return {
             instrumentSymbol: query.symbol,
@@ -320,9 +330,44 @@ function sealBar(open: MutableBar, request: BarFoldRequest): PriceBar {
     return {
         ...open,
         closedAtMs: open.openedAtMs + request.intervalMs,
+        buyVolume: 0,
+        sellVolume: 0,
+        tradeCount: 0,
         expectedFrames: request.expectedFrames,
         isClosed: open.openedAtMs <= request.closedBeforeMs,
     };
+}
+
+/**
+ * Adds what traded in each bucket to the bars built from the book.
+ *
+ * Kept apart from the fold because the two come from different stores: the book
+ * says where price was, and the trades say how much changed hands there.
+ */
+function addVolume(
+    bars: readonly PriceBar[],
+    clusters: readonly TradeClusterRecord[],
+    intervalMs: number,
+): PriceBar[] {
+    const totals = new Map<number, { buy: number; sell: number; count: number }>();
+    for (const cluster of clusters) {
+        const openedAtMs = alignDown(cluster.executedAtMs, intervalMs);
+        const running = totals.get(openedAtMs) ?? { buy: 0, sell: 0, count: 0 };
+        running.buy += cluster.buyQuantity;
+        running.sell += cluster.sellQuantity;
+        running.count += cluster.tradeCount;
+        totals.set(openedAtMs, running);
+    }
+
+    return bars.map((bar) => {
+        const running = totals.get(bar.openedAtMs);
+        return running === undefined ? bar : {
+            ...bar,
+            buyVolume: running.buy,
+            sellVolume: running.sell,
+            tradeCount: running.count,
+        };
+    });
 }
 
 function alignDown(instantMs: number, intervalMs: number): number {

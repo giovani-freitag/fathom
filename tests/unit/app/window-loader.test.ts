@@ -1,4 +1,5 @@
-import { WindowLoader } from '../../../src/app/core/window-loader.ts';
+import { MAXIMUM_WINDOW_MS } from '../../../src/shared/core/api-contract.ts';
+import { WindowLoader, type WindowSource } from '../../../src/app/core/window-loader.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { buildWindow, buildFrame, createChartServiceMocks } from '../../mocks/chart-services.ts';
 
@@ -35,6 +36,9 @@ function buildRequest(overrides: Partial<Parameters<WindowLoader['load']>[0]> = 
         surfaceWidthPx: 1_000,
         frameIntervalMs: 1_000,
         priceGroupSize: 1,
+        warmupBars: 1,
+        barIntervalMs: null,
+        sources: ['frames', 'trades'] as readonly WindowSource[],
         ...overrides,
     };
 }
@@ -211,5 +215,79 @@ describe('WindowLoader resolution', () => {
 
         expect(harness.mocks.fetchFrameWindow.mock.calls.length).toBe(2);
         vi.useRealTimers();
+    });
+});
+
+describe('WindowLoader sources', () => {
+    it('fetches none of the book when nothing on the chart draws it', async () => {
+        // The frame window is by far the heaviest thing the gateway serves, and
+        // a chart showing candles alone was paying for it to draw nothing.
+        const { loader, mocks } = buildHarness();
+
+        await loader.load(buildRequest({ sources: [] }));
+
+        expect(mocks.api.fetchFrameWindow).not.toHaveBeenCalled();
+        expect(mocks.api.fetchTradeClusters).not.toHaveBeenCalled();
+        expect(mocks.api.fetchPriceBars).toHaveBeenCalled();
+    });
+
+    it('fetches the executions without the frames when only they are read', async () => {
+        const { loader, mocks } = buildHarness();
+
+        await loader.load(buildRequest({ sources: ['trades'] }));
+
+        expect(mocks.api.fetchFrameWindow).not.toHaveBeenCalled();
+        expect(mocks.api.fetchTradeClusters).toHaveBeenCalled();
+    });
+
+    it('answers with an empty window rather than nothing when a source was skipped', async () => {
+        const { loader, loaded } = buildHarness();
+
+        await loader.load(buildRequest({ sources: [] }));
+
+        const window = loaded[0] as { window: { frames: unknown[] }; clusters: unknown[] };
+        expect(window.window.frames).toEqual([]);
+        expect(window.clusters).toEqual([]);
+    });
+
+    it('fetches again when the book is turned on over the same range', async () => {
+        // The range has not moved, so the request would otherwise be recognised
+        // as one already answered and the book would stay blank.
+        const { loader, mocks } = buildHarness();
+        await loader.load(buildRequest({ sources: [] }));
+
+        await loader.load(buildRequest({ sources: ['frames'] }));
+
+        expect(mocks.api.fetchFrameWindow).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('WindowLoader against what the archive will answer', () => {
+    it('never asks for a window wider than the gateway answers', async () => {
+        // The widest view plus the overscan around it used to come to more than
+        // twice the ceiling. Nobody saw it because nobody had recorded enough
+        // history to zoom out that far; the chart would have gone blank for the
+        // first reader who had.
+        const harness = buildHarness();
+        const widest = MAXIMUM_WINDOW_MS;
+        const toMs = 2_000_000_000_000;
+
+        await harness.loader.load(buildRequest({
+            viewport: { ...VIEWPORT, fromMs: toMs - widest, toMs },
+        }));
+
+        const asked = harness.mocks.fetchPriceBars.mock.calls.at(-1)?.[0] as { fromMs: number; toMs: number };
+        expect(asked.toMs - asked.fromMs).toBeLessThanOrEqual(MAXIMUM_WINDOW_MS);
+    });
+
+    it('still overscans a window with room to spare around it', async () => {
+        // The ceiling only bites at the far end; a fifteen-minute view must
+        // still fetch a pan's worth either side of what it shows.
+        const harness = buildHarness();
+
+        await harness.loader.load(buildRequest({}));
+
+        const asked = harness.mocks.fetchPriceBars.mock.calls.at(-1)?.[0] as { fromMs: number; toMs: number };
+        expect(asked.toMs - asked.fromMs).toBeGreaterThan(VIEWPORT.toMs - VIEWPORT.fromMs);
     });
 });

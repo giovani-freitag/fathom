@@ -112,3 +112,54 @@ describe('TouchLinePainter in history', () => {
         expect(Math.abs(drawnY - paint.projector.priceToY(78_650))).toBeLessThan(2);
     });
 });
+
+describe('TouchLinePainter counting a bar down', () => {
+    const INTERVAL_MS = 60_000;
+    const NOW_MS = 1_900_000;
+
+    function buildBars(closedAtMs: number, intervalMs = INTERVAL_MS) {
+        return {
+            instrumentSymbol: 'BTCUSDT',
+            intervalMs,
+            warmupBarsRequested: 0,
+            warmupBarsReturned: 0,
+            bars: [{
+                openedAtMs: closedAtMs - intervalMs,
+                closedAtMs,
+                openPrice: 78_500, highPrice: 78_500, lowPrice: 78_500, closePrice: 78_500,
+                buyVolume: 0, sellVolume: 0, tradeCount: 0,
+                expectedFrames: 60, frameCount: 60, isClosed: false,
+                firstFrameAtMs: closedAtMs - intervalMs, lastFrameAtMs: closedAtMs - 1_000,
+            }],
+        };
+    }
+
+    function paintWith(closedAtMs: number, intervalMs = INTERVAL_MS) {
+        const recording = createRecordingContext();
+        const paint = buildPaintContext(recording, {
+            dataset: { frames: [buildFrame(78_500)], bars: buildBars(closedAtMs, intervalMs) },
+            nowMs: NOW_MS,
+        });
+
+        buildPainter().paint(paint);
+        return recording.callsTo('fillText').map((call) => String(call.args[0]));
+    }
+
+    it('writes what is left of the bar being built', () => {
+        // The view ends 30 seconds into a minute bar.
+        expect(paintWith(1_900_000 + 30_000)).toContain('30s');
+    });
+
+    it('writes minutes and seconds once past a minute', () => {
+        // A five-minute bar, a minute and a half from closing.
+        expect(paintWith(1_900_000 + 90_000, 300_000)).toContain('1:30');
+    });
+
+    it('counts nothing down on a bar the view has already left behind', () => {
+        // Panned into history there is no bar being built, and a countdown
+        // there would be counting down to a moment already past.
+        const written = paintWith(1_900_000 - 10_000);
+
+        expect(written.some((label) => label.endsWith('s'))).toBe(false);
+    });
+});

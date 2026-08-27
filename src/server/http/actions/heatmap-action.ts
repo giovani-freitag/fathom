@@ -1,7 +1,7 @@
 import { encodeLiquidityFrameWindow } from '../../../shared/codec/heatmap-codec.ts';
 import type { LiquidityQueryService } from '../../../database/services/liquidity-query-service.ts';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { QUERY_LIMITS } from '../../core/gateway-configuration.ts';
+import { refuseUnansweredWindow } from './window-guard.ts';
 import type { WindowFilters } from '../schemas/window-schema.ts';
 
 export interface HeatmapHandlerConfig {
@@ -20,14 +20,9 @@ export function createHeatmapHandler(config: HeatmapHandlerConfig) {
         reply: FastifyReply,
     ): Promise<FastifyReply> {
         const filters = request.query;
-        if (filters.toMs <= filters.fromMs) {
-            return reply.code(400).send({ error: 'InvalidRange', message: 'toMs must be greater than fromMs' });
-        }
-        if (filters.toMs - filters.fromMs > QUERY_LIMITS.maximumRangeMs) {
-            return reply.code(400).send({
-                error: 'RangeTooWide',
-                message: `Range must not exceed ${QUERY_LIMITS.maximumRangeMs}ms`,
-            });
+        const refused = refuseUnansweredWindow(filters, reply);
+        if (refused !== null) {
+            return refused;
         }
 
         const window = await config.query.fetchFrameWindow(filters);

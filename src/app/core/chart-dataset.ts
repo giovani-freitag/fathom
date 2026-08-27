@@ -2,7 +2,7 @@ import type { LiquidityFrame, LiquidityFrameWindow } from '../../shared/core/liq
 import { EMPTY_BAR_WINDOW, type PriceBarWindow } from '../../shared/core/price-bar.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
-import { resolveDepthRange } from '../painting/depth-colour-scale.ts';
+import { resolveDepthRange } from '../indicators/book/depth-colour-scale.ts';
 
 /** Quantities inspected when picking the saturation point, at most. */
 const SATURATION_SAMPLE_LIMIT = 40_000;
@@ -10,23 +10,6 @@ const SATURATION_SAMPLE_LIMIT = 40_000;
 /** Where resting size stops brightening; above this the whole field washes out. */
 export const DEFAULT_SATURATION_PERCENTILE = 0.995;
 
-/**
- * Where resting size starts registering at all.
- */
-export const DEFAULT_FLOOR_PERCENTILE = 0.40;
-
-/** Limits the two cuts are held inside, so neither can erase the other. */
-export const DEPTH_CUT_RANGE = {
-    floorMinimum: 0,
-    floorMaximum: 0.9,
-    floorStep: 0.01,
-    saturationMinimum: 0.9,
-    saturationMaximum: 1,
-    // Half a percent, because the useful travel of the upper cut is the last
-    // one percent: a whole step of it is the difference between reserving the
-    // hot end for walls and handing it to a single outlier.
-    saturationStep: 0.005,
-} as const;
 
 /**
  * How far the saturation point must move before it is adopted.
@@ -249,6 +232,13 @@ export function foldFramesIntoBars(
         const last = bars[bars.length - 1];
 
         if (last === undefined || last.openedAtMs !== openedAtMs) {
+            // The bucket behind this one is over, so nothing more can belong to
+            // it. Left open it would read as still being built for the rest of
+            // the session, and the chart would draw it hollow beside bars that
+            // are no more finished than it is.
+            if (last !== undefined) {
+                bars[bars.length - 1] = { ...last, isClosed: true };
+            }
             bars.push({
                 openedAtMs,
                 closedAtMs: openedAtMs + intervalMs,
@@ -256,6 +246,9 @@ export function foldFramesIntoBars(
                 highPrice: midPrice,
                 lowPrice: midPrice,
                 closePrice: midPrice,
+                buyVolume: 0,
+                sellVolume: 0,
+                tradeCount: 0,
                 expectedFrames: last?.expectedFrames ?? 1,
                 frameCount: 1,
                 isClosed: false,
@@ -331,6 +324,7 @@ export function appendClusters(
 
     return {
         ...dataset,
+        bars: absorbIntoFormingBar(dataset.bars, freshClusters),
         clusters: [...dataset.clusters, ...freshClusters],
         revision: dataset.revision + 1,
     };
@@ -370,5 +364,49 @@ export function recutDataset(
         floorQuantity: measured.floorQuantity,
         saturationQuantity: measured.saturationQuantity,
         revision: dataset.revision + 1,
+    };
+}
+
+/**
+ * Adds what has just traded to the bar still being built.
+ *
+ * Only the forming bar. A closed bar carries what the archive counted for it,
+ * and a cluster arriving late for one of those would be counted twice.
+ *
+ * @param window - The bars on screen.
+ * @param clusters - Executions that have just arrived.
+ * @returns The window, with the forming bar's volume brought up to date.
+ */
+function absorbIntoFormingBar(
+    window: PriceBarWindow,
+    clusters: readonly TradeCluster[],
+): PriceBarWindow {
+    const forming = window.bars[window.bars.length - 1];
+    if (forming === undefined || forming.isClosed) {
+        return window;
+    }
+
+    let buyVolume = forming.buyVolume;
+    let sellVolume = forming.sellVolume;
+    let tradeCount = forming.tradeCount;
+    let hasChanged = false;
+
+    for (const cluster of clusters) {
+        if (cluster.executedAtMs < forming.openedAtMs || cluster.executedAtMs >= forming.closedAtMs) {
+            continue;
+        }
+        buyVolume += cluster.buyQuantity;
+        sellVolume += cluster.sellQuantity;
+        tradeCount += cluster.tradeCount;
+        hasChanged = true;
+    }
+
+    if (!hasChanged) {
+        return window;
+    }
+
+    return {
+        ...window,
+        bars: [...window.bars.slice(0, -1), { ...forming, buyVolume, sellVolume, tradeCount }],
     };
 }

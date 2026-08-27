@@ -25,7 +25,7 @@ describe('GapPainter', () => {
         expect(recording.callsTo('fillRect').length).toBe(1);
     });
 
-    it('spans the full plot height', () => {
+    it('spans every pane, because a gap is a stretch of time and not of price', () => {
         const recording = createRecordingContext();
         const paint = buildPaintContext(recording, {
             dataset: { gaps: [buildGap(1_200_000, 1_400_000)] },
@@ -33,7 +33,7 @@ describe('GapPainter', () => {
 
         new GapPainter().paint(paint);
 
-        expect(recording.callsTo('fillRect')[0]?.args[3]).toBe(paint.layout.plotHeight);
+        expect(recording.callsTo('fillRect')[0]?.args[3]).toBe(paint.layout.paneStackHeight);
     });
 
     it('skips a gap that ended before the visible range', () => {

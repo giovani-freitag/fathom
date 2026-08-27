@@ -15,6 +15,8 @@ export interface RenderPalette {
     bid: string;
     ask: string;
     amber: string;
+    violet: string;
+    cyan: string;
     gapFill: string;
     gapStroke: string;
     profileBuy: string;
@@ -37,6 +39,8 @@ const DARK_PALETTE: RenderPalette = {
     bid: '#2bd4a8',
     ask: '#ff5c72',
     amber: '#ffb454',
+    violet: '#b48ef7',
+    cyan: '#57c7ff',
     gapFill: 'rgba(255, 180, 84, 0.07)',
     gapStroke: 'rgba(255, 180, 84, 0.35)',
     profileBuy: 'rgba(43, 212, 168, 0.5)',
@@ -59,6 +63,8 @@ const LIGHT_PALETTE: RenderPalette = {
     bid: '#0d9670',
     ask: '#d32741',
     amber: '#a86a00',
+    violet: '#6d3fd4',
+    cyan: '#0f6fb5',
     gapFill: 'rgba(168, 106, 0, 0.09)',
     gapStroke: 'rgba(168, 106, 0, 0.4)',
     profileBuy: 'rgba(13, 150, 112, 0.45)',

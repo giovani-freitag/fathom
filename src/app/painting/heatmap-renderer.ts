@@ -2,20 +2,18 @@ import { choosePriceTicks, chooseTimeTicks } from './axis-ticks.ts';
 import { buildTranslate } from '../i18n/translator.ts';
 import { formatAxisTime } from '../core/formatting.ts';
 import { ViewportProjector } from '../core/viewport-projector.ts';
-import { CandlePainter } from './painters/candle-painter.ts';
 import { EMPTY_LAYOUT, resolveChartLayout } from './chart-layout.ts';
-import { DepthField } from './depth-field.ts';
 import { AxisPainter } from './painters/axis-painter.ts';
+import { buildBackgroundPainters, buildFieldPainters } from '../indicators/layer-painters.ts';
 import { CrosshairPainter } from './painters/crosshair-painter.ts';
-import { DepthLayerPainter } from './painters/depth-layer-painter.ts';
 import { GapPainter } from './painters/gap-painter.ts';
 import { GridPainter } from './painters/grid-painter.ts';
 import { TouchLinePainter } from './painters/touch-line-painter.ts';
 import { PlotPainter } from './painters/plot-painter.ts';
-import { TradePainter } from './painters/trade-painter.ts';
-import { VolumeProfilePainter } from './painters/volume-profile-painter.ts';
 import { RENDER_METRICS } from './render-palette.ts';
 import type { ChartLayout, PaintContext, RenderRequest } from './render-types.ts';
+import type { DrawPlan } from '../../shared/core/draw-plan.ts';
+import { countPanedPlans, placePanes } from './pane-projector.ts';
 
 /** Retina beyond this buys nothing visible and costs four times the fill rate. */
 const MAXIMUM_PIXEL_RATIO = 2;
@@ -52,12 +50,12 @@ export class HeatmapRenderer {
     private readonly overlayContext: CanvasRenderingContext2D | null;
     private readonly cursorContext: CanvasRenderingContext2D | null;
 
-    private readonly depthLayerPainter = new DepthLayerPainter();
     private readonly gapPainter = new GapPainter();
     private readonly gridPainter = new GridPainter();
-    private readonly volumeProfilePainter = new VolumeProfilePainter();
-    private readonly candlePainter = new CandlePainter();
-    private readonly tradePainter = new TradePainter();
+    // Walked rather than named: what the chart can draw is a list the layers
+    // contribute to, and the renderer knows only the order and the surface.
+    private readonly fieldPainters = buildFieldPainters();
+    private readonly backgroundPainters = buildBackgroundPainters();
     private readonly plotPainter = new PlotPainter();
     private readonly axisPainter = new AxisPainter();
     private readonly touchLinePainter: TouchLinePainter;
@@ -66,7 +64,6 @@ export class HeatmapRenderer {
     private cssWidth = 0;
     private cssHeight = 0;
     private layout: ChartLayout = EMPTY_LAYOUT;
-    private cachedField: DepthField | null = null;
     private paintedOverlayKey: string | null = null;
 
     constructor(config: HeatmapRendererConfig) {
@@ -121,6 +118,7 @@ export class HeatmapRenderer {
             cssWidth: this.cssWidth,
             cssHeight: this.cssHeight,
             isVolumeProfileVisible: request.isVolumeProfileVisible,
+            indicatorPaneCount: countPanedPlans(request.plans),
         });
 
         this.paintDepthLayer(request);
@@ -140,7 +138,9 @@ export class HeatmapRenderer {
      * Releases the cached depth image and the held overlay.
      */
     dispose(): void {
-        this.cachedField = null;
+        for (const painter of this.backgroundPainters) {
+            painter.dispose();
+        }
         this.paintedOverlayKey = null;
     }
 
@@ -148,11 +148,9 @@ export class HeatmapRenderer {
         const context = this.depthContext!;
         context.clearRect(0, 0, this.cssWidth, this.cssHeight);
 
-        const field = this.resolveField(request);
-        if (field === null) {
-            return;
+        for (const painter of this.backgroundPainters) {
+            painter.paintBackground({ context, layout: this.layout, request });
         }
-        this.depthLayerPainter.paint({ context, layout: this.layout, request, field });
     }
 
     /**
@@ -162,29 +160,34 @@ export class HeatmapRenderer {
         const { request } = paint;
         paint.context.clearRect(0, 0, this.cssWidth, this.cssHeight);
 
-        // Clipped to the region the data layers own, and this is the containment
-        // rather than a rule each painter is trusted to follow. It is what makes
-        // it safe to draw a plan somebody else produced: a plan whose vertices
-        // run to the edges of the world still cannot reach the axis gutters.
+        // Clipped rather than trusted, and clipped twice. The outer bound keeps
+        // any layer out of the axis gutters; the inner one keeps everything that
+        // reads as a price inside the pane that has a price axis. Without the
+        // second, a candle at the edge of the band draws down through an
+        // oscillator and reads as part of it.
         paint.context.save();
         paint.context.beginPath();
-        paint.context.rect(0, 0, paint.layout.priceAxisX, paint.layout.plotHeight);
+        paint.context.rect(0, 0, paint.layout.priceAxisX, paint.layout.paneStackHeight);
         paint.context.clip();
 
+        // A gap and the time grid belong to time, so they cross every band.
         this.gapPainter.paint(paint);
         this.gridPainter.paint(paint);
-        if (request.isVolumeProfileVisible) {
-            this.volumeProfilePainter.paint(paint);
-        }
-        if (request.isCandleOverlayVisible) {
-            this.candlePainter.paint(paint);
-        }
-        if (request.isTradeOverlayVisible) {
-            this.tradePainter.paint(paint);
-        }
-        // Last of the data layers: an indicator is drawn over what it describes.
-        this.plotPainter.paint(paint);
 
+        paint.context.save();
+        paint.context.beginPath();
+        paint.context.rect(0, 0, paint.layout.priceAxisX, paint.layout.pricePaneHeight);
+        paint.context.clip();
+        for (const painter of this.fieldPainters) {
+            if (painter.isDrawn(request)) {
+                painter.paint(paint);
+            }
+        }
+        // Last of the price layers: an indicator is drawn over what it describes.
+        this.plotPainter.paintOverPrice(paint);
+        paint.context.restore();
+
+        this.plotPainter.paintInPanes(paint);
         paint.context.restore();
     }
 
@@ -220,15 +223,16 @@ export class HeatmapRenderer {
             projector: new ViewportProjector({
                 viewport: request.viewport,
                 width: this.layout.plotWidth,
-                height: this.layout.plotHeight,
+                height: this.layout.pricePaneHeight,
             }),
             request,
             crosshairY: this.resolveCrosshairY(request),
             priceTicks: choosePriceTicks({
                 viewport: request.viewport,
-                extentPx: this.layout.plotHeight,
+                extentPx: this.layout.pricePaneHeight,
                 minimumSpacingPx: PRICE_LABEL_SPACING_PX,
             }),
+            panePlacements: placePanes(request.plans, this.layout.indicatorPanes, request.viewport),
             timeTicks: chooseTimeTicks({
                 viewport: request.viewport,
                 extentPx: this.layout.plotWidth,
@@ -239,29 +243,12 @@ export class HeatmapRenderer {
 
     private resolveCrosshairY(request: RenderRequest): number | null {
         const pointer = request.pointer;
-        if (pointer === null || pointer.x > this.layout.plotWidth || pointer.y > this.layout.plotHeight) {
+        if (pointer === null || pointer.x > this.layout.plotWidth || pointer.y > this.layout.pricePaneHeight) {
             return null;
         }
         return pointer.y;
     }
 
-    private resolveField(request: RenderRequest): DepthField | null {
-        if (request.dataset.frames.length === 0) {
-            return null;
-        }
-
-        // A streamed second changes one column. Letting the field absorb it beats
-        // rebuilding the window, which costs tens of milliseconds twice a second
-        // and is felt as stutter on a phone long before it is on a desktop.
-        const cached = this.cachedField;
-        if (cached !== null && cached.absorb(request.dataset, request.colourGain)) {
-            return cached;
-        }
-
-        const field = new DepthField({ dataset: request.dataset, colourGain: request.colourGain });
-        this.cachedField = field;
-        return field;
-    }
 }
 
 /**
@@ -271,6 +258,15 @@ export class HeatmapRenderer {
  * chart keeps showing what it drew before. A field added that the layers do not
  * read costs a repaint that changes no pixels.
  */
+function describePlan(plan: DrawPlan): string {
+    return [
+        plan.instanceId ?? plan.indicatorId,
+        plan.bandKey ?? '',
+        plan.tuning ?? plan.parameterSummary,
+        plan.hasConverged,
+    ].join(':');
+}
+
 function describeOverlayState(request: RenderRequest, layout: ChartLayout): string {
     const { viewport, dataset } = request;
 
@@ -282,13 +278,15 @@ function describeOverlayState(request: RenderRequest, layout: ChartLayout): stri
         viewport.lowPrice,
         viewport.highPrice,
         layout.plotWidth,
-        layout.plotHeight,
+        layout.paneStackHeight,
+        layout.pricePaneHeight,
         request.isCandleOverlayVisible,
         request.isTradeOverlayVisible,
         request.isVolumeProfileVisible,
-        // A plan appearing or leaving does not move the dataset, so the toggle has
-        // to be in the key itself.
-        request.plans.length,
+        request.isDepthVisible,
+        // A plan appearing, leaving or being retuned does not move the dataset,
+        // so what the plans are has to be in the key itself.
+        request.plans.map(describePlan).join(','),
         request.theme,
         // The volume profile writes sizes, which every language groups its own way.
         request.locale,

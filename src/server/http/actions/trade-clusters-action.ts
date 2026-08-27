@@ -1,6 +1,7 @@
 import type { LiquidityQueryService } from '../../../database/services/liquidity-query-service.ts';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { QUERY_LIMITS } from '../../core/gateway-configuration.ts';
+import { refuseUnansweredWindow } from './window-guard.ts';
 import type { TradeClustersFilters } from '../schemas/trade-clusters-schema.ts';
 
 export interface TradeClustersHandlerConfig {
@@ -19,8 +20,9 @@ export function createTradeClustersHandler(config: TradeClustersHandlerConfig) {
         reply: FastifyReply,
     ): Promise<FastifyReply> {
         const filters = request.query;
-        if (filters.toMs <= filters.fromMs) {
-            return reply.code(400).send({ error: 'InvalidRange', message: 'toMs must be greater than fromMs' });
+        const refused = refuseUnansweredWindow(filters, reply);
+        if (refused !== null) {
+            return refused;
         }
 
         const window = await config.query.fetchTradeClusters({

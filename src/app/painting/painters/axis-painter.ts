@@ -1,13 +1,18 @@
 import {
     formatAxisTagPrice,
+    formatFixed,
     formatAxisTime,
     formatClockTime,
     formatPrice,
 } from '../../core/formatting.ts';
+import { PaneProjector } from '../pane-projector.ts';
 import { RENDER_METRICS, RENDER_PALETTE } from '../render-palette.ts';
 import type { PaintContext } from '../render-types.ts';
 
 /** Height of a tag pinned into the price axis, and the distance two need to clear. */
+export const PANE_LABEL_INSET_PX = 6;
+const PANE_LABEL_MARGIN_PX = 10;
+
 export const AXIS_TAG_HEIGHT = 16;
 
 export interface PriceTag {
@@ -30,20 +35,31 @@ export class AxisPainter {
         const { context, layout, projector } = paint;
         const axisX = layout.priceAxisX;
 
+        // The gutter beside the price, and the gutter under the time, but not the
+        // stretch beside an indicator pane: this layer sits over the one the
+        // panes label themselves on, and an opaque fill there would bury it.
         context.fillStyle = RENDER_PALETTE.axisBackdrop;
-        context.fillRect(axisX, 0, layout.priceAxisWidth, layout.plotHeight + RENDER_METRICS.timeAxisHeight);
+        context.fillRect(axisX, 0, layout.priceAxisWidth, layout.pricePaneHeight);
+        context.fillRect(
+            axisX,
+            layout.paneStackHeight,
+            layout.priceAxisWidth,
+            RENDER_METRICS.timeAxisHeight,
+        );
         context.strokeStyle = RENDER_PALETTE.hairline;
         context.beginPath();
         context.moveTo(axisX + 0.5, 0);
-        context.lineTo(axisX + 0.5, layout.plotHeight + RENDER_METRICS.timeAxisHeight);
+        context.lineTo(axisX + 0.5, layout.paneStackHeight + RENDER_METRICS.timeAxisHeight);
         context.stroke();
+
+        this.paintPaneScales(paint);
 
         context.fillStyle = RENDER_PALETTE.inkMuted;
         context.textAlign = 'left';
         context.textBaseline = 'middle';
         for (const price of paint.priceTicks) {
             const y = projector.priceToY(price);
-            if (y < 8 || y > layout.plotHeight - 4) {
+            if (y < 8 || y > layout.pricePaneHeight - 4) {
                 continue;
             }
             context.fillText(formatPrice(price), axisX + 6, y);
@@ -57,7 +73,7 @@ export class AxisPainter {
      */
     paintTimeAxis(paint: PaintContext): void {
         const { context, layout, projector, request } = paint;
-        const axisY = layout.plotHeight;
+        const axisY = layout.paneStackHeight;
 
         context.fillStyle = RENDER_PALETTE.axisBackdrop;
         context.fillRect(0, axisY, layout.priceAxisX, RENDER_METRICS.timeAxisHeight);
@@ -112,14 +128,14 @@ export class AxisPainter {
         const width = tag.right - tag.left;
 
         context.fillStyle = RENDER_PALETTE.inkPrimary;
-        context.fillRect(tag.left, layout.plotHeight, width, RENDER_METRICS.timeAxisHeight);
+        context.fillRect(tag.left, layout.paneStackHeight, width, RENDER_METRICS.timeAxisHeight);
         context.fillStyle = RENDER_PALETTE.surface;
         context.textAlign = 'center';
         context.textBaseline = 'middle';
         context.fillText(
             tag.label,
             tag.left + width / 2,
-            layout.plotHeight + RENDER_METRICS.timeAxisHeight / 2,
+            layout.paneStackHeight + RENDER_METRICS.timeAxisHeight / 2,
         );
     }
 
@@ -145,6 +161,79 @@ export class AxisPainter {
         context.fillText(formatAxisTagPrice(tag.price), layout.priceAxisX + 6, tag.y);
     }
 
+    /**
+     * Pins a countdown into the price axis, under whatever tag it belongs to.
+     *
+     * @param paint - The shared paint context.
+     * @param y - Where the tag it belongs to sits.
+     * @param label - What to write, already formatted.
+     */
+    paintCountdownTag(paint: PaintContext, y: number, label: string): void {
+        const { context, layout } = paint;
+        const top = y + AXIS_TAG_HEIGHT / 2;
+        if (top + AXIS_TAG_HEIGHT > layout.paneStackHeight) {
+            return;
+        }
+
+        context.fillStyle = RENDER_PALETTE.surface;
+        context.fillRect(layout.priceAxisX + 1, top, layout.priceAxisWidth - 1, AXIS_TAG_HEIGHT);
+        context.fillStyle = RENDER_PALETTE.inkMuted;
+        context.textAlign = 'left';
+        context.textBaseline = 'middle';
+        context.fillText(label, layout.priceAxisX + 6, top + AXIS_TAG_HEIGHT / 2);
+    }
+
+    /**
+     * Labels the top and bottom of each indicator band in the gutter beside it.
+     *
+     * Two figures rather than a ladder of ticks: a band is a few dozen pixels
+     * tall, and what a reader needs from it is the reach of the scale, not a
+     * value they could have read off the line.
+     */
+    private paintPaneScales(paint: PaintContext): void {
+        const { context, layout } = paint;
+
+        context.fillStyle = RENDER_PALETTE.inkMuted;
+        context.textAlign = 'left';
+        context.textBaseline = 'middle';
+
+        for (const placement of paint.panePlacements) {
+            const digits = resolvePaneScaleDigits(placement.high - placement.low);
+            const labelX = layout.priceAxisX + PANE_LABEL_INSET_PX;
+            context.fillText(
+                formatFixed(placement.high, digits),
+                labelX,
+                placement.rect.topY + PANE_LABEL_MARGIN_PX,
+            );
+            context.fillText(
+                formatFixed(placement.low, digits),
+                labelX,
+                placement.rect.topY + placement.rect.height - PANE_LABEL_MARGIN_PX,
+            );
+
+            const projector = new PaneProjector(placement);
+            for (const level of placement.levels) {
+                context.fillText(
+                    formatFixed(level.value, Number.isInteger(level.value) ? 0 : digits),
+                    labelX,
+                    projector.valueToY(level.value),
+                );
+            }
+        }
+    }
+}
+
+/**
+ * Decimal places that keep a band's labels telling a reader something different.
+ */
+function resolvePaneScaleDigits(span: number): number {
+    if (span >= 100) {
+        return 0;
+    }
+    if (span >= 10) {
+        return 1;
+    }
+    return span >= 1 ? 2 : 4;
 }
 
 interface PinnedTimeTag {

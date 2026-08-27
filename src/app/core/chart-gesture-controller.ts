@@ -43,6 +43,8 @@ export interface ChartGestureControllerConfig {
     readonly readLayout: () => ChartLayout;
     readonly onView: (request: ViewRequest) => void;
     readonly onPointerMove: (pointer: PointerReadout | null) => void;
+    /** Asked for when the reader double-clicks the price axis. */
+    readonly onRefitPrice: () => void;
 }
 
 interface PointerPosition {
@@ -184,7 +186,7 @@ export class ChartGestureController {
         if (shouldZoomPrice) {
             viewport = zoomViewportPrice({
                 viewport,
-                anchorRatio: clampRatio(position.y / Math.max(1, plot.plotHeight)),
+                anchorRatio: clampRatio(position.y / Math.max(1, plot.pricePaneHeight)),
                 factor,
             });
         }
@@ -194,6 +196,13 @@ export class ChartGestureController {
 
     private handleDoubleClick(event: MouseEvent): void {
         event.preventDefault();
+
+        // On the price axis it means the axis, which is the only way back from
+        // a band the reader has dragged or one a wide window has widened.
+        if (this.resolveRegion(this.toLocalPosition(event)) === 'price-scale') {
+            this.config.onRefitPrice();
+            return;
+        }
 
         const viewport = this.config.readViewport();
         const spanMs = viewport.toMs - viewport.fromMs;
@@ -240,7 +249,7 @@ export class ChartGestureController {
         if (position.x >= priceScaleX) {
             return 'price-scale';
         }
-        if (!layout.isCompact && position.y >= layout.plotHeight) {
+        if (!layout.isCompact && position.y >= layout.paneStackHeight) {
             return 'time-scale';
         }
         return 'plot';
@@ -289,7 +298,7 @@ export class ChartGestureController {
         this.publish(panViewport({
             viewport: origin.viewport,
             deltaMs: -((position.x - origin.pointer.x) / Math.max(1, plot.plotWidth)) * spanMs,
-            deltaPrice: ((position.y - origin.pointer.y) / Math.max(1, plot.plotHeight)) * priceSpan,
+            deltaPrice: ((position.y - origin.pointer.y) / Math.max(1, plot.pricePaneHeight)) * priceSpan,
         }));
     }
 
@@ -311,7 +320,7 @@ export class ChartGestureController {
         });
         viewport = zoomViewportPrice({
             viewport,
-            anchorRatio: clampRatio(origin.centroid.y / Math.max(1, plot.plotHeight)),
+            anchorRatio: clampRatio(origin.centroid.y / Math.max(1, plot.pricePaneHeight)),
             factor: resolveScaleFactor(origin.distanceY, Math.abs(second.y - first.y)),
         });
 
@@ -320,7 +329,7 @@ export class ChartGestureController {
         this.publish(panViewport({
             viewport,
             deltaMs: -((centroid.x - origin.centroid.x) / Math.max(1, plot.plotWidth)) * spanMs,
-            deltaPrice: ((centroid.y - origin.centroid.y) / Math.max(1, plot.plotHeight)) * priceSpan,
+            deltaPrice: ((centroid.y - origin.centroid.y) / Math.max(1, plot.pricePaneHeight)) * priceSpan,
         }));
     }
 
@@ -340,7 +349,7 @@ export class ChartGestureController {
         });
     }
 
-    private toLocalPosition(event: PointerEvent | WheelEvent): PointerPosition {
+    private toLocalPosition(event: MouseEvent): PointerPosition {
         const bounds = this.config.surface.getBoundingClientRect();
         return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
     }

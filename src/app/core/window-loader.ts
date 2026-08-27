@@ -1,10 +1,11 @@
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
-import { chooseBarIntervalMs } from './bar-interval.ts';
+import { MAXIMUM_WINDOW_MS } from '../../shared/core/api-contract.ts';
+import { type BarIntervalMs, resolveBarIntervalMs, TARGET_BAR_COUNT } from './bar-interval.ts';
 import type { ChartViewport } from './chart-viewport.ts';
 import type { PriceBarWindow } from '../../shared/core/price-bar.ts';
-import type { HeatmapSource } from '../../shared/core/heatmap-source.ts';
+import type { HeatmapSource, TradeClusterResult } from '../../shared/core/heatmap-source.ts';
 
 /** Loaded window is this much wider than the view, so a short pan needs no refetch. */
 const OVERSCAN_RATIO = 0.6;
@@ -18,9 +19,7 @@ const TARGET_TRADE_COLUMNS = 420;
 const MAXIMUM_COLUMNS = 4_000;
 const MINIMUM_COLUMNS = 120;
 
-/** Bars a window shows, and how much history their averages need behind them. */
-const TARGET_BAR_COUNT = 240;
-const WARM_UP_BARS = 461;
+/** Bars a window shows. */
 
 export interface LoadedWindow {
     readonly window: LiquidityFrameWindow;
@@ -39,7 +38,33 @@ export interface WindowLoadRequest {
     readonly surfaceWidthPx: number;
     /** Stored price buckets per returned execution bucket. */
     readonly priceGroupSize: number;
+    /** Bars to read before the window, for whatever indicator needs the most. */
+    readonly warmupBars: number;
+    /** The rung the reader named, or null to let the window decide. */
+    readonly barIntervalMs: BarIntervalMs | null;
+    /**
+     * What something on the chart is going to read.
+     *
+     * Declared by the caller rather than assumed, so a chart drawing none of
+     * the book does not fetch it.
+     */
+    readonly sources: readonly WindowSource[];
 }
+
+/** The bodies of data a window may hold. */
+export type WindowSource = 'frames' | 'trades';
+
+const EMPTY_FRAME_WINDOW: LiquidityFrameWindow = {
+    priceBucketSize: 1,
+    sampleIntervalMs: 1,
+    frames: [],
+};
+
+const EMPTY_TRADE_RESULT: TradeClusterResult = {
+    clusters: [],
+    priceBucketSize: 1,
+    sampleIntervalMs: 1,
+};
 
 export interface WindowLoaderConfig {
     readonly api: HeatmapSource;
@@ -57,6 +82,7 @@ export class WindowLoader {
     private loadedFromMs = 0;
     private loadedToMs = 0;
     private loadedSampleIntervalMs = Number.POSITIVE_INFINITY;
+    private loadedWarmupBars = 0;
     private lastRequestedKey = '';
     private reloadTimer: ReturnType<typeof setTimeout> | null = null;
     private inFlight: AbortController | null = null;
@@ -103,6 +129,7 @@ export class WindowLoader {
             this.loadedFromMs = range.fromMs;
             this.loadedToMs = range.toMs;
             this.loadedSampleIntervalMs = loaded.window.sampleIntervalMs;
+            this.loadedWarmupBars = request.warmupBars;
             this.config.onLoaded(loaded);
         } catch (error) {
             this.lastRequestedKey = '';
@@ -137,6 +164,7 @@ export class WindowLoader {
         this.loadedFromMs = 0;
         this.loadedToMs = 0;
         this.loadedSampleIntervalMs = Number.POSITIVE_INFINITY;
+        this.loadedWarmupBars = 0;
         this.lastRequestedKey = '';
     }
 
@@ -166,7 +194,12 @@ export class WindowLoader {
         // Half is the point where one stored column already covers two pixels;
         // refetching before that trades a round trip for detail nobody can see.
         const isTooCoarse = requiredSampleMs < this.loadedSampleIntervalMs / 2;
-        return isOutsideLoaded || isTooCoarse;
+
+        // An indicator added after the fetch may reach further back than the
+        // window holds. Seeding it from what is there draws a line that looks
+        // converged and is not.
+        const isShallow = request.warmupBars > this.loadedWarmupBars;
+        return isOutsideLoaded || isTooCoarse || isShallow;
     }
 
     private handleReloadDue(): void {
@@ -180,7 +213,12 @@ export class WindowLoader {
 
     private resolveRange(request: WindowLoadRequest): ResolvedRange {
         const spanMs = request.viewport.toMs - request.viewport.fromMs;
-        const overscanMs = spanMs * OVERSCAN_RATIO;
+        // Held to what the archive will answer for. Asking past it earns a
+        // refusal rather than an answer, and a chart that asked would go blank
+        // exactly when somebody had recorded enough history to zoom out that
+        // far.
+        const room = Math.max(0, (MAXIMUM_WINDOW_MS - spanMs) / 2);
+        const overscanMs = Math.min(spanMs * OVERSCAN_RATIO, room);
         const fromMs = request.viewport.fromMs - overscanMs;
         const toMs = request.viewport.toMs + overscanMs;
         const maxColumns = Math.min(
@@ -191,7 +229,7 @@ export class WindowLoader {
         // Chosen from the span alone. The depth field's resolution follows the
         // surface, and bars must not: the same window on a phone and a desktop
         // has to answer with the same bars.
-        const barIntervalMs = chooseBarIntervalMs({
+        const barIntervalMs = resolveBarIntervalMs(request.barIntervalMs, {
             viewportSpanMs: spanMs,
             targetBarCount: TARGET_BAR_COUNT,
             frameIntervalMs: request.frameIntervalMs,
@@ -202,7 +240,21 @@ export class WindowLoader {
             toMs,
             maxColumns,
             barIntervalMs,
-            key: `${request.symbol}|${Math.floor(fromMs)}|${Math.ceil(toMs)}|${maxColumns}|${barIntervalMs}`,
+            // The warm-up belongs in the key as much as the range does: asking
+            // for the same window with more history behind it is a different
+            // request, and without it the fetch an added indicator triggers is
+            // deduplicated away against the one that did not have it.
+            key: [
+                request.symbol,
+                Math.floor(fromMs),
+                Math.ceil(toMs),
+                maxColumns,
+                barIntervalMs,
+                request.warmupBars,
+                // Turning the book on has to fetch what it draws, and the range
+                // it is drawn over has not moved.
+                [...request.sources].sort().join(','),
+            ].join('|'),
         };
     }
 
@@ -218,24 +270,32 @@ export class WindowLoader {
             maxColumns: range.maxColumns,
         };
 
+        // Only what something on the chart is going to read. The frame window
+        // is by far the heaviest thing the gateway serves, and a chart showing
+        // candles alone was paying for it on every fetch to draw nothing.
+        const wanted = new Set(request.sources);
         const [window, tradeResult, gaps, bars] = await Promise.all([
-            this.config.api.fetchFrameWindow(query, signal),
-            this.config.api.fetchTradeClusters(
-                {
-                    ...query,
-                    maxColumns: TARGET_TRADE_COLUMNS,
-                    priceGroupSize: request.priceGroupSize,
-                    minimumQuantity: 0,
-                },
-                signal,
-            ),
+            wanted.has('frames')
+                ? this.config.api.fetchFrameWindow(query, signal)
+                : Promise.resolve(EMPTY_FRAME_WINDOW),
+            wanted.has('trades')
+                ? this.config.api.fetchTradeClusters(
+                    {
+                        ...query,
+                        maxColumns: TARGET_TRADE_COLUMNS,
+                        priceGroupSize: request.priceGroupSize,
+                        minimumQuantity: 0,
+                    },
+                    signal,
+                )
+                : Promise.resolve(EMPTY_TRADE_RESULT),
             this.config.api.fetchGaps(query, signal),
             this.config.api.fetchPriceBars({
                 symbol: request.symbol,
                 fromMs: range.fromMs,
                 toMs: range.toMs,
                 intervalMs: range.barIntervalMs,
-                warmupBars: WARM_UP_BARS,
+                warmupBars: request.warmupBars,
             }, signal),
         ]);
 

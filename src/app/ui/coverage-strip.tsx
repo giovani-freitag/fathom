@@ -3,11 +3,8 @@ import type { ChartState } from '../core/chart-controller.ts';
 import { StatusDot, type StatusTone } from './status-dot.tsx';
 import type { ReactElement } from 'react';
 import type { TranslationKey } from '../i18n/dictionaries/en.ts';
+import { useChartState } from '../react/use-chart-state.ts';
 import { useTranslate } from '../react/use-appearance.ts';
-
-interface CoverageStripProps {
-    readonly state: ChartState;
-}
 
 const LIVE_TONES: Record<ChartState['liveStatus'], StatusTone> = {
     streaming: 'live',
@@ -28,7 +25,8 @@ const LIVE_LABEL_KEYS: Record<ChartState['liveStatus'], TranslationKey> = {
 /**
  * What the chart is actually showing, and how trustworthy it is.
  */
-export function CoverageStrip({ state }: CoverageStripProps): ReactElement {
+export function CoverageStrip(): ReactElement {
+    const state = useChartState();
     const translate = useTranslate();
     const visibleGapCount = state.dataset.gaps.length;
     const failure = state.failureKey === null ? null : translate(state.failureKey);
@@ -44,15 +42,13 @@ export function CoverageStrip({ state }: CoverageStripProps): ReactElement {
                 </span>
             </span>
 
-            <span className="numeric" title={translate('coverage.columnWidth')}>
-                {formatDuration(state.dataset.sampleIntervalMs, translate)}{translate('coverage.perColumn')}
-            </span>
-
-            {/* The bar rung is its own resolution now: the depth field follows the
-                surface, and a bar deliberately does not. */}
-            <span className="numeric" title={translate('coverage.barInterval')}>
-                {formatDuration(state.dataset.bars.intervalMs, translate)}
-            </span>
+            {/* How wide a column of the book is, which a chart that draws no
+                book has no answer to rather than an answer of nought. */}
+            {state.isDepthVisible && (
+                <span className="numeric" title={translate('coverage.columnWidth')}>
+                    {formatDuration(state.dataset.sampleIntervalMs, translate)}{translate('coverage.perColumn')}
+                </span>
+            )}
 
             {visibleGapCount > 0 && (
                 <span className="numeric text-amber" title={translate('coverage.gapTitle')}>

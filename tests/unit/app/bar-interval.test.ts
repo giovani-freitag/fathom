@@ -1,4 +1,4 @@
-import { BAR_INTERVALS_MS, chooseBarIntervalMs } from '../../../src/app/core/bar-interval.ts';
+import { BAR_INTERVALS_MS, chooseBarIntervalMs, resolveBarIntervalMs } from '../../../src/app/core/bar-interval.ts';
 import { describe, expect, it } from 'vitest';
 
 const HOUR_MS = 3_600_000;
@@ -61,5 +61,24 @@ describe('chooseBarIntervalMs and the count it produces', () => {
 
     it('stays close to the count rather than collapsing to a handful', () => {
         expect(barsAcross(900_000, 240)).toBeGreaterThan(120);
+    });
+});
+
+describe('resolveBarIntervalMs', () => {
+    const WINDOW = { viewportSpanMs: 15 * 60_000, targetBarCount: 240, frameIntervalMs: 1_000 };
+
+    it('fits the window when the reader has named nothing', () => {
+        expect(resolveBarIntervalMs(null, WINDOW)).toBe(chooseBarIntervalMs(WINDOW));
+    });
+
+    it('honours a rung the reader named over the one that fits', () => {
+        // Naming a rung is what makes zooming change how many bars are seen
+        // rather than how much each one covers.
+        expect(resolveBarIntervalMs(HOUR_MS, WINDOW)).toBe(HOUR_MS);
+    });
+
+    it('never draws finer than the grid the instrument was recorded on', () => {
+        // A bar under the recording would be claiming detail nobody captured.
+        expect(resolveBarIntervalMs(1_000, { ...WINDOW, frameIntervalMs: 60_000 })).toBe(60_000);
     });
 });

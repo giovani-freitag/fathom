@@ -77,7 +77,7 @@ export class CrosshairPainter {
         context.setLineDash([2, 4]);
         context.beginPath();
         context.moveTo(Math.round(pointer.x) + 0.5, 0);
-        context.lineTo(Math.round(pointer.x) + 0.5, layout.plotHeight);
+        context.lineTo(Math.round(pointer.x) + 0.5, layout.paneStackHeight);
         context.moveTo(0, Math.round(pointer.y) + 0.5);
         context.lineTo(layout.plotWidth, Math.round(pointer.y) + 0.5);
         context.stroke();
@@ -257,7 +257,7 @@ export class CrosshairPainter {
             : preferredX;
         const boxY = Math.max(
             0,
-            Math.min(pointer.y - boxHeight - READOUT_CURSOR_GAP, layout.plotHeight - boxHeight),
+            Math.min(pointer.y - boxHeight - READOUT_CURSOR_GAP, layout.pricePaneHeight - boxHeight),
         );
 
         context.beginPath();

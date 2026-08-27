@@ -1,5 +1,5 @@
 import { ChartController } from '../../../src/app/core/chart-controller.ts';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { EN_DICTIONARY } from '../../../src/app/i18n/dictionaries/en.ts';
 import {
     buildFrame,
@@ -7,6 +7,8 @@ import {
     createChartServiceMocks,
     INSTRUMENT,
 } from '../../mocks/chart-services.ts';
+
+import { buildBar, buildWindow as buildBarWindow } from '../../mocks/price-bars.ts';
 
 const SURFACE_WIDTH = 1_000;
 
@@ -192,25 +194,61 @@ describe('ChartController live tail', () => {
     });
 });
 
-describe('ChartController settings', () => {
-    it('applies a display change immediately', async () => {
+describe('ChartController layers', () => {
+    it('reads what the chart draws out of what was added, not from a flag beside it', async () => {
         const controller = buildController();
         await controller.initialize();
 
-        controller.updateSettings({ colourGain: 3 });
+        controller.updateIndicators((current) => current.map((entry) => (
+            entry.indicatorId === 'depth'
+                ? { ...entry, settings: { ...entry.settings, showProfile: false } }
+                : entry
+        )));
 
-        expect(controller.store.read().colourGain).toBe(3);
+        expect(controller.store.read().isVolumeProfileVisible).toBe(false);
     });
 
-    it('remembers a display change', async () => {
+    it('takes the depth cuts from the layer that owns them', async () => {
+        const controller = buildController();
+        await controller.initialize();
+
+        controller.updateIndicators((current) => current.map((entry) => (
+            entry.indicatorId === 'depth'
+                ? { ...entry, settings: { ...entry.settings, colourGain: 2.5 } }
+                : entry
+        )));
+
+        expect(controller.store.read().colourGain).toBe(2.5);
+    });
+
+    it('stops drawing a layer that is hidden rather than removed', async () => {
+        const controller = buildController();
+        await controller.initialize();
+
+        controller.updateIndicators((current) => current.map((entry) => (
+            entry.indicatorId === 'candles' ? { ...entry, isHidden: true } : entry
+        )));
+
+        const state = controller.store.read();
+        expect(state.isCandleOverlayVisible).toBe(false);
+        expect(state.addedIndicators.some((entry) => entry.indicatorId === 'candles')).toBe(true);
+    });
+
+    it('remembers the layers it was left with', async () => {
         const mocks = createChartServiceMocks();
         const controller = buildController(mocks);
         await controller.initialize();
 
-        controller.updateSettings({ isVolumeProfileVisible: false });
+        controller.updateIndicators(
+            (current) => current.filter((entry) => entry.indicatorId !== 'candles'),
+        );
 
         expect(mocks.writePreferences).toHaveBeenCalledWith(
-            expect.objectContaining({ isVolumeProfileVisible: false }),
+            expect.objectContaining({
+                addedIndicators: expect.not.arrayContaining([
+                    expect.objectContaining({ indicatorId: 'candles' }),
+                ]),
+            }),
         );
     });
 
@@ -391,5 +429,68 @@ describe('ChartController.refreshInstruments', () => {
 
         // A failed refresh must not replace a working screen with an error.
         expect(controller.store.read().instruments).toBe(before);
+    });
+});
+
+describe('ChartController readiness', () => {
+    it('is ready on bars alone, because a chart may load no book at all', async () => {
+        // Which body of data is fetched depends on what is on the chart. Read
+        // off the book, a candles-only chart looks like a contract nobody ever
+        // recorded.
+        const mocks = createChartServiceMocks({
+            addedIndicators: [
+                { instanceId: 'candles-1', indicatorId: 'candles', settings: {}, tone: 'muted' },
+            ],
+        });
+        mocks.fetchPriceBars.mockResolvedValue(buildBarWindow([buildBar(1_500_000, 79_000)]));
+        const controller = buildController(mocks);
+
+        await controller.initialize();
+
+        expect(controller.store.read().phase).toBe('ready');
+        expect(mocks.fetchFrameWindow).not.toHaveBeenCalled();
+    });
+});
+
+describe('ChartController.selectBarInterval', () => {
+    it('refetches on the rung the reader named', async () => {
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+
+        controller.selectBarInterval(3_600_000);
+        await vi.waitFor(() => {
+            const asked = mocks.fetchPriceBars.mock.calls.at(-1)?.[0] as { intervalMs: number };
+            expect(asked.intervalMs).toBe(3_600_000);
+        });
+
+        expect(controller.store.read().barIntervalMs).toBe(3_600_000);
+    });
+
+    it('widens the window so a run of the named rung fits on it', async () => {
+        // Left as it was, an hourly bar on a quarter-hour window is one bar the
+        // width of the screen: a true picture of nothing.
+        const controller = buildController();
+        await controller.initialize();
+        const before = controller.store.read().viewport;
+
+        controller.selectBarInterval(3_600_000);
+
+        const after = controller.store.read().viewport;
+        expect(after.toMs - after.fromMs).toBeGreaterThan(before.toMs - before.fromMs);
+    });
+
+    it('hands the choice back to the window when the reader clears it', async () => {
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        controller.selectBarInterval(3_600_000);
+
+        controller.selectBarInterval(null);
+
+        expect(controller.store.read().barIntervalMs).toBeNull();
+        expect(mocks.writePreferences).toHaveBeenCalledWith(
+            expect.objectContaining({ barIntervalMs: null }),
+        );
     });
 });

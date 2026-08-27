@@ -152,9 +152,9 @@ describe('PreferencesService', () => {
         const preferences = new PreferencesService({ storage: createStorage() });
         preferences.write({ locale: 'pt-BR' });
 
-        preferences.write({ colourGain: 2 });
+        preferences.write({ visibleSpanMs: 120_000 });
 
         expect(preferences.read().locale).toBe('pt-BR');
-        expect(preferences.read().colourGain).toBe(2);
+        expect(preferences.read().visibleSpanMs).toBe(120_000);
     });
 });

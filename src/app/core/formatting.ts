@@ -17,6 +17,7 @@ interface Formatters {
     readonly day: Intl.DateTimeFormat;
     readonly calendar: Intl.DateTimeFormat;
     readonly signedPrice: Intl.NumberFormat;
+    readonly signedChange: Intl.NumberFormat;
     readonly signedPercent: Intl.NumberFormat;
 }
 
@@ -39,6 +40,13 @@ function buildFormatters(tag: string): Formatters {
         day: new Intl.DateTimeFormat(tag, { day: '2-digit', month: 'short' }),
         calendar: new Intl.DateTimeFormat(tag, { day: '2-digit', month: 'short', year: 'numeric' }),
         signedPrice: new Intl.NumberFormat(tag, { signDisplay: 'exceptZero', maximumFractionDigits: 0 }),
+        // Two decimals where a price has them: a bar that moved half a unit did
+        // not move one, and rounding it away is the difference between a doji
+        // and a body.
+        signedChange: new Intl.NumberFormat(tag, {
+            signDisplay: 'exceptZero',
+            maximumFractionDigits: 2,
+        }),
         signedPercent: new Intl.NumberFormat(tag, {
             style: 'percent',
             signDisplay: 'exceptZero',
@@ -226,6 +234,16 @@ export function formatReadoutMoment(timestampMs: number): string {
  */
 export function formatSignedPrice(deltaPrice: number): string {
     return formatters.signedPrice.format(deltaPrice);
+}
+
+/**
+ * Renders how far a price moved, to the precision a price carries.
+ *
+ * @param deltaPrice - Difference in quote currency, signed.
+ * @returns The formatted difference, always carrying a sign.
+ */
+export function formatSignedChange(deltaPrice: number): string {
+    return formatters.signedChange.format(deltaPrice);
 }
 
 /**

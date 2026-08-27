@@ -5,6 +5,7 @@ import { ViewportProjector } from '../../src/app/core/viewport-projector.ts';
 import type { ChartDataset } from '../../src/app/core/chart-dataset.ts';
 import { EMPTY_DATASET } from '../../src/app/core/chart-dataset.ts';
 import { resolveChartLayout } from '../../src/app/painting/chart-layout.ts';
+import { countPanedPlans, placePanes } from '../../src/app/painting/pane-projector.ts';
 import type { PaintContext, RenderRequest } from '../../src/app/painting/render-types.ts';
 
 export interface RecordedCall {
@@ -27,6 +28,13 @@ const RECORDED_METHODS = [
     'putImageData', 'save', 'restore', 'closePath', 'roundRect', 'setTransform',
     'rect', 'clip',
 ] as const;
+
+/** What a recorded call answers with, for the few that must answer something. */
+const ANSWERS: Readonly<Record<string, () => unknown>> = {
+    // Handed straight back as a fill style, so the stops it takes are all a
+    // recording needs of it.
+    createLinearGradient: () => ({ addColorStop: () => undefined }),
+};
 
 /**
  * A 2D context that records what was asked of it.
@@ -56,9 +64,10 @@ export function createRecordingContext(): RecordingContext {
         }),
     };
 
-    for (const method of RECORDED_METHODS) {
+    for (const method of [...RECORDED_METHODS, ...Object.keys(ANSWERS)]) {
         recorder[method] = (...args: unknown[]) => {
             calls.push({ method, args, fillStyle: state.fillStyle, strokeStyle: state.strokeStyle });
+            return ANSWERS[method]?.();
         };
     }
 
@@ -83,6 +92,10 @@ export interface PaintContextOptions {
     readonly plans?: RenderRequest['plans'];
     readonly crosshairY?: number | null;
     readonly isVolumeProfileVisible?: boolean;
+    /** The instant being painted, for what counts down rather than sits still. */
+    readonly nowMs?: number;
+    /** What each drawn layer is tuned to, for a painter that reads its own. */
+    readonly layerSettings?: RenderRequest['layerSettings'];
     readonly cssWidth?: number;
     readonly cssHeight?: number;
     readonly priceTickSpacingPx?: number;
@@ -101,10 +114,12 @@ export function buildPaintContext(
     options: PaintContextOptions = {},
 ): PaintContext {
     const viewport = { ...DEFAULT_VIEWPORT, ...options.viewport };
+    const plans = options.plans ?? [];
     const layout = resolveChartLayout({
         cssWidth: options.cssWidth ?? 1_000,
         cssHeight: options.cssHeight ?? 600,
         isVolumeProfileVisible: options.isVolumeProfileVisible ?? false,
+        indicatorPaneCount: countPanedPlans(plans),
     });
 
     return {
@@ -113,7 +128,7 @@ export function buildPaintContext(
         translate: buildTranslate('en'),
         priceTicks: choosePriceTicks({
             viewport,
-            extentPx: layout.plotHeight,
+            extentPx: layout.pricePaneHeight,
             minimumSpacingPx: options.priceTickSpacingPx ?? 64,
         }),
         timeTicks: chooseTimeTicks({
@@ -121,21 +136,25 @@ export function buildPaintContext(
             extentPx: layout.plotWidth,
             minimumSpacingPx: options.timeTickSpacingPx ?? 96,
         }),
+        panePlacements: placePanes(plans, layout.indicatorPanes, viewport),
         projector: new ViewportProjector({
             viewport,
             width: layout.plotWidth,
-            height: layout.plotHeight,
+            height: layout.pricePaneHeight,
         }),
         request: {
             viewport,
             dataset: { ...EMPTY_DATASET, priceBucketSize: 10, ...options.dataset },
+            nowMs: options.nowMs ?? DEFAULT_VIEWPORT.toMs,
             colourGain: 1,
+            isDepthVisible: true,
             isCandleOverlayVisible: true,
             isTradeOverlayVisible: true,
             isVolumeProfileVisible: options.isVolumeProfileVisible ?? false,
+            layerSettings: options.layerSettings ?? {},
             pointer: options.pointer ?? null,
             locale: 'en',
-            plans: options.plans ?? [],
+            plans,
             theme: 'dark',
         },
         crosshairY: options.crosshairY ?? options.pointer?.y ?? null,

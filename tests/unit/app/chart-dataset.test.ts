@@ -1,12 +1,14 @@
 import type { PriceBar, PriceBarWindow } from '../../../src/shared/core/price-bar.ts';
+import { DEFAULT_FLOOR_PERCENTILE } from '../../../src/app/indicators/book/book.ts';
 import { EMPTY_BAR_WINDOW } from '../../../src/shared/core/price-bar.ts';
 import type { LiquidityFrame } from '../../../src/shared/core/liquidity-frame.ts';
+import type { TradeCluster } from '../../../src/shared/core/trade-cluster.ts';
 import { describe, expect, it } from 'vitest';
 import {
     appendClusters,
     appendFrames,
-    DEFAULT_FLOOR_PERCENTILE,
     DEFAULT_SATURATION_PERCENTILE,
+    type ChartDataset,
     EMPTY_DATASET,
     foldFramesIntoBars,
     newestFrameTimestamp,
@@ -330,6 +332,7 @@ describe('foldFramesIntoBars', () => {
             openedAtMs,
             closedAtMs: openedAtMs + INTERVAL_MS,
             openPrice: 100, highPrice: 100, lowPrice: 100, closePrice: 100,
+            buyVolume: 0, sellVolume: 0, tradeCount: 0,
             expectedFrames: 60, frameCount: 1, isClosed: false,
             firstFrameAtMs: openedAtMs, lastFrameAtMs,
         };
@@ -381,5 +384,98 @@ describe('foldFramesIntoBars', () => {
         ]);
 
         expect(folded.bars[0]?.highPrice).toBe(130);
+    });
+});
+
+describe('appendClusters volume', () => {
+    const INTERVAL_MS = 60_000;
+
+    function buildCluster(executedAtMs: number, buyQuantity: number, sellQuantity: number): TradeCluster {
+        return {
+            executedAtMs,
+            priceBucketIndex: 1,
+            buyQuantity,
+            sellQuantity,
+            tradeCount: 3,
+            largestTradeQuantity: buyQuantity,
+        };
+    }
+
+    function buildDataset(isClosed: boolean): ChartDataset {
+        const bar: PriceBar = {
+            openedAtMs: 60_000,
+            closedAtMs: 60_000 + INTERVAL_MS,
+            openPrice: 100, highPrice: 100, lowPrice: 100, closePrice: 100,
+            buyVolume: 5, sellVolume: 1, tradeCount: 10,
+            expectedFrames: 60, frameCount: 60, isClosed,
+            firstFrameAtMs: 60_000, lastFrameAtMs: 119_000,
+        };
+        return {
+            ...EMPTY_DATASET,
+            bars: { instrumentSymbol: 'BTCUSDT', intervalMs: INTERVAL_MS, warmupBarsRequested: 0, warmupBarsReturned: 0, bars: [bar] },
+        };
+    }
+
+    it('brings the bar still being built up to date with what just traded', () => {
+        const dataset = buildDataset(false);
+
+        const next = appendClusters(dataset, [buildCluster(90_000, 2, 3)]);
+
+        expect(next.bars.bars[0]?.buyVolume).toBe(7);
+        expect(next.bars.bars[0]?.sellVolume).toBe(4);
+    });
+
+    it('leaves a closed bar with what the archive counted for it', () => {
+        // A cluster arriving late for a bar the archive already answered for
+        // would otherwise be counted a second time.
+        const dataset = buildDataset(true);
+
+        const next = appendClusters(dataset, [buildCluster(90_000, 2, 3)]);
+
+        expect(next.bars.bars[0]?.buyVolume).toBe(5);
+    });
+
+    it('ignores what traded outside the bar being built', () => {
+        const dataset = buildDataset(false);
+
+        const next = appendClusters(dataset, [buildCluster(500_000, 2, 3)]);
+
+        expect(next.bars.bars[0]?.buyVolume).toBe(5);
+    });
+});
+
+describe('foldFramesIntoBars sealing', () => {
+    const INTERVAL_MS = 60_000;
+
+    function buildLiveWindow(): PriceBarWindow {
+        return { instrumentSymbol: 'BTCUSDT', intervalMs: INTERVAL_MS, warmupBarsRequested: 0, warmupBarsReturned: 0, bars: [] };
+    }
+
+    function buildTick(capturedAtMs: number, midPrice: number): LiquidityFrame {
+        return {
+            capturedAtMs,
+            bestBidPrice: midPrice, bestAskPrice: midPrice,
+            priceBucketIndex: 0, bidQuantities: [], askQuantities: [],
+        } as unknown as LiquidityFrame;
+    }
+
+    it('closes the bucket behind it once a new one opens', () => {
+        // Nothing more can belong to a bucket whose time is over. Left open it
+        // reads as still being built for the rest of the session, and is drawn
+        // hollow beside bars no more finished than it is.
+        const window = foldFramesIntoBars(buildLiveWindow(), [
+            buildTick(0, 100),
+            buildTick(30_000, 101),
+            buildTick(60_000, 102),
+        ]);
+
+        expect(window.bars.map((bar) => bar.isClosed)).toEqual([true, false]);
+    });
+
+    it('leaves the bucket still being filled open', () => {
+        const window = foldFramesIntoBars(buildLiveWindow(), [buildTick(0, 100), buildTick(1_000, 101)]);
+
+        expect(window.bars).toHaveLength(1);
+        expect(window.bars[0]?.isClosed).toBe(false);
     });
 });

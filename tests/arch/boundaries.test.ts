@@ -162,3 +162,46 @@ describe('type safety', () => {
         expect(sourceFiles.filter((path) => /TODO(?!\()/.test(read(path)))).toEqual([]);
     });
 });
+
+describe('controls that mean the same thing look the same', () => {
+    it('has one switch, written once', () => {
+        // Two of them once sat in the same panel with knobs of different
+        // colours travelling different distances, which reads as two kinds of
+        // control rather than one control used twice.
+        const rolled = sourceFiles
+            .filter((path) => !path.endsWith('ui/toggle-switch.tsx'))
+            .filter((path) => read(path).includes('Switch.Root'));
+
+        expect(rolled).toEqual([]);
+    });
+
+    it('parks the knob where the geometry puts it', () => {
+        // A track of thirty-six less a knob of sixteen leaves two pixels of
+        // clearance at each end. Sixteen parks it off-centre against the edge.
+        const written = read('src/app/ui/toggle-switch.tsx');
+
+        expect(written).toContain('translate-x-[18px]');
+    });
+});
+
+describe('the interface is built from parts, not from repeated markup', () => {
+    it('spells no set of classes out in more than two places', () => {
+        // Not a ban on repetition — two places is a coincidence and four is a
+        // component nobody wrote. Every one of the shapes that crossed this line
+        // had drifted: two switches with different knobs, seven icon buttons in
+        // two sizes, two notices at widths neither could justify.
+        const uses = new Map<string, string[]>();
+        for (const path of sourceFiles.filter((file) => file.endsWith('.tsx'))) {
+            for (const match of read(path).matchAll(/className="([^"]{25,})"/g)) {
+                const classes = match[1]!;
+                uses.set(classes, [...uses.get(classes) ?? [], path]);
+            }
+        }
+
+        const overused = [...uses.entries()]
+            .filter(([, places]) => places.length > 2)
+            .map(([classes, places]) => `${classes.slice(0, 40)} (×${places.length})`);
+
+        expect(overused).toEqual([]);
+    });
+});

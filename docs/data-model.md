@@ -67,6 +67,14 @@ The continuous aggregates `trade_cluster_minute` and `trade_cluster_hour`
 materialise the two widest zooms. Price granularity is kept at every level; only
 time is aggregated.
 
+The same table answers a second question with the price bands dropped rather
+than kept: how much traded in a stretch of time, which is what a bar means by
+volume. That read is a scan of its own alongside the one that builds the bar
+from the book, because the two sides are stored apart and rolled up apart — the
+book has nothing below a minute but the raw frames, while the executions were
+already summed to the second when they were written. Joining them would tie each
+to whichever grid the other needed.
+
 ## Gaps
 
 ```sql

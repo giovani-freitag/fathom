@@ -3,6 +3,7 @@ import { createRecordingContext, DEFAULT_VIEWPORT, type RecordingContext } from 
 import { buildFrame } from '../../../mocks/chart-services.ts';
 import { EMPTY_DATASET } from '../../../../src/app/core/chart-dataset.ts';
 import { HeatmapRenderer } from '../../../../src/app/painting/heatmap-renderer.ts';
+import { resolveChartLayout } from '../../../../src/app/painting/chart-layout.ts';
 import type { RenderRequest } from '../../../../src/app/painting/render-types.ts';
 
 interface Surface {
@@ -39,10 +40,13 @@ function buildRequest(overrides: Partial<RenderRequest> = {}): RenderRequest {
     return {
         viewport: DEFAULT_VIEWPORT,
         dataset: { ...EMPTY_DATASET, frames: [buildFrame(DEFAULT_VIEWPORT.fromMs, 78_500)], revision: 1 },
+        nowMs: DEFAULT_VIEWPORT.toMs,
         colourGain: 1,
+        isDepthVisible: true,
         isCandleOverlayVisible: true,
         isTradeOverlayVisible: true,
         isVolumeProfileVisible: true,
+        layerSettings: {},
         pointer: { x: 300, y: 200 },
         locale: 'en',
         plans: [],
@@ -139,6 +143,33 @@ describe('HeatmapRenderer containment', () => {
         expect(restored).toBeGreaterThan(clipped);
     });
 
+    it('keeps what reads as a price inside the pane that has a price axis', () => {
+        // Without this the candle at the edge of the band draws down through the
+        // oscillator below it and reads as part of that oscillator's line.
+        const surface = buildSurface();
+
+        surface.renderer.render(buildRequest({
+            plans: [{
+                indicatorId: 'rsi',
+                labelKey: 'indicator.rsi',
+                parameterSummary: '14',
+                scale: { kind: 'fixed', low: 0, high: 100 },
+                series: [],
+                hasConverged: true,
+            }],
+        }));
+
+        const layout = resolveChartLayout({
+            cssWidth: 1_000,
+            cssHeight: 600,
+            isVolumeProfileVisible: true,
+            indicatorPaneCount: 1,
+        });
+        const clipHeights = surface.overlay.callsTo('rect').map((call) => call.args[3]);
+        expect(clipHeights).toContain(layout.pricePaneHeight);
+        expect(layout.pricePaneHeight).toBeLessThan(layout.paneStackHeight);
+    });
+
     it('repaints the data layers when an indicator appears', () => {
         // A plan arriving does not move the dataset, so the held layer would
         // otherwise keep showing a chart without it.
@@ -147,7 +178,14 @@ describe('HeatmapRenderer containment', () => {
         const drawnOnce = surface.overlay.calls.length;
 
         surface.renderer.render(buildRequest({
-            plans: [{ series: [], hasConverged: true }],
+            plans: [{
+                indicatorId: 'ema',
+                labelKey: 'indicator.ema',
+                parameterSummary: '20',
+                scale: { kind: 'price' },
+                series: [],
+                hasConverged: true,
+            }],
         }));
 
         expect(surface.overlay.calls.length).toBeGreaterThan(drawnOnce);

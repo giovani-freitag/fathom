@@ -22,15 +22,15 @@ export class GapPainter {
 
             const width = Math.max(1, endX - startX);
             context.fillStyle = RENDER_PALETTE.gapFill;
-            context.fillRect(startX, 0, width, layout.plotHeight);
+            context.fillRect(startX, 0, width, layout.paneStackHeight);
 
             context.strokeStyle = RENDER_PALETTE.gapStroke;
             context.setLineDash([3, 3]);
             context.beginPath();
             context.moveTo(startX, 0);
-            context.lineTo(startX, layout.plotHeight);
+            context.lineTo(startX, layout.paneStackHeight);
             context.moveTo(startX + width, 0);
-            context.lineTo(startX + width, layout.plotHeight);
+            context.lineTo(startX + width, layout.paneStackHeight);
             context.stroke();
             context.setLineDash([]);
         }

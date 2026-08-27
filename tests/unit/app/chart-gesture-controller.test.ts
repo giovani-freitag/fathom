@@ -29,6 +29,7 @@ function buildHarness(): Harness {
         }),
         onView: (request) => surface.published.push(request),
         onPointerMove: (pointer) => surface.pointers.push(pointer),
+        onRefitPrice: () => { surface.refits += 1; },
     });
     controller.attach();
     return { controller, surface };
@@ -132,6 +133,17 @@ describe('ChartGestureController', () => {
         surface.fire('dblclick', { clientX: 500, clientY: 250 });
 
         expect(surface.published.at(-1)?.isFollowingLive).toBe(true);
+    });
+
+    it('refits the price axis on a double click over the axis itself', () => {
+        // The only way back from a band the reader dragged, or one a wide
+        // window widened. Anywhere else the same gesture means the live edge.
+        const { surface } = buildHarness();
+
+        surface.fire('dblclick', { clientX: surface.width - 4, clientY: 250 });
+
+        expect(surface.refits).toBe(1);
+        expect(surface.published.at(-1)?.isFollowingLive).not.toBe(true);
     });
 
     it('reports the pointer position for the crosshair', () => {
@@ -314,6 +326,7 @@ function buildPhoneHarness(): Harness {
         }),
         onView: (request) => surface.published.push(request),
         onPointerMove: (pointer) => surface.pointers.push(pointer),
+        onRefitPrice: () => { surface.refits += 1; },
     });
     controller.attach();
     return { controller, surface };
@@ -388,16 +401,16 @@ describe('ChartGestureController tracking', () => {
     it('moves the chart vertically as far as the finger', () => {
         const { surface } = buildHarness();
         const priceSpan = VIEWPORT.highPrice - VIEWPORT.lowPrice;
-        const plotHeight = resolveChartLayout({
+        const pricePaneHeight = resolveChartLayout({
             cssWidth: surface.width,
             cssHeight: surface.height,
             isVolumeProfileVisible: true,
-        }).plotHeight;
+        }).pricePaneHeight;
 
         dragBy(surface, 0, 50);
 
         const moved = (surface.published.at(-1)?.viewport.lowPrice ?? 0) - VIEWPORT.lowPrice;
-        expect(moved).toBeCloseTo((50 / plotHeight) * priceSpan, 6);
+        expect(moved).toBeCloseTo((50 / pricePaneHeight) * priceSpan, 6);
     });
 
     it('keeps the instant under the wheel where it was', () => {

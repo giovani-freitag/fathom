@@ -43,3 +43,21 @@ function interpolate(phrase: string, values?: TranslationValues): string {
         return value === undefined ? slot : String(value);
     });
 }
+
+/**
+ * Renders a label that may name a phrase or already be one.
+ *
+ * An addon ships labels the build has never heard of, and a missing phrase must
+ * read as what its author wrote rather than as the key they chose.
+ *
+ * @param translate - The renderer for the language in force.
+ * @param labelKey - A catalogue key, or the label itself.
+ * @returns The text to draw.
+ */
+export function translateLabel(translate: Translate, labelKey: string): string {
+    return isTranslationKey(labelKey) ? translate(labelKey) : labelKey;
+}
+
+function isTranslationKey(candidate: string): candidate is TranslationKey {
+    return Object.hasOwn(DICTIONARIES.en, candidate);
+}

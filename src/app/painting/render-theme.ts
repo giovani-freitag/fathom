@@ -1,5 +1,5 @@
 import { applyPaletteTheme } from './render-palette.ts';
-import { DepthColourScale } from './depth-colour-scale.ts';
+import { applyLayerThemes } from '../indicators/layer-painters.ts';
 import type { ResolvedTheme } from '../core/theme.ts';
 
 /**
@@ -9,5 +9,5 @@ import type { ResolvedTheme } from '../core/theme.ts';
  */
 export function applyRenderTheme(theme: ResolvedTheme): void {
     applyPaletteTheme(theme);
-    DepthColourScale.applyTheme(theme);
+    applyLayerThemes(theme);
 }

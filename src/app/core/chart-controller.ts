@@ -1,6 +1,5 @@
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
 import type { DrawPlan } from '../../shared/core/draw-plan.ts';
-import { ExponentialAverage } from '../indicators/exponential-average.ts';
 import type { LiveMessage } from '../../shared/core/live-message.ts';
 import type { TranslationKey } from '../i18n/dictionaries/en.ts';
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
@@ -26,18 +25,31 @@ import {
 } from './chart-dataset.ts';
 import {
     followLiveEdge,
-    followTouchPrice,
+    followDrawnPrice,
     frameOnBook,
     resolveTradePriceGroupSize,
     resolveViewportBounds,
 } from './viewport-policy.ts';
-import { type LoadedWindow, WindowLoader, type WindowLoadRequest } from './window-loader.ts';
+import {
+    type LoadedWindow,
+    WindowLoader,
+    type WindowLoadRequest,
+    type WindowSource,
+} from './window-loader.ts';
+import {
+    findIndicator,
+    resolveRequiredWarmupBars,
+} from '../indicators/indicator-catalogue.ts';
+import { type BarIntervalMs, TARGET_BAR_COUNT } from './bar-interval.ts';
+import { type LayerSettings, resolveFieldSettings } from '../indicators/field-layers.ts';
+import { type AddedIndicator, resolveBandKey } from '../../shared/core/indicator-selection.ts';
+import { isPlanWithinBudget, recolourPlan } from '../../shared/core/draw-plan.ts';
 
 /** How often the instrument listing and its coverage are re-read. */
-const COVERAGE_REFRESH_MS = 5_000;
+/** Bars of clear space kept after the newest one. */
+const RIGHT_MARGIN_BARS = 5;
 
-/** The one indicator the chart ships with, until a reader can add their own. */
-const AVERAGE = new ExponentialAverage({ periodBars: 20 });
+const COVERAGE_REFRESH_MS = 5_000;
 
 export type ChartPhase = 'initialising' | 'ready' | 'empty' | 'failed';
 
@@ -58,10 +70,17 @@ export interface ChartState {
     readonly depthFloorPercentile: number;
     /** Fraction of the window at which resting size reaches the hot end. */
     readonly depthSaturationPercentile: number;
+    /** False leaves a plain price chart, with no book behind it. */
+    readonly isDepthVisible: boolean;
     readonly isCandleOverlayVisible: boolean;
+    /** The bar rung the reader named, or null while the window decides. */
+    readonly barIntervalMs: BarIntervalMs | null;
+    /** What each drawn layer is tuned to, for the parts that paint them. */
+    readonly layerSettings: LayerSettings;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
-    readonly isAverageVisible: boolean;
+    /** Whether the book's own traded volume is drawn, and how. */
+    readonly addedIndicators: readonly AddedIndicator[];
     /** What the indicators produced for the window on screen. */
     readonly plans: readonly DrawPlan[];
 }
@@ -81,19 +100,6 @@ export interface ViewRequest {
     readonly isFollowingPrice?: boolean;
 }
 
-export type ChartSettingsPatch = Partial<
-    Pick<
-        ChartState,
-        | 'colourGain'
-        | 'depthFloorPercentile'
-        | 'depthSaturationPercentile'
-        | 'isCandleOverlayVisible'
-        | 'isTradeOverlayVisible'
-        | 'isVolumeProfileVisible'
-        | 'isAverageVisible'
-    >
->;
-
 /**
  * Everything the chart knows, and the only thing that changes it.
  */
@@ -105,6 +111,7 @@ export class ChartController {
     private surfaceWidthPx = 800;
     private needsPriceFraming = true;
     private wasDisposed = false;
+    private wasInitialised = false;
     private coverageTimer: ReturnType<typeof setInterval> | null = null;
 
     constructor(config: ChartControllerConfig) {
@@ -147,6 +154,13 @@ export class ChartController {
     }
 
     async initialize(): Promise<void> {
+        // A mount that runs its effects twice must not open a second live tail
+        // or refetch the window it already has.
+        if (this.wasInitialised) {
+            return;
+        }
+        this.wasInitialised = true;
+
         try {
             const instruments = await this.config.api.fetchInstruments();
             const preferred = this.choosePreferredInstrument(instruments);
@@ -230,6 +244,49 @@ export class ChartController {
     }
 
     /**
+     * Frames the price axis on what is drawn, and follows it again from there.
+     *
+     * The way back from a band the reader dragged, and from one a wide window
+     * widened: nothing else ever shrinks the axis.
+     */
+    refitPrice(): void {
+        this.needsPriceFraming = true;
+        this.store.update((state) => ({ ...state, isFollowingPrice: true }));
+        this.applyView({
+            viewport: this.store.read().viewport,
+            surfaceWidthPx: this.surfaceWidthPx,
+        });
+    }
+
+    /**
+     * Adopts the bar rung the reader named, or hands the choice back to the window.
+     *
+     * @param barIntervalMs - A rung of the ladder, or null to fit the window.
+     */
+    selectBarInterval(barIntervalMs: BarIntervalMs | null): void {
+        const current = this.store.read();
+        if (current.barIntervalMs === barIntervalMs) {
+            return;
+        }
+
+        this.store.update((state) => ({ ...state, barIntervalMs }));
+        if (barIntervalMs === null) {
+            this.persistPreferences();
+            void this.loadWindow();
+            return;
+        }
+
+        // Widened to hold a readable run of them. Left as it was, naming an
+        // hourly bar on a quarter-hour window draws one bar the width of the
+        // screen, which is a true picture of nothing.
+        const toMs = current.viewport.toMs;
+        this.applyView({
+            viewport: { ...current.viewport, fromMs: toMs - barIntervalMs * TARGET_BAR_COUNT, toMs },
+            surfaceWidthPx: this.surfaceWidthPx,
+        });
+    }
+
+    /**
      * Adopts a viewport produced by a gesture and schedules any refetch it needs.
      *
      * @param request - The requested viewport and the surface it was measured on.
@@ -253,20 +310,6 @@ export class ChartController {
     }
 
     /**
-     * Changes a display setting and remembers it.
-     *
-     * @param patch - The settings to change; anything absent is left alone.
-     */
-    updateSettings(patch: ChartSettingsPatch): void {
-        this.store.update((state) => {
-            const next = { ...state, ...patch };
-            const recutState = hasMovedACut(state, next) ? { ...next, dataset: recut(next) } : next;
-            return { ...recutState, plans: this.computePlans(recutState) };
-        });
-        this.persistPreferences();
-    }
-
-    /**
      * Runs the indicators over the window on screen.
      *
      * Inline and synchronous because these are ours: moving a first-party
@@ -274,13 +317,66 @@ export class ChartController {
      * arithmetic it was meant to move off the thread.
      */
     private computePlans(state: ChartState): readonly DrawPlan[] {
-        if (!state.isAverageVisible) {
-            return [];
+        const plans: DrawPlan[] = [];
+        for (const entry of state.addedIndicators) {
+            const indicator = findIndicator(entry.indicatorId);
+            // A hidden indicator produces nothing, so it takes no band and costs
+            // no arithmetic. What it keeps is how it was tuned.
+            if (indicator === null || entry.isHidden === true) {
+                continue;
+            }
+            const plan = indicator.compute({
+                bars: state.dataset.bars,
+                warmupBarCount: state.dataset.bars.warmupBarsReturned,
+                settings: entry.settings,
+            });
+            // Rejected whole rather than clipped. A plan over budget is a bug in
+            // whoever produced it, and drawing part of one shows the reader a
+            // claim its author never made.
+            if (isPlanWithinBudget(plan)) {
+                plans.push({
+                    ...recolourPlan(plan, entry.tone),
+                    instanceId: entry.instanceId,
+                    bandKey: resolveBandKey(entry),
+                    tuning: describeTuning(entry),
+                });
+            }
         }
-        return [AVERAGE.compute({
-            bars: state.dataset.bars,
-            warmupBarCount: state.dataset.bars.warmupBarsReturned,
-        })];
+
+        return plans;
+    }
+
+
+    /**
+     * Revises the set of indicators on the chart.
+     *
+     * Takes a revision rather than a replacement because the caller's idea of
+     * the current set is one render old: two additions in the same frame would
+     * each append to the same stale list, and the second would land on top of
+     * the first instead of after it.
+     *
+     * @param revise - Given the set in force, returns the set to put in its place.
+     */
+    updateIndicators(
+        revise: (current: readonly AddedIndicator[]) => readonly AddedIndicator[],
+    ): void {
+        const before = resolveRequiredWarmupBars(this.store.read().addedIndicators);
+        this.store.update((state) => {
+            const addedIndicators = revise(state.addedIndicators);
+            const next = { ...state, addedIndicators, ...resolveFieldSettings(addedIndicators) };
+            // The cuts decide what the depth map is built from, so moving one is
+            // a reason to rebuild it rather than only to repaint.
+            const recutState = hasMovedACut(state, next) ? { ...next, dataset: recut(next) } : next;
+            return { ...recutState, plans: this.computePlans(recutState) };
+        });
+        this.persistPreferences();
+
+        // A deeper indicator needs history the loaded window does not hold, and
+        // seeding from what is there would draw a converged-looking line that is
+        // not one.
+        if (resolveRequiredWarmupBars(this.store.read().addedIndicators) > before) {
+            void this.loadWindow();
+        }
     }
 
     private choosePreferredInstrument(
@@ -301,10 +397,9 @@ export class ChartController {
             ),
             priceBucketSize: state.dataset.priceBucketSize,
             nowMs: Date.now(),
+            rightMarginMs: resolveRightMarginMs(state),
         });
     }
-
-
 
     private buildLoadRequest(): WindowLoadRequest | null {
         const state = this.store.read();
@@ -321,6 +416,9 @@ export class ChartController {
             surfaceWidthPx: this.surfaceWidthPx,
             frameIntervalMs: instrument?.frameIntervalMs ?? state.dataset.sampleIntervalMs,
             priceGroupSize: resolveTradePriceGroupSize(state.viewport, state.dataset.priceBucketSize),
+            warmupBars: resolveRequiredWarmupBars(state.addedIndicators),
+            barIntervalMs: state.barIntervalMs,
+            sources: resolveWindowSources(state),
         };
     }
 
@@ -360,7 +458,7 @@ export class ChartController {
             const next = {
                 ...current,
                 isLoadingWindow: false,
-                phase: (dataset.frames.length === 0 ? 'empty' : 'ready') as ChartPhase,
+                phase: (hasAnything(dataset) ? 'ready' : 'empty') as ChartPhase,
                 failureKey: null,
                 dataset,
                 viewport: this.framePriceRange(current.viewport, dataset),
@@ -432,19 +530,25 @@ export class ChartController {
             return state.viewport;
         }
 
-        const onLiveEdge = followLiveEdge(state.viewport, dataset);
-        return state.isFollowingPrice ? followTouchPrice(onLiveEdge, dataset) : onLiveEdge;
+        const onLiveEdge = followLiveEdge(state.viewport, dataset, resolveRightMarginMs(state));
+        if (!state.isFollowingPrice) {
+            return onLiveEdge;
+        }
+        return followDrawnPrice(onLiveEdge, dataset, {
+            isDepthVisible: state.isDepthVisible,
+            isCandleOverlayVisible: state.isCandleOverlayVisible,
+        });
     }
 
     /**
-     * Frames the price axis on the book, once per instrument.
+     * Frames the price axis on what is being drawn, once per instrument.
      */
     private framePriceRange(viewport: ChartViewport, dataset: ChartDataset): ChartViewport {
-        if (!this.needsPriceFraming || dataset.frames.length === 0) {
+        if (!this.needsPriceFraming || !hasAnything(dataset)) {
             return viewport;
         }
         this.needsPriceFraming = false;
-        return frameOnBook(viewport, dataset);
+        return frameOnBook(viewport, dataset, this.store.read().isDepthVisible);
     }
 
     private get isDisposed(): boolean {
@@ -456,13 +560,8 @@ export class ChartController {
         this.config.preferences.write({
             instrumentSymbol: state.instrumentSymbol ?? 'BTCUSDT',
             visibleSpanMs: state.viewport.toMs - state.viewport.fromMs,
-            colourGain: state.colourGain,
-            depthFloorPercentile: state.depthFloorPercentile,
-            depthSaturationPercentile: state.depthSaturationPercentile,
-            isCandleOverlayVisible: state.isCandleOverlayVisible,
-            isTradeOverlayVisible: state.isTradeOverlayVisible,
-            isVolumeProfileVisible: state.isVolumeProfileVisible,
-            isAverageVisible: state.isAverageVisible,
+            addedIndicators: state.addedIndicators,
+            barIntervalMs: state.barIntervalMs,
         });
     }
 
@@ -473,11 +572,67 @@ export class ChartController {
         const failureKey = resolveFailureKey(error);
         this.store.update((state) => ({
             ...state,
-            phase: state.dataset.frames.length > 0 ? state.phase : 'failed',
+            phase: hasAnything(state.dataset) ? state.phase : 'failed',
             isLoadingWindow: false,
             failureKey,
         }));
     }
+}
+
+/**
+ * What an added indicator was run with, as one line.
+ *
+ * Everything the drawing depends on and the plan does not otherwise carry: the
+ * colour it was recoloured to, and every setting, including the ones that leave
+ * no mark on the summary a reader sees.
+ */
+function describeTuning(entry: AddedIndicator): string {
+    const settings = Object.entries(entry.settings)
+        .sort(([first], [second]) => first.localeCompare(second))
+        .map(([name, value]) => `${name}=${String(value)}`)
+        .join(',');
+    return `${entry.tone}|${settings}`;
+}
+
+/**
+ * The bodies of data something on the chart is going to read.
+ *
+ * The frame window is the heaviest thing the gateway serves, and a chart with
+ * the book hidden draws none of it. What reads the executions is the bubbles,
+ * the profile and the traded volume, each of which the book can be showing or
+ * not independently.
+ */
+function resolveWindowSources(state: ChartState): readonly WindowSource[] {
+    const sources: WindowSource[] = [];
+    if (state.isDepthVisible) {
+        sources.push('frames');
+    }
+    if (state.isTradeOverlayVisible || state.isVolumeProfileVisible) {
+        sources.push('trades');
+    }
+    return sources;
+}
+
+/**
+ * Whether the window holds anything to draw.
+ *
+ * Counted across both, because which of them was fetched depends on what is on
+ * the chart: a chart showing candles alone loads no book at all, and reading
+ * emptiness off the book would tell it nothing was ever recorded.
+ */
+/**
+ * Empty room kept after the newest bar.
+ *
+ * Measured in bars rather than pixels, so it is the same amount of chart at
+ * every zoom: a handful of bars of clear space, which is what makes the one
+ * being built readable instead of pressed against the axis.
+ */
+function resolveRightMarginMs(state: ChartState): number {
+    return RIGHT_MARGIN_BARS * state.dataset.bars.intervalMs;
+}
+
+function hasAnything(dataset: ChartDataset): boolean {
+    return dataset.frames.length > 0 || dataset.bars.bars.length > 0;
 }
 
 function buildInitialState(preferences: ViewerPreferences): ChartState {
@@ -487,6 +642,7 @@ function buildInitialState(preferences: ViewerPreferences): ChartState {
         failureKey: null,
         instruments: [],
         instrumentSymbol: null,
+        barIntervalMs: preferences.barIntervalMs,
         viewport: {
             fromMs: nowMs - preferences.visibleSpanMs,
             toMs: nowMs,
@@ -498,13 +654,8 @@ function buildInitialState(preferences: ViewerPreferences): ChartState {
         isFollowingLive: true,
         isFollowingPrice: true,
         isLoadingWindow: false,
-        colourGain: preferences.colourGain,
-        depthFloorPercentile: preferences.depthFloorPercentile,
-        depthSaturationPercentile: preferences.depthSaturationPercentile,
-        isCandleOverlayVisible: preferences.isCandleOverlayVisible,
-        isTradeOverlayVisible: preferences.isTradeOverlayVisible,
-        isVolumeProfileVisible: preferences.isVolumeProfileVisible,
-        isAverageVisible: preferences.isAverageVisible,
+        ...resolveFieldSettings(preferences.addedIndicators),
+        addedIndicators: preferences.addedIndicators,
         plans: [],
     };
 }

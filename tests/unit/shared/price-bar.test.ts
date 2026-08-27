@@ -6,6 +6,7 @@ function buildBar(overrides: Partial<PriceBar> = {}): PriceBar {
         openedAtMs: 60_000,
         closedAtMs: 120_000,
         openPrice: 100, highPrice: 110, lowPrice: 90, closePrice: 105,
+        buyVolume: 0, sellVolume: 0, tradeCount: 0,
         expectedFrames: 60,
         frameCount: 60,
         isClosed: true,

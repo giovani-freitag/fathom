@@ -14,6 +14,21 @@ export interface PriceBar {
     readonly lowPrice: number;
     readonly closePrice: number;
     /** Frames a wholly recorded bucket of this width holds, from the instrument's grid. */
+    /**
+     * What traded inside the bucket, by which side crossed the spread.
+     *
+     * Zero is a real answer: a bucket the book was recorded through with nobody
+     * trading is a quiet bucket, not a missing one.
+     */
+    readonly buyVolume: number;
+    readonly sellVolume: number;
+    readonly tradeCount: number;
+    /**
+     * Frames a wholly recorded bucket of this width holds.
+     *
+     * A bar short of them was built from less than it should have been, which
+     * is a different fact from a bar still being built.
+     */
     readonly expectedFrames: number;
     /** Frames that actually landed. Below `expectedFrames` on a closed bar, the bar is partial. */
     readonly frameCount: number;

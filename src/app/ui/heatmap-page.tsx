@@ -1,31 +1,85 @@
-import { Radar, RefreshCw, TriangleAlert } from 'lucide-react';
-import { type ReactElement, useCallback, useEffect } from 'react';
+import { RefreshCw, TriangleAlert } from 'lucide-react';
+import { type ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { resolveRecordedSpanMs } from '../core/viewport-policy.ts';
 import { useKernel } from '../react/kernel-context.ts';
-import { useChartState } from '../react/use-chart-state.ts';
+import { useChartSlice } from '../react/use-chart-state.ts';
 import { useTranslate } from '../react/use-appearance.ts';
+import type { TranslationKey } from '../i18n/dictionaries/en.ts';
 import type { Translate } from '../i18n/translator.ts';
 import { ControlButton } from './control-button.tsx';
+import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
+import type { ChartState } from '../core/chart-controller.ts';
 import { ChartSurface } from './chart-surface.tsx';
+import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
+import { ReturnToLive } from './return-to-live.tsx';
 import { CoverageStrip } from './coverage-strip.tsx';
-import { DepthLegend } from './depth-legend.tsx';
+import { listDrawnOverlays } from '../indicators/layer-contributions.ts';
 import { SettingsDrawer } from './settings-drawer.tsx';
 import { InstrumentPicker } from './instrument-picker.tsx';
+import type { BarIntervalMs } from '../core/bar-interval.ts';
+import { IntervalPicker } from './interval-picker.tsx';
 import { SpanPresets } from './span-presets.tsx';
+import { IndicatorOverlay, IndicatorTrigger } from './indicators/indicator-controls.tsx';
+import { useIndicators } from '../react/use-indicators.ts';
+import { useChartLayout } from '../react/use-chart-layout.ts';
+
+/* Declared once each, so every subscription is the same one on every render. */
+const readPhase = (state: ChartState): ChartState['phase'] => state.phase;
+const readFailureKey = (state: ChartState): TranslationKey | null => state.failureKey;
+const readInstruments = (state: ChartState): readonly InstrumentCoverage[] => state.instruments;
+const readInstrumentSymbol = (state: ChartState): string | null => state.instrumentSymbol;
+const readAddedIndicators = (state: ChartState): readonly AddedIndicator[] => state.addedIndicators;
+const readBarIntervalMs = (state: ChartState): BarIntervalMs | null => state.barIntervalMs;
+const readBarWindowIntervalMs = (state: ChartState): number => state.dataset.bars.intervalMs;
+const readIsFollowingLive = (state: ChartState): boolean => state.isFollowingLive;
+const readVisibleSpanMs = (state: ChartState): number => state.viewport.toMs - state.viewport.fromMs;
 
 /**
  * The whole product: one chart, and just enough chrome to explain it.
  */
 export function HeatmapPage(): ReactElement {
     const kernel = useKernel();
-    const state = useChartState();
+    // Sliced rather than read whole: a drag rewrites the viewport many times a
+    // second, and a page that followed all of it rebuilt every control on the
+    // screen for a figure none of them read.
+    const phase = useChartSlice(readPhase);
+    const failureKey = useChartSlice(readFailureKey);
+    const instruments = useChartSlice(readInstruments);
+    const instrumentSymbol = useChartSlice(readInstrumentSymbol);
+    const addedIndicators = useChartSlice(readAddedIndicators);
+    const barIntervalMs = useChartSlice(readBarIntervalMs);
+    const barWindowIntervalMs = useChartSlice(readBarWindowIntervalMs);
+    const isFollowingLive = useChartSlice(readIsFollowingLive);
+    const visibleSpanMs = useChartSlice(readVisibleSpanMs);
     const translate = useTranslate();
+    const indicators = useIndicators();
+    // Measured here rather than read back from the renderer, so the rows placed
+    // over each band are placed by the same arithmetic that drew it.
+    const surfaceRef = useRef<HTMLElement>(null);
+    const surfaceLayout = useChartLayout(surfaceRef);
+    // The drawer is where a layer is configured, so a row on the chart has to be
+    // able to open it onto itself rather than carrying a panel of its own.
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [expandedLayer, setExpandedLayer] = useState<string | null>(null);
 
+    const handleOpenSettings = useCallback((instanceId: string) => {
+        setExpandedLayer(instanceId);
+        setIsDrawerOpen(true);
+    }, []);
+
+    // Started, never torn down: the chart outlives this page. Whoever built the
+    // container owns its lifetime, and a page that disposed it would leave a
+    // dead controller behind for the next mount to draw nothing from.
     useEffect(() => {
         void kernel.chart.initialize();
-        return () => {
-            kernel.chart.dispose();
-        };
+    }, [kernel]);
+
+    const handleInstrumentSelect = useCallback((symbol: string) => {
+        kernel.chart.selectInstrument(symbol);
+    }, [kernel]);
+
+    const handleIntervalSelect = useCallback((intervalMs: BarIntervalMs | null) => {
+        kernel.chart.selectBarInterval(intervalMs);
     }, [kernel]);
 
     const handleSpanSelect = useCallback((spanMs: number) => {
@@ -42,57 +96,76 @@ export function HeatmapPage(): ReactElement {
         handleSpanSelect(viewport.toMs - viewport.fromMs);
     }, [handleSpanSelect, kernel]);
 
-    const recordedSpanMs = resolveRecordedSpanMs(state.instruments, state.instrumentSymbol);
+    const recordedSpanMs = resolveRecordedSpanMs(instruments, instrumentSymbol);
+    // The grid the contract is recorded on, not the one this window happens to
+    // be sampled at: sampling coarsens as the view widens, and the rungs a
+    // reader may pick must not come and go with the zoom.
+    const recordedIntervalMs = instruments.find(
+        (instrument) => instrument.instrumentSymbol === instrumentSymbol,
+    )?.frameIntervalMs ?? 1_000;
 
     return (
         <div className="flex h-dvh flex-col bg-abyss-900 pt-[env(safe-area-inset-top)]">
             <header className="flex shrink-0 items-center gap-2 border-b border-hairline px-3 py-2">
                 <InstrumentPicker
-                    instruments={state.instruments}
-                    selectedSymbol={state.instrumentSymbol}
-                    onSelect={(symbol) => { kernel.chart.selectInstrument(symbol); }}
+                    instruments={instruments}
+                    selectedSymbol={instrumentSymbol}
+                    onSelect={handleInstrumentSelect}
+                />
+
+                <IntervalPicker
+                    chosen={barIntervalMs}
+                    effectiveMs={barWindowIntervalMs}
+                    frameIntervalMs={recordedIntervalMs}
+                    onSelect={handleIntervalSelect}
                 />
 
                 <div className="min-w-0 flex-1 overflow-hidden">
-                    <CoverageStrip state={state} />
+                    <CoverageStrip />
                 </div>
 
-                {!state.isFollowingLive && (
-                    <ControlButton onClick={handleReturnToLive} aria-label={translate('page.returnToLive')}>
-                        <Radar className="size-4" />
-                    </ControlButton>
-                )}
+                <IndicatorTrigger controls={indicators} />
                 <SettingsDrawer
-                    recording={kernel.recording}
-                    onContractsChanged={() => { void kernel.chart.refreshInstruments(); }}
-                    state={state}
-                    onChange={(patch) => { kernel.chart.updateSettings(patch); }}
+                    controls={indicators}
+                    isOpen={isDrawerOpen}
+                    onOpenChange={setIsDrawerOpen}
+                    expandedLayer={expandedLayer}
+                    onExpandedLayerChange={setExpandedLayer}
                 />
             </header>
 
-            <main className="relative min-h-0 flex-1">
+            <main ref={surfaceRef} className="relative min-h-0 flex-1">
                 <ChartSurface />
 
+                {/* Whatever the layers on the chart put over it. The page
+                    mounts them without knowing which layer any of them is. */}
                 <div className="pointer-events-none absolute left-3 top-3">
-                    <DepthLegend
-                        saturationQuantity={state.dataset.saturationQuantity}
-                        floorQuantity={state.dataset.floorQuantity}
-                        colourGain={state.colourGain}
-                        instrumentSymbol={state.instrumentSymbol}
-                    />
+                    {listDrawnOverlays(addedIndicators).map(({ instanceId, Overlay }) => (
+                        <Overlay key={instanceId} />
+                    ))}
                 </div>
 
-                {state.phase === 'initialising' && <SurfaceNotice message={translate('page.probing')} translate={translate} />}
-                {state.phase === 'empty' && (
+                <IndicatorOverlay
+                    controls={indicators}
+                    layout={surfaceLayout}
+                    onOpenSettings={handleOpenSettings}
+                />
+
+                {!isFollowingLive && <ReturnToLive onReturn={handleReturnToLive} />}
+
+                
+
+                {phase === 'initialising' && <SurfaceNotice message={translate('page.probing')} translate={translate} />}
+                {phase === 'empty' && (
                     <SurfaceNotice
                         message={translate('page.empty')}
                         tone="warning"
                         translate={translate}
                     />
                 )}
-                {state.phase === 'failed' && (
+                {phase === 'failed' && (
                     <SurfaceNotice
-                        message={translate(state.failureKey ?? 'failure.silent')}
+                        message={translate(failureKey ?? 'failure.silent')}
                         tone="warning"
                         translate={translate}
                         onRetry={() => { void kernel.chart.initialize(); }}
@@ -102,7 +175,7 @@ export function HeatmapPage(): ReactElement {
 
             <footer className="shrink-0 border-t border-hairline pb-[env(safe-area-inset-bottom)]">
                 <SpanPresets
-                    activeSpanMs={state.viewport.toMs - state.viewport.fromMs}
+                    activeSpanMs={visibleSpanMs}
                     recordedSpanMs={recordedSpanMs}
                     onSelect={handleSpanSelect}
                 />
