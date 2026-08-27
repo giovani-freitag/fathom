@@ -569,6 +569,10 @@ takes a claimant, and a claimant that takes a press gets the whole gesture with
 the pan never seeing it. Declining is reported too, which is what lets a press on
 bare chart mean *done with that one*.
 
+Delete and Backspace remove what is selected, Escape puts the tool down and lets
+the selection go, and neither fires while a reader is typing into a field. Those
+are the keys a reader tries before they find the button.
+
 A new tool is a kind in one table, a case in the painter's span arithmetic, and
 two dictionary entries. The gesture controller learns nothing: it knows only that
 something took the press. ADR 0020 records the reasoning.

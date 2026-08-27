@@ -1,7 +1,23 @@
 import type { DrawingKind } from '../../shared/core/drawing.ts';
 import type { DrawingsState } from '../drawings/drawings-controller.ts';
+import { useEffect } from 'react';
 import { useKernel } from './kernel-context.ts';
 import { useStoreSlice } from './use-store.ts';
+
+/** Keys that take a mark off the chart, both of which readers try. */
+const REMOVE_KEYS = new Set(['Delete', 'Backspace']);
+
+/**
+ * Whether a key press belongs to something the reader is typing into.
+ *
+ * A shortcut that fires while a symbol is being typed deletes a mark the reader
+ * never meant to touch.
+ */
+function isTypingInto(target: EventTarget | null): boolean {
+    const element = target as HTMLElement | null;
+    const name = element?.tagName;
+    return name === 'INPUT' || name === 'TEXTAREA' || element?.isContentEditable === true;
+}
 
 /* Declared once each, so every subscription is the same one on every render. */
 const readArmedTool = (state: DrawingsState): DrawingKind | null => state.armedTool;
@@ -28,6 +44,27 @@ export function useDrawings(): DrawingControls {
     const kernel = useKernel();
     const armedTool = useStoreSlice(kernel.drawings.store, readArmedTool);
     const selectedId = useStoreSlice(kernel.drawings.store, readSelectedId);
+
+    // Every reader reaches for Delete before they reach for the button, and for
+    // Escape when they change their mind about the tool they armed.
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent): void => {
+            if (isTypingInto(event.target)) {
+                return;
+            }
+            if (event.key === 'Escape') {
+                kernel.drawings.arm(null);
+                kernel.drawings.select(null);
+                return;
+            }
+            if (REMOVE_KEYS.has(event.key) && selectedId !== null) {
+                event.preventDefault();
+                kernel.drawings.remove(selectedId);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => { window.removeEventListener('keydown', handleKeyDown); };
+    }, [kernel, selectedId]);
 
     return {
         armedTool,
