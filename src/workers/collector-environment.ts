@@ -6,6 +6,12 @@ import {
 /** Where the dated log files go when the environment does not say. */
 const DEFAULT_LOG_FILE_PATH = 'logs/collector';
 
+/**
+ * Reads what the collector records, and how much of the book it keeps.
+ *
+ * @returns The configuration, with a default for everything unset.
+ * @throws ConfigurationError when a value is unusable or the two ranges disagree.
+ */
 export function readCollectorConfiguration(): CollectorConfiguration {
     const recordedPriceRangeRatio = readPositiveNumber('RECORDED_PRICE_RANGE_RATIO', 0.02);
     const retainedPriceRangeRatio = readPositiveNumber('RETAINED_PRICE_RANGE_RATIO', 0.10);
@@ -18,7 +24,7 @@ export function readCollectorConfiguration(): CollectorConfiguration {
     }
 
     return {
-        instrumentSymbol: (process.env['INSTRUMENT_SYMBOL'] ?? 'BTCUSDT').toUpperCase(),
+        instrumentSymbol: readText('INSTRUMENT_SYMBOL', 'BTCUSDT').toUpperCase(),
         priceBucketSize: readPositiveNumber('PRICE_BUCKET_SIZE', 10),
         frameIntervalMs: readPositiveNumber('FRAME_INTERVAL_MS', 1_000),
         recordedPriceRangeRatio,
@@ -26,7 +32,6 @@ export function readCollectorConfiguration(): CollectorConfiguration {
         deepRepairIntervalMs: readPositiveNumber('DEEP_REPAIR_INTERVAL_MS', 300_000),
     };
 }
-
 
 /**
  * The connection string the archive is opened with.
@@ -44,9 +49,30 @@ export function readDatabaseUrl(): string {
  * @returns The path a dated suffix is appended to.
  */
 export function readLogFilePath(): string {
-    return process.env['COLLECTOR_LOG_PATH']?.trim() || DEFAULT_LOG_FILE_PATH;
+    return readText('COLLECTOR_LOG_PATH', DEFAULT_LOG_FILE_PATH);
 }
 
+/**
+ * Reads a variable that has something sensible to fall back on.
+ *
+ * @param variableName - The variable to read.
+ * @param fallbackValue - What an unset or blank variable means.
+ * @returns The configured text, trimmed, or the fallback.
+ */
+function readText(variableName: string, fallbackValue: string): string {
+    // Blank reads as unset throughout: emptying a variable is how a `.env` says
+    // it does not apply, and a collector recording under the empty symbol writes
+    // history no query can find again.
+    return process.env[variableName]?.trim() || fallbackValue;
+}
+
+/**
+ * Reads a variable the collector cannot start without.
+ *
+ * @param variableName - The variable to read.
+ * @returns Its value, trimmed.
+ * @throws ConfigurationError when it is unset or blank.
+ */
 function readRequiredText(variableName: string): string {
     const rawValue = process.env[variableName];
     if (rawValue === undefined || rawValue.trim() === '') {
@@ -55,6 +81,14 @@ function readRequiredText(variableName: string): string {
     return rawValue.trim();
 }
 
+/**
+ * Reads a variable that must describe a positive quantity.
+ *
+ * @param variableName - The variable to read.
+ * @param fallbackValue - What an unset or blank variable means.
+ * @returns The configured number, or the fallback.
+ * @throws ConfigurationError when the value is set but not a positive number.
+ */
 function readPositiveNumber(variableName: string, fallbackValue: number): number {
     const rawValue = process.env[variableName];
     if (rawValue === undefined || rawValue.trim() === '') {
