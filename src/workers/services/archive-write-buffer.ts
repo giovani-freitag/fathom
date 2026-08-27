@@ -52,8 +52,20 @@ export class ArchiveWriteBuffer {
      * @param gap - The stretch of time that went unrecorded.
      */
     enqueueGap(gap: RecordingGap): void {
+        // An archive that stays down produces one gap per flush, and kept apart
+        // they grow without bound while every flush retries the whole backlog a
+        // statement at a time. Two that meet describe one stretch of lost time.
+        const previous = this.pendingGaps.at(-1);
+        if (previous !== undefined && this.doesCarryOn(previous, gap)) {
+            this.pendingGaps[this.pendingGaps.length - 1] = {
+                ...previous,
+                gapEndedAtMs: Math.max(previous.gapEndedAtMs, gap.gapEndedAtMs),
+            };
+            return;
+        }
         this.pendingGaps.push(gap);
     }
+
 
     /**
      * Writes everything queued when it was called.
@@ -79,6 +91,18 @@ export class ArchiveWriteBuffer {
 
     get pendingGapCount(): number {
         return this.pendingGaps.length;
+    }
+
+    /**
+     * Whether one gap continues another rather than describing its own hole.
+     *
+     * @param previous - The gap already queued.
+     * @param gap - The gap being queued now.
+     * @returns True when they share a cause and leave no recorded time between them.
+     */
+    private doesCarryOn(previous: RecordingGap, gap: RecordingGap): boolean {
+        return previous.gapReason === gap.gapReason
+            && gap.gapStartedAtMs <= previous.gapEndedAtMs;
     }
 
     private async writePending(): Promise<void> {

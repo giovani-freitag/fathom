@@ -180,6 +180,48 @@ describe('ArchiveWriteBuffer', () => {
         expect(harness.buffer.pendingGapCount).toBe(1);
     });
 
+    it('folds a gap that carries on from the one before it', async () => {
+        // The archive being down produces one gap per flush, for as long as it
+        // stays down. Kept apart they grow without bound, and every flush retries
+        // the whole backlog one statement at a time.
+        harness.buffer.enqueueGap({ gapStartedAtMs: 1_000, gapEndedAtMs: 2_000, gapReason: 'archive down' });
+        harness.buffer.enqueueGap({ gapStartedAtMs: 2_000, gapEndedAtMs: 3_000, gapReason: 'archive down' });
+
+        await harness.buffer.flush();
+
+        expect(harness.archive.recordGap).toHaveBeenCalledTimes(1);
+    });
+
+    it('files the folded gap as one stretch of missing time', async () => {
+        harness.buffer.enqueueGap({ gapStartedAtMs: 1_000, gapEndedAtMs: 2_000, gapReason: 'archive down' });
+        harness.buffer.enqueueGap({ gapStartedAtMs: 2_000, gapEndedAtMs: 3_000, gapReason: 'archive down' });
+
+        await harness.buffer.flush();
+
+        expect(harness.archive.recordGap).toHaveBeenCalledWith({
+            instrumentSymbol: 'BTCUSDT',
+            gap: { gapStartedAtMs: 1_000, gapEndedAtMs: 3_000, gapReason: 'archive down' },
+        });
+    });
+
+    it('keeps a gap that broke off for a different reason', async () => {
+        harness.buffer.enqueueGap({ gapStartedAtMs: 1_000, gapEndedAtMs: 2_000, gapReason: 'archive down' });
+        harness.buffer.enqueueGap({ gapStartedAtMs: 2_000, gapEndedAtMs: 3_000, gapReason: 'order book unavailable' });
+
+        await harness.buffer.flush();
+
+        expect(harness.archive.recordGap).toHaveBeenCalledTimes(2);
+    });
+
+    it('keeps a gap with recorded time between it and the one before', async () => {
+        harness.buffer.enqueueGap({ gapStartedAtMs: 1_000, gapEndedAtMs: 2_000, gapReason: 'archive down' });
+        harness.buffer.enqueueGap({ gapStartedAtMs: 9_000, gapEndedAtMs: 9_500, gapReason: 'archive down' });
+
+        await harness.buffer.flush();
+
+        expect(harness.archive.recordGap).toHaveBeenCalledTimes(2);
+    });
+
     it('writes what was queued while a flush was already running', async () => {
         // A flush spliced its work off before this call, so waiting for it is not
         // the same as having written what is queued now — and the flush at
