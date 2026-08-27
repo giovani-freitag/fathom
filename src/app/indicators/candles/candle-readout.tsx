@@ -22,9 +22,11 @@ const FIGURES = [
 /**
  * What the bar under the cursor opened, reached and closed at.
  *
- * Beside the name rather than in the crosshair, because it is read while the
- * eye is on the price: a reader comparing two bars looks between them, not down
- * at a box that moves with the pointer.
+ * At rest it reads the newest bar, which is the one a reader means by "now".
+ *
+ * Four prices and a change are wider than any panel on a phone, so the figures
+ * wrap rather than run off the edge: each one is an atom that stays with its own
+ * label, and the row breaks between them.
  */
 export function CandleReadout(): ReactElement | null {
     const translate = useTranslate();
@@ -41,21 +43,21 @@ export function CandleReadout(): ReactElement | null {
     const tone = change < 0 ? 'text-ask' : 'text-bid';
 
     return (
-        <span className="flex items-center gap-1.5 text-xs tabular-nums">
+        <span className="flex flex-wrap items-center gap-x-1.5 text-xs tabular-nums">
             {FIGURES.map((figure) => (
-                <span key={figure.key} className="flex items-center gap-0.5">
+                <span key={figure.key} className="flex shrink-0 items-center gap-0.5">
                     <span className="text-ink-500">{translate(figure.key)}</span>
                     <span className={tone}>{formatPrice(figure.read(bar))}</span>
                 </span>
             ))}
-            <span className={tone}>
-                {formatSignedChange(change)}
-            </span>
-            <span className={tone}>
-                {/* Against its own open, which is what the bar's colour is
-                    saying. A change measured from anywhere else would disagree
-                    with the body the reader is looking at. */}
-                ({formatSignedPercent(bar.openPrice === 0 ? 0 : change / bar.openPrice)})
+            {/* One atom: the move and what it is as a share of the open read as
+                a single figure, and a line break between them splits it. Both
+                are measured against the bar's own open, which is what its
+                colour is saying; from anywhere else they would disagree with
+                the body the reader is looking at. */}
+            <span className={`flex shrink-0 items-center gap-1 ${tone}`}>
+                <span>{formatSignedChange(change)}</span>
+                <span>({formatSignedPercent(bar.openPrice === 0 ? 0 : change / bar.openPrice)})</span>
             </span>
         </span>
     );

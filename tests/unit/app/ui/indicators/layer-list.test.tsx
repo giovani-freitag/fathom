@@ -119,4 +119,19 @@ describe('LayerList', () => {
 
         expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Hide' }).disabled).toBe(false);
     });
+
+    it('shows what a layer reads, on a line of its own', () => {
+        // A reading is wider than the controls beside it, and squeezed on the
+        // same line the four prices of a bar run off the edge of the panel.
+        renderList([SMA_FAST]);
+
+        const row = screen.getByRole('listitem');
+        expect(row.children).toHaveLength(2);
+    });
+
+    it('shows no reading for a layer that is hidden', () => {
+        renderList([{ ...SMA_FAST, isHidden: true }]);
+
+        expect(screen.getByRole('listitem').children).toHaveLength(1);
+    });
 });
