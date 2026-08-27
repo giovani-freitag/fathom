@@ -48,4 +48,10 @@ describe('chunkItems', () => {
 
         expect(chunks.flat()).toEqual([1, 2, 3, 4, 5, 6, 7]);
     });
+
+    it('refuses a slice that could hold nothing', () => {
+        // Left to loop, the cursor never advances and the collector hangs holding
+        // frames nothing else has a copy of.
+        expect(() => chunkItems([1, 2, 3], 0)).toThrow(RangeError);
+    });
 });
