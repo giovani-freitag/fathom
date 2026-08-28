@@ -8,12 +8,12 @@ import {
     type PlotScale,
     readSetting,
 } from '../../../shared/core/draw-plan.ts';
-import type { PriceBar } from '../../../shared/core/price-bar.ts';
 import {
     collectInstants,
     createBlankValues,
     fillWilder,
     findContinuousSegments,
+    resolveTrueRange,
 } from '../shared/series-math.ts';
 
 const PERIOD_BARS: NumericParameter = {
@@ -83,17 +83,6 @@ export class AverageTrueRange implements Indicator {
             hasConverged: input.warmupBarCount >= this.resolveWarmupBars(input.settings),
         };
     }
-}
-
-/**
- * How far a bar travelled, counting the gap from where the last one closed.
- */
-function resolveTrueRange(bar: PriceBar, previousClose: number): number {
-    return Math.max(
-        bar.highPrice - bar.lowPrice,
-        Math.abs(bar.highPrice - previousClose),
-        Math.abs(bar.lowPrice - previousClose),
-    );
 }
 
 export const AVERAGE_TRUE_RANGE = new AverageTrueRange();

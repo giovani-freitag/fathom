@@ -180,3 +180,18 @@ export function meanOf(values: readonly number[], fromIndex: number, toIndex: nu
     }
     return total / (toIndex - fromIndex + 1);
 }
+
+/**
+ * How far a bar travelled, counting the gap from where the last one closed.
+ *
+ * @param bar - The bar to measure.
+ * @param previousClose - What the bar before it closed at.
+ * @returns The true range, in quote currency.
+ */
+export function resolveTrueRange(bar: PriceBar, previousClose: number): number {
+    return Math.max(
+        bar.highPrice - bar.lowPrice,
+        Math.abs(bar.highPrice - previousClose),
+        Math.abs(bar.lowPrice - previousClose),
+    );
+}

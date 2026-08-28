@@ -65,7 +65,13 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'indicator.macd.signal': 'Sinal',
     'indicator.macd.gap': 'Distância',
     'indicator.atr': 'ATR',
+    'indicator.cvd': 'Delta acumulado',
+    'indicator.keltner': 'Canais de Keltner',
+    'indicator.keltner.upper': 'Superior',
+    'indicator.keltner.lower': 'Inferior',
     'indicator.atr.help': 'O quanto o preço tem andado por barra',
+    'indicator.cvd.help': 'Tamanho líquido que cruzou o spread, somado',
+    'indicator.keltner.help': 'Uma banda da largura do que o preço vem percorrendo',
 
     'indicator.vwap': 'VWAP',
     'indicator.vwap.help': 'O preço médio negociado até aqui, ponderado por quanto negociou em cada um',

@@ -400,6 +400,15 @@ whichever copy of the reading it is: a plan may declare that its colours are a
 reading rather than an identity, and the host then leaves them alone and offers
 no colour to pick.
 
+That split is also what the cumulative delta is made of, and it is the one
+reading here the heat map cannot give: the map shows the liquidity that was
+resting, and the delta shows who was eating it. Price rising while it falls is a
+rally nobody was buying into. It is counted from the left edge of the window
+rather than from a session open — the shape is what is read, and anchoring it to
+a session would cost a day of warm-up bars to draw a minute of chart — and it
+restarts across a recording hole, because adding what traded either side of one
+would draw a step nobody traded.
+
 Knowing the side is what the archive has that a tape of prints does not, so
 volume is offered both ways: the total, which is what a reader expects to see,
 and the two sides drawn against each other from nought, where a bar of eight

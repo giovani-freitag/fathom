@@ -3,6 +3,8 @@ import { type AddedIndicator, chooseInstanceTone } from '../../shared/core/indic
 import { AVERAGE_CONVERGENCE } from './average-convergence/average-convergence.ts';
 import { FIELD_LAYERS, findFieldLayer } from './field-layers.ts';
 import { AVERAGE_TRUE_RANGE } from './average-true-range/average-true-range.ts';
+import { CUMULATIVE_DELTA } from './cumulative-delta/cumulative-delta.ts';
+import { KELTNER_CHANNELS } from './keltner-channels/keltner-channels.ts';
 import { BOLLINGER_BANDS } from './bollinger-bands/bollinger-bands.ts';
 import { DONCHIAN_CHANNELS } from './donchian-channels/donchian-channels.ts';
 import { EXPONENTIAL_AVERAGE } from './exponential-average/exponential-average.ts';
@@ -30,6 +32,8 @@ export const INDICATOR_CATALOGUE: readonly Indicator[] = [
     STOCHASTIC_OSCILLATOR,
     AVERAGE_CONVERGENCE,
     AVERAGE_TRUE_RANGE,
+    KELTNER_CHANNELS,
+    CUMULATIVE_DELTA,
 ];
 
 /**

@@ -63,7 +63,13 @@ export const EN_DICTIONARY = {
     'indicator.macd.signal': 'Signal',
     'indicator.macd.gap': 'Gap',
     'indicator.atr': 'ATR',
+    'indicator.cvd': 'Cumulative delta',
+    'indicator.keltner': 'Keltner channels',
+    'indicator.keltner.upper': 'Upper',
+    'indicator.keltner.lower': 'Lower',
     'indicator.atr.help': 'How far price has been travelling per bar',
+    'indicator.cvd.help': 'Net size that crossed the spread, added up',
+    'indicator.keltner.help': 'A band the width of what price has been travelling',
 
     'indicator.vwap': 'VWAP',
     'indicator.vwap.help': 'The average price traded so far, weighted by how much traded there',
