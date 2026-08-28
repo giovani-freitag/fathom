@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.9.0](https://github.com/giovani-freitag/fathom/compare/v0.8.0...v0.9.0) (2026-08-28)
+
+
+### Features
+
+* add the cumulative delta and Keltner channels to the catalogue ([d4e5470](https://github.com/giovani-freitag/fathom/commit/d4e5470fe2bcdfd496209829b4a4b238a38dc11a))
+* add the Supertrend, parabolic SAR, ADX, money flow and CCI ([c052238](https://github.com/giovani-freitag/fathom/commit/c052238987360d51865bd3a519fed88a697596e3))
+* give a phone back a fifth of its width from the chart's gutters ([6c16614](https://github.com/giovani-freitag/fathom/commit/6c1661439936ee14c8c9a371c3778fa966abcf29))
+* let a drawing carry a name written on the chart ([6690d7a](https://github.com/giovani-freitag/fathom/commit/6690d7a80c87c73d3a29750904d49e26d8110868))
+* put the recording gaps behind a switch on the book that draws them ([6cfcfd3](https://github.com/giovani-freitag/fathom/commit/6cfcfd36b8b65141cf8158e17afca4c39c687e34))
+* rule fibonacci retracements and let a tool stay armed ([89a9f3c](https://github.com/giovani-freitag/fathom/commit/89a9f3c1ee2c002eb5585b9c6b66a08b512cfce0))
+* rule the grid by preference and grow the volume from the floor ([1ae5907](https://github.com/giovani-freitag/fathom/commit/1ae590727be170ae86f7d303cc0fe5880c1942f0))
+
+
+### Bug Fixes
+
+* centre the mobile tool bar wherever its controls fit ([a56609a](https://github.com/giovani-freitag/fathom/commit/a56609ab009ec1aed9b7f5d0aeca4f2398424379))
+* file the cause a gap was told, not the one the clock guessed ([36afce4](https://github.com/giovani-freitag/fathom/commit/36afce4ba78ec72b63d78a7a2048b08e9277a97a))
+* give the indicator palette one scroller instead of two ([0850f63](https://github.com/giovani-freitag/fathom/commit/0850f630c9d49da28bc74eb080e36bf22562ac37))
+* let the grid control say what it is without being opened ([88b7bb0](https://github.com/giovani-freitag/fathom/commit/88b7bb0a15a7c3f5a8a17309aa180f4bc799220a))
+* tell a run starting apart from a book lost mid-run in the gap ledger ([b8088dc](https://github.com/giovani-freitag/fathom/commit/b8088dc1745d346335261de2691469b11f08496d))
+* walk the Supertrend and parabolic stop the way their listings do ([5d7cf79](https://github.com/giovani-freitag/fathom/commit/5d7cf792c9ee8f66244ddfe449187be5841b0b59))
+
 ## [0.8.0](https://github.com/giovani-freitag/fathom/compare/v0.7.0...v0.8.0) (2026-08-27)
 
 
