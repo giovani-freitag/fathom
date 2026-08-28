@@ -4,6 +4,14 @@ import { floorToInterval } from '../../shared/core/price-bucket.ts';
 import type { LiquidityArchive } from '../../database/services/liquidity-archive.ts';
 import type { ExecutedTrade } from '../core/depth-types.ts';
 import type { OrderBookService } from '../core/order-book-service.ts';
+
+/**
+ * The cause the recorder can give on its own: none.
+ *
+ * It sees that the book is not there; it does not see why. Anything that knows
+ * why says so afterwards, and that is what the gap should end up carrying.
+ */
+const BOOK_UNAVAILABLE = 'order book unavailable';
 import { ArchiveWriteBuffer } from './archive-write-buffer.ts';
 import { buildLiquidityFrame } from '../core/depth-ladder-builder.ts';
 import { TradeClusterAccumulator } from '../core/trade-cluster-accumulator.ts';
@@ -119,7 +127,14 @@ export class LiquidityRecorderService {
     }
 
     /**
-     * Records that recording was interrupted, with a specific cause.
+     * Records that recording was interrupted, with a cause.
+     *
+     * A cause that explains something replaces one that does not. The clock
+     * ticks once a second and the book goes unusable the instant it breaks, so
+     * the recorder almost always *notices* before it is *told why*: first-writer
+     * wins would stamp "the book was not there" over every socket close, every
+     * silence timeout and every reconnect, and the ledger would answer the one
+     * question it exists to answer with a restatement of the question.
      *
      * @param reason - What interrupted it, kept for the gap record.
      */
@@ -131,6 +146,11 @@ export class LiquidityRecorderService {
             this.openGapStartedAtMs = this.lastCapturedAtMs === null
                 ? Date.now()
                 : this.lastCapturedAtMs + this.config.frameIntervalMs;
+            this.openGapReason = reason;
+            return;
+        }
+
+        if (this.openGapReason === BOOK_UNAVAILABLE && reason !== BOOK_UNAVAILABLE) {
             this.openGapReason = reason;
         }
     }
@@ -197,7 +217,7 @@ export class LiquidityRecorderService {
 
         const reading = this.config.orderBook.readBook();
         if (reading === null) {
-            this.noteInterruption('order book unavailable');
+            this.noteInterruption(BOOK_UNAVAILABLE);
             return;
         }
 

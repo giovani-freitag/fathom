@@ -7,6 +7,17 @@ import { buildDiff, createSnapshotSource } from '../../mocks/depth-fixtures.ts';
 
 const FRAME_INTERVAL_MS = 1_000;
 
+/** One clean turn of the recording clock, landing exactly on its own grid. */
+async function tick(pipeline: { readonly recorder: LiquidityRecorderService }): Promise<void> {
+    void pipeline;
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS);
+}
+
+/** Every cause the recorder filed, in the order it filed them. */
+function filedReasons(pipeline: { readonly spy: ArchiveSpy }): string[] {
+    return (pipeline.spy.recordGap.mock.calls as GapRecordCall[]).map((call) => call[0].gap.gapReason);
+}
+
 /** Shape the recorder hands `recordGap`, so a spy call can be read typed. */
 type GapRecordCall = [{ readonly gap: RecordingGap }];
 
@@ -191,6 +202,41 @@ describe('recording pipeline', () => {
                 gap: expect.objectContaining({ gapReason: 'the recording clock did not fire on time' }),
             }),
         );
+    });
+
+    it('files the cause it was told, not the one it guessed', async () => {
+        // The clock ticks once a second and the book goes unusable the instant
+        // it breaks, so the recorder almost always notices before it is told
+        // why. First writer wins would stamp "the book was not there" over
+        // every socket close, and the ledger would answer the one question it
+        // exists to answer with a restatement of the question.
+        const pipeline = buildPipeline();
+        await pipeline.recorder.start();
+        await synchronize(pipeline);
+        await tick(pipeline);
+
+        pipeline.recorder.noteInterruption('order book unavailable');
+        pipeline.recorder.noteInterruption('no inbound traffic within the silence timeout');
+        await tick(pipeline);
+        await pipeline.recorder.stop();
+
+        expect(filedReasons(pipeline)).toContain('no inbound traffic within the silence timeout');
+    });
+
+    it('keeps the first real cause when a second one follows it', async () => {
+        // Two explanations for one hole is one explanation too many, and the
+        // one that broke it came first.
+        const pipeline = buildPipeline();
+        await pipeline.recorder.start();
+        await synchronize(pipeline);
+        await tick(pipeline);
+
+        pipeline.recorder.noteInterruption('socket closed');
+        pipeline.recorder.noteInterruption('no inbound traffic within the silence timeout');
+        await tick(pipeline);
+        await pipeline.recorder.stop();
+
+        expect(filedReasons(pipeline)).not.toContain('no inbound traffic within the silence timeout');
     });
 
     it('starts a gap after the last recorded second, not on it', async () => {

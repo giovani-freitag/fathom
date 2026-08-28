@@ -95,6 +95,14 @@ A gap is opened when the book becomes unavailable, when a batch of writes is
 discarded, when the recording clock does not fire on time, and at startup,
 measured from the last frame the previous run stored.
 
+`gap_reason` is what broke it, and a cause that explains something replaces one
+that does not. The clock ticks once a second and the book goes unusable the
+instant it breaks, so the recorder almost always *notices* before it is *told
+why*: first-writer-wins stamped `order book unavailable` over every socket
+close, silence timeout and reconnect, and that placeholder became the most
+common reason in the ledger while explaining none of them. It is now only what
+survives when nothing else ever said why.
+
 Gaps reach a chart while it is watching, not only on a reload: the tail reports
 one the moment it appears in the stretch a reader has just been sent.
 

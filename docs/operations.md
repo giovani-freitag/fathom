@@ -82,6 +82,11 @@ second the recording does not hold, with the reason it was lost. A contract whos
 frame count is short and whose gap ledger does not explain the shortfall is a
 bug worth reporting; one whose ledger does explain it was simply down.
 
+`order book unavailable` means nothing ever said why — the recorder saw the book
+was not there and was never told the cause. Every other reason names something
+that happened. Read a ledger dominated by that one as a ledger that is not
+explaining itself, not as a diagnosis.
+
 ## Choosing what to record
 
 Contracts and the disk ceiling are chosen from the chart, in Settings, and stored
