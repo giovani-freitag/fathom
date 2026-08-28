@@ -106,13 +106,16 @@ function fillMoneyFlow(fill: MoneyFlowFill): void {
     }
 
     const flows = createBlankValues(bars.length);
-    const isUp = new Uint8Array(bars.length);
+    const sides = new Int8Array(bars.length);
     for (let index = startIndex + 1; index < endIndex; index += 1) {
         const typical = readTypicalPrice(bars[index]!);
         const previous = readTypicalPrice(bars[index - 1]!);
         const bar = bars[index]!;
         flows[index] = typical * (bar.buyVolume + bar.sellVolume);
-        isUp[index] = typical > previous ? 1 : 0;
+        // A bar that closed where the last one did is on neither side. It is
+        // not a fall, and counting it as one drains the reading on the quiet
+        // stretches, which is exactly where it is read for divergence.
+        sides[index] = Math.sign(typical - previous);
     }
 
     for (let index = startIndex + periodBars; index < endIndex; index += 1) {
@@ -123,11 +126,13 @@ function fillMoneyFlow(fill: MoneyFlowFill): void {
             if (Number.isNaN(flow)) {
                 continue;
             }
-            if (isUp[back] === 1) {
+            if (sides[back] === 1) {
                 flooding += flow;
                 continue;
             }
-            draining += flow;
+            if (sides[back] === -1) {
+                draining += flow;
+            }
         }
         out[index] = toReading(flooding, draining);
     }

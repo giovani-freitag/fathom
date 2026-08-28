@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBar, BAR_INTERVAL_MS, buildRun, buildWindow } from '../../../mocks/price-bars.ts';
+import { BAR_INTERVAL_MS, buildBar, buildRun, buildWindow } from '../../../mocks/price-bars.ts';
 import { SUPERTREND } from '../../../../src/app/indicators/supertrend/supertrend.ts';
 import type { PriceBar } from '../../../../src/shared/core/price-bar.ts';
 
@@ -78,6 +78,20 @@ describe('Supertrend', () => {
         const loosened = drawn.filter((value, index) => index > 0 && value > drawn[index - 1]!);
 
         expect(loosened).toEqual([]);
+    });
+
+    it('opens on the upper band even where the first bar it can read closes above it', () => {
+        // A quiet stretch broken by one violent bar leaves the smoothed range
+        // far narrower than that bar, so its close can sit above its own upper
+        // band. A first bar has no side to carry and takes the upper one.
+        const eruption = [
+            ...buildRun(9, () => 100),
+            buildBar(9 * BAR_INTERVAL_MS, 199, { highPrice: 200, lowPrice: 100 }),
+        ];
+
+        const plan = computeOver(eruption, { periodBars: 10, multiplier: 3 });
+
+        expect(Number.isNaN(plan.series[0]!.value[9]!)).toBe(true);
     });
 
     it('starts the stop over on the far side of a hole in the recording', () => {

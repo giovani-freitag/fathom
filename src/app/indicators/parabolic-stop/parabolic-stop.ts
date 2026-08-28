@@ -104,74 +104,125 @@ interface StopWalk {
     readonly falling: Float64Array;
 }
 
+/** What the walk carries from one bar to the next. */
+interface StopState {
+    stop: number;
+    extreme: number;
+    speed: number;
+    isRising: boolean;
+}
+
 /**
  * Carries the stop, the extreme it chases, and the speed across one stretch.
+ *
+ * The order of the four steps is the order the published listing puts them in
+ * and is not interchangeable: the stop advances, then is tested for being
+ * overtaken, then quickens, and only then is held out of the recent bars. Doing
+ * the last of those first lets a clamped stop escape the very test it should
+ * have failed.
  */
 function walkStop(walk: StopWalk): void {
-    const { bars, segment, step, maximumStep, rising, falling } = walk;
-    const first = bars[segment.startIndex];
-    if (first === undefined || segment.endIndex - segment.startIndex < 2) {
+    const { bars, segment, step, rising, falling } = walk;
+    const opensAt = segment.startIndex + 1;
+    if (segment.endIndex - segment.startIndex < 2) {
         return;
     }
 
-    // Seeded from the first bar of the stretch rather than guessed: the stop
-    // starts on the far side of it and the extreme starts at the near side, so
-    // whichever way the second bar goes, the walk is already consistent.
-    let isRising = bars[segment.startIndex + 1]!.closePrice >= first.closePrice;
-    let stop = isRising ? first.lowPrice : first.highPrice;
-    let extreme = isRising ? first.highPrice : first.lowPrice;
-    let speed = step;
-
-    for (let index = segment.startIndex + 1; index < segment.endIndex; index += 1) {
+    const state = seedState(bars, opensAt, step);
+    for (let index = opensAt; index < segment.endIndex; index += 1) {
         const bar = bars[index]!;
-        stop = clampToRecentBars({ offered: stop + speed * (extreme - stop), bars, index, isRising });
+        state.stop += state.speed * (state.extreme - state.stop);
 
-        if (isRising && bar.lowPrice < stop) {
-            isRising = false;
-            stop = extreme;
-            extreme = bar.lowPrice;
-            speed = step;
-        } else if (!isRising && bar.highPrice > stop) {
-            isRising = true;
-            stop = extreme;
-            extreme = bar.highPrice;
-            speed = step;
-        } else if (isRising && bar.highPrice > extreme) {
-            extreme = bar.highPrice;
-            speed = Math.min(speed + step, maximumStep);
-        } else if (!isRising && bar.lowPrice < extreme) {
-            extreme = bar.lowPrice;
-            speed = Math.min(speed + step, maximumStep);
-        }
+        turnIfOvertaken(state, bar, step);
+        quickenIfExtended(state, bar, walk);
+        state.stop = clampToRecentBars({ state, bars, index, opensAt });
 
-        if (isRising) {
-            rising[index] = stop;
+        if (state.isRising) {
+            rising[index] = state.stop;
             continue;
         }
-        falling[index] = stop;
+        falling[index] = state.stop;
     }
 }
 
-interface StopClamp {
-    readonly offered: number;
-    readonly bars: readonly PriceBar[];
-    readonly index: number;
-    readonly isRising: boolean;
+/**
+ * Opens the walk on the bar after the stretch begins.
+ *
+ * The direction comes from that bar against the one before it, the stop starts
+ * on the far side of the earlier bar, and the extreme starts at the near side
+ * of the later one.
+ */
+function seedState(bars: readonly PriceBar[], opensAt: number, step: number): StopState {
+    const opening = bars[opensAt]!;
+    const before = bars[opensAt - 1]!;
+    const isRising = opening.closePrice > before.closePrice;
+    return {
+        stop: isRising ? before.lowPrice : before.highPrice,
+        extreme: isRising ? opening.highPrice : opening.lowPrice,
+        speed: step,
+        isRising,
+    };
 }
 
 /**
- * Keeps the stop out of the last two bars' range.
+ * Sends the stop to the other side of price where this bar has passed it.
+ *
+ * It lands on the run's own extreme rather than where it had crept to, so the
+ * new run starts as far from price as the old one ever reached.
+ */
+function turnIfOvertaken(state: StopState, bar: PriceBar, step: number): void {
+    if (state.isRising && state.stop > bar.lowPrice) {
+        state.isRising = false;
+        state.stop = Math.max(bar.highPrice, state.extreme);
+        state.extreme = bar.lowPrice;
+        state.speed = step;
+        return;
+    }
+    if (!state.isRising && state.stop < bar.highPrice) {
+        state.isRising = true;
+        state.stop = Math.min(bar.lowPrice, state.extreme);
+        state.extreme = bar.highPrice;
+        state.speed = step;
+    }
+}
+
+/**
+ * Speeds the stop up on a bar that pushed the run further than it had been.
+ *
+ * A bar that opened a run needs no guard of its own here. Opening one has
+ * already set the extreme to that bar's own edge, so the bar cannot be further
+ * out than the mark it just planted.
+ */
+function quickenIfExtended(state: StopState, bar: PriceBar, walk: StopWalk): void {
+    const reached = state.isRising ? bar.highPrice : bar.lowPrice;
+    const isFurther = state.isRising ? reached > state.extreme : reached < state.extreme;
+    if (!isFurther) {
+        return;
+    }
+    state.extreme = reached;
+    state.speed = Math.min(state.speed + walk.step, walk.maximumStep);
+}
+
+interface StopClamp {
+    readonly state: StopState;
+    readonly bars: readonly PriceBar[];
+    readonly index: number;
+    readonly opensAt: number;
+}
+
+/**
+ * Keeps the stop out of the range of the bars just before it.
  *
  * A stop inside the bar it is drawn on would be taken out by the very bar that
  * placed it, which is a signal the market never gave.
  */
 function clampToRecentBars(clamp: StopClamp): number {
-    const { offered, bars, index, isRising } = clamp;
+    const { state, bars, index, opensAt } = clamp;
     const previous = bars[index - 1]!;
-    const before = bars[index - 2] ?? previous;
-    return isRising
-        ? Math.min(offered, previous.lowPrice, before.lowPrice)
-        : Math.max(offered, previous.highPrice, before.highPrice);
+    const before = index > opensAt ? bars[index - 2]! : previous;
+    return state.isRising
+        ? Math.min(state.stop, previous.lowPrice, before.lowPrice)
+        : Math.max(state.stop, previous.highPrice, before.highPrice);
 }
 
 export const PARABOLIC_STOP = new ParabolicStop();

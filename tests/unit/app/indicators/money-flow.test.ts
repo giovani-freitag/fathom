@@ -58,6 +58,20 @@ describe('MoneyFlow', () => {
         expect(lastReading(buildZigZag(100, 0))).toBe(100);
     });
 
+    it('counts a bar that closed where the last one did on neither side', () => {
+        // The published sums exclude an unchanged bar twice rather than sorting
+        // it into the falls, and the quiet stretches are where the reading is
+        // read for disagreement with price.
+        const flat = Array.from({ length: 30 }, (_, index) => buildBar(index * BAR_INTERVAL_MS, 100, {
+            highPrice: 101,
+            lowPrice: 99,
+            buyVolume: 50,
+            sellVolume: 50,
+        }));
+
+        expect(lastReading(flat)).toBe(50);
+    });
+
     it('marks both thresholds the reading is conventionally read against', () => {
         expect(computeOver(buildZigZag(10, 10)).levels).toEqual([
             { value: 80, tone: 'muted', isDashed: true },

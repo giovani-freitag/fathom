@@ -114,7 +114,7 @@ function walkStop(walk: StopWalk): void {
 
     let ceiling = Number.NaN;
     let floor = Number.NaN;
-    let isRising = true;
+    let previous = Number.NaN;
 
     for (let index = segment.startIndex; index < segment.endIndex; index += 1) {
         const bar = bars[index]!;
@@ -123,12 +123,27 @@ function walkStop(walk: StopWalk): void {
             continue;
         }
 
+        // Nought rather than nothing for the band a first bar has never held,
+        // which is what the published listing reads it as.
+        const heldCeiling = Number.isNaN(ceiling) ? 0 : ceiling;
+        const heldFloor = Number.isNaN(floor) ? 0 : floor;
         const middle = (bar.highPrice + bar.lowPrice) / 2;
         const previousClose = bars[index - 1]?.closePrice ?? bar.closePrice;
-        ceiling = holdCeiling(middle + width, ceiling, previousClose);
-        floor = holdFloor(middle - width, floor, previousClose);
+        ceiling = holdCeiling(middle + width, heldCeiling, previousClose);
+        floor = holdFloor(middle - width, heldFloor, previousClose);
 
-        isRising = resolveSide({ isRising, closePrice: bar.closePrice, ceiling, floor });
+        const isRising = resolveSide({
+            // A first bar has no side to carry, and the reading opens on the
+            // upper band rather than guessing one.
+            wasRising: index === segment.startIndex || Number.isNaN(range[index - 1]!)
+                ? null
+                : previous !== heldCeiling,
+            closePrice: bar.closePrice,
+            ceiling,
+            floor,
+        });
+
+        previous = isRising ? floor : ceiling;
         if (isRising) {
             rising[index] = floor;
             continue;
@@ -145,18 +160,19 @@ function walkStop(walk: StopWalk): void {
  * whenever the market got wilder would never be reached.
  */
 function holdCeiling(offered: number, held: number, previousClose: number): number {
-    return Number.isNaN(held) || offered < held || previousClose > held ? offered : held;
+    return offered < held || previousClose > held ? offered : held;
 }
 
 /**
  * The floor this bar leaves behind it, by the same rule upside down.
  */
 function holdFloor(offered: number, held: number, previousClose: number): number {
-    return Number.isNaN(held) || offered > held || previousClose < held ? offered : held;
+    return offered > held || previousClose < held ? offered : held;
 }
 
 interface SideDecision {
-    readonly isRising: boolean;
+    /** Null on a bar with nothing behind it, which opens on the upper band. */
+    readonly wasRising: boolean | null;
     readonly closePrice: number;
     readonly ceiling: number;
     readonly floor: number;
@@ -164,15 +180,17 @@ interface SideDecision {
 
 /**
  * Which side the stop is on once this bar has closed.
+ *
+ * Only one of the two tests is asked on any bar, because only one of them can
+ * be true of a stop that is already on the other side.
  */
 function resolveSide(decision: SideDecision): boolean {
-    if (decision.closePrice > decision.ceiling) {
-        return true;
-    }
-    if (decision.closePrice < decision.floor) {
+    if (decision.wasRising === null) {
         return false;
     }
-    return decision.isRising;
+    return decision.wasRising
+        ? !(decision.closePrice < decision.floor)
+        : decision.closePrice > decision.ceiling;
 }
 
 export const SUPERTREND = new Supertrend();

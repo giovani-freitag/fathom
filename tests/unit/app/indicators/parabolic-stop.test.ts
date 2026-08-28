@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BAR_INTERVAL_MS, buildRun, buildWindow } from '../../../mocks/price-bars.ts';
+import { BAR_INTERVAL_MS, buildBar, buildRun, buildWindow } from '../../../mocks/price-bars.ts';
 import { PARABOLIC_STOP } from '../../../../src/app/indicators/parabolic-stop/parabolic-stop.ts';
 import type { PriceBar } from '../../../../src/shared/core/price-bar.ts';
 
@@ -59,6 +59,20 @@ describe('ParabolicStop', () => {
         ];
 
         expect(drawnCount(computeOver(reversal).series[1]!.value)).toBeGreaterThan(0);
+    });
+
+    it('puts a turn clear of the bar that caused it, not at the run\u2019s old extreme', () => {
+        // One bar can both extend a run and end it: a wide outside bar makes a
+        // new high and takes the stop out on the same low. Landing at the old
+        // extreme would leave the new stop inside the bar that just turned it.
+        const engulfed = [
+            ...buildRun(20, (index) => 100 + index),
+            buildBar(20 * BAR_INTERVAL_MS, 96, { highPrice: 130, lowPrice: 95 }),
+        ];
+
+        const turned = computeOver(engulfed).series[1]!.value[20]!;
+
+        expect(turned).toBeGreaterThanOrEqual(130);
     });
 
     it('keeps the stop out of the range of the bars just before it', () => {

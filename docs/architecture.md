@@ -379,11 +379,24 @@ like a settled one. Adding an indicator that reaches further back than the loade
 window does is a reason to fetch again, not a reason to seed from what is there.
 
 Where a reading has a conventional definition, the definition is what ships.
-Simple and exponential averages, relative strength, the Bollinger channel and
-the true range are each checked against a transcription of the published formula
-and agree with it to floating-point precision — the seed included, which is the
-part implementations usually differ on and the part a reader comparing two
-screens sees first. An exponential average is seeded with the simple mean of its
+The averages, relative strength, the Bollinger channel, the true range, the two
+trailing stops, the directional lines, the money flow and the channel index are
+each checked against a transcription of the published formula and agree with it
+to floating-point precision — the seed included, which is the part
+implementations usually differ on and the part a reader comparing two screens
+sees first.
+
+That check earns its place by catching things nothing else did. Two of the
+stops passed every property a reader could name — the stop stayed on the right
+side, tightened and never loosened, turned when price went through it — and
+still disagreed with their listings, one by placing a turn at the old extreme
+rather than clear of the bar that caused it, the other by reading which band it
+had been on backwards. A reading whose whole value is agreeing with the screen
+beside it cannot be checked by properties alone, because a wrong formula has
+properties too. The transcription is kept clear of this project's own helpers,
+since an oracle that shares code with what it checks agrees with it for the
+wrong reason, and it is run over a smooth path and a jagged one: the branches
+that decide a turn are never reached by a curve that does not turn. An exponential average is seeded with the simple mean of its
 first period, not with its first bar; Wilder's smoothing is seeded the same way.
 
 A reading that switches sides is drawn as two series rather than as one that
