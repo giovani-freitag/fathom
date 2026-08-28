@@ -12,6 +12,16 @@ import type { OrderBookService } from '../core/order-book-service.ts';
  * why says so afterwards, and that is what the gap should end up carrying.
  */
 const BOOK_UNAVAILABLE = 'order book unavailable';
+
+/**
+ * The cause before there has ever been a book to lose.
+ *
+ * A run opens with the mirror still being built, and the seconds spent waiting
+ * for it are unrecorded like any others. Filing them as the book having gone
+ * missing reads as a fault: they are a start, and an operator counting faults
+ * should not be counting these.
+ */
+const AWAITING_FIRST_BOOK = 'waiting for the first order book';
 import { ArchiveWriteBuffer } from './archive-write-buffer.ts';
 import { buildLiquidityFrame } from '../core/depth-ladder-builder.ts';
 import { TradeClusterAccumulator } from '../core/trade-cluster-accumulator.ts';
@@ -150,7 +160,7 @@ export class LiquidityRecorderService {
             return;
         }
 
-        if (this.openGapReason === BOOK_UNAVAILABLE && reason !== BOOK_UNAVAILABLE) {
+        if (isUnexplained(this.openGapReason) && !isUnexplained(reason)) {
             this.openGapReason = reason;
         }
     }
@@ -217,7 +227,11 @@ export class LiquidityRecorderService {
 
         const reading = this.config.orderBook.readBook();
         if (reading === null) {
-            this.noteInterruption(BOOK_UNAVAILABLE);
+            // Nothing recorded yet this run means the mirror is still being
+            // built for the first time, which is a start rather than a loss.
+            this.noteInterruption(
+                this.lastCapturedAtMs === null ? AWAITING_FIRST_BOOK : BOOK_UNAVAILABLE,
+            );
             return;
         }
 
@@ -275,4 +289,17 @@ export class LiquidityRecorderService {
             gapReason: 'archive unavailable, buffered frames dropped',
         });
     }
+}
+
+/**
+ * Whether a cause names something that happened.
+ *
+ * The two the recorder gives on its own do not: it can see the book is not
+ * there, and it can see it has not arrived yet. Anything else knows why.
+ *
+ * @param reason - The cause to weigh.
+ * @returns True when the cause explains nothing.
+ */
+function isUnexplained(reason: string | null): boolean {
+    return reason === BOOK_UNAVAILABLE || reason === AWAITING_FIRST_BOOK;
 }

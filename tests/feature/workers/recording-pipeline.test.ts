@@ -204,6 +204,36 @@ describe('recording pipeline', () => {
         );
     });
 
+    it('calls the seconds before the first book a start, not a loss', async () => {
+        // A run opens with the mirror still being built. An operator counting
+        // faults should not be counting these.
+        const pipeline = buildPipeline();
+        await pipeline.recorder.start();
+        await tick(pipeline);
+        await synchronize(pipeline);
+        await tick(pipeline);
+        await pipeline.recorder.stop();
+
+        expect(filedReasons(pipeline)).toContain('waiting for the first order book');
+    });
+
+    it('lets a real cause explain a start that never finished', async () => {
+        // The socket can fail while the first mirror is still being built. That
+        // gap is not "we were starting" — it is the reason the start failed,
+        // and a start explains no more than a missing book does.
+        const pipeline = buildPipeline();
+        await pipeline.recorder.start();
+        await tick(pipeline);
+
+        pipeline.recorder.noteInterruption('waiting for the first order book');
+        pipeline.recorder.noteInterruption('socket closed');
+        await synchronize(pipeline);
+        await tick(pipeline);
+        await pipeline.recorder.stop();
+
+        expect(filedReasons(pipeline)).toEqual(['socket closed']);
+    });
+
     it('files the cause it was told, not the one it guessed', async () => {
         // The clock ticks once a second and the book goes unusable the instant
         // it breaks, so the recorder almost always notices before it is told

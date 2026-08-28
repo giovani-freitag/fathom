@@ -82,10 +82,13 @@ second the recording does not hold, with the reason it was lost. A contract whos
 frame count is short and whose gap ledger does not explain the shortfall is a
 bug worth reporting; one whose ledger does explain it was simply down.
 
-`order book unavailable` means nothing ever said why — the recorder saw the book
-was not there and was never told the cause. Every other reason names something
-that happened. Read a ledger dominated by that one as a ledger that is not
-explaining itself, not as a diagnosis.
+Two of the reasons explain nothing on purpose, because the recorder can only
+report what it sees. `waiting for the first order book` is a run opening with the
+mirror still being built — a start, not a fault, and not worth counting as one.
+`order book unavailable` is the book gone mid-run with nothing having said why.
+Every other reason names something that happened, and one of those replaces
+either of these the moment it arrives. A ledger dominated by `order book
+unavailable` is a ledger that is not explaining itself, not a diagnosis.
 
 ## Choosing what to record
 
