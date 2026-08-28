@@ -25,8 +25,10 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'drawing.undo': 'Desfazer',
     'drawing.redo': 'Refazer',
     'drawing.zone': 'Zona',
+    'drawing.fibonacci': 'Retrações',
     'drawing.measure': 'Medir',
     'drawing.select': 'Mover e selecionar',
+    'drawing.keepTool': 'Manter a ferramenta após desenhar',
 
     'layer.depth': 'Book',
     'layer.depth.help': 'Tamanho em repouso em cada preço, como mudou ao longo do tempo',

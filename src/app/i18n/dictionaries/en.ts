@@ -23,8 +23,10 @@ export const EN_DICTIONARY = {
     'drawing.undo': 'Undo',
     'drawing.redo': 'Redo',
     'drawing.zone': 'Zone',
+    'drawing.fibonacci': 'Retracements',
     'drawing.measure': 'Measure',
     'drawing.select': 'Move and select',
+    'drawing.keepTool': 'Keep the tool after drawing',
 
     'layer.depth': 'Book',
     'layer.depth.help': 'Resting size at every price, as it changed through time',

@@ -12,13 +12,14 @@ export interface DrawingAnchor {
 }
 
 /** The kinds of mark a reader can leave on the chart. */
-export type DrawingKind = 'horizontal-line' | 'trend-line' | 'zone' | 'measure';
+export type DrawingKind = 'horizontal-line' | 'trend-line' | 'zone' | 'fibonacci' | 'measure';
 
 /** Every kind, in the order the dock offers them. */
 export const DRAWING_KINDS: readonly DrawingKind[] = [
     'horizontal-line',
     'trend-line',
     'zone',
+    'fibonacci',
     'measure',
 ];
 
@@ -27,6 +28,7 @@ export const ANCHORS_PER_KIND: Readonly<Record<DrawingKind, number>> = {
     'horizontal-line': 1,
     'trend-line': 2,
     zone: 2,
+    fibonacci: 2,
     measure: 2,
 };
 
@@ -36,7 +38,11 @@ export const ANCHORS_PER_KIND: Readonly<Record<DrawingKind, number>> = {
  * A box has no one price at an instant, so asking it for one would answer with
  * a diagonal nobody drew.
  */
-const BOXED_KINDS: ReadonlySet<DrawingKind> = new Set<DrawingKind>(['zone', 'measure']);
+const BOXED_KINDS: ReadonlySet<DrawingKind> = new Set<DrawingKind>([
+    'zone',
+    'fibonacci',
+    'measure',
+]);
 
 /**
  * Whether a mark is read and then done with rather than kept.
@@ -247,3 +253,13 @@ export function shiftDrawing(drawing: Drawing, shift: DrawingShift): Drawing {
         })),
     };
 }
+
+/**
+ * The retracements a reader reads a move against.
+ *
+ * The conventional set, and conventional is the point: the levels are only
+ * useful because everybody draws the same ones, so this is not a place to have
+ * an opinion. Nought and one are included because the ends of the move are two
+ * of the levels a reader watches.
+ */
+export const FIBONACCI_RATIOS: readonly number[] = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];

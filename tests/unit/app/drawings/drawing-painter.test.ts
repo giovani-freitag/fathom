@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { RENDER_PALETTE } from '../../../../src/app/painting/render-palette.ts';
 import { buildPaintContext, createRecordingContext, type RecordingContext } from '../../../mocks/canvas-context.ts';
 import { DEFAULT_VIEWPORT } from '../../../mocks/canvas-context.ts';
-import type { Drawing } from '../../../../src/shared/core/drawing.ts';
+import { type Drawing, FIBONACCI_RATIOS } from '../../../../src/shared/core/drawing.ts';
 import {
     describeDrawings,
     DrawingPainter,
@@ -303,6 +303,64 @@ describe('DrawingPainter taking a measurement', () => {
         painter.paint(buildContext(recording, { draft: buildMeasure(DEFAULT_VIEWPORT.highPrice) }));
 
         expect(recording.callsTo('stroke').length).toBeGreaterThan(0);
+    });
+});
+
+describe('DrawingPainter ruling retracements', () => {
+    const painter = new DrawingPainter();
+    let recording: RecordingContext;
+
+    function buildRetracement(): Drawing {
+        return {
+            id: 'fib',
+            kind: 'fibonacci',
+            instrumentSymbol: 'BTCUSDT',
+            anchors: [
+                { atMs: DEFAULT_VIEWPORT.fromMs, price: DEFAULT_VIEWPORT.lowPrice },
+                { atMs: MID_MS, price: DEFAULT_VIEWPORT.highPrice },
+            ],
+            tone: 'violet',
+        };
+    }
+
+    beforeEach(() => { recording = createRecordingContext(); });
+
+    it('rules one line per level a reader watches', () => {
+        painter.paint(buildContext(recording, { settled: [buildRetracement()] }));
+
+        expect(recording.callsTo('stroke')).toHaveLength(FIBONACCI_RATIOS.length);
+    });
+
+    it('names each line by the proportion of the move it stands at', () => {
+        painter.paint(buildContext(recording, { settled: [buildRetracement()] }));
+
+        const written = recording.callsTo('fillText').map((call) => String(call.args[0]));
+        expect(written).toContain('61.8%');
+    });
+
+    it('writes a whole percentage without a decimal nobody reads', () => {
+        painter.paint(buildContext(recording, { settled: [buildRetracement()] }));
+
+        const written = recording.callsTo('fillText').map((call) => String(call.args[0]));
+        expect(written).toContain('50%');
+    });
+
+    it('carries the lines across the window, not only over the move', () => {
+        // A retracement is a price to watch, and price arrives to the right of
+        // where the move was drawn.
+        const paint = buildContext(recording, { settled: [buildRetracement()] });
+        painter.paint(paint);
+
+        const ends = recording.callsTo('lineTo').map((call) => call.args[0]);
+        expect(ends.every((x) => x === paint.layout.plotWidth)).toBe(true);
+    });
+
+    it('draws the ends of the move solid and the levels between them broken', () => {
+        painter.paint(buildContext(recording, { settled: [buildRetracement()] }));
+
+        const dashes = recording.callsTo('setLineDash').map((call) => call.args[0]);
+        expect([dashes.filter((dash) => Array.isArray(dash) && dash.length === 0).length >= 2, dashes.length])
+            .toEqual([true, FIBONACCI_RATIOS.length + 1]);
     });
 });
 

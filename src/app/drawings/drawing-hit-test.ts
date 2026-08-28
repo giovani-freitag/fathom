@@ -106,7 +106,9 @@ interface DistanceRequest {
  * @returns The distance, or null when the mark is not drawn there at all.
  */
 function measureDistance(request: DistanceRequest): number | null {
-    return request.drawing.kind === 'zone'
+    // A retracement is a stack of lines across the window; grabbing the band
+    // they span is how a thumb reaches one at all.
+    return request.drawing.kind === 'zone' || request.drawing.kind === 'fibonacci'
         ? measureZoneDistance(request)
         : measureLineDistance(request);
 }

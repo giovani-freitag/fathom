@@ -23,6 +23,8 @@ const LEVEL: Drawing = {
 function buildDrawings(selected: Drawing | null): DrawingControls {
     return {
         armedTool: null,
+        isToolLocked: false,
+        toggleToolLock: () => undefined,
         selectedId: selected?.id ?? null,
         selected,
         canUndo: false,

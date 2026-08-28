@@ -797,10 +797,15 @@ draws never sees that panel at all.
 The islands clear the time axis, whose labels are read while a mark is being
 placed.
 
-A new tool is a kind in one table, a case in the painter's shape arithmetic, and
-two dictionary entries. The zone was added that way after the first two, which
-is the check the seam had to pass. The gesture controller learns nothing: it knows only that
-something took the press. ADR 0020 records the reasoning.
+A new tool is a kind in one table, a case in the painter's shape arithmetic, a
+line in the hit test saying how it is grabbed, and two dictionary entries — four
+files, none of them the gesture controller, which knows only that *something*
+took the press. The zone was added that way after the first two, the measurement
+after that, and the retracement after that. ADR 0020 records the reasoning.
+
+A tool is put down after one mark, which is what one mark was for. It can be
+pinned instead, and then marking six levels is six presses on the chart rather
+than six round trips to the toolbar.
 
 ## How the tree is arranged
 

@@ -106,10 +106,11 @@ A mark survives a reload because it is stored the way it is drawn — as instant
 and prices, in the one preferences record.
 
 The claimant seam is the whole extension point. A new tool is a kind in one
-table, a case in the painter's shape arithmetic, and two dictionary entries; it
-is not a branch in the gesture controller, which knows only that *something*
-took the press. The zone was added that way, after the fact, which is the check
-the seam had to pass.
+table, a case in the painter's shape arithmetic, a line in the hit test saying
+how it is grabbed, and two dictionary entries; it is not a branch in the gesture
+controller, which knows only that *something* took the press. The zone was added
+that way after the fact, then the measurement, then the retracement — which is
+the check the seam had to keep passing.
 
 Grabbing is sized for a fingertip rather than a cursor, and a zone counts as
 grabbed anywhere inside it: hunting a one-pixel outline with a thumb is not

@@ -20,6 +20,8 @@ interface Pressed {
 function buildControls(overrides: Partial<DrawingControls>, pressed: Pressed): DrawingControls {
     return {
         armedTool: null,
+        isToolLocked: false,
+        toggleToolLock: () => undefined,
         selectedId: null,
         selected: null,
         canUndo: false,

@@ -535,3 +535,53 @@ describe('DrawingsController measuring a move', () => {
         expect(harness.drawings.store.read().draft).toBeNull();
     });
 });
+
+describe('DrawingsController keeping the tool', () => {
+    let harness: Harness;
+
+    beforeEach(() => { harness = buildHarness(); });
+
+    function drawOne(): void {
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.drag(at(5_000, 120));
+        harness.drawings.settle();
+    }
+
+    it('puts a tool down after one mark, which is what one mark was for', () => {
+        harness.drawings.arm('trend-line');
+
+        drawOne();
+
+        expect(harness.drawings.store.read().armedTool).toBeNull();
+    });
+
+    it('keeps it armed once the reader has pinned it', () => {
+        // Six levels should be six presses on the chart, not six round trips
+        // to the toolbar.
+        harness.drawings.lockTool(true);
+        harness.drawings.arm('trend-line');
+
+        drawOne();
+
+        expect(harness.drawings.store.read().armedTool).toBe('trend-line');
+    });
+
+    it('keeps it after a measurement too, which is drawn the same way', () => {
+        harness.drawings.lockTool(true);
+        harness.drawings.arm('measure');
+
+        drawOne();
+
+        expect(harness.drawings.store.read().armedTool).toBe('measure');
+    });
+
+    it('still lets the reader put it down by hand', () => {
+        harness.drawings.lockTool(true);
+        harness.drawings.arm('trend-line');
+        drawOne();
+
+        harness.drawings.arm(null);
+
+        expect(harness.drawings.store.read().armedTool).toBeNull();
+    });
+});

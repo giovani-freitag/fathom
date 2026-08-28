@@ -17,6 +17,8 @@ const INSTRUMENT = {
 
 const DRAWINGS = {
     armedTool: null,
+    isToolLocked: false,
+    toggleToolLock: () => undefined,
     selectedId: null,
     selected: null,
     canUndo: false,

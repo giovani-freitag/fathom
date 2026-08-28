@@ -1,6 +1,7 @@
 import {
     boundDrawing,
     type Drawing,
+    FIBONACCI_RATIOS,
     type DrawingStyle,
     type DrawingWidth,
     resolveDrawingLook,
@@ -32,6 +33,10 @@ const STYLE_DASHES: Readonly<Record<DrawingStyle, readonly number[]>> = {
     dashed: [7, 5],
     dotted: [1, 4],
 };
+
+/** Where a retracement writes its own ratio, and how far it sits off the line. */
+const FIBONACCI_LABEL_INSET_PX = 6;
+const FIBONACCI_LABEL_LIFT_PX = 7;
 
 /** Radius of the grip shown at each anchor of the selected mark. */
 const HANDLE_RADIUS_PX = 5;
@@ -111,6 +116,8 @@ export class DrawingPainter implements FieldLayerPainter {
 
         if (drawing.kind === 'measure') {
             this.strokeMeasure(stroke);
+        } else if (drawing.kind === 'fibonacci') {
+            this.strokeFibonacci(stroke);
         } else if (drawing.kind === 'zone') {
             this.strokeZone(stroke);
         } else {
@@ -154,6 +161,47 @@ export class DrawingPainter implements FieldLayerPainter {
         paint.context.fillRect(box.x, box.y, box.width, box.height);
         paint.context.globalAlpha = 1;
         paint.context.strokeRect(box.x, box.y, box.width, box.height);
+    }
+
+    /**
+     * Rules the retracements of a move, each named by the ratio it is.
+     *
+     * Drawn across the whole window rather than only between the two anchors: a
+     * retracement is a price to watch, and price arrives to the right of where
+     * the move was drawn.
+     */
+    private strokeFibonacci(stroke: DrawingStroke): void {
+        const { paint, drawing } = stroke;
+        const [from, to] = drawing.anchors;
+        if (from === undefined || to === undefined) {
+            return;
+        }
+
+        const { context } = paint;
+        context.font = RENDER_METRICS.labelFont;
+        context.textBaseline = 'middle';
+        // Written at the right end, beside the price axis the level is read
+        // against — and clear of the corner a selected mark opens its panel in.
+        context.textAlign = 'right';
+
+        for (const ratio of FIBONACCI_RATIOS) {
+            const price = from.price + (to.price - from.price) * ratio;
+            const y = Math.round(paint.projector.priceToY(price)) + 0.5;
+            // The ends of the move are the move itself, so they are drawn solid
+            // and the retracements between them are not.
+            context.setLineDash(ratio === 0 || ratio === 1 ? [] : [4, 4]);
+            context.beginPath();
+            context.moveTo(0, y);
+            context.lineTo(paint.layout.plotWidth, y);
+            context.stroke();
+
+            context.fillStyle = resolveToneColour(drawing.tone);
+            context.fillText(
+                formatRatio(ratio),
+                paint.layout.plotWidth - FIBONACCI_LABEL_INSET_PX,
+                y - FIBONACCI_LABEL_LIFT_PX,
+            );
+        }
     }
 
     /**
@@ -382,4 +430,16 @@ function describeDrawing(drawing: Drawing): string {
     const anchors = drawing.anchors.map((anchor) => `${anchor.atMs}:${anchor.price}`).join(',');
     const look = resolveDrawingLook(drawing);
     return `${drawing.id}@${drawing.tone}@${look.width}@${look.style}@${anchors}`;
+}
+
+/**
+ * Names one retracement, as the proportion of the move it stands at.
+ *
+ * @param ratio - The retracement, as a fraction of the move.
+ * @returns The label, without a trailing zero nobody reads.
+ */
+function formatRatio(ratio: number): string {
+    // A whole percentage keeps its own width: 50% beside 61.8% reads as a list
+    // of levels rather than as two different kinds of number.
+    return `${(ratio * 100).toFixed(Number.isInteger(ratio * 100) ? 0 : 1)}%`;
 }

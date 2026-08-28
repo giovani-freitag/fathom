@@ -128,6 +128,7 @@ describe('ANCHORS_PER_KIND', () => {
             'horizontal-line': 1,
             'trend-line': 2,
             zone: 2,
+            fibonacci: 2,
             measure: 2,
         });
     });
@@ -226,6 +227,6 @@ describe('isTransientKind', () => {
 
     it('says a mark a reader drew is theirs to keep', () => {
         expect(DRAWING_KINDS.filter((kind) => !isTransientKind(kind)))
-            .toEqual(['horizontal-line', 'trend-line', 'zone']);
+            .toEqual(['horizontal-line', 'trend-line', 'zone', 'fibonacci']);
     });
 });

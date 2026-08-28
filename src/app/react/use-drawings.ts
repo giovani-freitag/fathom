@@ -22,6 +22,7 @@ function isTypingInto(target: EventTarget | null): boolean {
 
 /* Declared once each, so every subscription is the same one on every render. */
 const readArmedTool = (state: DrawingsState): DrawingKind | null => state.armedTool;
+const readIsToolLocked = (state: DrawingsState): boolean => state.isToolLocked;
 const readSelectedId = (state: DrawingsState): string | null => state.selectedId;
 const readSelected = (state: DrawingsState): Drawing | null => state.drawings
     .find((drawing) => drawing.id === state.selectedId) ?? null;
@@ -33,6 +34,10 @@ const readCanRedo = (state: DrawingsState): boolean => state.canRedo;
  */
 export interface DrawingControls {
     readonly armedTool: DrawingKind | null;
+    /** Whether the armed tool survives the mark it just drew. */
+    readonly isToolLocked: boolean;
+    /** Pins the armed tool, or hands it back after one use. */
+    readonly toggleToolLock: () => void;
     readonly selectedId: string | null;
     /** How the selected mark is drawn, for the controls that show it. */
     readonly selected: Drawing | null;
@@ -60,6 +65,7 @@ export interface DrawingControls {
 export function useDrawings(): DrawingControls {
     const kernel = useKernel();
     const armedTool = useStoreSlice(kernel.drawings.store, readArmedTool);
+    const isToolLocked = useStoreSlice(kernel.drawings.store, readIsToolLocked);
     const selectedId = useStoreSlice(kernel.drawings.store, readSelectedId);
     const selected = useStoreSlice(kernel.drawings.store, readSelected);
     const canUndo = useStoreSlice(kernel.drawings.store, readCanUndo);
@@ -98,6 +104,8 @@ export function useDrawings(): DrawingControls {
 
     return {
         armedTool,
+        isToolLocked,
+        toggleToolLock: () => { kernel.drawings.lockTool(!isToolLocked); },
         selectedId,
         selected,
         // Pressing the armed tool again is how a reader says they are done

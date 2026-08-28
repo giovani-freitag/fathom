@@ -240,3 +240,27 @@ describe('findAnchorAt', () => {
         expect(findAnchorAt({ drawing: level, projector, point })).toBe(0);
     });
 });
+
+describe('findDrawingAt over a retracement', () => {
+    const retracement: Drawing = {
+        id: 'fib',
+        kind: 'fibonacci',
+        instrumentSymbol: 'BTCUSDT',
+        anchors: [{ atMs: 20_000, price: 20 }, { atMs: 80_000, price: 80 }],
+        tone: 'violet',
+    };
+
+    it('is grabbed anywhere in the band its levels span', () => {
+        // It is a stack of thin lines across the window; hunting one of them
+        // with a thumb is not something anybody should have to do.
+        const point = { x: projector.timeToX(50_000), y: projector.priceToY(50) };
+
+        expect(findDrawingAt({ drawings: [retracement], projector, point })).toBe('fib');
+    });
+
+    it('is not grabbed from well outside the move it was drawn over', () => {
+        const point = { x: projector.timeToX(50_000), y: projector.priceToY(5) };
+
+        expect(findDrawingAt({ drawings: [retracement], projector, point })).toBeNull();
+    });
+});

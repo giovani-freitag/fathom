@@ -23,6 +23,14 @@ export const MAXIMUM_DRAWINGS_PER_INSTRUMENT = 64;
 export interface DrawingsState {
     /** The tool the next press will draw with, or null while the pointer selects. */
     readonly armedTool: DrawingKind | null;
+    /**
+     * Whether the armed tool survives the mark it just drew.
+     *
+     * Off, a tool is put down after one use, which is right for the reader who
+     * came to draw one thing. On, it stays: marking six levels is six presses
+     * on the chart rather than six round trips to the toolbar.
+     */
+    readonly isToolLocked: boolean;
     readonly drawings: readonly Drawing[];
     readonly selectedId: string | null;
     /** The mark being dragged out, drawn but not yet kept. */
@@ -85,6 +93,7 @@ export class DrawingsController {
         this.store = new ObservableStore<DrawingsState>({
             initialState: {
                 armedTool: null,
+                isToolLocked: false,
                 drawings: config.preferences.read().drawings,
                 selectedId: null,
                 draft: null,
@@ -101,6 +110,15 @@ export class DrawingsController {
      */
     arm(armedTool: DrawingKind | null): void {
         this.store.update((state) => ({ ...state, armedTool, draft: null }));
+    }
+
+    /**
+     * Keeps the armed tool after it has drawn, or hands it back.
+     *
+     * @param isToolLocked - Whether a tool stays armed once it has been used.
+     */
+    lockTool(isToolLocked: boolean): void {
+        this.store.update((state) => ({ ...state, isToolLocked }));
     }
 
     /**
@@ -172,7 +190,7 @@ export class DrawingsController {
         if (draft !== null && isTransientKind(draft.kind)) {
             // Left on screen but never stored: it is read where it was drawn
             // and then done with, so it is neither persisted nor undoable.
-            this.store.update((state) => ({ ...state, armedTool: null }));
+            this.store.update((state) => ({ ...state, armedTool: disarm(state) }));
             return;
         }
         if (draft !== null) {
@@ -180,7 +198,7 @@ export class DrawingsController {
             // of Delete removes without hunting for it again.
             this.store.update((state) => ({
                 ...state,
-                armedTool: null,
+                armedTool: disarm(state),
                 draft: null,
                 selectedId: draft.id,
                 drawings: keepNewest([...state.drawings, draft]),
@@ -390,4 +408,14 @@ function keepNewest(drawings: readonly Drawing[]): readonly Drawing[] {
     return drawings.length <= MAXIMUM_DRAWINGS_PER_INSTRUMENT
         ? drawings
         : drawings.slice(drawings.length - MAXIMUM_DRAWINGS_PER_INSTRUMENT);
+}
+
+/**
+ * The tool a gesture leaves behind it.
+ *
+ * @param state - What is armed and whether the reader pinned it.
+ * @returns The same tool while it is pinned, and nothing otherwise.
+ */
+function disarm(state: DrawingsState): DrawingKind | null {
+    return state.isToolLocked ? state.armedTool : null;
 }

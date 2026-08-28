@@ -1,4 +1,17 @@
-import { Coins, Layers, Minus, MousePointer2, Redo2, Ruler, Square, TrendingUp, Undo2 } from 'lucide-react';
+import {
+    Coins,
+    Layers,
+    Lock,
+    LockOpen,
+    Minus,
+    MousePointer2,
+    Redo2,
+    Rows3,
+    Ruler,
+    Square,
+    TrendingUp,
+    Undo2,
+} from 'lucide-react';
 import type { ComponentType, ReactElement } from 'react';
 import type { BarIntervalMs } from '../core/bar-interval.ts';
 import {
@@ -30,6 +43,7 @@ const TOOL_FACES: Readonly<Record<DrawingKind, ToolFace>> = {
     'horizontal-line': { Icon: Minus, labelKey: 'drawing.horizontalLine' },
     'trend-line': { Icon: TrendingUp, labelKey: 'drawing.trendLine' },
     zone: { Icon: Square, labelKey: 'drawing.zone' },
+    fibonacci: { Icon: Rows3, labelKey: 'drawing.fibonacci' },
     measure: { Icon: Ruler, labelKey: 'drawing.measure' },
 };
 
@@ -175,6 +189,19 @@ export function DrawingTools({ drawings }: DrawingToolsProps): ReactElement {
                     </DockButton>
                 );
             })}
+
+            {/* Beside the tools it pins, because it is about them and nothing
+                else: a reader marking six levels should press the chart six
+                times, not walk back to the toolbar between each. */}
+            <DockButton
+                label={translate('drawing.keepTool')}
+                isActive={drawings.isToolLocked}
+                onPress={drawings.toggleToolLock}
+            >
+                {drawings.isToolLocked
+                    ? <Lock size={ICON_SIZE_PX} />
+                    : <LockOpen size={ICON_SIZE_PX} />}
+            </DockButton>
 
             <Divider />
 

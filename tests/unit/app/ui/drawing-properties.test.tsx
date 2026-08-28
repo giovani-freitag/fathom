@@ -28,6 +28,8 @@ function renderPanel(selected: Drawing | null): Pressed {
 
     const controls = {
         armedTool: null,
+        isToolLocked: false,
+        toggleToolLock: () => undefined,
         selectedId: selected === null ? null : selected.id,
         selected,
         canUndo: false,
