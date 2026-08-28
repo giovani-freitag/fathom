@@ -13,6 +13,7 @@ interface Formatters {
     readonly quantity: Intl.NumberFormat;
     readonly preciseQuantity: Intl.NumberFormat;
     readonly axisTag: Intl.NumberFormat;
+    readonly wholeAxisTag: Intl.NumberFormat;
     readonly clock: Intl.DateTimeFormat;
     readonly day: Intl.DateTimeFormat;
     readonly calendar: Intl.DateTimeFormat;
@@ -28,6 +29,8 @@ function buildFormatters(tag: string): Formatters {
         quantity: new Intl.NumberFormat(tag, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
         preciseQuantity: new Intl.NumberFormat(tag, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
         axisTag: new Intl.NumberFormat(tag, { minimumFractionDigits: 0, maximumFractionDigits: 1 }),
+        // The same tag on a narrow axis, which has no room for the decimal.
+        wholeAxisTag: new Intl.NumberFormat(tag, { maximumFractionDigits: 0 }),
         // Pinned to twenty-four hours in every language: a market chart reads
         // times against each other, and the axis truncates the clock by
         // character count, which a trailing AM would carry into the label.
@@ -108,10 +111,16 @@ export function formatPrice(price: number): string {
  * @param price - Price in quote currency.
  * @returns The formatted price.
  */
-export function formatAxisTagPrice(price: number): string {
+export function formatAxisTagPrice(price: number, isCompact = false): string {
     // One decimal, not two: the axis is only as wide as its widest label, and a
     // tag that overflows it is unreadable exactly when it matters most.
-    return formatters.axisTag.format(price);
+    //
+    // None at all on a phone, where the axis is narrower than the decimal fits.
+    // The unit is kept, so the tag is still exact to inside one price bucket,
+    // and the figure to the tenth is a touch away in the readout.
+    return isCompact
+        ? formatters.wholeAxisTag.format(price)
+        : formatters.axisTag.format(price);
 }
 
 /**
@@ -254,4 +263,21 @@ export function formatSignedChange(deltaPrice: number): string {
  */
 export function formatSignedPercent(ratio: number): string {
     return formatters.signedPercent.format(ratio);
+}
+
+/**
+ * Renders a price short enough for a narrow axis.
+ *
+ * Abbreviated only where the ticks are far enough apart to stay distinct: over
+ * a hundred-unit range, `80.2K` and `80.3K` are the same label twice.
+ *
+ * @param price - Price in quote currency.
+ * @param tickSpacing - How much price lies between two labels.
+ * @returns The formatted price, in thousands where that still tells them apart.
+ */
+export function formatShortAxisPrice(price: number, tickSpacing: number): string {
+    if (Math.abs(price) < 10_000 || tickSpacing < 100) {
+        return formatPrice(price);
+    }
+    return `${formatFixed(price / 1_000, tickSpacing >= 1_000 ? 1 : 2)}K`;
 }

@@ -118,10 +118,10 @@ export function resolveToneColour(tone: PlotTone): string {
 
 export const RENDER_METRICS = {
     priceAxisWidth: 72,
-    priceAxisWidthCompact: 58,
+    priceAxisWidthCompact: 46,
     timeAxisHeight: 22,
     profileWidth: 104,
-    profileWidthCompact: 52,
+    profileWidthCompact: 32,
     minimumBubbleRadius: 1.4,
     maximumBubbleRadius: 17,
     labelFont: '11px "Azeret Mono", ui-monospace, monospace',

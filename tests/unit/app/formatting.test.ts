@@ -1,11 +1,13 @@
 import {
     applyFormattingLocale,
+    formatAxisTagPrice,
     formatAxisTime,
     formatClockTime,
     formatDuration,
     formatFixed,
     formatPrice,
     formatQuantity,
+    formatShortAxisPrice,
     resolveBaseAsset,
 } from '../../../src/app/core/formatting.ts';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -150,5 +152,41 @@ describe('formatFixed', () => {
 
     it('groups thousands in a count', () => {
         expect(formatFixed(1_483, 0)).toBe('1,483');
+    });
+});
+
+describe('formatAxisTagPrice on a narrow axis', () => {
+    it('writes the tenth where there is room for it', () => {
+        expect(formatAxisTagPrice(80_404.44)).toBe('80,404.4');
+    });
+
+    it('drops the tenth where there is not', () => {
+        // A phone's axis is forty-six pixels: the decimal is the one character
+        // that does not fit, and a tag that runs off the edge is unreadable
+        // exactly when it matters most.
+        expect(formatAxisTagPrice(80_404.44, true)).toBe('80,404');
+    });
+
+    it('keeps the unit, so the tag is still exact inside one price bucket', () => {
+        expect(formatAxisTagPrice(80_404.44, true)).toContain('404');
+    });
+});
+
+describe('formatShortAxisPrice', () => {
+    it('abbreviates a price where the labels stay apart', () => {
+        expect(formatShortAxisPrice(81_000, 500)).toBe('81.00K');
+    });
+
+    it('writes it out where abbreviating would print the same label twice', () => {
+        // Over a hundred-unit range, 80.2K and 80.3K are the same label twice.
+        expect(formatShortAxisPrice(80_250, 50)).toBe(formatPrice(80_250));
+    });
+
+    it('leaves a price under ten thousand alone, which is already short', () => {
+        expect(formatShortAxisPrice(3_340, 500)).toBe(formatPrice(3_340));
+    });
+
+    it('drops a decimal once the labels are a thousand apart', () => {
+        expect(formatShortAxisPrice(81_000, 1_000)).toBe('81.0K');
     });
 });

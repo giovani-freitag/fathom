@@ -41,3 +41,34 @@ describe('resolveChartLayout', () => {
         expect(layout.paneStackHeight).toBeLessThan(SURFACE.cssHeight);
     });
 });
+
+describe('resolveChartLayout on a phone', () => {
+    /** A phone's surface, with the profile showing. */
+    function buildPhoneLayout(): ReturnType<typeof resolveChartLayout> {
+        return resolveChartLayout({
+            cssWidth: 390,
+            cssHeight: 800,
+            isVolumeProfileVisible: true,
+        });
+    }
+
+    it('spends no more than a fifth of the width on the two gutters', () => {
+        // They took twenty-eight per cent of a phone, which was the biggest
+        // single waste of width the chart had.
+        const layout = buildPhoneLayout();
+
+        expect((390 - layout.plotWidth) / 390).toBeLessThanOrEqual(0.2);
+    });
+
+    it('keeps an axis wide enough for the label it writes, with room either side', () => {
+        // Any six-character price measures thirty-nine pixels at the axis font,
+        // and a phone's axis writes it four pixels in from its own edge.
+        expect(buildPhoneLayout().priceAxisWidth).toBeGreaterThan(39 + 4);
+    });
+
+    it('leaves the profile beside the plot rather than over it', () => {
+        const layout = buildPhoneLayout();
+
+        expect(layout.profileX).toBe(layout.plotWidth);
+    });
+});

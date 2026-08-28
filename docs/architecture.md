@@ -699,6 +699,24 @@ Nothing is drawn over the chart but the colour ramp the depth map is read from,
 a mark when a refetch has failed, and a notice about a layer just removed while
 there is still time to change one's mind.
 
+**The gutters shrink rather than move.** The price axis and the profile panel
+took a hundred and ten pixels of a three-hundred-and-ninety-pixel phone —
+twenty-eight per cent, the largest single waste of width the chart had. They are
+seventy-eight now, a fifth.
+
+The profile is trimmed; it is not floated over the plot. Drawing it over the
+right edge was built and looked at, and it buys more width — but the right edge
+is where the newest price is, and a panel that covers what a reader came for has
+taken more than it gave.
+
+The axis is only as wide as its widest label plus its padding twice. Any
+six-character price measures thirty-nine pixels at the axis font, which is what
+sets the forty-six: what does not fit is a decimal, so on a phone the price tag
+drops its tenth and keeps its unit — still exact to inside one price bucket, with
+the finer figure a touch away in the readout. The tick labels are abbreviated to
+thousands, which reads more compactly at a glance though it buys no width: at
+the spacings a phone shows, `80.50K` and `80,500` measure the same.
+
 ## Everything a thumb reaches
 
 On a screen held in one hand the controls sit along the bottom, not in a header:

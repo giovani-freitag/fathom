@@ -1,5 +1,6 @@
 import {
     formatAxisTagPrice,
+    formatShortAxisPrice,
     formatFixed,
     formatAxisTime,
     formatClockTime,
@@ -12,6 +13,25 @@ import type { PaintContext } from '../render-types.ts';
 /** Height of a tag pinned into the price axis, and the distance two need to clear. */
 export const PANE_LABEL_INSET_PX = 6;
 const PANE_LABEL_MARGIN_PX = 10;
+
+/**
+ * Space between a price label and the edge of the axis it sits in.
+ *
+ * Tighter on a phone, where the axis is only as wide as its widest label plus
+ * this twice: every pixel spent here is a pixel the chart does not get.
+ */
+const AXIS_PADDING_PX = 6;
+const AXIS_PADDING_COMPACT_PX = 4;
+
+/**
+ * How far in from the axis edge its labels are written.
+ *
+ * @param layout - The layout in force, for how much room the axis has.
+ * @returns The padding in pixels.
+ */
+function readAxisPadding(layout: { readonly isCompact: boolean }): number {
+    return layout.isCompact ? AXIS_PADDING_COMPACT_PX : AXIS_PADDING_PX;
+}
 
 export const AXIS_TAG_HEIGHT = 16;
 
@@ -57,12 +77,18 @@ export class AxisPainter {
         context.fillStyle = RENDER_PALETTE.inkMuted;
         context.textAlign = 'left';
         context.textBaseline = 'middle';
+        const tickSpacing = Math.abs((paint.priceTicks[1] ?? 0) - (paint.priceTicks[0] ?? 0));
         for (const price of paint.priceTicks) {
             const y = projector.priceToY(price);
             if (y < 8 || y > layout.pricePaneHeight - 4) {
                 continue;
             }
-            context.fillText(formatPrice(price), axisX + 6, y);
+            // Abbreviated only where the axis is narrow: on a phone it is the
+            // difference between a label that fits and one that runs off.
+            const label = layout.isCompact
+                ? formatShortAxisPrice(price, tickSpacing)
+                : formatPrice(price);
+            context.fillText(label, axisX + readAxisPadding(layout), y);
         }
     }
 
@@ -158,7 +184,11 @@ export class AxisPainter {
         context.fillStyle = tag.foreground;
         context.textAlign = 'left';
         context.textBaseline = 'middle';
-        context.fillText(formatAxisTagPrice(tag.price), layout.priceAxisX + 6, tag.y);
+        context.fillText(
+            formatAxisTagPrice(tag.price, layout.isCompact),
+            layout.priceAxisX + readAxisPadding(layout),
+            tag.y,
+        );
     }
 
     /**
@@ -180,7 +210,7 @@ export class AxisPainter {
         context.fillStyle = RENDER_PALETTE.inkMuted;
         context.textAlign = 'left';
         context.textBaseline = 'middle';
-        context.fillText(label, layout.priceAxisX + 6, top + AXIS_TAG_HEIGHT / 2);
+        context.fillText(label, layout.priceAxisX + readAxisPadding(layout), top + AXIS_TAG_HEIGHT / 2);
     }
 
     /**
