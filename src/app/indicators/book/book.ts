@@ -54,6 +54,7 @@ const SATURATION_PERCENTILE: NumericParameter = {
 
 const SHOW_EXECUTIONS: ToggleParameter = { name: 'showExecutions', kind: 'toggle', defaultValue: true };
 const SHOW_PROFILE: ToggleParameter = { name: 'showProfile', kind: 'toggle', defaultValue: true };
+const SHOW_GAPS: ToggleParameter = { name: 'showGaps', kind: 'toggle', defaultValue: true };
 
 /**
  * The recorded book, and everything that is the book seen another way.
@@ -75,6 +76,7 @@ export const BOOK_LAYER: FieldLayer = {
         SATURATION_PERCENTILE,
         SHOW_EXECUTIONS,
         SHOW_PROFILE,
+        SHOW_GAPS,
     ],
 };
 
@@ -83,6 +85,15 @@ export interface BookSettings {
     readonly isDepthVisible: boolean;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
+    /**
+     * Whether the stretches nothing was recorded through are marked.
+     *
+     * On by default and belonging to the book, because a hole in the book is
+     * what a gap is: the price ran through it, and only the depth is missing.
+     * A reader who has seen where the holes are can put the marks down; one who
+     * has not must not be shown a smooth line across them.
+     */
+    readonly areGapsVisible: boolean;
     readonly colourGain: number;
     readonly depthFloorPercentile: number;
     readonly depthSaturationPercentile: number;
@@ -103,6 +114,7 @@ export function readBookSettings(settings: IndicatorSettings | undefined): BookS
         // read from is, because it is the same layer seen another way.
         isTradeOverlayVisible: isDepthVisible && readToggle(book, SHOW_EXECUTIONS),
         isVolumeProfileVisible: isDepthVisible && readToggle(book, SHOW_PROFILE),
+        areGapsVisible: isDepthVisible && readToggle(book, SHOW_GAPS),
         colourGain: readSetting(book, COLOUR_GAIN),
         depthFloorPercentile: readSetting(book, FLOOR_PERCENTILE),
         depthSaturationPercentile: readSetting(book, SATURATION_PERCENTILE),

@@ -149,6 +149,7 @@ export function useChartSurface(): ChartSurfaceHandles {
             locale: appearance.locale,
             theme: appearance.resolvedTheme,
             gridChoice: appearance.gridChoice,
+            areGapsVisible: state.areGapsVisible,
             drawings: {
                 settled: marks.drawings,
                 draft: marks.draft,

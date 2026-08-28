@@ -88,6 +88,8 @@ export interface ChartState {
     readonly layerSettings: LayerSettings;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
+    /** Whether the stretches nothing was recorded through are marked. */
+    readonly areGapsVisible: boolean;
     /** Whether the book's own traded volume is drawn, and how. */
     readonly addedIndicators: readonly AddedIndicator[];
     /** What the indicators produced for the window on screen. */

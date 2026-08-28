@@ -41,6 +41,8 @@ export interface RenderRequest {
     readonly theme: ResolvedTheme;
     /** How much of the grid the reader wants ruled across the chart. */
     readonly gridChoice: GridChoice;
+    /** Whether the stretches nothing was recorded through are marked. */
+    readonly areGapsVisible: boolean;
     /** The marks the reader left, and the one being dragged out now. */
     readonly drawings: DrawingsView;
 }

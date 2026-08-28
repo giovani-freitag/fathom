@@ -53,6 +53,7 @@ function buildRequest(overrides: Partial<RenderRequest> = {}): RenderRequest {
         plans: [],
         theme: 'dark',
         gridChoice: 'both',
+        areGapsVisible: true,
         drawings: EMPTY_DRAWINGS_VIEW,
         ...overrides,
     };

@@ -78,6 +78,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'indicator.volume.sold': 'Vendido',
     'parameter.showExecutions': 'Agressores',
     'parameter.showProfile': 'Perfil de volume',
+    'parameter.showGaps': 'Lacunas de gravação',
     'parameter.showVolume': 'Volume negociado',
     'parameter.candleStyle': 'Estilo',
     'candleStyle.candles': 'Velas',
@@ -216,7 +217,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'about.unreleased': 'Compilado a partir da árvore de trabalho',
 
     'settings.recordingIsGlobal': 'O coletor roda esteja o livro desenhado ou não. Ocultar o livro para de desenhá-lo e nada mais.',
-    'settings.backfillNote': 'Janelas maiores que o tempo já gravado ficam desabilitadas. O gráfico só cobre o período em que a gravação esteve ligada — um livro de ofertas não pode ser recuperado depois.',
+    'settings.backfillNote': 'Candles e volume vêm da corretora, então o gráfico já abre com histórico. O livro não: ele só cobre o período em que a gravação esteve ligada, e um livro de ofertas não pode ser recuperado depois.',
 
     'recording.reading': 'Lendo o que está sendo gravado…',
     'recording.title': 'Gravação',

@@ -76,6 +76,7 @@ export const EN_DICTIONARY = {
     'indicator.volume.sold': 'Sold',
     'parameter.showExecutions': 'Aggressors',
     'parameter.showProfile': 'Volume profile',
+    'parameter.showGaps': 'Recording gaps',
     'parameter.showVolume': 'Traded volume',
     'parameter.candleStyle': 'Style',
     'candleStyle.candles': 'Candles',
@@ -214,7 +215,7 @@ export const EN_DICTIONARY = {
     'about.unreleased': 'Built from the working tree',
 
     'settings.recordingIsGlobal': 'The collector runs whether or not the book is drawn. Hiding the book stops drawing it and nothing else.',
-    'settings.backfillNote': 'Windows longer than what has been recorded are disabled. The chart only covers the time recording was on — an order book cannot be recovered after the fact.',
+    'settings.backfillNote': 'Candles and volume come from the venue, so the chart opens on history. The book does not: it only covers the time recording was on, and an order book cannot be recovered after the fact.',
 
     'recording.reading': 'Reading what is being recorded…',
     'recording.title': 'Recording',

@@ -66,3 +66,30 @@ describe('GapPainter', () => {
         expect(recording.callsTo('setLineDash').at(-1)?.args[0]).toEqual([]);
     });
 });
+
+describe('GapPainter put down', () => {
+    it('marks nothing once the reader has taken the marks off the book', () => {
+        // A hole in the book is what a gap is, so the marks belong to the book
+        // and go down with it. A reader who has seen where the holes are may
+        // want them out of the way.
+        const recording = createRecordingContext();
+
+        new GapPainter().paint(buildPaintContext(recording, {
+            dataset: { gaps: [buildGap(1_200_000, 1_400_000)] },
+            areGapsVisible: false,
+        }));
+
+        expect(recording.callsTo('fillRect')).toEqual([]);
+    });
+
+    it('marks them while the book still carries them', () => {
+        const recording = createRecordingContext();
+
+        new GapPainter().paint(buildPaintContext(recording, {
+            dataset: { gaps: [buildGap(1_200_000, 1_400_000)] },
+            areGapsVisible: true,
+        }));
+
+        expect(recording.callsTo('fillRect').length).toBeGreaterThan(0);
+    });
+});

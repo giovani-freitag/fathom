@@ -130,6 +130,35 @@ describe('what a reader can put on the chart', () => {
         expect(settings.isCandleOverlayVisible).toBe(true);
     });
 
+    it('carries the gap marks on the book too, which is what a gap is a hole in', () => {
+        const settings = resolveFieldSettings([
+            {
+                instanceId: 'depth-1',
+                indicatorId: 'depth',
+                settings: { showGaps: false },
+                tone: 'muted',
+            },
+        ]);
+
+        expect(settings.areGapsVisible).toBe(false);
+    });
+
+    it('marks them by default, so a reader who has not looked is never shown a smooth line', () => {
+        const settings = resolveFieldSettings([
+            { instanceId: 'depth-1', indicatorId: 'depth', settings: {}, tone: 'muted' },
+        ]);
+
+        expect(settings.areGapsVisible).toBe(true);
+    });
+
+    it('stops marking them with the book, which is the recording they are gaps in', () => {
+        const settings = resolveFieldSettings([
+            { instanceId: 'candles-1', indicatorId: 'candles', settings: {}, tone: 'ink' },
+        ]);
+
+        expect(settings.areGapsVisible).toBe(false);
+    });
+
     it('carries every reading of the book on the book itself', () => {
         // Executions and the profile are the recording seen other ways. They are
         // switches on the layer that draws it, not rows of their own beside it.

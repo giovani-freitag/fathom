@@ -3,6 +3,11 @@ import type { PaintContext } from '../render-types.ts';
 
 /**
  * Marks the windows during which nothing was recorded.
+ *
+ * A hole in the book is what a gap is: the price ran through it and only the
+ * depth is missing. So the marks belong to the book, and are put down with it —
+ * a reader who has seen where the holes are may want them out of the way, and
+ * one who has not must never be shown a smooth line across them.
  */
 export class GapPainter {
     /**
@@ -12,6 +17,9 @@ export class GapPainter {
      */
     paint(paint: PaintContext): void {
         const { context, layout, projector, request } = paint;
+        if (!request.areGapsVisible) {
+            return;
+        }
 
         for (const gap of request.dataset.gaps) {
             const startX = projector.timeToX(gap.gapStartedAtMs);
