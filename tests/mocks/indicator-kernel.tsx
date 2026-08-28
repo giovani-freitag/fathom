@@ -1,6 +1,7 @@
 import { render } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { type AddedIndicator, resolveBandKey } from '../../src/shared/core/indicator-selection.ts';
+import type { AppearanceState } from '../../src/app/core/appearance-controller.ts';
 import type { ChartState } from '../../src/app/core/chart-controller.ts';
 import { createCursorStore } from '../../src/app/core/cursor-store.ts';
 import type { DrawPlan } from '../../src/shared/core/draw-plan.ts';
@@ -12,18 +13,15 @@ import { recolourPlan } from '../../src/shared/core/draw-plan.ts';
 import type { ServiceContainer } from '../../src/app/core/service-container.ts';
 import { buildRun, buildWindow } from './price-bars.ts';
 
-interface Appearance {
-    readonly locale: string;
-    readonly themeChoice: string;
-    readonly resolvedTheme: string;
-    readonly isLegendCollapsed: boolean;
-}
-
-const APPEARANCE: Appearance = {
+// The real shape rather than a copy of it: a copy drifts the moment the
+// interface gains a preference, and a mock that drifts renders the control the
+// application does not.
+const APPEARANCE: AppearanceState = {
     locale: 'en',
     themeChoice: 'system',
     resolvedTheme: 'dark',
     isLegendCollapsed: false,
+    gridChoice: 'price',
 };
 
 /** Enough bars that every shipped indicator has something to say. */
@@ -46,7 +44,7 @@ export interface IndicatorKernel {
  */
 export function createIndicatorKernel(added: readonly AddedIndicator[] = []): IndicatorKernel {
     const cursor = createCursorStore();
-    const appearance = new ObservableStore<Appearance>({ initialState: APPEARANCE });
+    const appearance = new ObservableStore<AppearanceState>({ initialState: APPEARANCE });
     const store = new ObservableStore<ChartState>({
         initialState: buildState(added),
     });

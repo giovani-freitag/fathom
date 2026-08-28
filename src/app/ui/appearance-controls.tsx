@@ -6,7 +6,7 @@ import {
     THEME_CHOICES,
     type ThemeChoice,
 } from '../core/theme.ts';
-import { Monitor, Moon, Sun } from 'lucide-react';
+import { Grid2x2X, Grid3x3, Monitor, Moon, Rows3, Sun } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { FlagIcon } from './flag-icon.tsx';
 import { Select } from './select.tsx';
@@ -40,6 +40,15 @@ export interface AppearanceControlsProps {
     readonly gridChoice: GridChoice;
     readonly onSelectGrid: (gridChoice: GridChoice) => void;
 }
+
+/** Each amount of grid, drawn as that much of a grid. */
+const GRID_ICONS: Readonly<Record<GridChoice, typeof Rows3>> = {
+    // A grid struck through rather than an empty square: the mark has to say
+    // which control this is even in the state where it rules nothing.
+    none: Grid2x2X,
+    price: Rows3,
+    both: Grid3x3,
+};
 
 /** What each amount of grid is called. */
 const GRID_LABEL_KEYS: Readonly<Record<GridChoice, TranslationKey>> = {
@@ -97,6 +106,10 @@ export function AppearanceControls({
                 choices={GRID_CHOICES.map((candidate) => ({
                     value: candidate,
                     label: translate(GRID_LABEL_KEYS[candidate]),
+                    // What the control is about is carried by the mark, the way
+                    // the flag and the monitor carry the two beside it. Without
+                    // one, "None" on a shelf of selects answers no question.
+                    icon: <GridMark choice={candidate} />,
                 }))}
             />
         </div>
@@ -105,5 +118,11 @@ export function AppearanceControls({
 
 function ThemeMark({ choice }: { readonly choice: ThemeChoice }): ReactElement {
     const Icon = THEME_ICONS[choice];
+    return <Icon className="size-[18px] text-ink-400" />;
+}
+
+/** How much of the grid a choice rules, drawn as that much of a grid. */
+function GridMark({ choice }: { readonly choice: GridChoice }): ReactElement {
+    const Icon = GRID_ICONS[choice];
     return <Icon className="size-[18px] text-ink-400" />;
 }

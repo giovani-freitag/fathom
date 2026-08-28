@@ -33,4 +33,19 @@ describe('SettingsDrawer', () => {
 
         expect(screen.queryByRole('searchbox')).toBeNull();
     });
+
+    it('says what each appearance control is about without being opened', () => {
+        // A shelf of selects reading "Português / Do sistema / None" answers
+        // two questions and poses a third. The mark is what names the control:
+        // the flag, the monitor, and how much of a grid it rules.
+        renderDrawer();
+
+        const marksOn = (name: string): number => screen
+            .getByRole('combobox', { name })
+            .querySelectorAll('svg').length;
+
+        // One is the chevron every select carries; the second is the mark.
+        expect(marksOn(EN_DICTIONARY['settings.grid']))
+            .toBe(marksOn(EN_DICTIONARY['settings.theme']));
+    });
 });
