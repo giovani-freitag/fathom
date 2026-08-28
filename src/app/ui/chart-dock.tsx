@@ -77,58 +77,63 @@ export function ChartDock(props: ChartDockProps): ReactElement {
             role="toolbar"
             aria-label={translate('dock.label')}
         >
-            {hasChartControls && (
-                <>
-                    <DockPopover
-                        label={translate('instrument.label')}
-                        trigger={(
-                            <span className="flex items-center gap-1 px-1 text-xs font-semibold">
-                                <Coins size={ICON_SIZE_PX} />
-                                {shortenSymbol(props.instrumentSymbol)}
-                            </span>
-                        )}
-                    >
-                        {/* No title: the button it opened from is the title, and a panel
+            {/* Centred by an inner box with margins of its own, rather than by
+                justifying the scroller: a centred scroller puts its overflow
+                past the left edge, where nothing can scroll back to it. */}
+            <div className="m-auto flex items-center gap-2">
+                {hasChartControls && (
+                    <>
+                        <DockPopover
+                            label={translate('instrument.label')}
+                            trigger={(
+                                <span className="flex items-center gap-1 px-1 text-xs font-semibold">
+                                    <Coins size={ICON_SIZE_PX} />
+                                    {shortenSymbol(props.instrumentSymbol)}
+                                </span>
+                            )}
+                        >
+                            {/* No title: the button it opened from is the title, and a panel
                         that repeats it is a line the reader has to read twice. */}
-                        <div className="w-56">
-                            <ChoiceGrid
-                                isStacked
-                                label={translate('instrument.label')}
-                                value={props.instrumentSymbol ?? ''}
-                                onChoose={props.onInstrumentSelect}
-                                choices={props.instruments.map((instrument) => ({
-                                    value: instrument.instrumentSymbol,
-                                    label: instrument.instrumentSymbol,
-                                }))}
-                            />
-                        </div>
-                    </DockPopover>
+                            <div className="w-56">
+                                <ChoiceGrid
+                                    isStacked
+                                    label={translate('instrument.label')}
+                                    value={props.instrumentSymbol ?? ''}
+                                    onChoose={props.onInstrumentSelect}
+                                    choices={props.instruments.map((instrument) => ({
+                                        value: instrument.instrumentSymbol,
+                                        label: instrument.instrumentSymbol,
+                                    }))}
+                                />
+                            </div>
+                        </DockPopover>
 
-                    <DockPopover
-                        label={translate('dock.time')}
-                        trigger={(
-                            <span className="px-1 text-xs font-semibold">
-                                {formatDuration(props.time.visibleSpanMs, translate)}
-                            </span>
-                        )}
-                    >
-                        <TimePanel time={props.time} />
-                    </DockPopover>
+                        <DockPopover
+                            label={translate('dock.time')}
+                            trigger={(
+                                <span className="px-1 text-xs font-semibold">
+                                    {formatDuration(props.time.visibleSpanMs, translate)}
+                                </span>
+                            )}
+                        >
+                            <TimePanel time={props.time} />
+                        </DockPopover>
 
-                    <DockPopover
-                        label={translate('indicators.onTheChart')}
-                        trigger={<Layers size={ICON_SIZE_PX} />}
-                    >
-                        <LayerPanel controls={props.indicators} />
-                    </DockPopover>
+                        <DockPopover
+                            label={translate('indicators.onTheChart')}
+                            trigger={<Layers size={ICON_SIZE_PX} />}
+                        >
+                            <LayerPanel controls={props.indicators} />
+                        </DockPopover>
 
-                    <Divider />
-                </>
-            )}
+                        <Divider />
+                    </>
+                )}
 
 
 
-            <DrawingTools drawings={drawings} />
+                <DrawingTools drawings={drawings} />
+            </div>
         </div>
     );
 }

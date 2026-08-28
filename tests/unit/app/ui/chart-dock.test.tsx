@@ -175,6 +175,19 @@ describe('ChartDock', () => {
     });
 });
 
+describe('ChartDock centred', () => {
+    it('holds its controls in a box of its own, so they can sit in the middle', () => {
+        // Centred by an inner box with margins rather than by justifying the
+        // scroller: a centred scroller puts its overflow past the left edge,
+        // where nothing can scroll back to it.
+        renderDock();
+
+        const inner = screen.getByRole('toolbar').firstElementChild;
+
+        expect(inner?.className).toContain('m-auto');
+    });
+});
+
 describe('ChartDock and the catalogue', () => {
     it('answers no keyboard chord of its own', () => {
         // A catalogue of indicators is too particular a thing to hold a chord
