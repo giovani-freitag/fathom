@@ -37,24 +37,31 @@ export function IndicatorPalette({ onAdd, isFull, addedCounts, hasAutoFocus = fa
 
     return (
         <div className="flex w-72 flex-col gap-2">
-            <div className="relative">
-                <Search className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-ink-500" />
-                <input
-                    type="search"
-                    value={query}
-                    autoFocus={hasAutoFocus}
-                    placeholder={translate('indicators.search')}
-                    onChange={(event) => { setQuery(event.target.value); }}
-                    onKeyDown={(event) => { addFirstMatch(event, matches, isFull, onAdd); }}
-                    className={`${CONTROL_INPUT_CLASSES} pl-8 pr-2`}
-                />
+            {/* Held at the top of the panel that scrolls rather than given a
+                scroller of its own: a list that scrolls inside a panel that also
+                scrolls stands two bars side by side, and a reader dragging one
+                of them has to find out which is theirs. The negative margins let
+                it cover the card's own padding once it is stuck there. */}
+            <div className="sticky top-0 z-10 -mx-3 -mt-3 flex flex-col gap-2 bg-abyss-800 px-3 pb-1 pt-3">
+                <div className="relative">
+                    <Search className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-ink-500" />
+                    <input
+                        type="search"
+                        value={query}
+                        autoFocus={hasAutoFocus}
+                        placeholder={translate('indicators.search')}
+                        onChange={(event) => { setQuery(event.target.value); }}
+                        onKeyDown={(event) => { addFirstMatch(event, matches, isFull, onAdd); }}
+                        className={`${CONTROL_INPUT_CLASSES} pl-8 pr-2`}
+                    />
+                </div>
+
+                {isFull && (
+                    <p className="px-1 text-xs leading-snug text-amber">{translate('indicators.full')}</p>
+                )}
             </div>
 
-            {isFull && (
-                <p className="px-1 text-xs leading-snug text-amber">{translate('indicators.full')}</p>
-            )}
-
-            <div className="max-h-[min(28rem,60vh)] overflow-y-auto">
+            <div>
                 {matches.length === 0 && (
                     <p className="px-1 py-3 text-xs text-ink-500">{translate('indicators.noMatch')}</p>
                 )}

@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render, type RenderResult } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { type AddedIndicator, resolveBandKey } from '../../src/shared/core/indicator-selection.ts';
 import type { AppearanceState } from '../../src/app/core/appearance-controller.ts';
@@ -93,8 +93,8 @@ export function createIndicatorKernel(added: readonly AddedIndicator[] = []): In
  * @param kernel - The kernel to provide.
  * @param element - What to render.
  */
-export function renderWithKernel(kernel: IndicatorKernel, element: ReactElement): void {
-    render(<KernelProvider container={kernel.container}>{element}</KernelProvider>);
+export function renderWithKernel(kernel: IndicatorKernel, element: ReactElement): RenderResult {
+    return render(<KernelProvider container={kernel.container}>{element}</KernelProvider>);
 }
 
 /** The instants the synthetic bars close at, for a test that moves the cursor. */

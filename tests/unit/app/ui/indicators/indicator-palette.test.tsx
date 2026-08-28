@@ -5,11 +5,12 @@ import { IndicatorPalette } from '../../../../../src/app/ui/indicators/indicator
 
 function renderPalette(options: { isFull?: boolean; counts?: [string, number][] } = {}): {
     added: string[];
+    container: HTMLElement;
 } {
     const added: string[] = [];
     const kernel = createIndicatorKernel();
 
-    renderWithKernel(kernel, (
+    const { container } = renderWithKernel(kernel, (
         <IndicatorPalette
             onAdd={(indicatorId) => { added.push(indicatorId); }}
             isFull={options.isFull ?? false}
@@ -17,7 +18,7 @@ function renderPalette(options: { isFull?: boolean; counts?: [string, number][] 
         />
     ));
 
-    return { added };
+    return { added, container };
 }
 
 describe('IndicatorPalette', () => {
@@ -71,5 +72,22 @@ describe('IndicatorPalette', () => {
 
         expect(palette.added).toEqual([]);
         expect(screen.getByText('The chart is holding as many as it can draw')).toBeDefined();
+    });
+});
+
+describe('IndicatorPalette leaving the scrolling to the panel it opens in', () => {
+    it('gives no part of itself a scroller of its own', () => {
+        const { container } = renderPalette();
+        const scrollers = [...container.querySelectorAll('[class*="overflow-y"]')];
+
+        expect(scrollers).toEqual([]);
+    });
+
+    it('holds the search field at the top instead, so it survives the scroll', () => {
+        renderPalette();
+
+        const field = screen.getByRole('searchbox').closest('[class*="sticky"]');
+
+        expect(field).not.toBeNull();
     });
 });
