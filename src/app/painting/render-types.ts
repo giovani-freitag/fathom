@@ -4,7 +4,7 @@ import type { LayerSettings } from '../indicators/field-layers.ts';
 import type { PlotLevel } from '../../shared/core/draw-plan.ts';
 import type { ViewportProjector } from '../core/viewport-projector.ts';
 import type { ChartDataset } from '../core/chart-dataset.ts';
-import type { ResolvedTheme } from '../core/theme.ts';
+import type { GridChoice, ResolvedTheme } from '../core/theme.ts';
 import type { DrawPlan } from '../../shared/core/draw-plan.ts';
 import type { Locale } from '../i18n/locale.ts';
 import type { Translate } from '../i18n/translator.ts';
@@ -39,6 +39,8 @@ export interface RenderRequest {
     readonly plans: readonly DrawPlan[];
     /** Named rather than read from the palette, which is mutated in place. */
     readonly theme: ResolvedTheme;
+    /** How much of the grid the reader wants ruled across the chart. */
+    readonly gridChoice: GridChoice;
     /** The marks the reader left, and the one being dragged out now. */
     readonly drawings: DrawingsView;
 }

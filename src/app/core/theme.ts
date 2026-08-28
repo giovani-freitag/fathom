@@ -19,3 +19,15 @@ export function resolveTheme(choice: ThemeChoice, prefersDark: boolean): Resolve
     }
     return choice;
 }
+
+/**
+ * How much of the grid a reader wants ruled across the chart.
+ *
+ * A liquidity map is already dense, and every line drawn over it is a line
+ * competing with the data. The time lines are the ones that pollute: they run
+ * the full height of the stack and there are one for every label, so they are
+ * the half a reader is most likely to want gone.
+ */
+export type GridChoice = 'none' | 'price' | 'both';
+
+export const GRID_CHOICES: readonly GridChoice[] = ['none', 'price', 'both'];

@@ -10,7 +10,7 @@ import {
 } from '../../shared/core/indicator-selection.ts';
 import { BAR_INTERVALS_MS, type BarIntervalMs } from '../core/bar-interval.ts';
 import { type Locale, resolveLocale } from '../i18n/locale.ts';
-import { THEME_CHOICES, type ThemeChoice } from '../core/theme.ts';
+import { GRID_CHOICES, type GridChoice, THEME_CHOICES, type ThemeChoice } from '../core/theme.ts';
 
 const STORAGE_KEY = 'fathom.preferences.v1';
 
@@ -36,6 +36,8 @@ export interface ViewerPreferences {
     readonly themeChoice: ThemeChoice;
     /** Whether the rows over the price are folded behind their own control. */
     readonly isLegendCollapsed: boolean;
+    /** How much of the grid is ruled across the chart. */
+    readonly gridChoice: GridChoice;
     /** Every mark the reader has left, across every contract. */
     readonly drawings: readonly Drawing[];
 }
@@ -49,6 +51,10 @@ export const DEFAULT_PREFERENCES: ViewerPreferences = {
     locale: null,
     themeChoice: 'system',
     isLegendCollapsed: false,
+    // Price only. A liquidity map is dense enough that every line drawn over it
+    // competes with the data, and the time lines are the ones that run the full
+    // height of the stack.
+    gridChoice: 'price',
     drawings: [],
 };
 
@@ -95,6 +101,7 @@ export class PreferencesService {
             locale: merged.locale === null ? null : resolveLocale([String(merged.locale)]),
             themeChoice: THEME_CHOICES.find((choice) => choice === merged.themeChoice) ?? 'system',
             isLegendCollapsed: merged.isLegendCollapsed === true,
+            gridChoice: GRID_CHOICES.find((choice) => choice === merged.gridChoice) ?? 'price',
             // A rung the build no longer offers reads as no choice at all,
             // which is the state a chart works in anyway.
             barIntervalMs: BAR_INTERVALS_MS.find((rung) => rung === merged.barIntervalMs) ?? null,

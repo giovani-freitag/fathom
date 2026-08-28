@@ -699,6 +699,18 @@ Nothing is drawn over the chart but the colour ramp the depth map is read from,
 a mark when a refetch has failed, and a notice about a layer just removed while
 there is still time to change one's mind.
 
+**The grid is a preference, and time is off by default.** A liquidity map is
+dense, and every line ruled over it competes with the data underneath. The time
+lines cost most — one per label, each running the full height of the pane stack
+— so the chart opens with the price lines alone and offers the other two states
+beside the theme. The dotted amber verticals are not grid: they mark stretches
+nothing was recorded through, and they stay whatever the grid is set to.
+
+**A reading along the floor grows from the floor.** A band of its own keeps air
+under it, because a value at the low end is a reading like any other. A strip
+along the bottom of the price pane does not: the volume bars grow *from* the
+axis, and room under them reads as a second axis nobody drew.
+
 **The gutters shrink rather than move.** The price axis and the profile panel
 took a hundred and ten pixels of a three-hundred-and-ninety-pixel phone —
 twenty-eight per cent, the largest single waste of width the chart had. They are

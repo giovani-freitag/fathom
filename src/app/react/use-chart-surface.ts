@@ -148,6 +148,7 @@ export function useChartSurface(): ChartSurfaceHandles {
             pointer: pointerRef.current,
             locale: appearance.locale,
             theme: appearance.resolvedTheme,
+            gridChoice: appearance.gridChoice,
             drawings: {
                 settled: marks.drawings,
                 draft: marks.draft,

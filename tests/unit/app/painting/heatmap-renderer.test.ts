@@ -52,6 +52,7 @@ function buildRequest(overrides: Partial<RenderRequest> = {}): RenderRequest {
         locale: 'en',
         plans: [],
         theme: 'dark',
+        gridChoice: 'both',
         drawings: EMPTY_DRAWINGS_VIEW,
         ...overrides,
     };

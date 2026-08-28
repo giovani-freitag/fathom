@@ -1,5 +1,11 @@
 import { type Locale, SUPPORTED_LOCALES } from '../i18n/locale.ts';
-import { type ResolvedTheme, THEME_CHOICES, type ThemeChoice } from '../core/theme.ts';
+import {
+    GRID_CHOICES,
+    type GridChoice,
+    type ResolvedTheme,
+    THEME_CHOICES,
+    type ThemeChoice,
+} from '../core/theme.ts';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { FlagIcon } from './flag-icon.tsx';
@@ -31,10 +37,19 @@ export interface AppearanceControlsProps {
     readonly translate: Translate;
     readonly onSelectLocale: (locale: Locale) => void;
     readonly onSelectTheme: (themeChoice: ThemeChoice) => void;
+    readonly gridChoice: GridChoice;
+    readonly onSelectGrid: (gridChoice: GridChoice) => void;
 }
 
+/** What each amount of grid is called. */
+const GRID_LABEL_KEYS: Readonly<Record<GridChoice, TranslationKey>> = {
+    none: 'settings.grid.none',
+    price: 'settings.grid.price',
+    both: 'settings.grid.both',
+};
+
 /**
- * The language and the theme, side by side.
+ * The language, the theme and the grid, side by side.
  */
 export function AppearanceControls({
     locale,
@@ -43,6 +58,8 @@ export function AppearanceControls({
     translate,
     onSelectLocale,
     onSelectTheme,
+    gridChoice,
+    onSelectGrid,
 }: AppearanceControlsProps): ReactElement {
     return (
         <div className="flex flex-wrap gap-2">
@@ -70,6 +87,16 @@ export function AppearanceControls({
                     ...(candidate === 'system'
                         ? { detail: translate(THEME_LABEL_KEYS[resolvedTheme]) }
                         : {}),
+                }))}
+            />
+
+            <Select
+                value={gridChoice}
+                label={translate('settings.grid')}
+                onSelect={(chosen) => { onSelectGrid(chosen as GridChoice); }}
+                choices={GRID_CHOICES.map((candidate) => ({
+                    value: candidate,
+                    label: translate(GRID_LABEL_KEYS[candidate]),
                 }))}
             />
         </div>

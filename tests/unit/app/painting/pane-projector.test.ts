@@ -230,3 +230,27 @@ describe('a band with nothing visible in it', () => {
         expect(resolvePlanRange(plan, { fromMs: 0, toMs: 1_000 })).toEqual({ low: 0, high: 1 });
     });
 });
+
+describe('PaneProjector along the floor of the price pane', () => {
+    const RECT = { topY: 800, height: 200 };
+
+    it('puts the lowest value on the floor, with nothing under it', () => {
+        // A strip along the floor holds bars that grow from it. Room under them
+        // reads as a second axis nobody drew.
+        const projector = new PaneProjector({ rect: RECT, low: 0, high: 100, hasFloorInset: false });
+
+        expect(projector.valueToY(0)).toBe(RECT.topY + RECT.height);
+    });
+
+    it('keeps air over the tallest bar, so a peak is not clipped', () => {
+        const projector = new PaneProjector({ rect: RECT, low: 0, high: 100, hasFloorInset: false });
+
+        expect(projector.valueToY(100)).toBeGreaterThan(RECT.topY);
+    });
+
+    it('floats a band of its own clear at both ends', () => {
+        const projector = new PaneProjector({ rect: RECT, low: 0, high: 100 });
+
+        expect(projector.valueToY(0)).toBeLessThan(RECT.topY + RECT.height);
+    });
+});

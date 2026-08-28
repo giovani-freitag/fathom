@@ -18,6 +18,15 @@ export interface PaneProjectorConfig {
     readonly rect: PaneRect;
     readonly low: number;
     readonly high: number;
+    /**
+     * Whether the reading floats clear of the bottom of its own band.
+     *
+     * True in a band of its own, where a value at the low end is a reading like
+     * any other and wants air under it. False in a strip along the floor of the
+     * price pane, where the bars grow *from* the floor: room under them reads as
+     * a second axis nobody drew.
+     */
+    readonly hasFloorInset?: boolean;
 }
 
 /**
@@ -31,8 +40,9 @@ export class PaneProjector implements ValueProjector {
 
     constructor(config: PaneProjectorConfig) {
         const inset = config.rect.height * PANE_INSET_RATIO;
+        const floorInset = config.hasFloorInset === false ? 0 : inset;
         this.topY = config.rect.topY + inset;
-        this.drawableHeight = Math.max(1, config.rect.height - inset * 2);
+        this.drawableHeight = Math.max(1, config.rect.height - inset - floorInset);
         this.low = config.low;
         this.span = Math.max(Number.EPSILON, config.high - config.low);
     }

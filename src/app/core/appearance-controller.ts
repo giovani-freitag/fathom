@@ -1,5 +1,5 @@
 import { type Locale, resolveLocale } from '../i18n/locale.ts';
-import { type ResolvedTheme, resolveTheme, type ThemeChoice } from './theme.ts';
+import { type GridChoice, type ResolvedTheme, resolveTheme, type ThemeChoice } from './theme.ts';
 import { applyFormattingLocale } from './formatting.ts';
 import { applyRenderTheme } from '../painting/render-theme.ts';
 import { ObservableStore } from './observable-store.ts';
@@ -11,6 +11,8 @@ export interface AppearanceState {
     readonly resolvedTheme: ResolvedTheme;
     /** Whether the rows over the price are folded behind their own control. */
     readonly isLegendCollapsed: boolean;
+    /** How much of the grid is ruled across the chart. */
+    readonly gridChoice: GridChoice;
 }
 
 /** The browser handles the appearance is expressed through. */
@@ -48,6 +50,7 @@ export class AppearanceController {
                 themeChoice: stored.themeChoice,
                 resolvedTheme: resolveTheme(stored.themeChoice, config.host?.darkQuery.matches ?? true),
                 isLegendCollapsed: stored.isLegendCollapsed,
+                gridChoice: stored.gridChoice,
             },
         });
     }
@@ -107,6 +110,16 @@ export class AppearanceController {
     setLegendCollapsed(isLegendCollapsed: boolean): void {
         this.store.update((state) => ({ ...state, isLegendCollapsed }));
         this.config.preferences.write({ isLegendCollapsed });
+    }
+
+    /**
+     * Rules more or less of the grid across the chart.
+     *
+     * @param gridChoice - How much of it the reader wants.
+     */
+    selectGrid(gridChoice: GridChoice): void {
+        this.store.update((state) => ({ ...state, gridChoice }));
+        this.config.preferences.write({ gridChoice });
     }
 
     private paintTheme(theme: ResolvedTheme): void {

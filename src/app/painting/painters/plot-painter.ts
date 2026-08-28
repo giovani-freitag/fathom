@@ -99,6 +99,8 @@ export class PlotPainter {
 
         this.paintPlanOverPrice(paint, plan, new PaneProjector({
             rect: strip,
+            // Grown from the floor of the pane, not floated above it.
+            hasFloorInset: false,
             ...resolvePlanRange(plan, paint.request.viewport),
         }));
 

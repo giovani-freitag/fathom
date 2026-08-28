@@ -87,6 +87,8 @@ function SettingsDrawerShell({
                                 translate={translate}
                                 onSelectLocale={(locale) => { kernel.appearance.selectLocale(locale); }}
                                 onSelectTheme={(themeChoice) => { kernel.appearance.selectTheme(themeChoice); }}
+                                gridChoice={appearance.gridChoice}
+                                onSelectGrid={(gridChoice) => { kernel.appearance.selectGrid(gridChoice); }}
                             />
                         </PanelSection>
 

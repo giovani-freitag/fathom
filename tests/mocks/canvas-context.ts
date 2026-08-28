@@ -97,6 +97,8 @@ export interface PaintContextOptions {
     readonly viewport?: Partial<ChartViewport>;
     readonly pointer?: RenderRequest['pointer'];
     readonly plans?: RenderRequest['plans'];
+    /** How much of the grid the frame is ruled with. */
+    readonly gridChoice?: RenderRequest['gridChoice'];
     readonly crosshairY?: number | null;
     readonly isVolumeProfileVisible?: boolean;
     /** The instant being painted, for what counts down rather than sits still. */
@@ -165,6 +167,7 @@ export function buildPaintContext(
             locale: 'en',
             plans,
             theme: 'dark',
+            gridChoice: options.gridChoice ?? 'both',
             drawings: options.drawings ?? EMPTY_DRAWINGS_VIEW,
         },
         crosshairY: options.crosshairY ?? options.pointer?.y ?? null,
