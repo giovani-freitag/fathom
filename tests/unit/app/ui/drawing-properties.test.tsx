@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import type { Drawing } from '../../../../src/shared/core/drawing.ts';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { type Drawing, MAXIMUM_LABEL_LENGTH } from '../../../../src/shared/core/drawing.ts';
 import type { DrawingControls } from '../../../../src/app/react/use-drawings.ts';
 import type { DrawingRestyle } from '../../../../src/app/drawings/drawings-controller.ts';
 import { DrawingProperties } from '../../../../src/app/ui/drawing-properties.tsx';
@@ -117,5 +117,48 @@ describe('DrawingProperties', () => {
         screen.getByRole('button', { name: EN_DICTIONARY['drawing.remove'] }).click();
 
         expect(pressed.removed).toEqual([1]);
+    });
+});
+
+describe('DrawingProperties naming a mark', () => {
+    it('offers the name a mark already carries', () => {
+        renderPanel({ ...LEVEL, label: 'support' });
+
+        expect(screen.getByDisplayValue('support')).toBeTruthy();
+    });
+
+    it('offers an empty name for a mark that was never named', () => {
+        renderPanel(LEVEL);
+
+        const field = screen.getByPlaceholderText(EN_DICTIONARY['drawing.label.placeholder']);
+
+        expect((field as HTMLInputElement).value).toBe('');
+    });
+
+    it('renames the mark as the reader types', () => {
+        const pressed = renderPanel(LEVEL);
+
+        fireEvent.change(
+            screen.getByPlaceholderText(EN_DICTIONARY['drawing.label.placeholder']),
+            { target: { value: 'support' } },
+        );
+
+        expect(pressed.restyled).toEqual([{ label: 'support' }]);
+    });
+
+    it('holds the space a reader pressed, so a name can reach its second word', () => {
+        renderPanel({ ...LEVEL, label: 'suporte ' });
+
+        const field = screen.getByPlaceholderText(EN_DICTIONARY['drawing.label.placeholder']);
+
+        expect((field as HTMLInputElement).value).toBe('suporte ');
+    });
+
+    it('will not take a name longer than the chart can carry', () => {
+        renderPanel(LEVEL);
+
+        const field = screen.getByPlaceholderText(EN_DICTIONARY['drawing.label.placeholder']);
+
+        expect((field as HTMLInputElement).maxLength).toBe(MAXIMUM_LABEL_LENGTH);
     });
 });

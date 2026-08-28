@@ -585,3 +585,71 @@ describe('DrawingsController keeping the tool', () => {
         expect(harness.drawings.store.read().armedTool).toBeNull();
     });
 });
+
+describe('DrawingsController naming a mark', () => {
+    let harness: Harness;
+
+    /** Draws one level and points the controls at it, ready to be named. */
+    function drawSelectedLevel(): string {
+        harness.drawings.arm('horizontal-line');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.settle();
+        const drawn = harness.drawings.store.read().drawings[0]!;
+        harness.drawings.select(drawn.id);
+        return drawn.id;
+    }
+
+    beforeEach(() => { harness = buildHarness(); });
+
+    it('writes the name onto the mark', () => {
+        const drawingId = drawSelectedLevel();
+
+        harness.drawings.restyle(drawingId, { label: 'support' });
+
+        expect(harness.drawings.store.read().drawings[0]?.label).toBe('support');
+    });
+
+    it('keeps the name in storage, so it survives the page', () => {
+        const drawingId = drawSelectedLevel();
+
+        harness.drawings.restyle(drawingId, { label: 'support' });
+
+        expect(readPersisted(harness)[0]?.label).toBe('support');
+    });
+
+    it('takes a whole name off in one step back rather than one letter', () => {
+        const drawingId = drawSelectedLevel();
+        for (const typed of ['s', 'su', 'sup']) {
+            harness.drawings.restyle(drawingId, { label: typed });
+        }
+
+        harness.drawings.undo();
+
+        expect(harness.drawings.store.read().drawings[0]?.label).toBeUndefined();
+    });
+
+    it('starts a fresh step when the reader comes back to rename a mark', () => {
+        const drawingId = drawSelectedLevel();
+        harness.drawings.restyle(drawingId, { label: 'support' });
+        harness.drawings.select(null);
+        harness.drawings.select(drawingId);
+
+        harness.drawings.restyle(drawingId, { label: 'resistance' });
+        harness.drawings.undo();
+
+        expect(harness.drawings.store.read().drawings[0]?.label).toBe('support');
+    });
+
+    it('keeps a colour on its own step, apart from the name typed before it', () => {
+        const drawingId = drawSelectedLevel();
+        harness.drawings.restyle(drawingId, { label: 'support' });
+
+        harness.drawings.restyle(drawingId, { tone: 'amber' });
+        harness.drawings.undo();
+
+        expect(harness.drawings.store.read().drawings[0]).toMatchObject({
+            label: 'support',
+            tone: 'phosphor',
+        });
+    });
+});

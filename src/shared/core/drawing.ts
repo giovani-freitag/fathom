@@ -75,6 +75,14 @@ export interface DrawingLook {
 const DEFAULT_LOOK: DrawingLook = { width: 'medium', style: 'solid' };
 
 /**
+ * How long a mark's name may be.
+ *
+ * Long enough for a reason and short enough to sit beside the mark rather than
+ * across the chart: a label wider than what it names has stopped labelling it.
+ */
+export const MAXIMUM_LABEL_LENGTH = 60;
+
+/**
  * How a mark should be drawn, whatever it happens to say about itself.
  *
  * Read through here rather than off the mark, because a mark stored before this
@@ -95,6 +103,36 @@ export function resolveDrawingLook(drawing: Drawing): DrawingLook {
 }
 
 /**
+ * A mark's name exactly as it is stored, for a field being typed into.
+ *
+ * Untrimmed on purpose: a field that trims what is being typed takes the space
+ * back off the moment it is pressed, and the second word is never reachable.
+ *
+ * Read through here rather than off the mark, because storage is a place a
+ * string can arrive from having been something else: a name that is not text is
+ * a name nobody typed, and drawing it would put `[object Object]` on the chart.
+ *
+ * @param drawing - The mark to read.
+ * @returns Its name as stored and bounded, or the empty string when it has none.
+ */
+export function readStoredLabel(drawing: Drawing): string {
+    return typeof drawing.label === 'string'
+        ? drawing.label.slice(0, MAXIMUM_LABEL_LENGTH)
+        : '';
+}
+
+/**
+ * What a mark is called, or nothing when it was never named.
+ *
+ * @param drawing - The mark to read.
+ * @returns Its name, ready to write on the chart, or null when it has none.
+ */
+export function resolveDrawingLabel(drawing: Drawing): string | null {
+    const label = readStoredLabel(drawing).trim();
+    return label === '' ? null : label;
+}
+
+/**
  * One mark a reader left on one instrument's chart.
  */
 export interface Drawing {
@@ -107,6 +145,13 @@ export interface Drawing {
     /** Absent on a mark stored before this build knew how to vary either. */
     readonly width?: DrawingWidth;
     readonly style?: DrawingStyle;
+    /**
+     * What the reader called it, written on the chart beside it.
+     *
+     * A mark says where; a name says why, and why is the half a reader cannot
+     * reconstruct a week later from a line on a screen.
+     */
+    readonly label?: string;
 }
 
 /**

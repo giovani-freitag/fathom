@@ -418,3 +418,70 @@ describe('describeDrawings reading the look', () => {
             .not.toBe(describeDrawings(view));
     });
 });
+
+describe('DrawingPainter writing what a mark is called', () => {
+    const painter = new DrawingPainter();
+    let recording: RecordingContext;
+
+    beforeEach(() => { recording = createRecordingContext(); });
+
+    /** Every name the painter wrote on the chart. */
+    function namesWritten(): string[] {
+        return recording.callsTo('fillText').map((call) => String(call.args[0]));
+    }
+
+    it('writes the name a reader gave the mark', () => {
+        const level = buildLevel({ label: 'support' });
+
+        painter.paint(buildContext(recording, { settled: [level] }));
+
+        expect(namesWritten()).toContain('support');
+    });
+
+    it('writes nothing beside a mark that was never named', () => {
+        painter.paint(buildContext(recording, { settled: [buildLevel()] }));
+
+        expect(namesWritten()).toEqual([]);
+    });
+
+    it('turns the name to lie along a rising line', () => {
+        const trend = buildTrend({ label: 'breakout' });
+
+        painter.paint(buildContext(recording, { settled: [trend] }));
+
+        expect(recording.callsTo('rotate')[0]?.args[0]).not.toBe(0);
+    });
+
+    it('leaves the name level on a mark that is level', () => {
+        const level = buildLevel({ label: 'support' });
+
+        painter.paint(buildContext(recording, { settled: [level] }));
+
+        expect(recording.callsTo('rotate')[0]?.args[0]).toBe(0);
+    });
+
+    it('keeps the name the right way up on a line drawn leftward', () => {
+        const backward = buildTrend({
+            label: 'breakout',
+            anchors: [
+                { atMs: DEFAULT_VIEWPORT.toMs, price: DEFAULT_VIEWPORT.lowPrice },
+                { atMs: DEFAULT_VIEWPORT.fromMs, price: DEFAULT_VIEWPORT.highPrice },
+            ],
+        });
+
+        painter.paint(buildContext(recording, { settled: [backward] }));
+
+        expect(Math.abs(Number(recording.callsTo('rotate')[0]?.args[0]))).toBeLessThanOrEqual(Math.PI / 2);
+    });
+
+    it('draws the mark again when only its name changed', () => {
+        const before = describeDrawings({ ...EMPTY_DRAWINGS_VIEW, settled: [buildLevel()] });
+
+        const after = describeDrawings({
+            ...EMPTY_DRAWINGS_VIEW,
+            settled: [buildLevel({ label: 'support' })],
+        });
+
+        expect(after).not.toBe(before);
+    });
+});

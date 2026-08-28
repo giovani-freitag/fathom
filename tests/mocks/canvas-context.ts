@@ -30,7 +30,7 @@ const RECORDED_METHODS = [
     'clearRect', 'fillRect', 'strokeRect', 'beginPath', 'moveTo', 'lineTo',
     'stroke', 'arc', 'fill', 'setLineDash', 'fillText', 'drawImage',
     'putImageData', 'save', 'restore', 'closePath', 'roundRect', 'setTransform',
-    'rect', 'clip',
+    'rect', 'clip', 'translate', 'rotate',
 ] as const;
 
 /** What a recorded call answers with, for the few that must answer something. */

@@ -7,7 +7,10 @@ import {
     isDrawing,
     isTransientKind,
     moveDrawingAnchor,
+    MAXIMUM_LABEL_LENGTH,
     priceAtTime,
+    readStoredLabel,
+    resolveDrawingLabel,
     resolveDrawingLook,
     shiftDrawing,
 } from '../../../src/shared/core/drawing.ts';
@@ -228,5 +231,61 @@ describe('isTransientKind', () => {
     it('says a mark a reader drew is theirs to keep', () => {
         expect(DRAWING_KINDS.filter((kind) => !isTransientKind(kind)))
             .toEqual(['horizontal-line', 'trend-line', 'zone', 'fibonacci']);
+    });
+});
+
+describe('resolveDrawingLabel', () => {
+    const LEVEL: Drawing = {
+        id: 'level',
+        kind: 'horizontal-line',
+        instrumentSymbol: 'BTCUSDT',
+        anchors: [{ atMs: 1_000, price: 100 }],
+        tone: 'phosphor',
+    };
+
+    it('reads back the name a reader typed', () => {
+        const label = resolveDrawingLabel({ ...LEVEL, label: 'support' });
+
+        expect(label).toBe('support');
+    });
+
+    it('has no name for a mark that was never named', () => {
+        const label = resolveDrawingLabel(LEVEL);
+
+        expect(label).toBeNull();
+    });
+
+    it('has no name for a mark named nothing but spaces', () => {
+        const label = resolveDrawingLabel({ ...LEVEL, label: '   ' });
+
+        expect(label).toBeNull();
+    });
+
+    it('drops the spaces around a name', () => {
+        const label = resolveDrawingLabel({ ...LEVEL, label: '  support  ' });
+
+        expect(label).toBe('support');
+    });
+
+    it('cuts a name that would run across the chart', () => {
+        const label = resolveDrawingLabel({ ...LEVEL, label: 'x'.repeat(500) });
+
+        expect(label).toHaveLength(MAXIMUM_LABEL_LENGTH);
+    });
+
+    it('reads a name back untouched for a field being typed into', () => {
+        const stored = readStoredLabel({ ...LEVEL, label: '  suporte ' });
+
+        expect(stored).toBe('  suporte ');
+    });
+
+    it('reads back an empty name for a mark that was never named', () => {
+        expect(readStoredLabel(LEVEL)).toBe('');
+    });
+
+    it('has no name for storage that held something other than text', () => {
+        const stored = { ...LEVEL, label: { text: 'support' } } as unknown as Drawing;
+
+        expect(resolveDrawingLabel(stored)).toBeNull();
     });
 });

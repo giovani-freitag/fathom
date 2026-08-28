@@ -599,13 +599,24 @@ layer's key. The one being dragged out is on the same layer and dashed: a drag
 already invalidates the key through the viewport, so it costs the repaint that
 was happening anyway.
 
-What a mark says about how to draw it — its colour, its weight, its line — is
-stored beside its anchors, and everything it does not say is filled in when it
+What a mark says about how to draw it — its colour, its weight, its line — and
+what a reader calls it are stored beside its anchors, and everything it does not say is filled in when it
 is read rather than when it is written. A mark left in an earlier session names
 no weight and no line at all, and is drawn anyway; so is one naming a weight
 this build has never heard of. The alternative — refusing to draw what does not
 parse, or migrating every stored mark on the way in — loses a reader's own work
 to a vocabulary that grew after they left it.
+
+A mark can also be named, and the name is written on the mark: a mark says
+where, and a name says why, which is the half a reader cannot reconstruct a week
+later from a line on a screen. It is written along a segment rather than level
+over it, because a name lying level across a sloped line belongs to neither the
+line nor the chart under it, and turned back the right way up where the line
+runs leftward. The field it is typed into holds the raw stored text rather than
+the trimmed name that gets drawn — a field that trims as it is typed takes the
+space back off the moment it is pressed, and the second word is never reachable
+— and the whole name is one step back rather than one per letter, because a
+reader who undoes a name means the name.
 
 Selecting a mark opens what can be changed about it, with no second control to
 find first: a reader who has just pressed a mark has said what they want to work
@@ -800,7 +811,7 @@ so the resting state reads as a choice rather than as nothing being on, and with
 step-back and step-forward at the end of the same row: undoing is part of
 drawing, and a row of its own for two glyphs was a second place to look. Above
 them, and only while a mark is selected, sits everything that mark can be
-changed by — its colour, its weight, its line, and the bin. A reader who never
+changed by — its name, its colour, its weight, its line, and the bin. A reader who never
 draws never sees that panel at all.
 
 The islands clear the time axis, whose labels are read while a mark is being

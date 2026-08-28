@@ -8,6 +8,8 @@ export const EN_DICTIONARY = {
     'drawing.trendLine': 'Trend line',
     'drawing.remove': 'Remove the selected mark',
     'drawing.properties': 'Mark properties',
+    'drawing.label': 'Name',
+    'drawing.label.placeholder': 'Write on the mark',
     'drawing.colour': 'Colour',
     'drawing.width': 'Weight',
     'drawing.width.thin': 'Thin',

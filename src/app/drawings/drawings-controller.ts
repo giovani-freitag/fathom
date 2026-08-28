@@ -39,11 +39,13 @@ export interface DrawingsState {
     readonly canRedo: boolean;
 }
 
-/** What about a mark's look is being changed. */
+/** What about a mark is being changed. */
 export interface DrawingRestyle {
     readonly tone?: PlotTone;
     readonly width?: DrawingWidth;
     readonly style?: DrawingStyle;
+    /** What the reader calls it; an empty name takes the label off. */
+    readonly label?: string;
 }
 
 /** Where a press landed, and on what. */
@@ -80,6 +82,9 @@ export class DrawingsController {
     private grabbedFrom: DrawingAnchor | null = null;
     /** Which end the gesture has hold of, or null when it has the whole mark. */
     private grabbedAnchorIndex: number | null = null;
+
+    /** The mark whose name is being typed, so the letters make one step. */
+    private renamingId: string | null = null;
     /**
      * What was on the chart when the gesture began.
      *
@@ -144,6 +149,9 @@ export class DrawingsController {
      * @param drawingId - The mark to select, or null to select nothing.
      */
     select(drawingId: string | null): void {
+        // Coming back to a mark starts a fresh name rather than extending the
+        // step the last one was typed in.
+        this.renamingId = null;
         // A measurement is answered by the moment it was asked in: the next
         // press anywhere is a reader who has read it and moved on.
         this.store.update((state) => ({ ...state, selectedId: drawingId, draft: null }));
@@ -234,7 +242,13 @@ export class DrawingsController {
      * @param look - Whichever of its tone, weight and line to change.
      */
     restyle(drawingId: string, look: DrawingRestyle): void {
-        this.rememberStep(this.store.read().drawings);
+        // A name is typed a letter at a time and meant a word at a time: a
+        // reader who undoes one expects the name gone, not its last character.
+        const isRenaming = look.label !== undefined && Object.keys(look).length === 1;
+        if (!isRenaming || this.renamingId !== drawingId) {
+            this.rememberStep(this.store.read().drawings);
+        }
+        this.renamingId = isRenaming ? drawingId : null;
         this.store.update((state) => ({
             ...state,
             drawings: state.drawings.map(
@@ -337,6 +351,7 @@ export class DrawingsController {
      * Keeps one step back, and says so to whatever offers the controls.
      */
     private rememberStep(before: readonly Drawing[]): void {
+        this.renamingId = null;
         this.history.record(before);
         this.publishHistory();
     }

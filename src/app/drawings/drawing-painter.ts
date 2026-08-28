@@ -4,6 +4,7 @@ import {
     FIBONACCI_RATIOS,
     type DrawingStyle,
     type DrawingWidth,
+    resolveDrawingLabel,
     resolveDrawingLook,
 } from '../../shared/core/drawing.ts';
 import type { FieldLayerPainter, PaintContext, RenderRequest } from '../painting/render-types.ts';
@@ -37,6 +38,10 @@ const STYLE_DASHES: Readonly<Record<DrawingStyle, readonly number[]>> = {
 /** Where a retracement writes its own ratio, and how far it sits off the line. */
 const FIBONACCI_LABEL_INSET_PX = 6;
 const FIBONACCI_LABEL_LIFT_PX = 7;
+
+/** How far a mark's name sits off the mark, and in from the edge. */
+const LABEL_LIFT_PX = 5;
+const LABEL_INSET_PX = 6;
 
 /** Radius of the grip shown at each anchor of the selected mark. */
 const HANDLE_RADIUS_PX = 5;
@@ -128,6 +133,74 @@ export class DrawingPainter implements FieldLayerPainter {
         if (isSelected) {
             this.markAnchors(paint, drawing);
         }
+        this.writeLabel(stroke);
+    }
+
+    /**
+     * Writes what the reader called the mark, beside the mark.
+     *
+     * Along the line for a segment, because a name written level over a sloped
+     * line belongs to neither the line nor the chart under it; level for
+     * everything else, which is how everything else is read.
+     */
+    private writeLabel(stroke: DrawingStroke): void {
+        const { paint, drawing } = stroke;
+        const label = resolveDrawingLabel(drawing);
+        const placement = label === null ? null : this.placeLabel(paint, drawing);
+        if (label === null || placement === null) {
+            return;
+        }
+
+        const { context } = paint;
+        context.save();
+        context.font = RENDER_METRICS.labelFont;
+        context.fillStyle = resolveToneColour(drawing.tone);
+        context.textBaseline = 'bottom';
+        context.textAlign = placement.align;
+        context.translate(placement.x, placement.y);
+        context.rotate(placement.angle);
+        context.fillText(label, 0, -LABEL_LIFT_PX);
+        context.restore();
+    }
+
+    /**
+     * Where a mark's name sits, and which way up it reads.
+     */
+    private placeLabel(paint: PaintContext, drawing: Drawing): LabelPlacement | null {
+        if (drawing.kind === 'trend-line') {
+            return this.placeAlongLine(paint, drawing);
+        }
+
+        const [first] = drawing.anchors;
+        if (first === undefined) {
+            return null;
+        }
+        // A level runs the whole window and a box has a corner: both read from
+        // the left, which is where the eye starts.
+        const box = boundDrawing(drawing);
+        const y = paint.projector.priceToY(box === null ? first.price : box.highPrice);
+        const x = box === null ? LABEL_INSET_PX : paint.projector.timeToX(box.fromMs);
+        return { x: Math.max(LABEL_INSET_PX, x), y, angle: 0, align: 'left' };
+    }
+
+    /**
+     * The middle of a segment, turned to lie along it.
+     */
+    private placeAlongLine(paint: PaintContext, drawing: Drawing): LabelPlacement | null {
+        const span = resolveSpan(drawing, paint.layout.plotWidth, paint.projector);
+        if (span === null) {
+            return null;
+        }
+
+        const angle = Math.atan2(span.toY - span.fromY, span.toX - span.fromX);
+        return {
+            x: (span.fromX + span.toX) / 2,
+            y: (span.fromY + span.toY) / 2,
+            // Turned back the right way up where the line runs leftward, so the
+            // name is never read upside down.
+            angle: Math.abs(angle) > Math.PI / 2 ? angle + Math.PI : angle,
+            align: 'center',
+        };
     }
 
     /**
@@ -320,6 +393,14 @@ export class DrawingPainter implements FieldLayerPainter {
     }
 }
 
+/** Where a mark's name is written, and which way it runs. */
+interface LabelPlacement {
+    readonly x: number;
+    readonly y: number;
+    readonly angle: number;
+    readonly align: CanvasTextAlign;
+}
+
 interface DrawingStroke {
     readonly paint: PaintContext;
     readonly drawing: Drawing;
@@ -429,7 +510,8 @@ export function describeDrawings(view: DrawingsView): string {
 function describeDrawing(drawing: Drawing): string {
     const anchors = drawing.anchors.map((anchor) => `${anchor.atMs}:${anchor.price}`).join(',');
     const look = resolveDrawingLook(drawing);
-    return `${drawing.id}@${drawing.tone}@${look.width}@${look.style}@${anchors}`;
+    return `${drawing.id}@${drawing.tone}@${look.width}@${look.style}`
+        + `@${resolveDrawingLabel(drawing) ?? ''}@${anchors}`;
 }
 
 /**

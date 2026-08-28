@@ -10,6 +10,8 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'drawing.trendLine': 'Linha de tendência',
     'drawing.remove': 'Remover a marca selecionada',
     'drawing.properties': 'Propriedades da marca',
+    'drawing.label': 'Nome',
+    'drawing.label.placeholder': 'Escreva na marca',
     'drawing.colour': 'Cor',
     'drawing.width': 'Espessura',
     'drawing.width.thin': 'Fina',

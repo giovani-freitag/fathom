@@ -71,6 +71,15 @@ has never heard of — is drawn at the default rather than refused. Resolving on
 read instead of migrating on write means the vocabulary can grow again without
 touching what a reader already drew.
 
+**A mark can be named, and the name is drawn on the mark.** A mark says where; a
+name says why, and why is the half a reader cannot reconstruct a week later from
+a line on a screen. The name is stored the way the look is — beside the anchors,
+resolved on read, so a mark drawn before names existed is drawn without one —
+and it is written along a segment rather than level over it, turned back the
+right way up where the line runs leftward. Typing it is one step back rather
+than one per letter: a reader who undoes a name means the name, not its last
+character.
+
 **A press has to travel before it moves anything, and the pointer says what it
 is over.** Both hang off the same claimant seam. A click that twitches two
 pixels is a selection, not a drag, so selecting a mark cannot shift it; and a

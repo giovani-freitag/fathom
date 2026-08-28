@@ -6,11 +6,14 @@ import {
     DRAWING_WIDTHS,
     type DrawingStyle,
     type DrawingWidth,
+    MAXIMUM_LABEL_LENGTH,
+    readStoredLabel,
     resolveDrawingLook,
 } from '../../shared/core/drawing.ts';
 import type { DrawingControls } from '../react/use-drawings.ts';
 import {
     CONTROL_CHOSEN_CLASSES,
+    CONTROL_INPUT_CLASSES,
     CONTROL_OFFERED_CLASSES,
     FLOATING_CARD_CLASSES,
 } from './control-shell.ts';
@@ -69,6 +72,22 @@ export function DrawingProperties({ controls }: DrawingPropertiesProps): ReactEl
             role="group"
             aria-label={translate('drawing.properties')}
         >
+            {/* First, because it is the only field a reader arrives with an
+                answer for: the rest are chosen by looking, this one by
+                remembering why the mark was made. */}
+            <Field title={translate('drawing.label')}>
+                <input
+                    type="text"
+                    value={readStoredLabel(selected)}
+                    maxLength={MAXIMUM_LABEL_LENGTH}
+                    placeholder={translate('drawing.label.placeholder')}
+                    onChange={(event) => {
+                        controls.restyleSelected({ label: event.target.value });
+                    }}
+                    className={`${CONTROL_INPUT_CLASSES} px-2 text-xs placeholder:text-ink-600`}
+                />
+            </Field>
+
             <Field title={translate('drawing.colour')}>
                 {INSTANCE_TONES.map((tone) => (
                     <Option
