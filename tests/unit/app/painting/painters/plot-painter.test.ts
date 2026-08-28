@@ -217,3 +217,34 @@ describe('PlotPainter drawing a level', () => {
         expect(dashed.length).toBeGreaterThan(solid.length);
     });
 });
+
+describe('PlotPainter drawing a series as marks', () => {
+    it('draws one mark per sample rather than a path through them', () => {
+        const recording = paintWith({ series: [buildSeries({ shape: 'dot' })] });
+
+        expect(recording.callsTo('arc')).toHaveLength(3);
+    });
+
+    it('joins none of the marks up', () => {
+        const recording = paintWith({ series: [buildSeries({ shape: 'dot' })] });
+
+        expect(recording.callsTo('lineTo')).toEqual([]);
+    });
+
+    it('leaves out the samples the series has nothing to say about', () => {
+        const value = Float64Array.from([78_500, Number.NaN, 78_550]);
+        const recording = paintWith({ series: [buildSeries({ shape: 'dot', value })] });
+
+        expect(recording.callsTo('arc')).toHaveLength(2);
+    });
+
+    it('draws a wider mark when the series asks for one', () => {
+        const radiusFor = (widthPx?: number): number => {
+            const overrides = widthPx === undefined ? {} : { widthPx };
+            const recording = paintWith({ series: [buildSeries({ shape: 'dot', ...overrides })] });
+            return Number(recording.callsTo('arc')[0]?.args[2]);
+        };
+
+        expect(radiusFor(12)).toBeGreaterThan(radiusFor());
+    });
+});

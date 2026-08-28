@@ -83,6 +83,24 @@ describe('findPlanAt', () => {
         expect(findPlanAt({ ...request, point: { x: between, y: yOf(50, request) } })).toBe('sma-1');
     });
 
+    it('answers on a mark of a series drawn as marks', () => {
+        const dots = buildPlan('psar-1', buildSeries(50, { shape: 'dot' }), { kind: 'price' });
+        const request = buildRequest([dots], { x: 0, y: 0 });
+
+        expect(findPlanAt({ ...request, point: { x: midX(request), y: yOf(50, request) } })).toBe('psar-1');
+    });
+
+    it('answers nothing between two marks, where nothing is drawn at all', () => {
+        // A dotted reading joins none of its samples up, so the run between two
+        // of them is empty chart: answering there would open the settings of a
+        // reading the pointer was nowhere near.
+        const dots = buildPlan('psar-1', buildSeries(50, { shape: 'dot' }), { kind: 'price' });
+        const request = buildRequest([dots], { x: 0, y: 0 });
+        const between = request.projector.timeToX(37_500);
+
+        expect(findPlanAt({ ...request, point: { x: between, y: yOf(50, request) } })).toBeNull();
+    });
+
     it('answers nothing where no reading is drawn', () => {
         const request = buildRequest([overPrice], { x: 500, y: 0 });
 

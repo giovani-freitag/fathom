@@ -18,6 +18,9 @@ import type { PaintContext, PanePlacement, PaneRect } from '../render-types.ts';
 
 /** An unconverged series is drawn dashed, so it does not read as settled. */
 const UNCONVERGED_DASH = [4, 3];
+
+/** How wide a dot is drawn when its series names no width of its own. */
+const DOT_RADIUS_PX = 3;
 const LEVEL_DASH = [2, 4];
 
 /** How much of a fill's colour survives, so what is under a band stays legible. */
@@ -186,6 +189,10 @@ export class PlotPainter {
             this.paintHistogram(paint, series, projector);
             return;
         }
+        if (series.shape === 'dot') {
+            this.paintDots(paint, series, projector);
+            return;
+        }
 
         const { context, layout } = paint;
         context.strokeStyle = resolveToneColour(series.tone);
@@ -213,6 +220,27 @@ export class PlotPainter {
 
         context.stroke();
         context.setLineDash([]);
+    }
+
+    /**
+     * Draws a series as one mark per bar, joined to nothing.
+     */
+    private paintDots(paint: PaintContext, series: PlotSeries, projector: ValueProjector): void {
+        const { context, layout } = paint;
+        const radius = (series.widthPx ?? DOT_RADIUS_PX) / 2;
+        context.fillStyle = resolveToneColour(series.tone);
+
+        for (let index = 0; index < series.atMs.length; index += 1) {
+            const value = series.value[index]!;
+            const x = paint.projector.timeToX(series.atMs[index]!);
+            if (Number.isNaN(value) || x < -radius || x > layout.plotWidth + radius) {
+                continue;
+            }
+
+            context.beginPath();
+            context.arc(x, projector.valueToY(value), radius, 0, Math.PI * 2);
+            context.fill();
+        }
     }
 
     /**

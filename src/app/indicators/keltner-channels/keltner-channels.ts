@@ -10,11 +10,11 @@ import {
 } from '../../../shared/core/draw-plan.ts';
 import {
     collectInstants,
+    collectTrueRanges,
     createBlankValues,
     fillExponential,
     fillWilder,
     findContinuousSegments,
-    resolveTrueRange,
 } from '../shared/series-math.ts';
 import { collectSource, SOURCE } from '../shared/bar-source.ts';
 
@@ -88,7 +88,7 @@ export class KeltnerChannels implements Indicator {
 
         for (const segment of findContinuousSegments(bars)) {
             fillExponential({ source, periodBars, segment, out: middle });
-            fillWilder({ source: collectTrueRange(bars, segment), periodBars: rangeBars, segment, out: range });
+            fillWilder({ source: collectTrueRanges(bars, segment), periodBars: rangeBars, segment, out: range });
 
             for (let index = segment.startIndex; index < segment.endIndex; index += 1) {
                 const centre = middle[index]!;
@@ -116,25 +116,6 @@ export class KeltnerChannels implements Indicator {
             hasConverged: input.warmupBarCount >= this.resolveWarmupBars(input.settings),
         };
     }
-}
-
-/**
- * How far each bar of a stretch travelled, for the smoothing to work over.
- */
-function collectTrueRange(
-    bars: IndicatorInput['bars']['bars'],
-    segment: { readonly startIndex: number; readonly endIndex: number },
-): Float64Array {
-    const ranges = createBlankValues(bars.length);
-    for (let index = segment.startIndex; index < segment.endIndex; index += 1) {
-        const bar = bars[index]!;
-        // The first bar of a stretch has nothing behind it, so its own span is
-        // the whole of what it travelled.
-        ranges[index] = index === segment.startIndex
-            ? bar.highPrice - bar.lowPrice
-            : resolveTrueRange(bar, bars[index - 1]!.closePrice);
-    }
-    return ranges;
 }
 
 export const KELTNER_CHANNELS = new KeltnerChannels();

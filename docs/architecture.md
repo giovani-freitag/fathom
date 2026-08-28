@@ -365,9 +365,12 @@ path entirely, and it is the property that will make it safe to run one nobody
 here wrote.
 
 A plan carries more than lines. It can shade a region between two of its own
-series, mark a constant value, and draw a histogram that changes colour where it
-crosses a baseline. Those are not conveniences: a channel with no fill reads as
-two unrelated lines, and a threshold nobody can name is a decoration.
+series, mark a constant value, draw a histogram that changes colour where it
+crosses a baseline, and draw a series as marks joined to nothing. Those are not
+conveniences: a channel with no fill reads as two unrelated lines, a threshold
+nobody can name is a decoration, and joining up a reading that jumps from one
+side of price to the other strokes a line through the price at every jump that
+the reading never took.
 
 A plan says whether it converged. An indicator asks for warm-up bars ahead of the
 window, the archive answers with what it could supply, and a series seeded from
@@ -382,6 +385,13 @@ and agree with it to floating-point precision — the seed included, which is th
 part implementations usually differ on and the part a reader comparing two
 screens sees first. An exponential average is seeded with the simple mean of its
 first period, not with its first bar; Wilder's smoothing is seeded the same way.
+
+A reading that switches sides is drawn as two series rather than as one that
+changes colour, and the two are blank wherever the other is drawn. It falls out
+of the same rule: a series is vertices in data space and a colour is a property
+of the whole of it, so a single series that changed colour mid-flight would have
+to carry pixels' worth of decision into data. Two series that never overlap say
+the same thing and stay projectable.
 
 Anything read off one figure per bar takes that figure as a parameter: the
 close, one of the other three corners, or one of the conventional blends of

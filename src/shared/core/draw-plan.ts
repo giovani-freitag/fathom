@@ -45,7 +45,14 @@ export const INSTANCE_TONES: readonly PlotTone[] = [
     'ink',
 ];
 
-export type PlotShape = 'line' | 'histogram';
+/**
+ * How a series is drawn.
+ *
+ * `dot` is not a thin line. A reading that flips from one side of price to the
+ * other says so by where its marks sit, and joining them up draws a stroke
+ * through the price at every flip that no reading ever took.
+ */
+export type PlotShape = 'line' | 'histogram' | 'dot';
 
 /**
  * One plotted series, as vertices in data space.

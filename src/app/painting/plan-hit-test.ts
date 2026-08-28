@@ -105,14 +105,32 @@ function measureSeriesDistance(
     // The sample either side as well: what is drawn between two of them is a
     // segment, and the pointer is almost never on one of its ends.
     for (const at of [index - 1, index, index + 1]) {
-        const distance = series.shape === 'histogram'
-            ? measureBarDistance({ series, projector, request, index: at })
-            : measureSegmentDistance({ series, projector, request, index: at });
+        const distance = measureSampleDistance({ series, projector, request, index: at });
         if (distance !== null && (nearest === null || distance < nearest)) {
             nearest = distance;
         }
     }
     return nearest;
+}
+
+/**
+ * How far the pointer is from what one sample actually draws.
+ *
+ * A dot is measured to itself rather than to the run between it and the next:
+ * nothing is drawn along that run, and a tap answered by a line nobody can see
+ * opens the settings of a reading the reader was not pointing at.
+ */
+function measureSampleDistance(sample: SampleDistanceRequest): number | null {
+    if (sample.series.shape === 'histogram') {
+        return measureBarDistance(sample);
+    }
+    if (sample.series.shape === 'dot') {
+        const at = placeSample(sample, sample.index);
+        return at === null
+            ? null
+            : Math.hypot(at.x - sample.request.point.x, at.y - sample.request.point.y);
+    }
+    return measureSegmentDistance(sample);
 }
 
 /**

@@ -6,6 +6,11 @@ import { AVERAGE_TRUE_RANGE } from './average-true-range/average-true-range.ts';
 import { CUMULATIVE_DELTA } from './cumulative-delta/cumulative-delta.ts';
 import { KELTNER_CHANNELS } from './keltner-channels/keltner-channels.ts';
 import { BOLLINGER_BANDS } from './bollinger-bands/bollinger-bands.ts';
+import { COMMODITY_CHANNEL } from './commodity-channel/commodity-channel.ts';
+import { DIRECTIONAL_MOVEMENT } from './directional-movement/directional-movement.ts';
+import { MONEY_FLOW } from './money-flow/money-flow.ts';
+import { PARABOLIC_STOP } from './parabolic-stop/parabolic-stop.ts';
+import { SUPERTREND } from './supertrend/supertrend.ts';
 import { DONCHIAN_CHANNELS } from './donchian-channels/donchian-channels.ts';
 import { EXPONENTIAL_AVERAGE } from './exponential-average/exponential-average.ts';
 import { RELATIVE_STRENGTH } from './relative-strength/relative-strength.ts';
@@ -28,11 +33,16 @@ export const INDICATOR_CATALOGUE: readonly Indicator[] = [
     EXPONENTIAL_AVERAGE,
     BOLLINGER_BANDS,
     DONCHIAN_CHANNELS,
+    KELTNER_CHANNELS,
+    SUPERTREND,
+    PARABOLIC_STOP,
     RELATIVE_STRENGTH,
     STOCHASTIC_OSCILLATOR,
     AVERAGE_CONVERGENCE,
     AVERAGE_TRUE_RANGE,
-    KELTNER_CHANNELS,
+    DIRECTIONAL_MOVEMENT,
+    MONEY_FLOW,
+    COMMODITY_CHANNEL,
     CUMULATIVE_DELTA,
 ];
 

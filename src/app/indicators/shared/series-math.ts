@@ -195,3 +195,23 @@ export function resolveTrueRange(bar: PriceBar, previousClose: number): number {
         Math.abs(bar.lowPrice - previousClose),
     );
 }
+
+/**
+ * How far each bar of a stretch travelled.
+ *
+ * @param bars - The window, oldest first.
+ * @param segment - The unbroken stretch to measure.
+ * @returns One range per bar, blank outside the stretch.
+ */
+export function collectTrueRanges(bars: readonly PriceBar[], segment: BarSegment): Float64Array {
+    const ranges = createBlankValues(bars.length);
+    for (let index = segment.startIndex; index < segment.endIndex; index += 1) {
+        const bar = bars[index]!;
+        // The first bar of a stretch has nothing behind it, so its own span is
+        // the whole of what it travelled.
+        ranges[index] = index === segment.startIndex
+            ? bar.highPrice - bar.lowPrice
+            : resolveTrueRange(bar, bars[index - 1]!.closePrice);
+    }
+    return ranges;
+}
