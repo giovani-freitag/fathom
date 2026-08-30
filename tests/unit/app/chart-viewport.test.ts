@@ -134,3 +134,29 @@ describe('clampViewport against a short recording', () => {
         expect(clamped.fromMs).toBe(SHORT_RECORDING.earliestMs);
     });
 });
+
+describe('clampViewport keeping the axis out of negative prices', () => {
+    it('will not offer a price below nothing', () => {
+        // Nothing is ever for sale below nothing, so an axis running into
+        // negative prices spends its room on a region that holds no reading.
+        const clamped = clampViewport(
+            { ...VIEWPORT, lowPrice: -400, highPrice: 200 }, BOUNDS,
+        );
+
+        expect(clamped.lowPrice).toBe(0);
+    });
+
+    it('keeps the span it was asked for, sliding it up off the floor', () => {
+        const clamped = clampViewport(
+            { ...VIEWPORT, lowPrice: -400, highPrice: 200 }, BOUNDS,
+        );
+
+        expect(clamped.highPrice - clamped.lowPrice).toBe(600);
+    });
+
+    it('leaves a viewport that never reaches the floor where it was', () => {
+        const clamped = clampViewport(VIEWPORT, BOUNDS);
+
+        expect([clamped.lowPrice, clamped.highPrice]).toEqual([100, 200]);
+    });
+});

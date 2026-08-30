@@ -125,11 +125,17 @@ export function clampViewport(viewport: ChartViewport, bounds: ViewportBounds): 
 
     const priceSpan = Math.max(viewport.highPrice - viewport.lowPrice, bounds.minimumPriceSpan);
     const priceCentre = (viewport.highPrice + viewport.lowPrice) / 2;
+    // Slid up off the floor rather than squashed against it: nothing is ever
+    // offered for sale below nothing, so an axis running into negative prices
+    // spends its room on a region that cannot hold a reading. Keeping the span
+    // and moving it is what lets a wide view still be as wide as it was asked
+    // to be.
+    const lowPrice = Math.max(0, priceCentre - priceSpan / 2);
 
     return {
         fromMs,
         toMs: fromMs + spanMs,
-        lowPrice: priceCentre - priceSpan / 2,
-        highPrice: priceCentre + priceSpan / 2,
+        lowPrice,
+        highPrice: lowPrice + priceSpan,
     };
 }
