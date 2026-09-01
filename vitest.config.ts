@@ -4,6 +4,14 @@ import { readReleaseDefines } from './scripts/release-notes.ts';
 export default defineConfig({
     test: {
         clearMocks: true,
+        // A timeout is here to catch a test that has hung, not to police how
+        // long one takes. The default of five seconds is meant for tests that
+        // mock their world; the ones here record hundreds of instants and
+        // squeeze the squares they fall into, which is half a second on the
+        // machine they were written on and several times that on a shared
+        // runner — measured, three of them timed out on one CI run and three
+        // different ones on the next, with nothing changed between them.
+        testTimeout: 20_000,
         projects: [
             {
                 // The same build-time injection the app gets, so a test may

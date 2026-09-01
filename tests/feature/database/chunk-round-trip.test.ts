@@ -505,14 +505,13 @@ describe('two reads of overlapping stretches', () => {
 
 describe('zooming back in after zooming out', () => {
     const recording = buildRecording(600);
+    let archive: ChunkArchiveService;
 
-    it('sharpens the columns again rather than holding the coarse ones', async () => {
-        // Every level of the pyramid is coarser than the one below it, so a
-        // wide window comes back on a coarse grid. What the reader must never
-        // get is that grid still standing once they have zoomed back in: it
-        // reads as a picture that thickened and will not thin again.
+    // One archive for all three: they only read from it, and six hundred
+    // instants recorded once per test is most of what this file spends.
+    beforeAll(async () => {
         const store = createChunkStoreMock();
-        const archive = new ChunkArchiveService({ rows: new PostgresChunkRowStore({ postgres: store.service }) });
+        archive = new ChunkArchiveService({ rows: new PostgresChunkRowStore({ postgres: store.service }) });
         const recorder = new ChunkTileRecorder({
             archive, priceRangeRatio: 1, intervalMs: INTERVAL_MS, stepRatio: STEP_RATIO,
         });
@@ -521,6 +520,13 @@ describe('zooming back in after zooming out', () => {
             feeding.onFrame(frame, BUCKET_SIZE);
         }
         await recorder.flush();
+    });
+
+    it('sharpens the columns again rather than holding the coarse ones', async () => {
+        // Every level of the pyramid is coarser than the one below it, so a
+        // wide window comes back on a coarse grid. What the reader must never
+        // get is that grid still standing once they have zoomed back in: it
+        // reads as a picture that thickened and will not thin again.
         const read = (spanColumns: number, maxColumns: number) => archive.fetchWindow({
             instrumentSymbol: 'BTCUSDT',
             fromMs: STARTED_AT_MS,
@@ -539,16 +545,6 @@ describe('zooming back in after zooming out', () => {
         // not a request for coarser prices. Folded together, a day of the book
         // drew as seven bands a hundred and twenty-eight pixels tall where the
         // pane had room for a hundred and twelve.
-        const store = createChunkStoreMock();
-        const archive = new ChunkArchiveService({ rows: new PostgresChunkRowStore({ postgres: store.service }) });
-        const recorder = new ChunkTileRecorder({
-            archive, priceRangeRatio: 1, intervalMs: INTERVAL_MS, stepRatio: STEP_RATIO,
-        });
-        const feeding = recorder.buildRecording('BTCUSDT', BUCKET_SIZE);
-        for (const frame of recording) {
-            feeding.onFrame(frame, BUCKET_SIZE);
-        }
-        await recorder.flush();
         const read = (spanColumns: number, maxColumns: number) => archive.fetchWindow({
             instrumentSymbol: 'BTCUSDT',
             fromMs: STARTED_AT_MS,
@@ -567,16 +563,6 @@ describe('zooming back in after zooming out', () => {
         // of the time axis thickens every row by the same four. Bounded by the
         // fold the reader already asked for, that costs nothing; unbounded, it
         // is a thicker bar than they can do anything about.
-        const store = createChunkStoreMock();
-        const archive = new ChunkArchiveService({ rows: new PostgresChunkRowStore({ postgres: store.service }) });
-        const recorder = new ChunkTileRecorder({
-            archive, priceRangeRatio: 1, intervalMs: INTERVAL_MS, stepRatio: STEP_RATIO,
-        });
-        const feeding = recorder.buildRecording('BTCUSDT', BUCKET_SIZE);
-        for (const frame of recording) {
-            feeding.onFrame(frame, BUCKET_SIZE);
-        }
-        await recorder.flush();
 
         // Rows enough for every price in the band, so nothing was to be folded.
         const window = await archive.fetchWindow({
