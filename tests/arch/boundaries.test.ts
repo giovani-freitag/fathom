@@ -159,7 +159,17 @@ describe('package confinement', () => {
 
 describe('type safety', () => {
     it('never falls back to the any type', () => {
-        expect(sourceFiles.filter((path) => /:\s*any\b|<any>|as any\b/.test(read(path)))).toEqual([]);
+        // Bounded on the left as well: without it the word `has` in a sentence
+        // ends in `as`, and prose about anything at all reads as a cast.
+        expect(sourceFiles.filter((path) => /:\s*any\b|<any>|\bas any\b/.test(read(path)))).toEqual([]);
+    });
+
+    it('still catches a cast that is really there', () => {
+        expect(/:\s*any\b|<any>|\bas any\b/.test('const held = value as any;')).toBe(true);
+    });
+
+    it('still catches one declared rather than cast', () => {
+        expect(/:\s*any\b|<any>|\bas any\b/.test('let held: any = null;')).toBe(true);
     });
 
     it('never leaves a bare TODO behind', () => {

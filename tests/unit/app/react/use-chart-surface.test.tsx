@@ -51,6 +51,9 @@ describe('useChartSurface', () => {
             viewport: { fromMs: 0, toMs: 1_000, lowPrice: 0, highPrice: 1 },
             dataset: { frames: [], clusters: [], gaps: [] },
             isVolumeProfileVisible: false,
+            // The surface measures its panes before it paints, to say how many
+            // price rows it has room for.
+            plans: [],
         } as never, (delta) => { chartSubscribers += delta; });
         appearanceStore = countingStore(
             { locale: 'en', resolvedTheme: 'dark' } as never,

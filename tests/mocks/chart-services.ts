@@ -13,6 +13,7 @@ export const INSTRUMENT: InstrumentCoverage = {
     frameIntervalMs: 1_000,
     firstFrameAtMs: 1_000_000,
     lastFrameAtMs: 2_000_000,
+    lastMidPrice: 79_000,
 };
 
 export function buildFrame(capturedAtMs: number, midPrice = 79_000): LiquidityFrame {
@@ -30,12 +31,30 @@ export function buildWindow(frames: LiquidityFrame[]): LiquidityFrameWindow {
     return { priceBucketSize: 10, sampleIntervalMs: 1_000, frames };
 }
 
+/** How a window of instants is asked for, as the spy sees it. */
+type FrameWindowRead = (
+    query: {
+        fromMs: number;
+        toMs: number;
+        maxColumns: number;
+        priceBand?: { lowPrice: number; highPrice: number; maxRows: number } | undefined;
+    },
+    signal?: AbortSignal,
+) => Promise<LiquidityFrameWindow>;
+
 export interface ChartServiceMocks {
     readonly api: HeatmapApiService;
     readonly liveFeed: LiveFeedService;
     readonly preferences: PreferencesService;
     readonly fetchInstruments: ReturnType<typeof vi.fn>;
-    readonly fetchFrameWindow: ReturnType<typeof vi.fn>;
+    /**
+     * Typed, unlike its neighbours, because tests steer it by what was asked.
+     *
+     * A reader panning asks only for the stretch it does not already hold, so a
+     * test of that has to answer differently for different stretches — and an
+     * implementation handed to an untyped spy has no return type to check.
+     */
+    readonly fetchFrameWindow: ReturnType<typeof vi.fn<FrameWindowRead>>;
     readonly fetchTradeClusters: ReturnType<typeof vi.fn>;
     readonly fetchGaps: ReturnType<typeof vi.fn>;
     readonly fetchPriceBars: ReturnType<typeof vi.fn>;
@@ -59,7 +78,8 @@ export function createChartServiceMocks(
     preferences: Partial<ViewerPreferences> = {},
 ): ChartServiceMocks {
     const fetchInstruments = vi.fn().mockResolvedValue([INSTRUMENT]);
-    const fetchFrameWindow = vi.fn().mockResolvedValue(buildWindow([buildFrame(1_500_000)]));
+    const fetchFrameWindow = vi.fn<FrameWindowRead>()
+        .mockResolvedValue(buildWindow([buildFrame(1_500_000)]));
     const fetchTradeClusters = vi.fn().mockResolvedValue({
         priceBucketSize: 10,
         sampleIntervalMs: 5_000,

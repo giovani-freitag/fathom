@@ -76,6 +76,13 @@ export class LiveFeedService implements LiveFeed {
         socketUrl.protocol = socketUrl.protocol === 'https:' ? 'wss:' : 'ws:';
         socketUrl.searchParams.set('symbol', subscription.instrumentSymbol);
         socketUrl.searchParams.set('afterMs', String(Math.floor(this.newestFrameMs)));
+        if (subscription.source !== undefined) {
+            socketUrl.searchParams.set('source', subscription.source);
+        }
+        if (subscription.priceBand !== undefined) {
+            socketUrl.searchParams.set('lowPrice', String(subscription.priceBand.lowPrice));
+            socketUrl.searchParams.set('highPrice', String(subscription.priceBand.highPrice));
+        }
 
         const socket = new WebSocket(socketUrl);
         socket.binaryType = 'arraybuffer';

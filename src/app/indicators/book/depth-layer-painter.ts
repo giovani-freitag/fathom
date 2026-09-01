@@ -62,15 +62,22 @@ export class DepthLayerPainter implements FieldBackgroundPainter {
      * Draws the visible slice of the field across the plot.
      *
      * @param request - The context, layout, and what the frame is drawn from.
+     * @returns True when the field is fully painted, false while it is filling.
      */
-    paintBackground(request: BackgroundPaintRequest): void {
+    paintBackground(request: BackgroundPaintRequest): boolean {
         const field = this.resolveField(request);
         if (field === null) {
-            return;
+            return true;
         }
 
+        // A share of the frame rather than the whole of it: the candles, the
+        // axes and the cursor are drawn on this same thread, and a field built
+        // in one pass holds them for as long as it takes. Measured on a four
+        // hour window, that was three blocks of about three hundred
+        // milliseconds; with the book hidden, none at all.
         const { context, layout } = request;
         const { viewport } = request.request;
+        const isSettled = field.settle(request.budgetMs, viewport.fromMs);
 
         const sourceX = field.timeToColumn(viewport.fromMs);
         const sourceWidth = (viewport.toMs - viewport.fromMs) / field.sampleIntervalMs;
@@ -78,7 +85,7 @@ export class DepthLayerPainter implements FieldBackgroundPainter {
         const sourceHeight = (viewport.highPrice - viewport.lowPrice) / field.priceRowSize;
 
         if (sourceWidth <= 0 || sourceHeight <= 0) {
-            return;
+            return isSettled;
         }
 
         // Averaging only helps when buckets are being squeezed below one pixel;
@@ -96,6 +103,7 @@ export class DepthLayerPainter implements FieldBackgroundPainter {
             layout.plotWidth,
             layout.pricePaneHeight,
         );
+        return isSettled;
     }
 
     /**
@@ -124,6 +132,7 @@ export class DepthLayerPainter implements FieldBackgroundPainter {
             dataset: request.dataset,
             colourGain: request.colourGain,
             bucketsPerBand,
+            reuse: cached?.canvas,
         });
         this.cachedField = field;
         return field;

@@ -2,10 +2,13 @@ import type { LiquidityArchiveService } from '../../../src/database/services/liq
 import type { RecordingGap } from '../../../src/shared/core/recording-gap.ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LiquidityRecorderService } from '../../../src/workers/services/liquidity-recorder-service.ts';
+import type { LiquidityFrame } from '../../../src/shared/core/liquidity-frame.ts';
 import { OrderBookService } from '../../../src/workers/core/order-book-service.ts';
 import { buildDiff, createSnapshotSource } from '../../mocks/depth-fixtures.ts';
 
 const FRAME_INTERVAL_MS = 1_000;
+/** The grid the whole-book framing records on, which the collector holds still. */
+const WIDE_BUCKET_SIZE = 100;
 
 /** One clean turn of the recording clock, landing exactly on its own grid. */
 async function tick(pipeline: { readonly recorder: LiquidityRecorderService }): Promise<void> {
@@ -62,12 +65,15 @@ interface Pipeline {
     readonly recorder: LiquidityRecorderService;
     readonly spy: ArchiveSpy;
     readonly statuses: string[];
+    /** Every wide instant handed on, with the grid it was laid on. */
+    readonly wide: { frame: unknown; priceBucketSize: number }[];
 }
 
 function buildPipeline(lastFrameMs: number | null = null): Pipeline {
     const source = createSnapshotSource(100);
     const spy = createArchiveSpy(lastFrameMs);
     const statuses: string[] = [];
+    const wide: { frame: unknown; priceBucketSize: number }[] = [];
 
     const orderBook = new OrderBookService({
         fetchDepthSnapshot: source.fetchDepthSnapshot,
@@ -90,9 +96,18 @@ function buildPipeline(lastFrameMs: number | null = null): Pipeline {
         maximumBufferedFrames: 100,
         maximumBufferedTradeClusters: 1_000,
         onStatusChanged: (status) => statuses.push(status),
+        wideRecordings: [{
+            priceRangeRatio: 1,
+            resolveBucketSize: () => WIDE_BUCKET_SIZE,
+            intervalMs: FRAME_INTERVAL_MS,
+            combine: 'largest' as const,
+            onFrame: (frame: LiquidityFrame, priceBucketSize: number) => {
+                wide.push({ frame, priceBucketSize });
+            },
+        }],
     });
 
-    return { orderBook, recorder, spy, statuses };
+    return { orderBook, recorder, spy, statuses, wide };
 }
 
 /** Brings the mirrored book up, exactly as a live connection would. */
@@ -390,5 +405,96 @@ describe('recording pipeline', () => {
             (call) => (call[0] as { frames: { capturedAtMs: number }[] }).frames.map((f) => f.capturedAtMs),
         );
         expect(new Set(instants).size).toBe(instants.length);
+    });
+});
+
+describe('recording pipeline framing the far field', () => {
+    beforeEach(() => {
+        vi.useFakeTimers({ shouldAdvanceTime: true, now: 10_000 });
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('frames the same instants the near recording does', async () => {
+        const pipeline = buildPipeline();
+        await pipeline.recorder.start();
+        await synchronize(pipeline);
+
+        await vi.advanceTimersByTimeAsync(2_500);
+        await pipeline.recorder.stop();
+
+        expect(pipeline.wide.length).toBeGreaterThan(0);
+    });
+
+    it('lays it on the grid the framing declared, not on one of its own', async () => {
+        // A row in dollars cannot be right for two contracts at once: a
+        // thousand of them is one percent of Bitcoin and the whole of Litecoin.
+        // Which grid the far field lands on belongs to the framing, and the
+        // recording hands it through untouched.
+        const pipeline = buildPipeline();
+        await pipeline.recorder.start();
+        await synchronize(pipeline);
+
+        await vi.advanceTimersByTimeAsync(2_500);
+        await pipeline.recorder.stop();
+
+        expect(pipeline.wide.at(-1)?.priceBucketSize).toBe(WIDE_BUCKET_SIZE);
+    });
+});
+
+describe('recording pipeline framing the far field more than once', () => {
+    beforeEach(() => {
+        vi.useFakeTimers({ shouldAdvanceTime: true, now: 10_000 });
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('offers the same instant to every framing that asked for one', async () => {
+        // Two readings want the whole book at different heights: one coarse
+        // enough to be free, one on the contract's own grid.
+        const coarse: number[] = [];
+        const fine: number[] = [];
+        const pipeline = buildPipeline();
+        const recorder = new LiquidityRecorderService({
+            orderBook: pipeline.orderBook,
+            archive: pipeline.spy.archive,
+            instrumentSymbol: 'BTCUSDT',
+            priceBucketSize: 1,
+            frameIntervalMs: FRAME_INTERVAL_MS,
+            recordedPriceRangeRatio: 0.5,
+            flushIntervalMs: 500,
+            framesPerFlush: 1,
+            maximumBufferedFrames: 100,
+            maximumBufferedTradeClusters: 1_000,
+            onStatusChanged: () => undefined,
+            wideRecordings: [
+                {
+                    priceRangeRatio: 1,
+                    resolveBucketSize: () => 50,
+                    intervalMs: FRAME_INTERVAL_MS,
+                    combine: 'largest' as const,
+                    onFrame: (_frame: LiquidityFrame, grid: number) => { coarse.push(grid); },
+                },
+                {
+                    priceRangeRatio: 1,
+                    resolveBucketSize: () => 1,
+                    intervalMs: FRAME_INTERVAL_MS,
+                    combine: 'sum' as const,
+                    onFrame: (_frame: LiquidityFrame, grid: number) => { fine.push(grid); },
+                },
+            ],
+        });
+
+        await recorder.start();
+        await synchronize(pipeline);
+        await vi.advanceTimersByTimeAsync(2_500);
+        await recorder.stop();
+
+        expect([coarse.length > 0, fine.length > 0]).toEqual([true, true]);
+        expect([coarse[0], fine[0]]).toEqual([50, 1]);
     });
 });

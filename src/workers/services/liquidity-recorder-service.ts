@@ -2,7 +2,7 @@ import { releaseTimerFromEventLoop, type TimerHandle } from '../../shared/core/t
 import { type LiquidityFrame } from '../../shared/core/liquidity-frame.ts';
 import { floorToInterval } from '../../shared/core/price-bucket.ts';
 import type { LiquidityArchive } from '../../database/services/liquidity-archive.ts';
-import type { ExecutedTrade } from '../core/depth-types.ts';
+import type { ExecutedTrade, OrderBookReading } from '../core/depth-types.ts';
 import type { OrderBookService } from '../core/order-book-service.ts';
 
 /**
@@ -23,13 +23,31 @@ const BOOK_UNAVAILABLE = 'order book unavailable';
  */
 const AWAITING_FIRST_BOOK = 'waiting for the first order book';
 import { ArchiveWriteBuffer } from './archive-write-buffer.ts';
-import { buildLiquidityFrame } from '../core/depth-ladder-builder.ts';
+import { type BucketCombine, buildLiquidityFrame } from '../core/depth-ladder-builder.ts';
 import { TradeClusterAccumulator } from '../core/trade-cluster-accumulator.ts';
 
 /**
  * Fires each frame slightly after its grid instant.
  */
 const GRID_SETTLE_MS = 5;
+
+/** How one further framing of the same instant is built, and who receives it. */
+export interface WideRecordingConfig {
+    readonly priceRangeRatio: number;
+    /**
+     * How tall one row is, given where the price is.
+     *
+     * A function rather than a number because a row in dollars cannot be right
+     * for two contracts at once — a thousand of them is one percent of Bitcoin
+     * and the whole of Litecoin — and because the two readings that want the
+     * far field want it at different heights.
+     */
+    readonly resolveBucketSize: (midPrice: number) => number;
+    readonly intervalMs: number;
+    /** What a row holds when several of the book's prices fall into it. */
+    readonly combine: BucketCombine;
+    readonly onFrame: (frame: LiquidityFrame, priceBucketSize: number) => void;
+}
 
 export interface LiquidityRecorderServiceConfig {
     readonly orderBook: OrderBookService;
@@ -38,6 +56,16 @@ export interface LiquidityRecorderServiceConfig {
     readonly priceBucketSize: number;
     readonly frameIntervalMs: number;
     readonly recordedPriceRangeRatio: number;
+    /**
+     * A second, far wider framing of the same instants.
+     *
+     * The narrow recording is what a reader looks at; this is where the walls
+     * that price has not reached yet are kept. It runs on the same cadence and
+     * frames every price rather than a band around the touch, and pays for the
+     * width with precision: sizes go onto a logarithmic scale two percent to
+     * the step, which nobody reading a wall a fifth of the way out can see.
+     */
+    readonly wideRecordings?: readonly WideRecordingConfig[];
     readonly flushIntervalMs: number;
     readonly framesPerFlush: number;
     readonly maximumBufferedFrames: number;
@@ -242,11 +270,40 @@ export class LiquidityRecorderService {
             priceBucketSize: this.config.priceBucketSize,
             recordedPriceRangeRatio: this.config.recordedPriceRangeRatio,
         }));
+        this.captureWideFrame(reading, capturedAtMs);
         this.writeBuffer.enqueueTradeClusters(this.tradeClusters.drainBefore(capturedAtMs));
         this.lastCapturedAtMs = capturedAtMs;
 
         if (this.writeBuffer.pendingFrameCount >= this.config.framesPerFlush) {
             void this.writeBuffer.flush();
+        }
+    }
+
+    /**
+     * Frames the same instant again, far wider and far coarser.
+     *
+     * Only on its own grid, which is much slower than the narrow one. Handing
+     * it on cannot be allowed to interrupt the recording: the far field is a
+     * convenience, and the near one is the thing that cannot be recovered.
+     */
+    private captureWideFrame(reading: OrderBookReading, capturedAtMs: number): void {
+        const midPrice = (reading.bestBidPrice + reading.bestAskPrice) / 2;
+        for (const wide of this.config.wideRecordings ?? []) {
+            if (capturedAtMs % wide.intervalMs !== 0) {
+                continue;
+            }
+            const priceBucketSize = wide.resolveBucketSize(midPrice);
+            try {
+                wide.onFrame(buildLiquidityFrame({
+                    reading,
+                    capturedAtMs,
+                    priceBucketSize,
+                    recordedPriceRangeRatio: wide.priceRangeRatio,
+                    combine: wide.combine,
+                }), priceBucketSize);
+            } catch {
+                // Swallowed on purpose; see the doc comment.
+            }
         }
     }
 

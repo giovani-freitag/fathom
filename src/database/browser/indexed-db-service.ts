@@ -39,7 +39,9 @@ export class IndexedDbService {
         }
 
         const request = this.factory.open(DATABASE_NAME, SCHEMA_VERSION);
-        request.onupgradeneeded = () => { createStores(request.result); };
+        request.onupgradeneeded = () => {
+            createStores(request.result, request.transaction!);
+        };
 
         this.connection = await new Promise<IDBDatabase>((resolve, reject) => {
             request.onsuccess = () => { resolve(request.result); };

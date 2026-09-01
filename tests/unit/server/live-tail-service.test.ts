@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildTailFrame, buildTailWindow, createLiveTailSourceMock, type LiveTailSourceMock } from '../../mocks/live-tail-source.ts';
-import { LiveTailService, TooManySubscribersError } from '../../../src/server/services/live-tail-service.ts';
+import {
+    LiveTailService,
+    TooManySubscribersError,
+    UnknownTailSourceError,
+} from '../../../src/server/services/live-tail-service.ts';
 import type { LiveMessage } from '../../../src/shared/core/live-message.ts';
 
 const POLL_INTERVAL_MS = 100;
@@ -113,5 +117,76 @@ describe('LiveTailService', () => {
         unsubscribe();
 
         expect(() => service.subscribe(buildRequest())).not.toThrow();
+    });
+});
+
+describe('LiveTailService streaming from the store the reader named', () => {
+    let frames: LiveTailSourceMock;
+    let wholeBook: LiveTailSourceMock;
+
+    function buildService(): LiveTailService {
+        return new LiveTailService({
+            source: frames.source,
+            sourcesByName: { chunks: wholeBook.source },
+            pollIntervalMs: POLL_INTERVAL_MS,
+            maxFramesPerPoll: 50,
+            maximumSubscriptions: 24,
+        });
+    }
+
+    function buildRequest(source?: string) {
+        return {
+            instrumentSymbol: 'BTCUSDT',
+            afterMs: 5_000,
+            priceBucketSize: 10,
+            onMessage: () => {},
+            ...(source === undefined ? {} : { source }),
+        };
+    }
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+        frames = createLiveTailSourceMock();
+        wholeBook = createLiveTailSourceMock();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('streams a named store rather than the one it falls back to', () => {
+        // A tail extends the window the history route answered. Reading the band
+        // around the price into a chart drawn from the whole book leaves
+        // everything outside that band standing still.
+        buildService().subscribe(buildRequest('chunks'));
+
+        expect([
+            wholeBook.fetchFramesAfter.mock.calls.length,
+            frames.fetchFramesAfter.mock.calls.length,
+        ]).toEqual([1, 0]);
+    });
+
+    it('falls back to the frame table when the reader named nothing', () => {
+        buildService().subscribe(buildRequest());
+
+        expect(frames.fetchFramesAfter).toHaveBeenCalledTimes(1);
+    });
+
+    it('refuses a store this gateway was never wired with', () => {
+        // Served from somewhere else instead, the reader is shown a strategy
+        // they did not choose and has no way to tell. A socket that closes and
+        // says why is far easier to notice than a measurement of nothing.
+        expect(() => buildService().subscribe(buildRequest('somethingElse')))
+            .toThrow(UnknownTailSourceError);
+    });
+
+    it('streams nothing at all when it refuses', () => {
+        try {
+            buildService().subscribe(buildRequest('somethingElse'));
+        } catch {
+            // The refusal is the subject of the test above.
+        }
+
+        expect(frames.fetchFramesAfter).not.toHaveBeenCalled();
     });
 });

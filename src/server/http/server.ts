@@ -21,6 +21,7 @@ import { createBarsHandler } from './actions/bars-action.ts';
 import { createGapsHandler } from './actions/gaps-action.ts';
 import { createHealthHandler } from './actions/health-action.ts';
 import { createHeatmapHandler } from './actions/heatmap-action.ts';
+import type { ChunkArchiveService } from '../../database/services/chunk-archive-service.ts';
 import { createInstrumentsHandler } from './actions/instruments-action.ts';
 import {
     createBudgetUpdateHandler,
@@ -53,6 +54,8 @@ export interface ServerConfig {
     readonly isTunnelled: boolean;
     readonly postgres: PostgresService;
     readonly query: LiquidityQueryService;
+    /** The whole book as fixed squares, stacked in levels of detail. */
+    readonly chunks: ChunkArchiveService;
     readonly liveTail: LiveTailService;
     readonly control: RecordingControlService;
 }
@@ -168,7 +171,10 @@ export class Server {
         const healthHandler = createHealthHandler({ postgres: this.config.postgres });
         const instrumentsHandler = createInstrumentsHandler({ query: this.config.query });
         const control = { control: this.config.control };
-        const heatmapHandler = createHeatmapHandler({ query: this.config.query });
+        const heatmapHandler = createHeatmapHandler({
+            query: this.config.query,
+            chunks: this.config.chunks,
+        });
         const tradeClustersHandler = createTradeClustersHandler({ query: this.config.query });
         const gapsHandler = createGapsHandler({ query: this.config.query });
         const barsHandler = createBarsHandler({ query: this.config.query });

@@ -17,6 +17,8 @@ import {
     type PriceBarWindow,
 } from '../../shared/core/price-bar.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
+import { ChunkArchiveService } from '../services/chunk-archive-service.ts';
+import { IndexedDbChunkRowStore } from './indexed-db-chunk-row-store.ts';
 import { STORES } from './browser-schema.ts';
 import {
     toLiquidityFrame,
@@ -31,11 +33,22 @@ export interface IndexedDbHeatmapSourceConfig {
 /**
  * The chart's read side when the page is its own collector.
  */
+/** How far a contract's recording reaches, and where its price was last. */
+interface RecordedExtent {
+    readonly firstFrameAtMs: number | null;
+    readonly lastFrameAtMs: number | null;
+    readonly lastMidPrice: number | null;
+}
+
 export class IndexedDbHeatmapSource implements HeatmapSource {
     private readonly database: IndexedDbService;
+    private readonly chunks: ChunkArchiveService;
 
     constructor(config: IndexedDbHeatmapSourceConfig) {
         this.database = config.database;
+        this.chunks = new ChunkArchiveService({
+            rows: new IndexedDbChunkRowStore({ database: config.database }),
+        });
     }
 
     /**
@@ -55,6 +68,7 @@ export class IndexedDbHeatmapSource implements HeatmapSource {
                 frameIntervalMs: record.frameIntervalMs,
                 firstFrameAtMs: extent.firstFrameAtMs,
                 lastFrameAtMs: extent.lastFrameAtMs,
+                lastMidPrice: extent.lastMidPrice,
             };
         }));
     }
@@ -62,11 +76,30 @@ export class IndexedDbHeatmapSource implements HeatmapSource {
     /**
      * Frames covering a window, one per column.
      *
+     * Out of the same two archives a server reads from, named the same way: the
+     * squares of the whole book, or the band the recording keeps. A page that
+     * has not recorded a square yet — the first seconds of a session, or one
+     * whose squares were pruned — is answered off the band rather than with
+     * nothing, because a demo that draws nothing looks broken rather than young.
+     *
      * @param query - Instrument, half-open range, and how many columns fit.
      * @returns The frames, oldest first.
      * @throws HeatmapSourceError when the archive cannot be read.
      */
     async fetchFrameWindow(query: FrameWindowQuery): Promise<LiquidityFrameWindow> {
+        if (query.source === 'chunks') {
+            const window = await this.chunks.fetchWindow({
+                instrumentSymbol: query.symbol,
+                fromMs: query.fromMs,
+                toMs: query.toMs,
+                maxColumns: query.maxColumns,
+                ...(query.priceBand === undefined ? {} : query.priceBand),
+            });
+            if (window.frames.length > 0) {
+                return window;
+            }
+        }
+
         const grid = await this.readGrid(query.symbol);
         const sampleIntervalMs = Math.max(
             resolveSampleInterval(query),
@@ -192,7 +225,7 @@ export class IndexedDbHeatmapSource implements HeatmapSource {
 
     private async readExtent(
         instrumentSymbol: string,
-    ): Promise<{ firstFrameAtMs: number | null; lastFrameAtMs: number | null }> {
+    ): Promise<RecordedExtent> {
         const range = IDBKeyRange.bound(
             [instrumentSymbol],
             [instrumentSymbol, Number.POSITIVE_INFINITY],
@@ -203,6 +236,9 @@ export class IndexedDbHeatmapSource implements HeatmapSource {
         return {
             firstFrameAtMs: oldest[0]?.capturedAtMs ?? null,
             lastFrameAtMs: newest?.capturedAtMs ?? null,
+            // Carried with the instant, so a chart can frame its axis before it
+            // asks for a window and ask only for the band it will draw.
+            lastMidPrice: newest === null ? null : (newest.bestBidPrice + newest.bestAskPrice) / 2,
         };
     }
 

@@ -22,6 +22,8 @@ export interface InstrumentRow {
     readonly frame_interval_ms: number;
     readonly first_frame_at: Date | null;
     readonly last_frame_at: Date | null;
+    readonly best_bid_price: number | null;
+    readonly best_ask_price: number | null;
 }
 
 export interface TradeClusterRow {
@@ -135,6 +137,9 @@ export function toInstrumentCoverage(row: InstrumentRow): InstrumentCoverage {
         frameIntervalMs: row.frame_interval_ms,
         firstFrameAtMs: row.first_frame_at?.getTime() ?? null,
         lastFrameAtMs: row.last_frame_at?.getTime() ?? null,
+        lastMidPrice: row.best_bid_price === null || row.best_ask_price === null
+            ? null
+            : (row.best_bid_price + row.best_ask_price) / 2,
     };
 }
 

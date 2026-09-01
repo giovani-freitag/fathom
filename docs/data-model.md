@@ -1,8 +1,19 @@
 # Data model
 
-The same shapes are stored twice: as tables in TimescaleDB when a server records,
-and as object stores in IndexedDB when a page records for itself. The stores are
-named after the tables on purpose — a reader who knows one knows the other.
+The recording is stored twice over: as tables in TimescaleDB when a server
+records, and as object stores in IndexedDB when a page records for itself. Those
+stores are named after the tables on purpose — a reader who knows one knows the
+other.
+
+Both archives exist on both sides. A page records the band and the squares, the
+same grid and the same six levels a server writes, so a demo shows a wall
+standing where the market has not been exactly as the server does.
+
+What differs is only how the planes are kept. A server has brotli; a page has
+gzip through `CompressionStream`, and a browser with neither keeps the bytes as
+they are. Measured on a page recording one contract for a minute and a half,
+nine and a half megabytes of plane stored as thirty-seven kilobytes — the planes
+are mostly empty, and empty compresses.
 
 ## One row per instant, not per level
 
@@ -40,6 +51,79 @@ Each side carries its own offset and array. Two reasons:
 2. **Neither side stores the other's empty half.** Each array covers only the
    extent its own side occupies, so two arrays cost what one dense array covering
    everything would — and say more.
+
+## The whole book, as fixed squares
+
+`liquidity_frame` follows the price: it holds a band around it and nothing else,
+because a row per price across the whole book would be mostly zeroes. A wall
+resting a long way from the market is therefore invisible in it, and a wall a
+long way from the market is exactly what a reader zooms out to find.
+
+`whole_book` holds the whole book instead, cut into fixed squares of 512
+instants by 512 prices anchored to an absolute grid, each square its own brotli
+stream. Sizes are logarithmic — one byte per cell, two per cent to the step — so
+the whole book costs a fraction of what the band costs stored plainly. Measured
+over the same 22 hours: 233 MB for the band in `liquidity_frame`, 19 MB for the
+whole book at the finest level.
+
+```sql
+CREATE TABLE whole_book.liquidity_block (   -- one row per level per 512 instants
+    instrument_symbol  TEXT,
+    detail_level       SMALLINT,
+    started_at         TIMESTAMPTZ,
+    ended_at           TIMESTAMPTZ,
+    column_interval_ms INTEGER,
+    price_bucket_size  DOUBLE PRECISION,
+    column_count       SMALLINT,
+    step_ratio         REAL,
+    smallest_quantity  REAL,
+    best_bid_prices    REAL[],                -- the touch, per instant
+    best_ask_prices    REAL[]
+);
+
+CREATE TABLE whole_book.liquidity_chunk (   -- one row per square of that block
+    instrument_symbol   TEXT,
+    detail_level        SMALLINT,
+    started_at          TIMESTAMPTZ,
+    lowest_bucket_index INTEGER,
+    column_count        SMALLINT,
+    low_plane           BYTEA,                -- brotli, one byte per cell
+    high_plane          BYTEA
+);
+```
+
+### Six levels, folding time only
+
+Level 0 is the recording, one column a second. Each level above it folds four
+columns of the one below into one, keeping the largest size at each price — so
+level 5 is a column every seventeen minutes, and a window of a day is read from
+a few hundred columns instead of eighty-six thousand. Measured against the same
+window read off the finest level, a day fell from 2.6 seconds to a quarter of
+one, and nine hours from 2.3 seconds to a fifth.
+
+The fold takes **time only, never price**. The chart's two axes zoom
+independently, so a reader who has zoomed out in time still wants the price rows
+they had; folding both made the rows four times thicker at every step out, which
+looked like the picture had broken.
+
+### Both axes narrow the read
+
+A square is addressed by price as well as by time, so a read for a band of
+prices touches only the squares that band crosses. That is what `liquidity_frame`
+cannot do — it reads its stored rows whatever was asked for, and the band is
+applied to the answer.
+
+### A block is written whole
+
+Every level is written out as it fills, so a reader zooming out is never
+answered with an empty coarse level. A block is written whole from what the
+writer holds in memory, which means two writers in one block would each replace
+the other's work — and a block of the coarsest level covers six days, so a
+backfill and the live recording are always in the same one. Both lay the stored
+block under what they hold before writing. Reading it costs up to a fifth of a
+second, so each first checks the transaction stamp the store left on its own
+last write: unchanged means nobody else has been in the block, which in a
+recording nobody is sharing is always.
 
 ## Pre-aggregated executions
 

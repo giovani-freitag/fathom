@@ -4,6 +4,7 @@ import type {
     LiveTailSource,
 } from '../../shared/core/live-tail.ts';
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
+import { bandReadWindow } from '../../shared/core/frame-fold.ts';
 import type { LiquidityQueryService } from '../../database/services/liquidity-query-service.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
@@ -31,8 +32,8 @@ export class PostgresLiveTailSource implements LiveTailSource {
      * @param request - The instrument, the cursor, and how many to carry.
      * @returns The frames, oldest first.
      */
-    fetchFramesAfter(request: FramesAfterRequest): Promise<LiquidityFrameWindow> {
-        return this.query.fetchFramesAfter(request);
+    async fetchFramesAfter(request: FramesAfterRequest): Promise<LiquidityFrameWindow> {
+        return bandReadWindow(await this.query.fetchFramesAfter(request), request);
     }
 
     /**

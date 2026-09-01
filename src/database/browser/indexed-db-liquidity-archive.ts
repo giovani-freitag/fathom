@@ -26,6 +26,14 @@ const PRUNE_BATCH_FRAMES = 600;
 /**
  * The browser's write side, keeping the newest window and dropping the rest.
  */
+/** Which squares a prune is dropping, and the stores holding them. */
+interface SquarePrune {
+    readonly blocks: IDBObjectStore;
+    readonly squares: IDBObjectStore;
+    readonly instrumentSymbol: string;
+    readonly horizonMs: number;
+}
+
 export class IndexedDbLiquidityArchive implements LiquidityArchive {
     private readonly database: IndexedDbService;
     private readonly frameCapacity: number;
@@ -157,14 +165,55 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
         // exactly the oldest, and the engine removes it in a single operation.
         const expired = boundedRange(instrumentSymbol, horizonMs);
         await this.write(
-            [STORES.liquidityFrame, STORES.tradeCluster, STORES.recordingGap],
-            ([frames, clusters, gaps]) => {
+            [
+                STORES.liquidityFrame, STORES.tradeCluster, STORES.recordingGap,
+                STORES.liquidityBlock, STORES.liquidityChunk,
+            ],
+            ([frames, clusters, gaps, blocks, squares]) => {
                 frames!.delete(expired);
                 clusters!.delete(expired);
                 this.deleteGapsEndingBefore(gaps!, instrumentSymbol, horizonMs);
+                // The squares of the whole book go with the band they cover.
+                // Left behind they are a store nothing prunes, and one block of
+                // the coarsest level is a fifth of a megabyte that never leaves.
+                this.deleteSquaresEndingBefore({
+                    blocks: blocks!, squares: squares!, instrumentSymbol, horizonMs,
+                });
             },
         );
         return dropping;
+    }
+
+    /**
+     * Removes every block and square wholly older than the horizon.
+     *
+     * A block is dropped only once the instant it reaches is behind the horizon:
+     * one still covering the surviving stretch holds instants a reader can still
+     * ask for, and a block is stored whole or not at all.
+     */
+    private deleteSquaresEndingBefore(prune: SquarePrune): void {
+        const { blocks, squares, instrumentSymbol, horizonMs } = prune;
+        const request = blocks.openCursor(IDBKeyRange.bound(
+            [instrumentSymbol],
+            [instrumentSymbol, []],
+        ));
+        request.onsuccess = () => {
+            const cursor = request.result;
+            if (cursor === null) {
+                return;
+            }
+            const block = cursor.value as {
+                detailLevel: number; startedAtMs: number; endedAtMs: number;
+            };
+            if (block.endedAtMs < horizonMs) {
+                squares.delete(IDBKeyRange.bound(
+                    [instrumentSymbol, block.detailLevel, block.startedAtMs],
+                    [instrumentSymbol, block.detailLevel, block.startedAtMs, []],
+                ));
+                cursor.delete();
+            }
+            cursor.continue();
+        };
     }
 
     /**

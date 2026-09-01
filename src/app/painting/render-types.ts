@@ -145,8 +145,10 @@ export interface FieldBackgroundPainter {
      * Draws onto the layer's own surface.
      *
      * @param request - The surface, the layout, and what to read.
+     * @returns True when what it holds is finished; false while it is still
+     *          being built and the host should come back with another frame.
      */
-    paintBackground(request: BackgroundPaintRequest): void;
+    paintBackground(request: BackgroundPaintRequest): boolean;
     /** Releases whatever it is holding. */
     dispose(): void;
 }
@@ -155,6 +157,16 @@ export interface BackgroundPaintRequest {
     readonly context: CanvasRenderingContext2D;
     readonly layout: ChartLayout;
     readonly request: RenderRequest;
+    /**
+     * How long this layer may hold the thread while it builds.
+     *
+     * What is left of a frame once everything drawn on top of it has been paid
+     * for. A fixed share would be wrong in both directions: too small and a
+     * picture takes three times longer to finish than the work in it, too large
+     * and the candles stutter on the frames where the rest of the chart is
+     * expensive.
+     */
+    readonly budgetMs: number;
 }
 
 /**

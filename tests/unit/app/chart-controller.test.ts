@@ -223,6 +223,36 @@ describe('ChartController layers', () => {
         expect(controller.store.read().colourGain).toBe(2.5);
     });
 
+
+    it('reads the whole book, not the band the recording keeps', async () => {
+        // The recording holds a couple of percent around the price, so a chart
+        // drawn from it cannot show a wall standing where the market has not
+        // been — which is the thing a reader zooms out to look for.
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+
+        await controller.initialize();
+
+        expect(mocks.fetchFrameWindow.mock.calls.at(-1)?.[0])
+            .toMatchObject({ source: 'chunks' });
+    });
+
+    it('leaves the window alone when a setting that only repaints is moved', async () => {
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        const before = mocks.fetchFrameWindow.mock.calls.length;
+
+        controller.updateIndicators((current) => current.map((entry) => (
+            entry.indicatorId === 'depth'
+                ? { ...entry, settings: { ...entry.settings, showProfile: false } }
+                : entry
+        )));
+        await Promise.resolve();
+
+        expect(mocks.fetchFrameWindow.mock.calls.length).toBe(before);
+    });
+
     it('stops drawing a layer that is hidden rather than removed', async () => {
         const controller = buildController();
         await controller.initialize();
@@ -598,3 +628,205 @@ describe('ChartController.selectInstrument', () => {
 
 });
 
+
+describe('ChartController and a store that lags the recording', () => {
+
+
+    it('streams the same store the window was read out of', async () => {
+        // A tail extends the window the history route answered, so it has to
+        // stream out of the same store: one holds a band around the price and
+        // the other the whole book, and a chart fed both leaves everything
+        // outside that band standing still.
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+
+        await controller.initialize();
+
+        expect(mocks.lastSubscription()?.source).toBe('chunks');
+    });
+
+    it('asks the tail for the prices the window was read over', async () => {
+        // A whole-book store holds some fifteen thousand prices and a chart
+        // draws about sixty. Measured on the live gateway, the tail was sending
+        // sixty-two kilobytes a second for a picture that had room for a four
+        // hundredth of it, and the reader's own drawing thread threw the rest
+        // away as it arrived.
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+
+        await controller.initialize();
+
+        const band = mocks.lastSubscription()?.priceBand;
+        expect(band !== undefined && band.lowPrice < 79_000 && band.highPrice > 79_000).toBe(true);
+    });
+
+    it('reopens the tail on the prices the reader panned onto', async () => {
+        // A tail left reading where the chart was leaves the prices it has just
+        // moved onto standing still, and only the next gesture would fill them.
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        const before = mocks.lastSubscription()?.priceBand;
+
+        const parked = controller.store.read().viewport;
+        controller.applyView({
+            viewport: { ...parked, lowPrice: 60_000, highPrice: 61_000 },
+            surfaceWidthPx: SURFACE_WIDTH,
+            isFollowingPrice: false,
+        });
+
+        await vi.waitFor(() => {
+            expect(mocks.lastSubscription()?.priceBand).not.toEqual(before);
+        });
+    });
+});
+
+describe('ChartController and a window read on a folded grid', () => {
+    /** One instant already laid on a fifty dollar grid, as a wide read answers. */
+    const COARSE_WINDOW = {
+        priceBucketSize: 50,
+        sampleIntervalMs: 1_000,
+        frames: [{
+            capturedAtMs: 1_500_000,
+            bestBidPrice: 78_999.5,
+            bestAskPrice: 79_000.5,
+            bids: { lowestBucketIndex: 1_578, quantities: Float32Array.from([1, 2, 3]) },
+            asks: { lowestBucketIndex: 1_581, quantities: Float32Array.from([3, 2, 1]) },
+        }],
+    };
+
+    it('lays a streamed instant on the grid the window came back on', async () => {
+        // The tail reads the recording as written, on the fine grid. Appended
+        // as it arrives, every price in it lands at a fifth of where it belongs
+        // and the chart draws liquidity nobody offered.
+        const mocks = createChartServiceMocks();
+        mocks.fetchFrameWindow.mockResolvedValue(COARSE_WINDOW);
+        const controller = buildController(mocks);
+        await controller.initialize();
+
+        act(() => {
+            mocks.deliverFrames(buildWindow([buildFrame(1_600_000)]));
+        });
+
+        const frames = controller.store.read().dataset.frames;
+        expect(frames.at(-1)?.bids.lowestBucketIndex).toBe(1_579);
+    });
+
+    it('still takes the instant, rather than dropping what it cannot lay flat', async () => {
+        const mocks = createChartServiceMocks();
+        mocks.fetchFrameWindow.mockResolvedValue(COARSE_WINDOW);
+        const controller = buildController(mocks);
+        await controller.initialize();
+
+        act(() => {
+            mocks.deliverFrames(buildWindow([buildFrame(1_600_000)]));
+        });
+
+        expect(controller.store.read().dataset.frames.at(-1)?.capturedAtMs).toBe(1_600_000);
+    });
+});
+
+describe('ChartController following a recording rather than a clock', () => {
+    it('holds the right edge to the newest instant a gesture arrives on', async () => {
+        // Between gestures the edge only ever moves when a frame lands, so a
+        // store written a few columns at a time is invisible. A gesture pins the
+        // edge to the wall clock instead, and those seconds sit on screen as
+        // blank until the store catches up to where the clock was.
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+
+        const newestMs = controller.store.read().dataset.frames.at(-1)!.capturedAtMs;
+        const nowMs = Date.now();
+        controller.applyView({
+            viewport: { ...controller.store.read().viewport, fromMs: nowMs - 900_000, toMs: nowMs },
+            surfaceWidthPx: SURFACE_WIDTH,
+            isFollowingLive: true,
+        });
+
+        expect(controller.store.read().viewport.toMs).toBeLessThanOrEqual(newestMs + 60_000);
+    });
+
+    it('keeps the span the gesture asked for while it pulls the edge back', async () => {
+        // A gesture that zoomed still has to zoom.
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+
+        const nowMs = Date.now();
+        controller.applyView({
+            viewport: { ...controller.store.read().viewport, fromMs: nowMs - 900_000, toMs: nowMs },
+            surfaceWidthPx: SURFACE_WIDTH,
+            isFollowingLive: true,
+        });
+
+        const { fromMs, toMs } = controller.store.read().viewport;
+        expect(toMs - fromMs).toBe(900_000);
+    });
+
+    it('leaves a reader who panned away from the live edge where they put it', async () => {
+        // Pulled back, a reader looking at last hour would be yanked to the
+        // present on every drag.
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+
+        const nowMs = Date.now();
+        controller.applyView({
+            viewport: { ...controller.store.read().viewport, fromMs: nowMs - 900_000, toMs: nowMs },
+            surfaceWidthPx: SURFACE_WIDTH,
+            isFollowingLive: false,
+        });
+
+        expect(controller.store.read().viewport.toMs).toBeGreaterThan(nowMs - 600_000);
+    });
+});
+
+describe('ChartController opening on a listed price', () => {
+    it('frames the axis before it asks for a window', async () => {
+        // Without the price in the listing, a chart has to read a whole book to
+        // find the market — measured, two seconds and a request every other one
+        // on the page queued behind, with nothing drawn until it landed.
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+
+        await controller.initialize();
+
+        const { lowPrice, highPrice } = controller.store.read().viewport;
+        expect(lowPrice).toBeLessThan(highPrice);
+    });
+
+    it('asks the very first window for the band it will draw', async () => {
+        // A band of nothing is a reader saying it does not know where to look,
+        // and a whole-book store answers that with every price it holds.
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+
+        await controller.initialize();
+        const first = mocks.fetchFrameWindow.mock.calls[0]?.[0] as
+            { priceBand?: { lowPrice: number; highPrice: number } };
+
+        expect(first.priceBand?.highPrice).toBeGreaterThan(first.priceBand?.lowPrice ?? 0);
+    });
+
+    it('reads one window rather than one to look and another to draw', async () => {
+        // Unframed, the chart reads a whole book, reframes on what came back
+        // and reads again. Both are paid before anything is drawn.
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+
+        await controller.initialize();
+
+        expect(mocks.fetchFrameWindow).toHaveBeenCalledTimes(1);
+    });
+
+    it('opens around the price it was told, not around nought', async () => {
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+
+        await controller.initialize();
+
+        const { lowPrice, highPrice } = controller.store.read().viewport;
+        expect((lowPrice + highPrice) / 2).toBeCloseTo(79_000, -2);
+    });
+});

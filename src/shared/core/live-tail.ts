@@ -8,6 +8,27 @@ export interface FramesAfterRequest {
     /** Newest instant already delivered; the read resumes strictly after it. */
     readonly afterMs: number;
     readonly maxFrames: number;
+    /**
+     * The prices on screen, so a tail carries only those.
+     *
+     * A whole-book store holds some fifteen thousand prices and a chart draws
+     * some sixty of them. Measured on the live gateway, the tail was sending
+     * sixty-two kilobytes a second for a picture that had room for a four
+     * hundredth of it, and the reader's own drawing thread threw the rest away.
+     */
+    readonly lowPrice?: number;
+    readonly highPrice?: number;
+    /**
+     * What one instant of the recording covers.
+     *
+     * A tail asks a store for a stretch and a count. Read as a budget of drawn
+     * columns — which is what a window read means by it — a store folds the
+     * stretch to fit, and a reader twenty minutes behind is handed one instant
+     * in twelve. It moves its cursor past the rest, so what was folded away is
+     * never offered again: the chart draws a column every twelfth second and
+     * black between them, for ever.
+     */
+    readonly frameIntervalMs?: number;
 }
 
 export interface BetweenRequest {
@@ -32,6 +53,11 @@ export interface LiveTailConfig {
     readonly afterMs: number;
     readonly maxFramesPerPoll: number;
     readonly deliver: (message: LiveMessage) => void;
+    /** The prices the reader is drawing, or absent for all of them. */
+    readonly lowPrice?: number;
+    readonly highPrice?: number;
+    /** What one instant of the recording covers, so no read is folded. */
+    readonly frameIntervalMs?: number;
 }
 
 /**
@@ -106,6 +132,15 @@ export class LiveTail {
             symbol: this.config.instrumentSymbol,
             afterMs: this.frameCursorMs,
             maxFrames: this.config.maxFramesPerPoll,
+            // Prices only, never a row budget. Folded to a budget the tail would
+            // answer on a grid of its own, and a grid the window it extends does
+            // not divide into cannot be laid on it at all: the frames are
+            // dropped on arrival and the chart stops at the live edge.
+            ...(this.config.lowPrice === undefined ? {} : { lowPrice: this.config.lowPrice }),
+            ...(this.config.highPrice === undefined ? {} : { highPrice: this.config.highPrice }),
+            ...(this.config.frameIntervalMs === undefined
+                ? {}
+                : { frameIntervalMs: this.config.frameIntervalMs }),
         });
 
         const newest = window.frames[window.frames.length - 1];

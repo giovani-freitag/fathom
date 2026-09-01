@@ -27,13 +27,16 @@ describe('foldFramesIntoColumns', () => {
         expect([...foldFramesIntoColumns(frames, 4_000)[0]!.bids.quantities]).toEqual([10, 20]);
     });
 
-    it('averages the instants that share a column', () => {
+    it('keeps the largest of the instants that share a column', () => {
         const frames = [buildFrame(0, [10]), buildFrame(1_000, [30])];
 
-        expect(foldFramesIntoColumns(frames, 4_000)[0]!.bids.quantities[0]).toBe(20);
+        expect(foldFramesIntoColumns(frames, 4_000)[0]!.bids.quantities[0]).toBe(30);
     });
 
-    it('fades a level that was only there for part of the column', () => {
+    it('keeps a level that was only there for part of the column at full size', () => {
+        // A wall that stood for one of four instants is a wall. It is also what
+        // every other store here answers, and this one is the yardstick they
+        // are read against: a mean made the reference understate them fourfold.
         const frames = [
             buildFrame(0, [100]),
             buildFrame(1_000, [0]),
@@ -41,7 +44,7 @@ describe('foldFramesIntoColumns', () => {
             buildFrame(3_000, [0]),
         ];
 
-        expect(foldFramesIntoColumns(frames, 4_000)[0]!.bids.quantities[0]).toBe(25);
+        expect(foldFramesIntoColumns(frames, 4_000)[0]!.bids.quantities[0]).toBe(100);
     });
 
     it('keeps a level that rested through the whole column at full size', () => {
@@ -71,7 +74,7 @@ describe('foldFramesIntoColumns', () => {
         const frames = [buildFrame(0, [10, 10], 100), buildFrame(1_000, [10, 10], 101)];
 
         const folded = foldFramesIntoColumns(frames, 4_000)[0]!.bids;
-        expect([folded.lowestBucketIndex, [...folded.quantities]]).toEqual([100, [5, 10, 5]]);
+        expect([folded.lowestBucketIndex, [...folded.quantities]]).toEqual([100, [10, 10, 10]]);
     });
 
     it('averages the touch prices as well as the depth', () => {

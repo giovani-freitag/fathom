@@ -4,11 +4,33 @@ import type { RecordingGap } from './recording-gap.ts';
 import type { PriceBarQuery, PriceBarWindow } from './price-bar.ts';
 import type { TradeCluster } from './trade-cluster.ts';
 
+/**
+ * The stored shape a window is read out of.
+ *
+ * The recording itself, and the chunked archive built from it. They answer the
+ * same minutes in different shapes — one row per price the market stood at, and
+ * fixed squares of the whole book stacked in levels — so a window drawn from
+ * either can be held against the other, which is what has caught every fold
+ * that drifted.
+ */
+export type FrameSource = 'frames' | 'chunks';
+
+/** The stretch of price a window is asked to answer for, and the rows for it. */
+export interface PriceBandQuery {
+    readonly lowPrice: number;
+    readonly highPrice: number;
+    readonly maxRows: number;
+}
+
 export interface FrameWindowQuery {
     readonly symbol: string;
     readonly fromMs: number;
     readonly toMs: number;
     readonly maxColumns: number;
+    /** Which stored shape the window is read out of. */
+    readonly source?: FrameSource;
+    /** The prices the reader will draw, or absent for every price stored. */
+    readonly priceBand?: PriceBandQuery;
 }
 
 export interface TradeClusterQuery extends FrameWindowQuery {

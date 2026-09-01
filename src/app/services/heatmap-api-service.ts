@@ -1,3 +1,4 @@
+import type { FrameSource } from '../../shared/core/heatmap-source.ts';
 import type { HeatmapSource } from '../../shared/core/heatmap-source.ts';
 import {
     API_ROUTES,
@@ -29,11 +30,22 @@ export interface HeatmapApiServiceConfig {
     readonly baseUrl: string;
 }
 
+/** The stretch of price a window is asked to answer for, and the rows for it. */
+export interface PriceBandQuery {
+    readonly lowPrice: number;
+    readonly highPrice: number;
+    readonly maxRows: number;
+}
+
 export interface FrameWindowQuery {
     readonly symbol: string;
     readonly fromMs: number;
     readonly toMs: number;
     readonly maxColumns: number;
+    /** Which stored shape the window is read out of. */
+    readonly source?: FrameSource;
+    /** The prices the reader will draw, or absent for every price stored. */
+    readonly priceBand?: PriceBandQuery;
 }
 
 export interface TradeClusterQuery extends FrameWindowQuery {
@@ -82,7 +94,21 @@ export class HeatmapApiService implements HeatmapSource {
      * @throws HeatmapApiError when the gateway rejects the request.
      */
     async fetchFrameWindow(query: FrameWindowQuery, signal?: AbortSignal): Promise<LiquidityFrameWindow> {
-        const response = await this.request(API_ROUTES.heatmap, toWindowParameters(query), signal);
+        const parameters = toWindowParameters(query);
+        if (query.source !== undefined) {
+            parameters.set('source', query.source);
+        }
+        const band = query.priceBand;
+        if (band !== undefined) {
+            parameters.set('maxRows', String(Math.max(1, Math.round(band.maxRows))));
+            // Prices only when the reader has some: a band of nothing is a
+            // reader asking to be shown the book so it can find its place.
+            if (band.highPrice > band.lowPrice) {
+                parameters.set('lowPrice', String(Math.max(0, band.lowPrice)));
+                parameters.set('highPrice', String(band.highPrice));
+            }
+        }
+        const response = await this.request(API_ROUTES.heatmap, parameters, signal);
         return decodeLiquidityFrameWindow(await response.arrayBuffer());
     }
 

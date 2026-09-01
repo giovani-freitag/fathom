@@ -67,7 +67,7 @@ docker compose up -d          # TimescaleDB
 npm run migrate
 npm run build
 
-npm run collect &             # start recording — this is the part that must not stop
+npm run collector &           # start recording — this is the part that must not stop
 npm run gateway               # http://localhost:8787
 ```
 

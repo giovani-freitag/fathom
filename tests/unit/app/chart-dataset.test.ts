@@ -278,6 +278,94 @@ describe('replaceDataset saturation stability', () => {
     });
 });
 
+describe('colouring a window from what the reader can see', () => {
+    const ON_SCREEN_SIZE = 2;
+    const OFF_SCREEN_WALL = 4_000;
+    /** Prices the reader is looking at; the window reaches well past them. */
+    const VIEW = { fromMs: 5_000, toMs: 9_000, lowPrice: 1_000, highPrice: 1_200 };
+
+    /** One instant, with a size at every bucket of a run. */
+    function buildFrame(capturedAtMs: number, lowestBucketIndex: number, size: number, count = 20): LiquidityFrame {
+        return {
+            capturedAtMs,
+            bestBidPrice: 1_100,
+            bestAskPrice: 1_101,
+            bids: { lowestBucketIndex, quantities: new Float32Array(count).fill(size) },
+            asks: { lowestBucketIndex: 0, quantities: new Float32Array(0) },
+        };
+    }
+
+    /** A window whose overscan holds a wall the reader cannot see. */
+    function buildWindow(offScreen: 'in price' | 'in time') {
+        const onScreen = [6_000, 7_000, 8_000].map(
+            (at) => buildFrame(at, VIEW.lowPrice / 10, ON_SCREEN_SIZE),
+        );
+        const hidden = offScreen === 'in price'
+            // Above the view, in the band the overscan reaches into.
+            ? buildFrame(7_000, VIEW.highPrice / 10 + 50, OFF_SCREEN_WALL)
+            // Before the view, in the stretch the overscan reaches back over.
+            : buildFrame(1_000, VIEW.lowPrice / 10, OFF_SCREEN_WALL);
+        return {
+            priceBucketSize: 10,
+            sampleIntervalMs: 1_000,
+            frames: offScreen === 'in price' ? [...onScreen, hidden] : [hidden, ...onScreen],
+        };
+    }
+
+    function cut(offScreen: 'in price' | 'in time', viewport: typeof VIEW | undefined) {
+        return replaceDataset({
+            instrumentSymbol: 'BTCUSDT',
+            window: buildWindow(offScreen),
+            clusters: [],
+            clusterPriceBucketSize: 10,
+            clusterIntervalMs: 1_000,
+            gaps: [],
+            bars: EMPTY_BAR_WINDOW,
+            previousRevision: 0,
+            floorPercentile: DEFAULT_FLOOR_PERCENTILE,
+            saturationPercentile: 0.99,
+            ...(viewport === undefined ? {} : { viewport }),
+        });
+    }
+
+    it('is not flattened by a wall standing above the prices on screen', () => {
+        // The window reaches well past the view in price so a short pan needs no
+        // round trip. Coloured from all of it, a wall just off the top sets the
+        // saturation and everything on screen is drawn at the dark end of it.
+        const dataset = cut('in price', VIEW);
+
+        expect(dataset.saturationQuantity).toBeLessThan(OFF_SCREEN_WALL / 10);
+    });
+
+    it('is not flattened by a wall standing before the instants on screen', () => {
+        const dataset = cut('in time', VIEW);
+
+        expect(dataset.saturationQuantity).toBeLessThan(OFF_SCREEN_WALL / 10);
+    });
+
+    it('colours from the sizes that are on screen', () => {
+        const dataset = cut('in price', VIEW);
+
+        expect(dataset.saturationQuantity).toBe(ON_SCREEN_SIZE);
+    });
+
+    it('still colours from the whole window when nobody said what is on screen', () => {
+        // Every caller should say, but one that does not must still get a scale
+        // rather than a blank chart.
+        const dataset = cut('in price', undefined);
+
+        expect(dataset.saturationQuantity).toBeGreaterThan(ON_SCREEN_SIZE);
+    });
+
+    it('falls back to the window when the view has landed outside it', () => {
+        const elsewhere = { ...VIEW, fromMs: 900_000, toMs: 990_000 };
+
+        const dataset = cut('in price', elsewhere);
+
+        expect(dataset.saturationQuantity).toBeGreaterThan(0);
+    });
+});
+
 describe('recutDataset', () => {
     /** A hundred distinct sizes, so the percentiles have somewhere to move. */
     function buildSpreadDataset() {
@@ -309,7 +397,7 @@ describe('recutDataset', () => {
     it('raises the floor when the reader asks for a higher cut', () => {
         const dataset = buildSpreadDataset();
 
-        const recut = recutDataset(dataset, 0.8, DEFAULT_SATURATION_PERCENTILE);
+        const recut = recutDataset({ dataset, floorPercentile: 0.8, saturationPercentile: DEFAULT_SATURATION_PERCENTILE });
 
         expect(recut.floorQuantity).toBeGreaterThan(dataset.floorQuantity);
     });
@@ -317,7 +405,7 @@ describe('recutDataset', () => {
     it('lowers the hot end when the upper cut comes down', () => {
         const dataset = buildSpreadDataset();
 
-        const recut = recutDataset(dataset, DEFAULT_FLOOR_PERCENTILE, 0.6);
+        const recut = recutDataset({ dataset, floorPercentile: DEFAULT_FLOOR_PERCENTILE, saturationPercentile: 0.6 });
 
         expect(recut.saturationQuantity).toBeLessThan(dataset.saturationQuantity);
     });
@@ -325,7 +413,7 @@ describe('recutDataset', () => {
     it('ignores the hysteresis, because the reader is watching for the change', () => {
         const dataset = buildSpreadDataset();
 
-        const recut = recutDataset(dataset, 0.45, DEFAULT_SATURATION_PERCENTILE);
+        const recut = recutDataset({ dataset, floorPercentile: 0.45, saturationPercentile: DEFAULT_SATURATION_PERCENTILE });
 
         expect(recut.floorQuantity).not.toBe(dataset.floorQuantity);
     });
@@ -333,7 +421,7 @@ describe('recutDataset', () => {
     it('never lets the floor swallow the whole ramp', () => {
         const dataset = buildSpreadDataset();
 
-        const recut = recutDataset(dataset, 0.9, DEFAULT_SATURATION_PERCENTILE);
+        const recut = recutDataset({ dataset, floorPercentile: 0.9, saturationPercentile: DEFAULT_SATURATION_PERCENTILE });
 
         expect(recut.floorQuantity).toBeLessThan(recut.saturationQuantity);
     });
@@ -341,13 +429,13 @@ describe('recutDataset', () => {
     it('advances the revision so the field repaints', () => {
         const dataset = buildSpreadDataset();
 
-        expect(recutDataset(dataset, 0.6, 0.99).revision).toBe(dataset.revision + 1);
+        expect(recutDataset({ dataset, floorPercentile: 0.6, saturationPercentile: 0.99 }).revision).toBe(dataset.revision + 1);
     });
 
     it('keeps the frames it was handed', () => {
         const dataset = buildSpreadDataset();
 
-        expect(recutDataset(dataset, 0.6, 0.99).frames).toBe(dataset.frames);
+        expect(recutDataset({ dataset, floorPercentile: 0.6, saturationPercentile: 0.99 }).frames).toBe(dataset.frames);
     });
 });
 

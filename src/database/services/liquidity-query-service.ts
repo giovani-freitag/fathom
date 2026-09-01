@@ -91,7 +91,9 @@ export class LiquidityQueryService {
                 registry.price_bucket_size,
                 registry.frame_interval_ms,
                 oldest.captured_at AS first_frame_at,
-                newest.captured_at AS last_frame_at
+                newest.captured_at AS last_frame_at,
+                newest.best_bid_price,
+                newest.best_ask_price
             FROM instrument_registry registry
             LEFT JOIN LATERAL (
                 SELECT captured_at FROM liquidity_frame
@@ -99,7 +101,10 @@ export class LiquidityQueryService {
                 ORDER BY captured_at ASC LIMIT 1
             ) oldest ON TRUE
             LEFT JOIN LATERAL (
-                SELECT captured_at FROM liquidity_frame
+                -- The touch prices come free with the instant: a chart that is
+                -- told where the market is can frame its axis before it asks
+                -- for a window, and so can ask for the band it will draw.
+                SELECT captured_at, best_bid_price, best_ask_price FROM liquidity_frame
                 WHERE instrument_symbol = registry.instrument_symbol
                 ORDER BY captured_at DESC LIMIT 1
             ) newest ON TRUE

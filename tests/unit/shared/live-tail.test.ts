@@ -30,6 +30,71 @@ describe('LiveTail', () => {
         );
     });
 
+    it('reads only the prices the reader is drawing', async () => {
+        // A whole-book store holds some fifteen thousand prices and a chart
+        // draws about sixty. Measured on the live gateway, the tail was sending
+        // sixty-two kilobytes a second for a picture with room for a four
+        // hundredth of it.
+        const banded = new LiveTail({
+            source: source.source,
+            instrumentSymbol: 'BTCUSDT',
+            afterMs: RESUME_FROM_MS,
+            maxFramesPerPoll: 50,
+            deliver: () => undefined,
+            lowPrice: 900,
+            highPrice: 1_100,
+        });
+
+        await banded.advance();
+
+        expect(source.fetchFramesAfter).toHaveBeenCalledWith(
+            expect.objectContaining({ lowPrice: 900, highPrice: 1_100 }),
+        );
+    });
+
+    it('asks for no row budget, so the grid stays the one it is extending', async () => {
+        // Folded to a budget the tail answers on a grid of its own choosing,
+        // and a grid the window it extends does not divide into cannot be laid
+        // on that window at all: the frames are dropped as they arrive and the
+        // chart stops dead at the live edge.
+        const banded = new LiveTail({
+            source: source.source,
+            instrumentSymbol: 'BTCUSDT',
+            afterMs: RESUME_FROM_MS,
+            maxFramesPerPoll: 50,
+            deliver: () => undefined,
+            lowPrice: 900,
+            highPrice: 1_100,
+        });
+
+        await banded.advance();
+
+        expect(source.fetchFramesAfter.mock.calls[0]?.[0]).not.toHaveProperty('maxRows');
+    });
+
+    it('tells the store what one instant covers, so no catch-up is folded', async () => {
+        const paced = new LiveTail({
+            source: source.source,
+            instrumentSymbol: 'BTCUSDT',
+            afterMs: RESUME_FROM_MS,
+            maxFramesPerPoll: 50,
+            deliver: () => undefined,
+            frameIntervalMs: 1_000,
+        });
+
+        await paced.advance();
+
+        expect(source.fetchFramesAfter).toHaveBeenCalledWith(
+            expect.objectContaining({ frameIntervalMs: 1_000 }),
+        );
+    });
+
+    it('names no prices when the reader named none', async () => {
+        await tail.advance();
+
+        expect(source.fetchFramesAfter.mock.calls[0]?.[0]).not.toHaveProperty('lowPrice');
+    });
+
     it('says nothing when the archive has nothing new', async () => {
         await tail.advance();
 

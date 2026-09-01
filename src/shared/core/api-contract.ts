@@ -28,6 +28,15 @@ export const MAXIMUM_FRAMES_PER_WINDOW = 4_000;
 
 export const DEFAULT_FRAMES_PER_WINDOW = 1_500;
 
+/**
+ * Upper bound on price rows per response.
+ *
+ * Taller than any screen on purpose: the point is to hold back a whole-book
+ * window that would otherwise answer with every price from nothing to twice the
+ * market, not to second-guess how tall the reader's chart is.
+ */
+export const MAXIMUM_ROWS_PER_WINDOW = 4_000;
+
 /** Instrument descriptor, with the extent of what has actually been recorded. */
 export interface InstrumentCoverage {
     readonly instrumentSymbol: string;
@@ -35,6 +44,14 @@ export interface InstrumentCoverage {
     readonly frameIntervalMs: number;
     readonly firstFrameAtMs: number | null;
     readonly lastFrameAtMs: number | null;
+    /**
+     * The price at the newest instant recorded, or null before the first.
+     *
+     * Carried here because a chart that does not know it has to read a whole
+     * book to find out: measured, two seconds and a request that every other
+     * one on the page queued behind, before anything was drawn.
+     */
+    readonly lastMidPrice: number | null;
 }
 
 export interface InstrumentListResponse {

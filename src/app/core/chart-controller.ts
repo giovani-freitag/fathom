@@ -3,14 +3,16 @@ import type { DrawPlan } from '../../shared/core/draw-plan.ts';
 import type { LiveMessage } from '../../shared/core/live-message.ts';
 import type { TranslationKey } from '../i18n/dictionaries/en.ts';
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
+import { foldFrameWindow } from '../../shared/core/frame-fold.ts';
 import {
     type ChartViewport,
     clampViewport,
     type ViewportBounds,
 } from './chart-viewport.ts';
+import { INITIAL_PRICE_RANGE_RATIO } from './viewport-policy.ts';
 import { resolveFailureKey } from './failure-copy.ts';
 import { ObservableStore } from './observable-store.ts';
-import type { HeatmapSource } from '../../shared/core/heatmap-source.ts';
+import type { HeatmapSource, PriceBandQuery } from '../../shared/core/heatmap-source.ts';
 import type { LiveFeed, LiveFeedStatus } from '../services/live-feed.ts';
 import type { PreferencesService, ViewerPreferences } from '../services/preferences-service.ts';
 import {
@@ -30,12 +32,7 @@ import {
     resolveTradePriceGroupSize,
     resolveViewportBounds,
 } from './viewport-policy.ts';
-import {
-    type LoadedWindow,
-    WindowLoader,
-    type WindowLoadRequest,
-    type WindowSource,
-} from './window-loader.ts';
+import { describeBand, DRAWN_FROM, type LoadedWindow, type WindowLoadRequest, type WindowSource, WindowLoader } from './window-loader.ts';
 import {
     findIndicator,
     resolveRequiredWarmupBars,
@@ -112,10 +109,32 @@ export interface ChartControllerConfig {
 export interface ViewRequest {
     readonly viewport: ChartViewport;
     readonly surfaceWidthPx: number;
+    /**
+     * How tall the price pane is, when the caller knows.
+     *
+     * What decides how many rows to ask for. A fixed budget asks for rows the
+     * pane has no pixels to show, and every one of them is read, sent, and
+     * folded away again by the reader — and it stops a coarser level of the
+     * archive from ever being free, because a level folds prices as well as
+     * instants and the reader has claimed it wants every price.
+     */
+    readonly pricePaneHeightPx?: number;
     /** Pass false when the gesture moved the view off the right edge. */
     readonly isFollowingLive?: boolean;
     /** Pass false when the gesture chose a price band of its own. */
     readonly isFollowingPrice?: boolean;
+    /**
+     * True on the view a gesture leaves behind when the hand lifts.
+     *
+     * A drag writes a viewport every frame, and asking for a window on each of
+     * them would be a request a frame. They are collected instead, and the
+     * collecting costs the reader the settling time on every gesture — a fifth
+     * of a second of looking at the old picture, measured against a read that
+     * answers in less than that. Told which view is the last one, the window can
+     * be asked for the moment the hand leaves and the collecting only ever
+     * delays a movement still happening.
+     */
+    readonly isGestureOver?: boolean;
 }
 
 /**
@@ -127,7 +146,17 @@ export class ChartController {
     private readonly config: ChartControllerConfig;
     private readonly windowLoader: WindowLoader;
     private surfaceWidthPx = 800;
+    /** The pane prices are drawn in, until a surface says otherwise. */
+    private pricePaneHeightPx = 600;
     private needsPriceFraming = true;
+    /** Newest instant the tail has handed over, which is where it will resume. */
+    private tailDeliveredMs = 0;
+    /** The store the running tail is streaming out of. */
+    private hasOpenedTail = false;
+    /** The prices the running tail is reading over, as the window key spells them. */
+    private tailBandKey: string | null = null;
+    /** The prices the newest window was read over, which is what a tail extends. */
+    private loadedPriceBand: PriceBandQuery | null = null;
     private wasDisposed = false;
     private wasInitialised = false;
     private coverageTimer: ReturnType<typeof setInterval> | null = null;
@@ -188,6 +217,10 @@ export class ChartController {
                 return;
             }
 
+            // Told where the market is, the chart is already framed: the very
+            // first window can then ask for the band it will draw instead of
+            // reading a whole book to find out where to look.
+            this.needsPriceFraming = preferred.lastMidPrice === null;
             this.store.update((current) => ({
                 ...current,
                 instruments,
@@ -253,7 +286,7 @@ export class ChartController {
         // between is appended to the contract the reader moved to.
         this.config.liveFeed.disconnect();
         this.windowLoader.reset();
-        this.needsPriceFraming = true;
+        this.needsPriceFraming = instrument.lastMidPrice === null;
         this.store.update((state) => ({
             ...state,
             instrumentSymbol,
@@ -327,19 +360,23 @@ export class ChartController {
      */
     applyView(request: ViewRequest): void {
         this.surfaceWidthPx = Math.max(1, request.surfaceWidthPx);
+        if (request.pricePaneHeightPx !== undefined) {
+            this.pricePaneHeightPx = Math.max(1, request.pricePaneHeightPx);
+        }
         const bounds = this.resolveBounds();
-        const viewport = clampViewport(request.viewport, bounds);
+        const isFollowingLive = request.isFollowingLive ?? this.store.read().isFollowingLive;
+        const viewport = this.restEdgeOnData(clampViewport(request.viewport, bounds), isFollowingLive);
 
         this.store.update((state) => ({
             ...state,
             viewport,
-            isFollowingLive: request.isFollowingLive ?? state.isFollowingLive,
+            isFollowingLive,
             isFollowingPrice: request.isFollowingPrice ?? state.isFollowingPrice,
         }));
 
         const loadRequest = this.buildLoadRequest();
         if (loadRequest !== null) {
-            this.windowLoader.scheduleIfStale(loadRequest);
+            this.windowLoader.scheduleIfStale(loadRequest, request.isGestureOver === true);
         }
     }
 
@@ -394,7 +431,6 @@ export class ChartController {
     updateIndicators(
         revise: (current: readonly AddedIndicator[]) => readonly AddedIndicator[],
     ): void {
-        const before = resolveRequiredWarmupBars(this.store.read().addedIndicators);
         this.store.update((state) => {
             const addedIndicators = revise(state.addedIndicators);
             const next = { ...state, addedIndicators, ...resolveFieldSettings(addedIndicators) };
@@ -408,9 +444,11 @@ export class ChartController {
         // A deeper indicator needs history the loaded window does not hold, and
         // seeding from what is there would draw a converged-looking line that is
         // not one.
-        if (resolveRequiredWarmupBars(this.store.read().addedIndicators) > before) {
-            void this.loadWindow();
-        }
+        // Offered on every change, and refused by the loader unless the window
+        // it describes actually differs. Deciding here as well meant two places
+        // held the same rule, and the second one was already missing a reason:
+        // a deeper indicator was listed, reading from another store was not.
+        void this.loadWindow();
     }
 
     private choosePreferredInstrument(
@@ -448,11 +486,18 @@ export class ChartController {
             symbol: state.instrumentSymbol,
             viewport: state.viewport,
             surfaceWidthPx: this.surfaceWidthPx,
+            pricePaneHeightPx: this.pricePaneHeightPx,
             frameIntervalMs: instrument?.frameIntervalMs ?? state.dataset.sampleIntervalMs,
             priceGroupSize: resolveTradePriceGroupSize(state.viewport, state.dataset.priceBucketSize),
             warmupBars: resolveRequiredWarmupBars(state.addedIndicators),
             barIntervalMs: state.barIntervalMs,
             sources: resolveWindowSources(state),
+            // Held back until the axis has been framed on the book: before
+            // that it carries a span from another session, and asking for it
+            // would return the wrong slice of the market to frame on.
+            priceBand: this.needsPriceFraming
+                ? null
+                : { lowPrice: state.viewport.lowPrice, highPrice: state.viewport.highPrice },
         };
     }
 
@@ -474,6 +519,13 @@ export class ChartController {
             return;
         }
 
+        this.loadedPriceBand = loaded.priceBand;
+
+        // Read before the update, because framing is what clears it: the chart
+        // opened on the whole book to find the market, and the band it settled
+        // on is a different, far smaller window than the one it was handed.
+        const wasFramingPrice = this.needsPriceFraming;
+
         this.store.update((current) => {
             const dataset = replaceDataset({
                 instrumentSymbol: symbol,
@@ -488,6 +540,9 @@ export class ChartController {
                 previousFloorQuantity: current.dataset.floorQuantity,
                 floorPercentile: current.depthFloorPercentile,
                 saturationPercentile: current.depthSaturationPercentile,
+                // What the reader can see, so a wall standing in the overscan
+                // does not set the top of the scale and flatten the screen.
+                viewport: current.viewport,
             });
             const next = {
                 ...current,
@@ -499,6 +554,30 @@ export class ChartController {
             };
             return { ...next, plans: this.computePlans(next) };
         });
+
+        if (wasFramingPrice && !this.needsPriceFraming) {
+            void this.loadWindow();
+            return;
+        }
+
+        // A store that lags the recording answers a window ending seconds before
+        // the tail has already reached, and the tail only ever resumes forward.
+        // Nothing would deliver the stretch between them, and the chart would
+        // hold a hole at the live edge until the next gesture refetched it.
+        const newestMs = newestFrameTimestamp(this.store.read().dataset);
+        // Only once there is a tail to reopen: before the first one is opened
+        // there is nothing to correct, and opening here would leave the caller
+        // that is about to open one holding a second socket.
+        const hasTail = this.hasOpenedTail;
+        // And a tail reading a band the window no longer covers leaves the
+        // prices the reader has just panned onto standing still. Compared here,
+        // after the window has landed, so the socket that reopens asks for the
+        // band the chart actually holds rather than the one it is leaving.
+        const movedBand = describeBand(this.loadedPriceBand) !== this.tailBandKey;
+        if (hasTail && ((newestMs !== null && newestMs < this.tailDeliveredMs)
+            || movedBand)) {
+            this.openLiveTail();
+        }
     }
 
     private openLiveTail(): void {
@@ -507,17 +586,42 @@ export class ChartController {
             return;
         }
 
+        this.tailDeliveredMs = newestFrameTimestamp(state.dataset) ?? 0;
+        this.hasOpenedTail = true;
+        const band = this.loadedPriceBand;
+        this.tailBandKey = describeBand(band);
+
         this.config.liveFeed.connect({
             instrumentSymbol: state.instrumentSymbol,
             afterMs: newestFrameTimestamp(state.dataset) ?? Date.now(),
+            source: DRAWN_FROM,
+            // A band the chart has not framed itself on yet names no prices,
+            // and a tail asked for none of them reads all of them, which is
+            // right: it is still looking for the market.
+            ...(band === null || !(band.highPrice > band.lowPrice)
+                ? {}
+                : { priceBand: { lowPrice: band.lowPrice, highPrice: band.highPrice } }),
             onMessage: this.handleLiveMessage,
             onStatusChanged: this.handleLiveStatus,
         });
     }
 
     private handleLiveFrames(window: LiquidityFrameWindow): void {
+        this.tailDeliveredMs = Math.max(
+            this.tailDeliveredMs,
+            window.frames[window.frames.length - 1]?.capturedAtMs ?? 0,
+        );
         this.store.update((state) => {
-            const dataset = appendFrames(state.dataset, window.frames);
+            // The tail reads the recording as written; a window read over a wide
+            // band comes folded. Appended unfolded, every price in it lands at a
+            // fraction of where it belongs.
+            const laid = state.dataset.frames.length === 0
+                ? window
+                : foldFrameWindow(window, state.dataset.priceBucketSize);
+            if (laid === null) {
+                return state;
+            }
+            const dataset = appendFrames(state.dataset, laid.frames);
             if (dataset === state.dataset) {
                 return state;
             }
@@ -578,6 +682,32 @@ export class ChartController {
         // wide for ever: a quarter of an hour of chart holding ten seconds of
         // it, pressed into a sliver at the edge.
         return clampViewport(followed, this.resolveBounds());
+    }
+
+    /**
+     * The viewport with its right edge held to the newest instant that exists.
+     *
+     * A reader following the recording is following the recording, not the wall
+     * clock. Between gestures that is already true — the edge only ever moves
+     * when a frame arrives — but a gesture pins it to the clock instead, and a
+     * store written a few columns at a time is seconds behind. Those seconds
+     * then sit on screen as blank, frozen there until the store catches up to
+     * where the clock was, because the edge is never pulled back.
+     *
+     * The span is kept: a gesture that zoomed still has to zoom.
+     */
+    private restEdgeOnData(viewport: ChartViewport, isFollowingLive: boolean): ChartViewport {
+        const state = this.store.read();
+        const newestMs = newestFrameTimestamp(state.dataset);
+        if (!isFollowingLive || newestMs === null) {
+            return viewport;
+        }
+
+        const edgeMs = newestMs + resolveRightMarginMs({ ...state, viewport });
+        if (viewport.toMs <= edgeMs) {
+            return viewport;
+        }
+        return { ...viewport, fromMs: viewport.fromMs - (viewport.toMs - edgeMs), toMs: edgeMs };
     }
 
     /**
@@ -708,13 +838,17 @@ function buildInitialState(preferences: ViewerPreferences): ChartState {
 
 function buildInitialViewport(instrument: InstrumentCoverage, spanMs: number): ChartViewport {
     const toMs = instrument.lastFrameAtMs ?? Date.now();
+    // Framed on the price the listing carried, so the very first window can ask
+    // for the band it will draw. Without it the chart has to read a whole book
+    // to find the market — measured, two seconds, with every other request on
+    // the page queued behind it and nothing drawn until it landed.
+    const midPrice = instrument.lastMidPrice;
+    const halfRange = midPrice === null ? 0.5 : midPrice * INITIAL_PRICE_RANGE_RATIO;
     return {
         fromMs: toMs - spanMs,
         toMs,
-        // The real price is unknown until the first window lands; the first
-        // render corrects it from the newest frame.
-        lowPrice: 0,
-        highPrice: 1,
+        lowPrice: (midPrice ?? 0.5) - halfRange,
+        highPrice: (midPrice ?? 0.5) + halfRange,
     };
 }
 
@@ -724,9 +858,10 @@ function hasMovedACut(before: ChartState, after: ChartState): boolean {
 }
 
 function recut(state: ChartState): ChartDataset {
-    return recutDataset(
-        state.dataset,
-        state.depthFloorPercentile,
-        state.depthSaturationPercentile,
-    );
+    return recutDataset({
+        dataset: state.dataset,
+        floorPercentile: state.depthFloorPercentile,
+        saturationPercentile: state.depthSaturationPercentile,
+        viewport: state.viewport,
+    });
 }

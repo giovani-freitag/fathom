@@ -1,5 +1,5 @@
 import type { CollectorCommand, CollectorEvent, CollectorState } from '../../shared/core/collector-worker-contract.ts';
-import { BROWSER_WRITE_SETTINGS } from '../core/collector-configuration.ts';
+import { BROWSER_WRITE_SETTINGS, WHOLE_BOOK_FRAMING } from '../core/collector-configuration.ts';
 import { BrowserRecordingControl } from '../../database/browser/browser-recording-control.ts';
 import { createBrowserCollectorLog } from './browser-collector-log.ts';
 import { CollectorSupervisor } from '../collector-supervisor.ts';
@@ -9,6 +9,10 @@ import { describeError } from '../core/collector-log.ts';
 import { IndexedDbLiquidityArchive } from '../../database/browser/indexed-db-liquidity-archive.ts';
 import { IndexedDbLiveTailSource } from '../../database/browser/indexed-db-live-tail-source.ts';
 import { IndexedDbService } from '../../database/browser/indexed-db-service.ts';
+import { ChunkArchiveService } from '../../database/services/chunk-archive-service.ts';
+import { ChunkTileRecorder } from '../../database/services/chunk-tile-recorder.ts';
+import { IndexedDbChunkRowStore } from '../../database/browser/indexed-db-chunk-row-store.ts';
+import { StoredDepthTailSource } from '../../shared/core/stored-depth-tail-source.ts';
 import { LiveTail } from '../../shared/core/live-tail.ts';
 import { NotifyingLiquidityArchive } from '../../database/services/notifying-liquidity-archive.ts';
 import { openBrowserMarketDataSocket } from './browser-market-data-socket.ts';
@@ -52,6 +56,9 @@ const { instrumentSymbol, priceBucketSize, frameIntervalMs, ...shared } =
 const database = new IndexedDbService({ factory: scope.indexedDB ?? null });
 
 let supervisor: CollectorSupervisor | null = null;
+let chunks: ChunkTileRecorder | null = null;
+/** The squares the chart draws from, which is what the tail has to extend. */
+let wholeBook: ChunkArchiveService | null = null;
 let tail: LiveTail | null = null;
 let tailSymbol: string | null = null;
 let tailBackstop: ReturnType<typeof setInterval> | null = null;
@@ -91,6 +98,16 @@ async function bringUpRecording(): Promise<void> {
     // up. It is the same signal the gateway gets from the database; here the
     // writer and the reader are one worker, so it is a call rather than a wire.
     const archive = new NotifyingLiquidityArchive({ archive: store, onWritten: handleArchiveWritten });
+    // The whole book beside the band, as fixed squares, exactly as a server
+    // keeps it. Fed from a framing of its own, because the recording above is
+    // clipped to a couple of percent before it is written.
+    wholeBook = new ChunkArchiveService({ rows: new IndexedDbChunkRowStore({ database }) });
+    chunks = new ChunkTileRecorder({
+        archive: wholeBook,
+        priceRangeRatio: WHOLE_BOOK_FRAMING.priceRangeRatio,
+        intervalMs: WHOLE_BOOK_FRAMING.frameIntervalMs,
+        stepRatio: 1 + WHOLE_BOOK_FRAMING.stepPrecision,
+    });
     const control = new BrowserRecordingControl({
         // The concrete store: pruning is its own operation, not one a writer
         // announces, and the wrapper deliberately carries only the write side.
@@ -104,6 +121,9 @@ async function bringUpRecording(): Promise<void> {
     supervisor = new CollectorSupervisor({
         control,
         archive,
+        buildWideRecordings: (symbol, bucketSize) => [
+            chunks!.buildRecording(symbol, bucketSize),
+        ],
         openSocket: openBrowserMarketDataSocket,
         log: createBrowserCollectorLog({ post }),
         shared,
@@ -120,6 +140,10 @@ async function bringUpRecording(): Promise<void> {
 async function stop(): Promise<void> {
     unsubscribe();
     try {
+        // Before the supervisor, not after: a block still filling is held in
+        // memory and written whole, so one left unflushed loses every instant
+        // gathered since it was last written out.
+        await chunks?.flush();
         await supervisor?.stop();
     } catch (error) {
         // Reported and then let go of: a collector left in place because its own
@@ -136,8 +160,20 @@ async function stop(): Promise<void> {
 function subscribe(instrumentSymbol: string, afterMs: number): void {
     unsubscribe();
     tailSymbol = instrumentSymbol;
+    const recorded = new IndexedDbLiveTailSource({ database });
     tail = new LiveTail({
-        source: new IndexedDbLiveTailSource({ database }),
+        // A tail extends the window the chart is drawing, so it has to come out
+        // of the store that window came from. Fed from the band instead, the
+        // prices outside it stop at the last written block while the ones
+        // inside go on — which draws as a row of teeth along the live edge.
+        // The executions and the holes stay behind it: neither is in a square.
+        source: wholeBook === null
+            ? recorded
+            : new StoredDepthTailSource({
+                readWindow: (request) => wholeBook!.fetchWindow(request),
+                rest: recorded,
+                readNowMs: () => Date.now(),
+            }),
         instrumentSymbol,
         afterMs,
         maxFramesPerPoll: MAXIMUM_FRAMES_PER_CATCH_UP,

@@ -85,6 +85,7 @@ export interface BookSettings {
     readonly isDepthVisible: boolean;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
+    /** Which stored shape the drawn window is read out of. */
     /**
      * Whether the stretches nothing was recorded through are marked.
      *

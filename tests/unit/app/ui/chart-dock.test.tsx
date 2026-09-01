@@ -42,6 +42,7 @@ const INSTRUMENT = {
     frameIntervalMs: 1_000,
     firstFrameAtMs: 1_000,
     lastFrameAtMs: 2_000,
+    lastMidPrice: 79_000,
 };
 
 function renderDock(overrides: Partial<DrawingControls> = {}): Pressed {

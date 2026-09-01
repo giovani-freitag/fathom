@@ -28,6 +28,7 @@ const INSTRUMENT: InstrumentCoverage = {
     frameIntervalMs: 1_000,
     firstFrameAtMs: 500_000,
     lastFrameAtMs: 2_000_000,
+    lastMidPrice: 79_000,
 };
 
 function datasetWith(...frames: ReturnType<typeof buildFrame>[]) {

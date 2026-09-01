@@ -13,6 +13,7 @@ vi.mock('../../../../src/app/app.tsx', () => ({
 const RECORDED: InstrumentCoverage = {
     instrumentSymbol: 'BTCUSDT', priceBucketSize: 10, frameIntervalMs: 1_000,
     firstFrameAtMs: 1_000, lastFrameAtMs: 2_000,
+    lastMidPrice: 79_000,
 };
 
 const APPEARANCE = { locale: 'en', themeChoice: 'system', resolvedTheme: 'dark' } as const;

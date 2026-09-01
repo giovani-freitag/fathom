@@ -11,6 +11,22 @@ export interface RecordingControlServiceConfig {
 
 export type { RecordedContract as EnabledInstrument, StorageBudget as BudgetReading };
 
+/**
+ * Everything the recording puts on disk, and everything the budget answers for.
+ *
+ * A store left off this list is a store nothing ever prunes: it does not show
+ * up in what the reader is told they are using, and it goes on growing after
+ * the budget has started dropping the rest. Every table the collector writes to
+ * belongs here, including one written only to be measured — an experiment that
+ * fills the disk has stopped being an experiment.
+ */
+const RECORDED_TABLES = [
+    'liquidity_frame',
+    'trade_cluster',
+    'whole_book.liquidity_block',
+    'whole_book.liquidity_chunk',
+] as const;
+
 interface InstrumentRow {
     readonly instrument_symbol: string;
     readonly price_bucket_size: number;
@@ -105,8 +121,8 @@ export class RecordingControlService implements RecordingControl {
     async readBudget(): Promise<StorageBudget> {
         const rows = await this.postgres.selectRows<BudgetRow>(
             `SELECT maximum_bytes::text,
-                    (hypertable_size('liquidity_frame')
-                     + hypertable_size('trade_cluster'))::text AS used_bytes
+                    (${RECORDED_TABLES.map((table) => `hypertable_size('${table}')`).join(' + ')}
+                    )::text AS used_bytes
              FROM recording_budget`,
         );
         const row = rows[0];
@@ -158,8 +174,9 @@ export class RecordingControlService implements RecordingControl {
             // from one it deleted, and a chart draws straight through both.
             await this.recordDroppedHistory(boundary);
             await this.postgres.execute(
-                `SELECT drop_chunks('liquidity_frame', older_than => $1::timestamptz),
-                        drop_chunks('trade_cluster',   older_than => $1::timestamptz)`,
+                `SELECT ${RECORDED_TABLES
+                    .map((table) => `drop_chunks('${table}', older_than => $1::timestamptz)`)
+                    .join(', ')}`,
                 [boundary],
             );
             dropped += 1;

@@ -9,10 +9,25 @@ export interface LiveTailSubscriptionRequest {
     readonly afterMs: number;
     readonly priceBucketSize: number;
     readonly onMessage: (message: LiveMessage) => void;
+    /**
+     * Which store the reader is drawing, or absent for the frame table.
+     *
+     * A tail has to stream what the window it is extending holds. Reading the
+     * band around the price into a chart drawn from the whole book leaves
+     * everything outside that band standing still.
+     */
+    readonly source?: string;
+    /** The prices the reader is drawing, so the tail carries only those. */
+    readonly lowPrice?: number;
+    readonly highPrice?: number;
+    /** What one instant of the recording covers, so no read is folded. */
+    readonly frameIntervalMs?: number;
 }
 
 export interface LiveTailServiceConfig {
     readonly source: LiveTailSource;
+    /** The stores a reader may name, beside the frame table the default reads. */
+    readonly sourcesByName?: Readonly<Record<string, LiveTailSource>>;
     /**
      * How often a tail catches up on its own.
      *
@@ -22,6 +37,14 @@ export interface LiveTailServiceConfig {
     readonly pollIntervalMs: number;
     readonly maxFramesPerPoll: number;
     readonly maximumSubscriptions: number;
+}
+
+/** Raised when a reader names a store this gateway was not wired with. */
+export class UnknownTailSourceError extends Error {
+    constructor(name: string) {
+        super(`The gateway has no live tail for ${name}`);
+        this.name = 'UnknownTailSourceError';
+    }
 }
 
 /** Raised when the gateway is already tailing for as many viewers as it will. */
@@ -62,11 +85,16 @@ export class LiveTailService {
         }
 
         const tail = new LiveTail({
-            source: this.config.source,
+            source: this.resolveSource(request.source),
             instrumentSymbol: request.instrumentSymbol,
             afterMs: request.afterMs,
             maxFramesPerPoll: this.config.maxFramesPerPoll,
             deliver: request.onMessage,
+            ...(request.lowPrice === undefined ? {} : { lowPrice: request.lowPrice }),
+            ...(request.highPrice === undefined ? {} : { highPrice: request.highPrice }),
+            ...(request.frameIntervalMs === undefined
+                ? {}
+                : { frameIntervalMs: request.frameIntervalMs }),
         });
 
         const timer = setInterval(() => { void tail.advance(); }, this.config.pollIntervalMs);
@@ -108,6 +136,28 @@ export class LiveTailService {
 
     get subscriptionCount(): number {
         return this.running.size;
+    }
+
+    /**
+     * The store a named reader is streamed from.
+     *
+     * A name with nothing behind it is refused rather than quietly served from
+     * somewhere else. These stores exist to be weighed against each other, and a
+     * chart fed from a store the reader did not choose is a measurement of
+     * nothing — which is far worse, and far harder to notice, than a socket that
+     * closes and says why.
+     *
+     * @throws UnknownTailSourceError when the name was never wired up.
+     */
+    private resolveSource(name: string | undefined): LiveTailSource {
+        if (name === undefined) {
+            return this.config.source;
+        }
+        const named = this.config.sourcesByName?.[name];
+        if (named === undefined) {
+            throw new UnknownTailSourceError(name);
+        }
+        return named;
     }
 
     private release(entry: RunningTail): void {

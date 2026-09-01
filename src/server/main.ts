@@ -1,6 +1,9 @@
 import { LiquidityQueryService } from '../database/services/liquidity-query-service.ts';
 import { RecordingControlService } from '../database/services/recording-control-service.ts';
 import { PostgresService } from '../database/postgres/postgres-service.ts';
+import { PostgresChunkRowStore } from '../database/postgres/postgres-chunk-row-store.ts';
+import { ChunkArchiveService } from '../database/services/chunk-archive-service.ts';
+import { StoredDepthTailSource } from '../shared/core/stored-depth-tail-source.ts';
 import {
     LIVE_TAIL_SETTINGS,
     readGatewayConfiguration,
@@ -23,9 +26,25 @@ const postgres = new PostgresService({
     channelRetryDelayMs: DATABASE_CHANNEL_RETRY_DELAY_MS,
 });
 const query = new LiquidityQueryService({ postgres });
+const chunks = new ChunkArchiveService({ rows: new PostgresChunkRowStore({ postgres }) });
 const control = new RecordingControlService({ postgres });
+const framesTail = new PostgresLiveTailSource({ query });
+const readNowMs = () => Date.now();
+
+/** A tail over one store, sharing the executions and holes nobody stores twice. */
+const tailOver = (readWindow: ConstructorParameters<typeof StoredDepthTailSource>[0]['readWindow']) => (
+    new StoredDepthTailSource({ readWindow, rest: framesTail, readNowMs })
+);
+
 const liveTail = new LiveTailService({
-    source: new PostgresLiveTailSource({ query }),
+    source: framesTail,
+    // One entry per store the reader can name: a chart drawn out of one store
+    // and streamed out of another shows neither. Every name the route accepts
+    // has to appear here.
+    sourcesByName: {
+        frames: framesTail,
+        chunks: tailOver((request) => chunks.fetchWindow(request)),
+    },
     pollIntervalMs: LIVE_TAIL_SETTINGS.pollIntervalMs,
     maxFramesPerPoll: LIVE_TAIL_SETTINGS.maxFramesPerPoll,
     maximumSubscriptions: LIVE_TAIL_SETTINGS.maximumSubscriptions,
@@ -39,6 +58,7 @@ const server = new Server({
     isTunnelled: configuration.isTunnelled,
     postgres,
     query,
+    chunks,
     liveTail,
     control,
 });

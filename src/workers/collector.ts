@@ -3,12 +3,16 @@ import { openNodeCollectorLog } from './transport/node-collector-log.ts';
 import { describeError } from './core/collector-log.ts';
 import { LiquidityArchiveService } from '../database/services/liquidity-archive-service.ts';
 import { NotifyingLiquidityArchive } from '../database/services/notifying-liquidity-archive.ts';
+import { PostgresChunkRowStore } from '../database/postgres/postgres-chunk-row-store.ts';
+import { ChunkArchiveService } from '../database/services/chunk-archive-service.ts';
+import { ChunkTileRecorder } from '../database/services/chunk-tile-recorder.ts';
+
 import { RECORDING_CHANNEL } from '../database/core/recording-channel.ts';
 import { openNodeMarketDataSocket } from './transport/node-market-data-socket.ts';
 import { PostgresService } from '../database/postgres/postgres-service.ts';
 import { readCollectorConfiguration, readDatabaseUrl, readLogFilePath } from './collector-environment.ts';
 import { RecordingControlService } from '../database/services/recording-control-service.ts';
-import { WRITE_SETTINGS } from './core/collector-configuration.ts';
+import { WHOLE_BOOK_FRAMING, WRITE_SETTINGS } from './core/collector-configuration.ts';
 
 /** One writer per recorded contract, plus headroom for a retry and the control reads. */
 const DATABASE_POOL_SIZE = 8;
@@ -37,6 +41,21 @@ const postgres = new PostgresService({
 });
 const control = new RecordingControlService({ postgres });
 
+// Fed from a framing of its own, because the recording the chart reads is
+// clipped to a couple of percent before it is written.
+const chunkTiles = new ChunkTileRecorder({
+    archive: new ChunkArchiveService({ rows: new PostgresChunkRowStore({ postgres }) }),
+    priceRangeRatio: WHOLE_BOOK_FRAMING.priceRangeRatio,
+    intervalMs: WHOLE_BOOK_FRAMING.frameIntervalMs,
+    stepRatio: 1 + WHOLE_BOOK_FRAMING.stepPrecision,
+    onWriteFailed: (instrumentSymbol, reason) => {
+        log.warning('A square of the book would not store', {
+            instrumentSymbol,
+            reason: describeError(reason),
+        });
+    },
+});
+
 const supervisor = new CollectorSupervisor({
     control,
     // Announced through the archive itself, which is the one place that knows
@@ -51,6 +70,9 @@ const supervisor = new CollectorSupervisor({
             void postgres.notify(RECORDING_CHANNEL, instrumentSymbol).catch(() => undefined);
         },
     }),
+    buildWideRecordings: (instrumentSymbol, priceBucketSize) => [
+        chunkTiles.buildRecording(instrumentSymbol, priceBucketSize),
+    ],
     openSocket: openNodeMarketDataSocket,
     log,
     shared,
@@ -62,6 +84,9 @@ const supervisor = new CollectorSupervisor({
 
 async function shutDown(signalName: string): Promise<void> {
     log.warning('Received a stop signal, flushing before exit', { signalName });
+    // Before the supervisor, not after: stopping it closes the pool underneath,
+    // and a picture written onto a closed pool is a picture lost.
+    await chunkTiles.flush();
     await supervisor.stop();
     await closeLog();
     process.exit(0);

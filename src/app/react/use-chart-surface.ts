@@ -134,7 +134,7 @@ export function useChartSurface(): ChartSurfaceHandles {
         const state = kernel.chart.store.read();
         const appearance = kernel.appearance.store.read();
         const marks = kernel.drawings.store.read();
-        renderer.render({
+        const isSettled = renderer.render({
             viewport: state.viewport,
             dataset: state.dataset,
             nowMs: Date.now(),
@@ -156,6 +156,13 @@ export function useChartSurface(): ChartSurfaceHandles {
                 selectedId: marks.selectedId,
             },
         });
+
+        // A layer that is still filling asks for the next frame itself. Nothing
+        // else would: a chart nobody is touching schedules no frames, and a book
+        // built a slice at a time would stop half drawn.
+        if (!isSettled) {
+            animationFrameRef.current ??= requestAnimationFrame(paint);
+        }
     }, [kernel]);
 
     const schedulePaint = useCallback(() => {
@@ -229,6 +236,9 @@ export function useChartSurface(): ChartSurfaceHandles {
         kernel.chart.applyView({
             viewport: kernel.chart.store.read().viewport,
             surfaceWidthPx: size.width,
+            pricePaneHeightPx: containerRef.current === null
+                ? size.height
+                : resolveSurfaceLayout(containerRef.current, kernel).pricePaneHeight,
         });
         schedulePaint();
     }, [kernel, schedulePaint, size.height, size.width]);

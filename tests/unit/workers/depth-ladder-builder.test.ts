@@ -88,3 +88,59 @@ describe('buildLiquidityFrame', () => {
         expect([frame.capturedAtMs, frame.bestBidPrice, frame.bestAskPrice]).toEqual([4_242, 1_000, 1_001]);
     });
 });
+
+describe('buildLiquidityFrame on a wide grid', () => {
+    // Five prices inside one thousand-dollar band, none of them large.
+    const crowded = buildReading({
+        bidQuantityByPrice: new Map([[999, 5], [998, 4], [997, 4], [996, 3], [995, 3]]),
+        askQuantityByPrice: new Map([[1_001, 7]]),
+        bestBidPrice: 999,
+    });
+
+    it('adds a band up by default, which is what a narrow bucket is asking', () => {
+        const frame = buildLiquidityFrame({
+            reading: crowded,
+            capturedAtMs: 1_000,
+            priceBucketSize: 1_000,
+            recordedPriceRangeRatio: 1,
+        });
+
+        const band = Math.max(...frame.bids.quantities);
+
+        expect(band).toBe(19);
+    });
+
+    it('takes the largest order in the band when asked for the largest', () => {
+        // A thousand-dollar band near the price swallows a dense book and reads
+        // in the thousands, while the same band far away holds two orders and
+        // reads in tens. On one colour ramp the far one disappears.
+        const frame = buildLiquidityFrame({
+            reading: crowded,
+            capturedAtMs: 1_000,
+            priceBucketSize: 1_000,
+            recordedPriceRangeRatio: 1,
+            combine: 'largest',
+        });
+
+        const band = Math.max(...frame.bids.quantities);
+
+        expect(band).toBe(5);
+    });
+
+    it('leaves a band holding one order alone either way', () => {
+        const lone = buildReading({
+            bidQuantityByPrice: new Map([[999, 5]]),
+            askQuantityByPrice: new Map([[1_001, 7]]),
+            bestBidPrice: 999,
+        });
+        const of = (combine: 'sum' | 'largest'): number => Math.max(...buildLiquidityFrame({
+            reading: lone,
+            capturedAtMs: 1_000,
+            priceBucketSize: 1_000,
+            recordedPriceRangeRatio: 1,
+            combine,
+        }).bids.quantities);
+
+        expect([of('sum'), of('largest')]).toEqual([5, 5]);
+    });
+});

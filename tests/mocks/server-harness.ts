@@ -2,6 +2,7 @@ import type { LiquidityQueryService } from '../../src/database/services/liquidit
 import type { LiveTailService } from '../../src/server/services/live-tail-service.ts';
 import type { PostgresService } from '../../src/database/postgres/postgres-service.ts';
 import type { RecordingControlService } from '../../src/database/services/recording-control-service.ts';
+import type { ChunkArchiveService } from '../../src/database/services/chunk-archive-service.ts';
 import { Server } from '../../src/server/http/server.ts';
 import { vi } from 'vitest';
 
@@ -21,6 +22,7 @@ export interface ServerHarness {
         'listContracts' | 'readBudget' | 'saveContract' | 'setBudget' | 'pruneToBudget'
     >;
     readonly postgres: Spies<'selectRows'>;
+    readonly chunks: Spies<'fetchWindow'>;
 }
 
 /**
@@ -75,6 +77,9 @@ export function createServerHarness(
         pruneToBudget: vi.fn().mockResolvedValue(0),
     };
 
+    const chunks = { fetchWindow: vi.fn().mockResolvedValue({
+        priceBucketSize: 10, sampleIntervalMs: 1_000, frames: [],
+    }) };
     const postgres = { selectRows: vi.fn().mockResolvedValue([{ '?column?': 1 }]) };
 
     const server = new Server({
@@ -85,9 +90,10 @@ export function createServerHarness(
         isTunnelled: guard.isTunnelled ?? false,
         postgres: postgres as unknown as PostgresService,
         query: query as unknown as LiquidityQueryService,
+        chunks: chunks as unknown as ChunkArchiveService,
         liveTail: { start: vi.fn(), stop: vi.fn(), subscribe: vi.fn() } as unknown as LiveTailService,
         control: control as unknown as RecordingControlService,
     });
 
-    return { server, query, control, postgres };
+    return { server, query, control, postgres, chunks };
 }

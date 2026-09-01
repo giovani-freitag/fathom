@@ -70,7 +70,11 @@ export default tseslint.config(
             parserOptions: { projectService: false },
             // Only what these files actually reach for; a whole globals package
             // would declare a hundred names to satisfy one.
-            globals: { process: 'readonly' },
+            globals: {
+                process: 'readonly', console: 'readonly',
+                fetch: 'readonly', URL: 'readonly', URLSearchParams: 'readonly',
+                setTimeout: 'readonly', performance: 'readonly',
+            },
         },
     },
 );

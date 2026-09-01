@@ -9,6 +9,15 @@ import type { PointerReadout } from '../painting/heatmap-renderer.ts';
 import type { ViewRequest } from './chart-controller.ts';
 
 /** One wheel notch, chosen so a few clicks cross a zoom level without overshooting. */
+/**
+ * How long after the last notch a turn of the wheel counts as over.
+ *
+ * A wheel reports about every sixteen milliseconds while it is being turned, so
+ * this is a notch and a half: long enough never to cut a continuous turn in two,
+ * short enough that the reader is not left looking at the old picture.
+ */
+const WHEEL_SETTLE_MS = 90;
+
 const WHEEL_ZOOM_FACTOR = 1.18;
 
 /** A pinch narrower than this is one finger's noise, not an intended scale. */
@@ -142,6 +151,8 @@ export class ChartGestureController {
     private dragOrigin: DragOrigin | null = null;
     private pinchOrigin: PinchOrigin | null = null;
     private claimedPointerId: number | null = null;
+    /** Running while a turn of the wheel may still be going on. */
+    private wheelEndTimer: ReturnType<typeof setTimeout> | null = null;
     private isAttached = false;
 
     constructor(config: ChartGestureControllerConfig) {
@@ -152,6 +163,7 @@ export class ChartGestureController {
         this.handlePointerLeave = this.handlePointerLeave.bind(this);
         this.handleWheel = this.handleWheel.bind(this);
         this.handleDoubleClick = this.handleDoubleClick.bind(this);
+        this.handleWheelEnd = this.handleWheelEnd.bind(this);
     }
 
     /**
@@ -191,6 +203,10 @@ export class ChartGestureController {
         this.pinchOrigin = null;
         this.claimedPointerId = null;
         this.isAttached = false;
+        if (this.wheelEndTimer !== null) {
+            clearTimeout(this.wheelEndTimer);
+            this.wheelEndTimer = null;
+        }
     }
 
     private handlePointerDown(event: PointerEvent): void {
@@ -259,6 +275,19 @@ export class ChartGestureController {
             this.config.claimant?.offerTap(position);
         }
         this.beginGesture();
+
+        // Said once the hand has left, so whatever the view now needs can be
+        // asked for straight away. Everything a drag writes before this is one
+        // frame of a movement still happening, and asking on each of those is
+        // what the settling time exists to stop.
+        if (this.activePointers.size === 0) {
+            this.config.onView({
+                viewport: this.config.readViewport(),
+                surfaceWidthPx: this.config.readSurfaceSize().width,
+                pricePaneHeightPx: this.config.readLayout().pricePaneHeight,
+                isGestureOver: true,
+            });
+        }
     }
 
     private handlePointerLeave(): void {
@@ -294,6 +323,33 @@ export class ChartGestureController {
         }
 
         this.publish(viewport);
+        this.awaitWheelEnd();
+    }
+
+    /**
+     * Says a turn of the wheel is over once no more of it arrives.
+     *
+     * A wheel has no lifting hand to say when it has finished, so without this
+     * every zoom pays the settling time in full — a fifth of a second of the
+     * old picture after the reader has stopped turning. A notch and a half at
+     * the rate a wheel reports is long enough that a continuous turn is never
+     * cut in two.
+     */
+    private awaitWheelEnd(): void {
+        if (this.wheelEndTimer !== null) {
+            clearTimeout(this.wheelEndTimer);
+        }
+        this.wheelEndTimer = setTimeout(this.handleWheelEnd, WHEEL_SETTLE_MS);
+    }
+
+    private handleWheelEnd(): void {
+        this.wheelEndTimer = null;
+        this.config.onView({
+            viewport: this.config.readViewport(),
+            surfaceWidthPx: this.config.readSurfaceSize().width,
+            pricePaneHeightPx: this.config.readLayout().pricePaneHeight,
+            isGestureOver: true,
+        });
     }
 
     private handleDoubleClick(event: MouseEvent): void {
@@ -313,6 +369,7 @@ export class ChartGestureController {
         this.config.onView({
             viewport: { ...viewport, fromMs: nowMs - spanMs, toMs: nowMs },
             surfaceWidthPx: this.config.readSurfaceSize().width,
+            pricePaneHeightPx: this.config.readLayout().pricePaneHeight,
             isFollowingLive: true,
             isFollowingPrice: true,
         });
@@ -457,6 +514,7 @@ export class ChartGestureController {
         this.config.onView({
             viewport,
             surfaceWidthPx: this.config.readSurfaceSize().width,
+            pricePaneHeightPx: this.config.readLayout().pricePaneHeight,
             isFollowingLive: viewport.toMs >= Date.now() - LIVE_EDGE_TOLERANCE_MS,
             ...(didChoosePriceBand ? { isFollowingPrice: false } : {}),
         });

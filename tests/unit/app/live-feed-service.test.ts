@@ -74,6 +74,25 @@ describe('LiveFeedService', () => {
         expect(openSockets[0]?.url).toContain('afterMs=1000');
     });
 
+    it('asks for the prices the chart is drawing', () => {
+        const service = new LiveFeedService({ baseUrl: 'http://gateway.test' });
+
+        service.connect({
+            ...buildSubscription([]),
+            priceBand: { lowPrice: 90_000, highPrice: 110_000 },
+        });
+
+        expect(openSockets[0]?.url).toContain('lowPrice=90000&highPrice=110000');
+    });
+
+    it('asks for every price when the chart has not framed itself yet', () => {
+        const service = new LiveFeedService({ baseUrl: 'http://gateway.test' });
+
+        service.connect(buildSubscription([]));
+
+        expect(openSockets[0]?.url).not.toContain('lowPrice');
+    });
+
     it('speaks the socket scheme, not the page one', () => {
         const service = new LiveFeedService({ baseUrl: 'http://gateway.test' });
 

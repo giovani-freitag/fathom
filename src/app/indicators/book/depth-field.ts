@@ -16,7 +16,25 @@ export interface DepthFieldConfig {
      * specks, and half of them are dropped entirely.
      */
     readonly bucketsPerBand: number;
+    /**
+     * A surface to build on rather than a fresh one.
+     *
+     * A field the size of a loaded window is several megabytes of pixels, and
+     * asking the browser for them is one expensive frame every time the grid
+     * changes — which is every time the reader zooms. Handed the one being
+     * replaced, the field draws over it instead: setting the size clears it,
+     * so nothing of the old picture survives into the new one.
+     */
+    readonly reuse?: HTMLCanvasElement | undefined;
 }
+
+/**
+ * Instants painted before the clock is asked again.
+ *
+ * Asking on every one costs more than painting one does; a few dozen is fine
+ * grained enough that a slice overruns its share by microseconds.
+ */
+const FRAMES_PER_SLICE = 48;
 
 interface FramePaint {
     readonly image: ImageData;
@@ -51,8 +69,37 @@ export class DepthField {
     /** Folds a frame's buckets into the rows they are drawn as. */
     private readonly folder: DepthRowFolder;
 
-    private paintedFrameCount = 0;
-    private lastPaintedFrame: LiquidityFrame | null = null;
+    /**
+     * Every instant the field stands for, painted or still waiting.
+     *
+     * Held rather than painted at once. A window of a few hours is some
+     * thousands of instants by some hundreds of rows, and folding and colouring
+     * all of them is a third of a second in one go — measured on a four hour
+     * window, eight hundred and sixty milliseconds of the main thread across
+     * three rebuilds, with the candles and the axes frozen behind it because
+     * they share that thread. Painted a slice at a time it costs the same
+     * altogether and blocks nothing.
+     */
+    private frames: readonly LiquidityFrame[];
+    /**
+     * How many of them the field has taken on.
+     *
+     * Counted rather than read off the array: what a dataset hands over is only
+     * a reference, and one that grows afterwards would have the field painting
+     * instants it never checked it had room for.
+     */
+    private adoptedFrameCount: number;
+    /**
+     * The run already painted, as the half-open range of instants it covers.
+     *
+     * Grown outward from where the reader is looking rather than forward from
+     * the oldest instant. The window loaded reaches well past the view on both
+     * sides so that a short pan needs no round trip, which means painting it in
+     * order spends the first half of the work on instants nobody is looking at
+     * — and the reader watches the old picture for all of it.
+     */
+    private paintedFrom = 0;
+    private paintedTo = 0;
 
     constructor(config: DepthFieldConfig) {
         const { dataset } = config;
@@ -83,12 +130,108 @@ export class DepthField {
             gain: config.colourGain,
         });
 
-        this.canvas = document.createElement('canvas');
+        this.canvas = config.reuse ?? document.createElement('canvas');
+        // Assigned whether or not they differ: setting either is what clears
+        // the surface, and a reused one still holds the picture it was built
+        // for.
         this.canvas.width = Math.max(1, extent.columnCapacity);
         this.canvas.height = Math.max(1, this.rowCount);
         this.context = this.canvas.getContext('2d');
 
-        this.paintRange(dataset.frames, 0);
+        this.frames = dataset.frames;
+        this.adoptedFrameCount = dataset.frames.length;
+    }
+
+    /**
+     * Paints as much of what is left as fits in one frame's share of the thread.
+     *
+     * @param budgetMs - How long this pass may hold the thread.
+     * @returns True when nothing is left to paint.
+     */
+    settle(budgetMs: number, focusFromMs?: number): boolean {
+        this.focusOn(focusFromMs);
+        const startedAt = performance.now();
+        while (!this.isPainted) {
+            this.paintOneSlice();
+            if (performance.now() - startedAt >= budgetMs) {
+                return this.isPainted;
+            }
+        }
+        return true;
+    }
+
+    /** Whether every instant the field has taken on has been painted. */
+    private get isPainted(): boolean {
+        return this.paintedFrom === 0 && this.paintedTo >= this.adoptedFrameCount;
+    }
+
+    /**
+     * Anchors the painting where the reader is looking, once.
+     *
+     * Once, because moving it afterwards would leave the run already painted
+     * with a hole in the middle of it, and the field draws one run.
+     */
+    private focusOn(focusFromMs: number | undefined): void {
+        if (this.paintedTo > 0 || this.paintedFrom > 0 || focusFromMs === undefined) {
+            return;
+        }
+        const first = this.frames[0];
+        if (first === undefined) {
+            return;
+        }
+        const at = Math.round((focusFromMs - first.capturedAtMs) / this.sampleIntervalMs);
+        this.paintedFrom = Math.min(Math.max(0, at), this.adoptedFrameCount);
+        this.paintedTo = this.paintedFrom;
+    }
+
+    /** Paints the next run, ahead of where the reader is looking before behind. */
+    private paintOneSlice(): void {
+        if (this.paintedTo < this.adoptedFrameCount) {
+            const upTo = this.sliceEnd(this.paintedTo);
+            this.paintPixels(this.frames.slice(this.paintedTo, upTo));
+            this.paintedTo = upTo;
+            return;
+        }
+        const from = this.sliceStart(this.paintedFrom);
+        this.paintPixels(this.frames.slice(from, this.paintedFrom));
+        this.paintedFrom = from;
+    }
+
+    /**
+     * Where the next slice ends, which is never inside a drawn column.
+     *
+     * A slice is written to the image whole, replacing the columns it covers, so
+     * two slices sharing a column would leave only what the later one put there.
+     * Ending on a column boundary keeps the rows the earlier instants painted.
+     */
+    private sliceEnd(from: number): number {
+        const wanted = Math.min(from + FRAMES_PER_SLICE, this.adoptedFrameCount);
+        let end = wanted;
+        while (end < this.adoptedFrameCount
+            && this.columnOf(this.frames[end]!) === this.columnOf(this.frames[end - 1]!)) {
+            end += 1;
+        }
+        return end;
+    }
+
+    /** Where the slice behind one ends, on a column boundary as well. */
+    private sliceStart(to: number): number {
+        let start = Math.max(0, to - FRAMES_PER_SLICE);
+        while (start > 0
+            && this.columnOf(this.frames[start]!) === this.columnOf(this.frames[start - 1]!)) {
+            start -= 1;
+        }
+        return start;
+    }
+
+    /** The drawn column an instant lands in. */
+    private columnOf(frame: LiquidityFrame): number {
+        return Math.round(this.timeToColumn(frame.capturedAtMs));
+    }
+
+    /** Which of the instants it holds have been painted, as a half-open range. */
+    get paintedRange(): { readonly from: number; readonly to: number } {
+        return { from: this.paintedFrom, to: this.paintedTo };
     }
 
     /**
@@ -129,26 +272,31 @@ export class DepthField {
      */
     absorb(dataset: ChartDataset, colourGain: number, bucketsPerBand: number): boolean {
         if (!this.sharesGridWith(dataset, colourGain, bucketsPerBand)
-            || dataset.frames.length < this.paintedFrameCount) {
+            || dataset.frames.length < this.adoptedFrameCount) {
             return false;
         }
 
-        // Identity of the last painted frame, not just the count: a refetched
-        // window decodes fresh frame objects, so an unchanged count alone would
-        // let the field keep showing the window it painted before the pan.
-        if (dataset.frames[this.paintedFrameCount - 1] !== this.lastPaintedFrame) {
+        // Identity of the last instant it holds, not just the count: a
+        // refetched window decodes fresh frame objects, so an unchanged count
+        // alone would let the field keep showing the window it held before the
+        // pan.
+        const adopted = this.adoptedFrameCount;
+        if (dataset.frames[adopted - 1] !== this.frames[adopted - 1]) {
             return false;
         }
-        if (dataset.frames.length === this.paintedFrameCount) {
+        if (dataset.frames.length === adopted) {
             return true;
         }
 
-        const arrivals = dataset.frames.slice(this.paintedFrameCount);
+        // Adopted rather than painted. What is new joins what has not been
+        // painted yet, and the next slice takes them in order.
+        const arrivals = dataset.frames.slice(adopted);
         if (!this.canHold(arrivals)) {
             return false;
         }
 
-        this.paintRange(arrivals, this.paintedFrameCount);
+        this.frames = dataset.frames;
+        this.adoptedFrameCount = dataset.frames.length;
         return true;
     }
 
@@ -184,20 +332,6 @@ export class DepthField {
             }
         }
         return true;
-    }
-
-    /**
-     * Records a run of frames as painted, whether or not pixels could be written.
-     */
-    private paintRange(frames: readonly LiquidityFrame[], alreadyPaintedCount: number): void {
-        const lastFrame = frames[frames.length - 1];
-        if (lastFrame === undefined) {
-            return;
-        }
-
-        this.paintPixels(frames);
-        this.paintedFrameCount = alreadyPaintedCount + frames.length;
-        this.lastPaintedFrame = lastFrame;
     }
 
     private paintPixels(frames: readonly LiquidityFrame[]): void {

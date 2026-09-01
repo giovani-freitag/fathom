@@ -19,6 +19,23 @@ import { countPanedPlans, placePanes } from './pane-projector.ts';
 /** Retina beyond this buys nothing visible and costs four times the fill rate. */
 const MAXIMUM_PIXEL_RATIO = 2;
 
+/** A frame at sixty a second, which is what the budget is carved out of. */
+const FRAME_MS = 16.7;
+
+/** Kept back so the frame lands inside its budget rather than exactly on it. */
+const FRAME_MARGIN_MS = 2;
+
+/**
+ * The narrowest and widest share the background may be given.
+ *
+ * A floor because a frame where everything else was expensive still has to make
+ * progress, or a picture never finishes. A ceiling because the measurement is
+ * of frames already drawn, and a run of cheap ones must not talk the next one
+ * into a slice it cannot afford.
+ */
+const SMALLEST_BACKGROUND_BUDGET_MS = 4;
+const LARGEST_BACKGROUND_BUDGET_MS = 12;
+
 /**
  * Clear space between time labels, as a multiple of one label's width.
  */
@@ -68,6 +85,8 @@ export class HeatmapRenderer {
     private cssHeight = 0;
     private layout: ChartLayout = EMPTY_LAYOUT;
     private paintedOverlayKey: string | null = null;
+    /** What the layers above the background have been costing, in milliseconds. */
+    private restOfFrameMs = 4;
 
     constructor(config: HeatmapRendererConfig) {
         this.depthCanvas = config.depthCanvas;
@@ -111,10 +130,12 @@ export class HeatmapRenderer {
      * Paints one complete view.
      *
      * @param request - Viewport, data, and the display settings to honour.
+     * @returns True when every layer finished; false while one is still being
+     *          built and the host should ask for another frame.
      */
-    render(request: RenderRequest): void {
+    render(request: RenderRequest): boolean {
         if (this.depthContext === null || this.cursorContext === null || this.cssWidth === 0) {
-            return;
+            return true;
         }
 
         this.layout = resolveChartLayout({
@@ -124,7 +145,9 @@ export class HeatmapRenderer {
             indicatorPaneCount: countPanedPlans(request.plans),
         });
 
-        this.paintDepthLayer(request);
+        const startedAt = performance.now();
+        const isSettled = this.paintDepthLayer(request);
+        const backgroundMs = performance.now() - startedAt;
 
         // Moving the cursor changes nothing the data layers drew. Repainting it
         // anyway is what makes an indicator cost its own price on every frame
@@ -135,6 +158,13 @@ export class HeatmapRenderer {
             this.paintedOverlayKey = overlayKey;
         }
         this.paintCursor(this.buildPaintContext(this.cursorContext, request));
+        // What everything drawn on top of the background cost, so the next
+        // frame can hand the background whatever is left over. Averaged rather
+        // than taken from the last frame alone: a cursor move repaints the
+        // overlay and one expensive frame should not starve the next ten.
+        const restMs = performance.now() - startedAt - backgroundMs;
+        this.restOfFrameMs = this.restOfFrameMs * 0.7 + restMs * 0.3;
+        return isSettled;
     }
 
     /**
@@ -147,13 +177,24 @@ export class HeatmapRenderer {
         this.paintedOverlayKey = null;
     }
 
-    private paintDepthLayer(request: RenderRequest): void {
+    /** Draws every background layer, saying whether they all finished. */
+    private paintDepthLayer(request: RenderRequest): boolean {
         const context = this.depthContext!;
         context.clearRect(0, 0, this.cssWidth, this.cssHeight);
 
+        const budgetMs = Math.min(
+            LARGEST_BACKGROUND_BUDGET_MS,
+            Math.max(SMALLEST_BACKGROUND_BUDGET_MS, FRAME_MS - this.restOfFrameMs - FRAME_MARGIN_MS),
+        );
+        let isSettled = true;
         for (const painter of this.backgroundPainters) {
-            painter.paintBackground({ context, layout: this.layout, request });
+            // Every painter is asked, and asked first: `&&` would stop at the
+            // first one still filling and leave the rest of the layers undrawn.
+            isSettled = painter.paintBackground({
+                context, layout: this.layout, request, budgetMs,
+            }) && isSettled;
         }
+        return isSettled;
     }
 
     /**

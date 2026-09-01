@@ -13,6 +13,7 @@ const INSTRUMENT = {
     frameIntervalMs: 1_000,
     firstFrameAtMs: 1_000,
     lastFrameAtMs: 86_400_000,
+    lastMidPrice: 79_000,
 };
 
 const DRAWINGS = {

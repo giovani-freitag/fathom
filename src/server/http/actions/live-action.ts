@@ -34,7 +34,7 @@ export function createLiveHandler(config: LiveHandlerConfig): LiveHandler {
         socket: WebSocket,
         request: FastifyRequest<{ Querystring: LiveFilters }>,
     ): Promise<void> {
-        const { symbol, afterMs } = request.query;
+        const { symbol, afterMs, source, lowPrice, highPrice } = request.query;
 
         let instruments: readonly InstrumentCoverage[];
         try {
@@ -58,6 +58,10 @@ export function createLiveHandler(config: LiveHandlerConfig): LiveHandler {
             instrumentSymbol: symbol,
             afterMs: afterMs === 0 ? Date.now() : afterMs,
             priceBucketSize: instrument.priceBucketSize,
+            frameIntervalMs: instrument.frameIntervalMs,
+            ...(source === undefined ? {} : { source }),
+            ...(lowPrice === undefined ? {} : { lowPrice }),
+            ...(highPrice === undefined ? {} : { highPrice }),
         }).start();
     };
 }

@@ -5,6 +5,10 @@ import { IDBFactory } from 'fake-indexeddb';
 import { IndexedDbHeatmapSource } from '../../../src/database/browser/indexed-db-heatmap-source.ts';
 import { IndexedDbLiquidityArchive } from '../../../src/database/browser/indexed-db-liquidity-archive.ts';
 import { IndexedDbService } from '../../../src/database/browser/indexed-db-service.ts';
+import { ChunkArchiveService } from '../../../src/database/services/chunk-archive-service.ts';
+import { ChunkTileRecorder } from '../../../src/database/services/chunk-tile-recorder.ts';
+import { IndexedDbChunkRowStore } from '../../../src/database/browser/indexed-db-chunk-row-store.ts';
+import type { LiquidityFrame, LiquidityFrameWindow } from '../../../src/shared/core/liquidity-frame.ts';
 
 const GRID = { priceBucketSize: 10, frameIntervalMs: 1_000 };
 const FIRST_MS = 1_000_000;
@@ -12,9 +16,10 @@ const FIRST_MS = 1_000_000;
 describe('IndexedDbHeatmapSource', () => {
     let archive: IndexedDbLiquidityArchive;
     let source: IndexedDbHeatmapSource;
+    let database: IndexedDbService;
 
     beforeEach(async () => {
-        const database = new IndexedDbService({ factory: new IDBFactory() });
+        database = new IndexedDbService({ factory: new IDBFactory() });
         archive = new IndexedDbLiquidityArchive({ database, frameCapacity: 100_000 });
         source = new IndexedDbHeatmapSource({ database });
         await archive.open();
@@ -112,4 +117,72 @@ describe('IndexedDbHeatmapSource', () => {
         expect(result.clusters).toHaveLength(2);
     });
 
+
+    it('reads the whole book out of the squares when the chart asks for them', async () => {
+        // The page keeps both: the band around the price, and the whole book as
+        // squares. A wall standing half again above the price is only in the
+        // squares, which is the reason they are recorded at all.
+        const recorder = new ChunkTileRecorder({
+            archive: new ChunkArchiveService({ rows: new IndexedDbChunkRowStore({ database }) }),
+            priceRangeRatio: 1,
+            intervalMs: GRID.frameIntervalMs,
+            stepRatio: 1.02,
+        });
+        const recording = recorder.buildRecording('BTCUSDT', GRID.priceBucketSize);
+        for (let offset = 0; offset < 20; offset += 1) {
+            recording.onFrame(withFarWall(buildFrame(FIRST_MS + offset * 1_000)), GRID.priceBucketSize);
+        }
+        await recorder.flush();
+
+        const window = await source.fetchFrameWindow({
+            symbol: 'BTCUSDT',
+            fromMs: FIRST_MS,
+            toMs: FIRST_MS + 20_000,
+            maxColumns: 100,
+            source: 'chunks',
+        });
+
+        expect(highestPriced(window)).toBeGreaterThanOrEqual(FAR_WALL_BUCKET);
+    });
+
+    it('falls back to the band while the page has recorded no square yet', async () => {
+        // The first seconds of a session, or one whose squares were pruned. A
+        // demo that draws nothing there looks broken rather than young.
+        const window = await source.fetchFrameWindow({
+            symbol: 'BTCUSDT',
+            fromMs: FIRST_MS,
+            toMs: FIRST_MS + 20_000,
+            maxColumns: 100,
+            source: 'chunks',
+        });
+
+        expect(window.frames.length).toBeGreaterThan(0);
+    });
 });
+
+/** A price a long way above the touch, which the recorded band never reaches. */
+const FAR_WALL_BUCKET = 15_400;
+
+/** The same instant with one wall standing far above the price. */
+function withFarWall(frame: LiquidityFrame): LiquidityFrame {
+    const lowest = frame.asks.lowestBucketIndex;
+    const quantities = new Float32Array(FAR_WALL_BUCKET - lowest + 1);
+    quantities.set(frame.asks.quantities);
+    quantities[FAR_WALL_BUCKET - lowest] = 500;
+    return { ...frame, asks: { lowestBucketIndex: lowest, quantities } };
+}
+
+/** The highest price bucket a window holds anything at. */
+function highestPriced(window: LiquidityFrameWindow): number {
+    let highest = -1;
+    for (const frame of window.frames) {
+        for (const ladder of [frame.bids, frame.asks]) {
+            for (let index = 0; index < ladder.quantities.length; index += 1) {
+                if ((ladder.quantities[index] ?? 0) > 0) {
+                    highest = Math.max(highest, ladder.lowestBucketIndex + index);
+                }
+            }
+        }
+    }
+    return highest;
+}

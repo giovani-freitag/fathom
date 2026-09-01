@@ -8,9 +8,16 @@ export const INSTANTS_PER_COLUMN = 4;
 /**
  * Folds evenly spaced instants into one frame per column.
  *
+ * Largest of the instants at each price, not their mean. Every other store here
+ * folds by largest — across a column stride, across a price band, up a level of
+ * the pyramid — and this one is what they are all weighed against, so a mean
+ * here made every comparison read a different quantity in the same cell. It is
+ * also the wrong reading on its own terms: a wall that stood for one of four
+ * instants is a wall, and a mean draws it at a quarter of its size.
+ *
  * @param frames - Frames ordered by capture time, sampled finer than the grid.
  * @param columnIntervalMs - Width of one output column.
- * @returns One averaged frame per column that had any, oldest first.
+ * @returns One frame per column that had any, oldest first.
  */
 export function foldFramesIntoColumns(
     frames: readonly LiquidityFrame[],
@@ -66,15 +73,15 @@ function averageFrames(group: readonly LiquidityFrame[], capturedAtMs: number): 
         capturedAtMs,
         bestBidPrice: bidPriceTotal / group.length,
         bestAskPrice: askPriceTotal / group.length,
-        bids: averageLadders(group.map((frame) => frame.bids)),
-        asks: averageLadders(group.map((frame) => frame.asks)),
+        bids: largestOfLadders(group.map((frame) => frame.bids)),
+        asks: largestOfLadders(group.map((frame) => frame.asks)),
     };
 }
 
 /**
- * Averages ladders that may sit on different stretches of the same grid.
+ * The largest at each price, over ladders that may sit on different stretches.
  */
-function averageLadders(ladders: readonly DepthLadder[]): DepthLadder {
+function largestOfLadders(ladders: readonly DepthLadder[]): DepthLadder {
     let lowestBucketIndex = Number.POSITIVE_INFINITY;
     let highestBucketIndex = Number.NEGATIVE_INFINITY;
 
@@ -97,11 +104,8 @@ function averageLadders(ladders: readonly DepthLadder[]): DepthLadder {
     for (const ladder of ladders) {
         for (let offset = 0; offset < ladder.quantities.length; offset += 1) {
             const target = ladder.lowestBucketIndex + offset - lowestBucketIndex;
-            quantities[target] = quantities[target]! + ladder.quantities[offset]!;
+            quantities[target] = Math.max(quantities[target]!, ladder.quantities[offset]!);
         }
-    }
-    for (let index = 0; index < quantities.length; index += 1) {
-        quantities[index] = quantities[index]! / ladders.length;
     }
 
     return { lowestBucketIndex, quantities };

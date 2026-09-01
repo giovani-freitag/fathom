@@ -1,3 +1,4 @@
+import type { ChartViewport } from './chart-viewport.ts';
 import type { LiquidityFrame, LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import { EMPTY_BAR_WINDOW, type PriceBarWindow } from '../../shared/core/price-bar.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
@@ -71,6 +72,16 @@ export interface DatasetReplaceRequest {
     readonly saturationPercentile: number;
     /** Saturation already on screen, kept when the new window barely differs. */
     readonly previousSaturationQuantity?: number;
+    /**
+     * What the reader can actually see of the window.
+     *
+     * The window loaded reaches well past the view on both sides, in time and
+     * in price, so that a short pan needs no round trip. Coloured from the whole
+     * of it, a wall standing just off the screen sets the top of the scale and
+     * everything on the screen is drawn at the dark end of it — the chart goes
+     * flat because of liquidity nobody is looking at.
+     */
+    readonly viewport?: ChartViewport;
 }
 
 /**
@@ -106,7 +117,7 @@ function resolveStableDepthRange(request: DatasetReplaceRequest): {
     saturationQuantity: number;
 } {
     const measured = resolveDepthRange(
-        sampleQuantities(request.window.frames),
+        sampleQuantities(onScreenFrames(request), request.window, request.viewport),
         request.floorPercentile,
         request.saturationPercentile,
     );
@@ -135,23 +146,73 @@ function chooseSaturation(measured: number, previous: number | undefined): numbe
     return drift < SATURATION_HYSTERESIS ? previous : measured;
 }
 
+/** The instants of the window the reader can see, or all of them when unknown. */
+function onScreenFrames(request: DatasetReplaceRequest): readonly LiquidityFrame[] {
+    const viewport = request.viewport;
+    if (viewport === undefined) {
+        return request.window.frames;
+    }
+    const onScreen = request.window.frames.filter(
+        (frame) => frame.capturedAtMs >= viewport.fromMs && frame.capturedAtMs <= viewport.toMs,
+    );
+    // A view that has landed outside what was loaded still has to be coloured
+    // from something, and the window is the only something there is.
+    return onScreen.length === 0 ? request.window.frames : onScreen;
+}
+
+/** What a fresh cut of the colour scale is made from. */
+export interface DatasetRecutRequest {
+    readonly dataset: ChartDataset;
+    readonly floorPercentile: number;
+    readonly saturationPercentile: number;
+    /** What the reader can see, so a wall off the screen does not set the top. */
+    readonly viewport?: ChartViewport;
+}
+
 /**
- * Reads a bounded, evenly spread sample of the resting sizes in a window.
+ * Reads a bounded, evenly spread sample of the resting sizes a reader can see.
  */
-function sampleQuantities(frames: readonly LiquidityFrame[]): number[] {
+function sampleQuantities(
+    frames: readonly LiquidityFrame[],
+    grid: { readonly priceBucketSize: number },
+    viewport: ChartViewport | undefined,
+): number[] {
     const totalQuantities = frames.reduce(
         (running, frame) => running + frame.bids.quantities.length + frame.asks.quantities.length,
         0,
     );
     const stride = Math.max(1, Math.ceil(totalQuantities / SATURATION_SAMPLE_LIMIT));
+    const band = toBucketBand(grid, viewport);
 
     const sampled: number[] = [];
     let cursor = 0;
     for (const frame of frames) {
-        cursor = collectSide({ quantities: frame.bids.quantities, stride, startCursor: cursor, sampled });
-        cursor = collectSide({ quantities: frame.asks.quantities, stride, startCursor: cursor, sampled });
+        for (const ladder of [frame.bids, frame.asks]) {
+            cursor = collectSide({
+                quantities: ladder.quantities,
+                lowestBucketIndex: ladder.lowestBucketIndex,
+                band,
+                stride,
+                startCursor: cursor,
+                sampled,
+            });
+        }
     }
     return sampled;
+}
+
+/** The buckets the reader can see, or every bucket when the view is unknown. */
+function toBucketBand(
+    grid: { readonly priceBucketSize: number },
+    viewport: ChartViewport | undefined,
+): { lowest: number; highest: number } {
+    if (viewport === undefined || !(grid.priceBucketSize > 0)) {
+        return { lowest: Number.NEGATIVE_INFINITY, highest: Number.POSITIVE_INFINITY };
+    }
+    return {
+        lowest: Math.floor(viewport.lowPrice / grid.priceBucketSize),
+        highest: Math.ceil(viewport.highPrice / grid.priceBucketSize),
+    };
 }
 
 /**
@@ -163,16 +224,19 @@ function sampleQuantities(frames: readonly LiquidityFrame[]): number[] {
  */
 interface SideSample {
     readonly quantities: Float32Array;
+    readonly lowestBucketIndex: number;
+    readonly band: { lowest: number; highest: number };
     readonly stride: number;
     readonly startCursor: number;
     readonly sampled: number[];
 }
 
 function collectSide(sample: SideSample): number {
-    const { quantities, stride, sampled } = sample;
+    const { quantities, stride, sampled, band, lowestBucketIndex } = sample;
     let cursor = sample.startCursor;
     for (let offset = 0; offset < quantities.length; offset += 1) {
-        if (cursor % stride === 0) {
+        const bucketIndex = lowestBucketIndex + offset;
+        if (cursor % stride === 0 && bucketIndex >= band.lowest && bucketIndex <= band.highest) {
             const quantity = quantities[offset]!;
             if (quantity > 0) {
                 sampled.push(quantity);
@@ -373,15 +437,17 @@ export function newestFrameTimestamp(dataset: ChartDataset): number | null {
  * @param saturationPercentile - Fraction at which size reaches the hot end.
  * @returns The same window with both cuts moved.
  */
-export function recutDataset(
-    dataset: ChartDataset,
-    floorPercentile: number,
-    saturationPercentile: number,
-): ChartDataset {
+export function recutDataset(recut: DatasetRecutRequest): ChartDataset {
+    const { dataset, viewport } = recut;
+    const onScreen = viewport === undefined
+        ? dataset.frames
+        : dataset.frames.filter(
+            (frame) => frame.capturedAtMs >= viewport.fromMs && frame.capturedAtMs <= viewport.toMs,
+        );
     const measured = resolveDepthRange(
-        sampleQuantities(dataset.frames),
-        floorPercentile,
-        saturationPercentile,
+        sampleQuantities(onScreen.length === 0 ? dataset.frames : onScreen, dataset, viewport),
+        recut.floorPercentile,
+        recut.saturationPercentile,
     );
 
     return {

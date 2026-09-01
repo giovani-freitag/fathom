@@ -1,6 +1,7 @@
 import type { CollectorConfiguration } from './core/collector-configuration.ts';
 import type { CollectorLog } from './core/collector-log.ts';
 import { CollectorRuntime } from './collector-runtime.ts';
+import type { WideRecordingConfig } from './services/liquidity-recorder-service.ts';
 import { describeError } from './core/collector-log.ts';
 import type { RecordedContract, RecordingControl } from '../shared/core/recording-control.ts';
 import type { LiquidityArchive } from '../database/services/liquidity-archive.ts';
@@ -15,6 +16,16 @@ export interface CollectorSupervisorConfig {
     /** Recording settings every contract shares; the grid comes from the registry. */
     readonly shared: Omit<CollectorConfiguration, 'instrumentSymbol' | 'priceBucketSize' | 'frameIntervalMs'>;
     readonly framesPerFlush: number;
+    /**
+     * Builds the wide recording for one contract, when there is to be one.
+     *
+     * A function rather than a value because each contract frames its own far
+     * field and writes it under its own name.
+     */
+    readonly buildWideRecordings?: (
+        instrumentSymbol: string,
+        priceBucketSize: number,
+    ) => readonly WideRecordingConfig[];
     /** How often the enabled set and the disk budget are re-read. */
     readonly reconcileIntervalMs: number;
     /**
@@ -191,6 +202,13 @@ export class CollectorSupervisor {
                 openSocket: this.config.openSocket,
                 archive: this.config.archive,
                 framesPerFlush: this.config.framesPerFlush,
+                ...this.config.buildWideRecordings === undefined
+                    ? {}
+                    : {
+                        wideRecordings: this.config.buildWideRecordings(
+                            instrument.instrumentSymbol, instrument.priceBucketSize,
+                        ),
+                    },
                 // Bound to the contract, so every line a runtime writes says
                 // which one wrote it. Four collectors share one log.
                 log: this.config.log.child({ instrumentSymbol: instrument.instrumentSymbol }),

@@ -2,11 +2,16 @@ import { type LiquidityFrame } from '../../shared/core/liquidity-frame.ts';
 import { toPriceBucketIndex } from '../../shared/core/price-bucket.ts';
 import type { OrderBookReading } from './depth-types.ts';
 
+/** What a bucket holds when several of the book's prices fall into it. */
+export type BucketCombine = 'sum' | 'largest';
+
 export interface LadderBuildRequest {
     readonly reading: OrderBookReading;
     readonly capturedAtMs: number;
     readonly priceBucketSize: number;
     readonly recordedPriceRangeRatio: number;
+    /** Defaults to the total, which is what a narrow bucket is asking for. */
+    readonly combine?: BucketCombine;
 }
 
 /**
@@ -28,16 +33,19 @@ export function buildLiquidityFrame(request: LadderBuildRequest): LiquidityFrame
     const bidHighestBucketIndex = Math.min(bestBidBucketIndex, highestBucketIndex);
     const askLowestBucketIndex = Math.max(bestAskBucketIndex, lowestBucketIndex);
 
+    const combine = request.combine ?? 'sum';
     const bidQuantities = accumulate({
         quantityByPrice: reading.bidQuantityByPrice,
         lowestBucketIndex,
         highestBucketIndex: bidHighestBucketIndex,
         priceBucketSize,
+        combine,
     });
     const askQuantities = accumulate({
         quantityByPrice: reading.askQuantityByPrice,
         lowestBucketIndex: askLowestBucketIndex,
         highestBucketIndex,
+        combine,
         priceBucketSize,
     });
 
@@ -55,8 +63,20 @@ interface AccumulateRequest {
     readonly lowestBucketIndex: number;
     readonly highestBucketIndex: number;
     readonly priceBucketSize: number;
+    readonly combine: BucketCombine;
 }
 
+/**
+ * Lays the book's prices onto a bucket grid, one figure per bucket.
+ *
+ * Summing answers how much is resting in a band, which is what a band ten
+ * dollars wide is asking. A band a thousand dollars wide is asking something
+ * else: near the price it swallows a dense book and reads in the thousands,
+ * while the same band twenty percent away holds two orders and reads in tens.
+ * Put on one colour ramp, the second disappears — so a wide grid takes the
+ * largest single order in the band instead, which is the wall a reader is
+ * looking for and is comparable wherever it stands.
+ */
 function accumulate(request: AccumulateRequest): Float32Array {
     const bucketCount = request.highestBucketIndex - request.lowestBucketIndex + 1;
     if (bucketCount <= 0) {
@@ -67,7 +87,9 @@ function accumulate(request: AccumulateRequest): Float32Array {
     for (const [price, quantity] of request.quantityByPrice) {
         const offset = toPriceBucketIndex(price, request.priceBucketSize) - request.lowestBucketIndex;
         if (offset >= 0 && offset < bucketCount) {
-            quantities[offset] = quantities[offset]! + quantity;
+            quantities[offset] = request.combine === 'largest'
+                ? Math.max(quantities[offset]!, quantity)
+                : quantities[offset]! + quantity;
         }
     }
     return quantities;

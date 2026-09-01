@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildFrame, buildWindow } from '../../mocks/chart-services.ts';
-import type { LiveTailService, LiveTailSubscriptionRequest } from '../../../src/server/services/live-tail-service.ts';
+import {
+    type LiveTailService,
+    type LiveTailSubscriptionRequest,
+    UnknownTailSourceError,
+} from '../../../src/server/services/live-tail-service.ts';
 import { LiveSocketBridge } from '../../../src/server/services/live-socket-bridge.ts';
 import { type FakeSocket, openFakeSocket } from '../../mocks/websocket.ts';
 
@@ -59,6 +63,17 @@ describe('LiveSocketBridge', () => {
 
         expect(socket.closures).toEqual([{ code: 1013, reason: 'Too many live tails' }]);
         expect(socket.sent).toEqual([]);
+    });
+
+    it('closes for good on a store no waiting will bring into existence', () => {
+        // Told to try again, the viewer reconnects for ever and not one frame
+        // ever arrives: a feed that reads as connected and never moves. The
+        // full-budget refusal above does free up, which is why it differs.
+        subscribe.mockImplementation(() => { throw new UnknownTailSourceError('somethingElse'); });
+
+        buildBridge().start();
+
+        expect(socket.closures[0]?.code).toBe(1008);
     });
 
     it('lets go of the tail when the reader closes the page', () => {

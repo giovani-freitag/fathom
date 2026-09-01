@@ -10,7 +10,10 @@ import type { MarketDataSocketFactory } from './core/market-data-socket.ts';
 import { BinanceDepthFeedService } from './services/binance-depth-feed-service.ts';
 import type { DepthDiff, DepthSnapshot, ExecutedTrade } from './core/depth-types.ts';
 import { OrderBookService } from './core/order-book-service.ts';
-import { LiquidityRecorderService } from './services/liquidity-recorder-service.ts';
+import {
+    LiquidityRecorderService,
+    type WideRecordingConfig,
+} from './services/liquidity-recorder-service.ts';
 
 /**
  * The collector's object graph and its lifecycle, wired by hand in one place.
@@ -27,6 +30,14 @@ export interface CollectorRuntimeConfig {
     readonly framesPerFlush: number;
     /** Where the runtime narrates itself; streams on a server, messages in a page. */
     readonly log: CollectorLog;
+    /**
+     * A second, far wider recording of the same instants.
+     *
+     * Absent in a page, where there is no room for it. On a server it is what
+     * carries the walls standing at prices the market has not reached, which
+     * the narrow recording cannot see at all.
+     */
+    readonly wideRecordings?: readonly WideRecordingConfig[];
 }
 
 export class CollectorRuntime {
@@ -91,6 +102,7 @@ export class CollectorRuntime {
             maximumBufferedFrames: WRITE_SETTINGS.maximumBufferedFrames,
             maximumBufferedTradeClusters: WRITE_SETTINGS.maximumBufferedTradeClusters,
             onStatusChanged: this.handleRecorderStatus,
+            ...config.wideRecordings === undefined ? {} : { wideRecordings: config.wideRecordings },
         });
     }
 

@@ -6,7 +6,7 @@ const MINIMUM_SPAN_MS = 5_000;
 const MAXIMUM_SPAN_MS = 90 * 24 * 60 * 60 * 1_000;
 
 /** Fraction of mid price shown on first load, where the working book actually is. */
-const INITIAL_PRICE_RANGE_RATIO = 0.004;
+export const INITIAL_PRICE_RANGE_RATIO = 0.004;
 
 /** A price span narrower than this many buckets stops being a chart. */
 const MINIMUM_PRICE_BUCKETS = 4;

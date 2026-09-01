@@ -53,6 +53,25 @@ export const WRITE_SETTINGS = {
 } as const;
 
 /** Write pacing for a server, where a batch per flush amortises the round trip. */
+/**
+ * How the whole book is written down beside the recorded band.
+ *
+ * The recording a chart reads is clipped to a couple of percent around the
+ * price and cannot see a wall standing where the market has not been. This
+ * frames every price, on a logarithmic scale two percent to the step — the
+ * tightest precision measured, and the one worth judging by eye, because it is
+ * what decides whether the picture is worth the loss.
+ *
+ * Shared by the server and by a page, because the squares they write have to be
+ * the same squares: a grid that differed between them would be two archives
+ * that cannot be held against each other.
+ */
+export const WHOLE_BOOK_FRAMING = {
+    priceRangeRatio: 1,
+    stepPrecision: 0.02,
+    frameIntervalMs: 1_000,
+} as const;
+
 export const BROWSER_WRITE_SETTINGS = {
     ...WRITE_SETTINGS,
     // One frame per flush in a page: the archive is local, a batch buys nothing,

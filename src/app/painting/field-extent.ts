@@ -55,14 +55,29 @@ export function measureExtent(dataset: ChartDataset, bucketsPerBand = 1): FieldE
     );
     const columnCapacity = columnCount + Math.ceil(APPEND_HEADROOM_MS / sampleIntervalMs);
 
+    // Both ends off whichever sides actually hold prices, and never off an
+    // empty one. A window read over a band the price is not in has every
+    // instant on one side of the touch — a reader looking below the market
+    // reads a book that is all bids — and a side with nothing in it reports
+    // starting at bucket nought and reaching to one before it. Taken as the top
+    // of the book, that leaves the field one row tall, addressed at a price
+    // nobody is looking at, and the whole layer draws as black.
     let lowestBucketIndex = Number.POSITIVE_INFINITY;
     let highestBucketIndex = Number.NEGATIVE_INFINITY;
     for (const frame of dataset.frames) {
-        lowestBucketIndex = Math.min(lowestBucketIndex, frame.bids.lowestBucketIndex);
-        highestBucketIndex = Math.max(
-            highestBucketIndex,
-            frame.asks.lowestBucketIndex + frame.asks.quantities.length - 1,
-        );
+        for (const ladder of [frame.bids, frame.asks]) {
+            if (ladder.quantities.length === 0) {
+                continue;
+            }
+            lowestBucketIndex = Math.min(lowestBucketIndex, ladder.lowestBucketIndex);
+            highestBucketIndex = Math.max(
+                highestBucketIndex,
+                ladder.lowestBucketIndex + ladder.quantities.length - 1,
+            );
+        }
+    }
+    if (!Number.isFinite(lowestBucketIndex)) {
+        return { baseTimestampMs: firstFrame.capturedAtMs, columnCount, columnCapacity, lowestBucketIndex: 0, bucketCount: 0 };
     }
 
     const bandSize = Math.max(1, Math.floor(bucketsPerBand));

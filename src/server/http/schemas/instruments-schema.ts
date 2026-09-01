@@ -6,6 +6,7 @@ const InstrumentItemSchema = Type.Object({
     frameIntervalMs: Type.Integer(),
     firstFrameAtMs: Type.Union([Type.Integer(), Type.Null()]),
     lastFrameAtMs: Type.Union([Type.Integer(), Type.Null()]),
+    lastMidPrice: Type.Union([Type.Number(), Type.Null()]),
 });
 
 export const InstrumentsResponseSchema = Type.Object({
