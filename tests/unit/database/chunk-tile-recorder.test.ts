@@ -35,4 +35,22 @@ describe('columnsBetweenRewrites', () => {
     it('always asks for at least one column, however much it is worth', () => {
         expect(columnsBetweenRewrites(5, 10 * 60 * SECOND_MS)).toBe(1);
     });
+
+    it('takes the staleness the caller is willing to carry at the live edge', () => {
+        // A page has no history to hide a stale edge behind: everything it can
+        // show it recorded since the visitor arrived, and the drawn book sat
+        // still for fifteen seconds at a time at the sixteen a server keeps.
+        expect(columnsBetweenRewrites(0, SECOND_MS, 2)).toBe(2);
+    });
+
+    it('keeps a coarse level on its own clock whatever the edge is held to', () => {
+        // Freshness at the edge is a question about the finest level. A coarse
+        // one is written when a minute of it has gathered, and a column of it
+        // is minutes long.
+        expect(columnsBetweenRewrites(1, 4 * SECOND_MS, 2)).toBe(15);
+    });
+
+    it('never asks for less than one column, whatever it is handed', () => {
+        expect(columnsBetweenRewrites(0, SECOND_MS, 0)).toBe(1);
+    });
 });

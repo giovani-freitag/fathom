@@ -77,4 +77,17 @@ export const BROWSER_WRITE_SETTINGS = {
     // One frame per flush in a page: the archive is local, a batch buys nothing,
     // and a visitor watching the chart should see the second they just lived.
     framesPerFlush: 1,
+    /**
+     * How stale the whole book may be at the live edge, in seconds.
+     *
+     * Two rather than the sixteen a server keeps. A server has hours behind the
+     * edge and a stale second at the end of them is a sliver; a page has only
+     * what it recorded since the visitor arrived, and at sixteen the chart sat
+     * still for most of a first look — measured, the drawn book did not move
+     * for fifteen seconds at a time while the recording ran every second.
+     *
+     * It is bought with work on the recording's own path: measured over four
+     * hundred instants, four milliseconds each against one.
+     */
+    liveEdgeColumns: 2,
 } as const;

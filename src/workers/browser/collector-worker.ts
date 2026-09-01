@@ -107,6 +107,7 @@ async function bringUpRecording(): Promise<void> {
         priceRangeRatio: WHOLE_BOOK_FRAMING.priceRangeRatio,
         intervalMs: WHOLE_BOOK_FRAMING.frameIntervalMs,
         stepRatio: 1 + WHOLE_BOOK_FRAMING.stepPrecision,
+        liveEdgeColumns: BROWSER_WRITE_SETTINGS.liveEdgeColumns,
     });
     const control = new BrowserRecordingControl({
         // The concrete store: pruning is its own operation, not one a writer

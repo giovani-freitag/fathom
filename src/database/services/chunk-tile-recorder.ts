@@ -12,9 +12,14 @@ import { LARGEST_STEP, quantiseQuantity, type QuantityScale } from '../../shared
 /**
  * How many new columns a block still filling gathers before it is written again.
  *
- * The same reason the other stores hold back: repacking a growing block on
- * every instant is work on the path the recording runs on, and it was measured
- * making the recording clock miss instants.
+ * The whole of it is repacked on every write, so this buys freshness with work
+ * on the path the recording runs on. Measured over four hundred instants, at
+ * one byte per cell and gzip: sixteen costs a millisecond an instant, eight one
+ * and a half, four two and three, two nearly four, and one over seven — and it
+ * climbs as the block fills, because what is repacked is everything in it.
+ *
+ * What it buys is the live edge. A reader is handed the last column written, so
+ * this is also how far behind the newest instant the chart can be.
  */
 const COLUMNS_BETWEEN_REWRITES = 16;
 
@@ -55,6 +60,16 @@ export interface ChunkTileRecorderConfig {
     /** What one instant of the finest level covers. */
     readonly intervalMs: number;
     readonly stepRatio: number;
+    /**
+     * How stale the live edge may be, in columns of the finest level.
+     *
+     * Left out where nothing is watching the edge closely. A server keeps hours
+     * behind the newest instant, so a stale second at the end of them is a
+     * sliver nobody sees, and it pays for every contract it records. A page has
+     * no history to hide it behind: everything it can show, it recorded since
+     * the visitor arrived, and sixteen seconds of that is most of a first look.
+     */
+    readonly liveEdgeColumns?: number;
     readonly onWriteFailed?: (instrumentSymbol: string, reason: unknown) => void;
 }
 
@@ -300,7 +315,9 @@ export class ChunkTileRecorder {
         // until their block completed they would be empty for the hours one
         // takes, and a reader zooming out would be answered with nothing at all.
         if (level.columns.length - level.writtenColumns
-            >= columnsBetweenRewrites(detailLevel, columnIntervalMs)) {
+            >= columnsBetweenRewrites(
+                detailLevel, columnIntervalMs, this.config.liveEdgeColumns,
+            )) {
             await this.store({ instrumentSymbol, detailLevel, level, isComplete: false });
         }
 
@@ -534,11 +551,17 @@ function overlay(stored: ChunkColumn | undefined, held: ChunkColumn | undefined)
  *
  * @param detailLevel - Nought for the finest.
  * @param columnIntervalMs - What one column of that level covers.
+ * @param liveEdgeColumns - How stale the finest level may be, where the caller
+ *                          has an opinion about it.
  * @returns Columns to gather first, at least one.
  */
-export function columnsBetweenRewrites(detailLevel: number, columnIntervalMs: number): number {
+export function columnsBetweenRewrites(
+    detailLevel: number,
+    columnIntervalMs: number,
+    liveEdgeColumns?: number,
+): number {
     if (detailLevel === 0) {
-        return COLUMNS_BETWEEN_REWRITES;
+        return Math.max(1, liveEdgeColumns ?? COLUMNS_BETWEEN_REWRITES);
     }
     return Math.max(1, Math.round(COARSE_MS_BETWEEN_REWRITES / Math.max(1, columnIntervalMs)));
 }

@@ -145,9 +145,11 @@ describe('IndexedDbHeatmapSource', () => {
         expect(highestPriced(window)).toBeGreaterThanOrEqual(FAR_WALL_BUCKET);
     });
 
-    it('falls back to the band while the page has recorded no square yet', async () => {
-        // The first seconds of a session, or one whose squares were pruned. A
-        // demo that draws nothing there looks broken rather than young.
+    it('answers from the store it was asked for and nothing behind it', async () => {
+        // Falling back to the band for the first seconds looked kinder and was
+        // not: the window then held the band while the tail extending it held
+        // the squares, and a chart handed two grids draws the seconds it opened
+        // with and never moves again.
         const window = await source.fetchFrameWindow({
             symbol: 'BTCUSDT',
             fromMs: FIRST_MS,
@@ -156,7 +158,7 @@ describe('IndexedDbHeatmapSource', () => {
             source: 'chunks',
         });
 
-        expect(window.frames.length).toBeGreaterThan(0);
+        expect(window.frames).toEqual([]);
     });
 });
 

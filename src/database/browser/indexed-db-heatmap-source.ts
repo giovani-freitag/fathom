@@ -77,10 +77,14 @@ export class IndexedDbHeatmapSource implements HeatmapSource {
      * Frames covering a window, one per column.
      *
      * Out of the same two archives a server reads from, named the same way: the
-     * squares of the whole book, or the band the recording keeps. A page that
-     * has not recorded a square yet — the first seconds of a session, or one
-     * whose squares were pruned — is answered off the band rather than with
-     * nothing, because a demo that draws nothing looks broken rather than young.
+     * squares of the whole book, or the band the recording keeps.
+     *
+     * The store named is the store answered from, with nothing behind it. A
+     * page falling back to the band for the first seconds looked kinder and was
+     * not: the window then held the band while the tail extending it held the
+     * squares, the two disagree about the grid they are on, and the chart drew
+     * the seconds it started with and never moved again. Measured on a cold
+     * page, the recording ran for a minute while the drawn book only shrank.
      *
      * @param query - Instrument, half-open range, and how many columns fit.
      * @returns The frames, oldest first.
@@ -95,9 +99,7 @@ export class IndexedDbHeatmapSource implements HeatmapSource {
                 maxColumns: query.maxColumns,
                 ...(query.priceBand === undefined ? {} : query.priceBand),
             });
-            if (window.frames.length > 0) {
-                return window;
-            }
+            return window;
         }
 
         const grid = await this.readGrid(query.symbol);
