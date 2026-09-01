@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.10.0](https://github.com/giovani-freitag/fathom/compare/v0.9.0...v0.10.0) (2026-09-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* settle on one chunked archive of the whole book
+
+### Features
+
+* settle on one chunked archive of the whole book ([ead77c1](https://github.com/giovani-freitag/fathom/commit/ead77c196503d768c8e6c4c8e6f4d59ba3808f00))
+
+
+### Bug Fixes
+
+* keep the price axis out of prices below nothing ([3e21318](https://github.com/giovani-freitag/fathom/commit/3e21318929b2e15cf2a89a6f5649f85928c19488))
+
 ## [0.9.0](https://github.com/giovani-freitag/fathom/compare/v0.8.0...v0.9.0) (2026-08-28)
 
 
