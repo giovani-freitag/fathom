@@ -46,7 +46,10 @@ export function createDemoServiceContainer(
     const database = new IndexedDbService({ factory: config.factory });
     const api = wrapWithVenueCandles(new IndexedDbHeatmapSource({ database }));
     const cursor = createCursorStore();
-    const preferences = new PreferencesService({ storage: config.storage });
+    const preferences = new PreferencesService({
+        storage: config.storage,
+        openingSpanMs: DEMO_VISIBLE_SPAN_MS,
+    });
 
     // The tail runs inside the collector, so the page asks it to follow a
     // contract and then only listens — the same shape as the socket driver,

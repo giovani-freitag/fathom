@@ -61,6 +61,15 @@ export const DEFAULT_PREFERENCES: ViewerPreferences = {
 export interface PreferencesServiceConfig {
     /** Absent in a test that runs outside a DOM. */
     readonly storage: Storage | null;
+    /**
+     * What a reader who has never set one is given instead of the usual.
+     *
+     * A page recording for itself has no history to open onto: it can only show
+     * the book it has gathered since the visitor arrived, so opening on the
+     * quarter of an hour a server opens on leaves the chart nine tenths empty
+     * for the first ten minutes of watching it.
+     */
+    readonly openingSpanMs?: number;
 }
 
 /**
@@ -68,9 +77,11 @@ export interface PreferencesServiceConfig {
  */
 export class PreferencesService {
     private readonly storage: Storage | null;
+    private readonly openingSpanMs: number | undefined;
 
     constructor(config: PreferencesServiceConfig) {
         this.storage = config.storage;
+        this.openingSpanMs = config.openingSpanMs;
     }
 
     /**
@@ -79,12 +90,18 @@ export class PreferencesService {
      * @returns A complete preference set.
      */
     read(): ViewerPreferences {
+        const opening = {
+            ...DEFAULT_PREFERENCES,
+            ...(this.openingSpanMs === undefined
+                ? {}
+                : { visibleSpanMs: this.openingSpanMs }),
+        };
         const raw = this.readRaw();
         if (raw === null) {
-            return DEFAULT_PREFERENCES;
+            return opening;
         }
 
-        const merged = { ...DEFAULT_PREFERENCES, ...raw };
+        const merged = { ...opening, ...raw };
         const carried = migrateLayers(merged, raw);
         return {
             ...merged,
