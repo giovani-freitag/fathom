@@ -182,23 +182,48 @@ describe('the whole book as squares, kept in a page', () => {
         // first block opening past the window, the walk touches only the blocks
         // that can be in it. Read from the front of the level instead, a page
         // recording all day pays for the whole day on every window.
-        await roundTrip(1_200);
+        // Blocks put in directly rather than recorded: what is being asked is
+        // which of them the walk touches, and recording the twelve hundred
+        // instants it would take to make three of them is a minute of gzip to
+        // set up a question about a key range.
         const rows = new IndexedDbChunkRowStore({ database });
+        const blockMs = 512 * INTERVAL_MS;
+        for (let block = 0; block < 3; block += 1) {
+            const startedAtMs = STARTED_AT_MS + block * blockMs;
+            await rows.writeBlock({
+                instrumentSymbol: 'BTCUSDT',
+                detailLevel: 0,
+                startedAtMs,
+                endedAtMs: startedAtMs + blockMs,
+                row: {
+                    startedAtMs,
+                    columnIntervalMs: INTERVAL_MS,
+                    priceBucketSize: BUCKET_SIZE,
+                    columnCount: 512,
+                    stepRatio: STEP_RATIO,
+                    smallestQuantity: 0.0001,
+                    bestBidPrices: [NEAR_BUCKET * BUCKET_SIZE],
+                    bestAskPrices: [(NEAR_BUCKET + 1) * BUCKET_SIZE],
+                },
+            });
+        }
 
         const within = (fromMs: number, toMs: number) => rows.readBlocksWithin({
             instrumentSymbol: 'BTCUSDT', detailLevel: 0, fromMs, toMs,
         });
 
+        // Past the instant the block before it reaches, not on it: a block
+        // ending exactly where a window opens does overlap it, here as in SQL.
         const last = await within(
-            STARTED_AT_MS + 1_100 * INTERVAL_MS, STARTED_AT_MS + 1_200 * INTERVAL_MS,
+            STARTED_AT_MS + 2 * blockMs + 1, STARTED_AT_MS + 3 * blockMs,
         );
         const first = await within(STARTED_AT_MS, STARTED_AT_MS + 100 * INTERVAL_MS);
-        const everything = await within(STARTED_AT_MS, STARTED_AT_MS + 1_200 * INTERVAL_MS);
+        const everything = await within(STARTED_AT_MS, STARTED_AT_MS + 3 * blockMs);
 
         // One block each end, and neither reaches the blocks on the other side
         // of it: the near bound is where the walk starts, the far one where it
         // stops, and a walk missing either answers with the whole level.
-        expect([last.length, first.length, everything.length > 2]).toEqual([1, 1, true]);
+        expect([last.length, first.length, everything.length]).toEqual([1, 1, 3]);
     });
 
     it('answers a wide window off a coarse level rather than the finest', async () => {

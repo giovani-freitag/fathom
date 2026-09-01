@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { PostgresChunkRowStore } from '../../../src/database/postgres/postgres-chunk-row-store.ts';
 import { ChunkArchiveService, type ChunkColumn } from '../../../src/database/services/chunk-archive-service.ts';
 import { ChunkTileRecorder } from '../../../src/database/services/chunk-tile-recorder.ts';
@@ -448,11 +448,13 @@ describe('reading a coarse level', () => {
 
 describe('two reads of overlapping stretches', () => {
     const recording = buildRecording(600);
+    let archive: ChunkArchiveService;
 
-    /** The archive holding one recording, for reads to be compared against. */
-    async function buildArchive() {
+    // One archive for every read here: they only read from it, and recording
+    // six hundred instants once per test was most of what this file spent.
+    beforeAll(async () => {
         const store = createChunkStoreMock();
-        const archive = new ChunkArchiveService({ rows: new PostgresChunkRowStore({ postgres: store.service }) });
+        archive = new ChunkArchiveService({ rows: new PostgresChunkRowStore({ postgres: store.service }) });
         const recorder = new ChunkTileRecorder({
             archive, priceRangeRatio: 1, intervalMs: INTERVAL_MS, stepRatio: STEP_RATIO,
         });
@@ -461,15 +463,13 @@ describe('two reads of overlapping stretches', () => {
             feeding.onFrame(frame, BUCKET_SIZE);
         }
         await recorder.flush();
-        return archive;
-    }
+    });
 
     it('agrees instant for instant on the stretch they share', async () => {
         // A reader panning has most of what it is about to ask for. It can only
         // keep it if the two reads land on the same instants — anchored to
         // where each read began, the same stretch comes back on two grids half a
         // column apart and everything already held has to be thrown away.
-        const archive = await buildArchive();
         const read = (fromColumn: number) => archive.fetchWindow({
             instrumentSymbol: 'BTCUSDT',
             fromMs: STARTED_AT_MS + fromColumn * INTERVAL_MS,
@@ -488,7 +488,6 @@ describe('two reads of overlapping stretches', () => {
     });
 
     it('reports the same grid for both, so one can be laid on the other', async () => {
-        const archive = await buildArchive();
         const read = (fromColumn: number) => archive.fetchWindow({
             instrumentSymbol: 'BTCUSDT',
             fromMs: STARTED_AT_MS + fromColumn * INTERVAL_MS,
