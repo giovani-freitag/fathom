@@ -30,7 +30,3 @@ export const WindowFiltersSchema = Type.Object({
 
 export type WindowFilters = Static<typeof WindowFiltersSchema>;
 
-export const ErrorResponseSchema = Type.Object({
-    error: Type.String(),
-    message: Type.String(),
-});

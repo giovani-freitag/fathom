@@ -1,3 +1,4 @@
+import { alignDown, alignUp, resolveSampleInterval } from '../../shared/core/window-grid.ts';
 import type { FrameRecord, GapRecord, InstrumentRecord, TradeClusterRecord } from './indexed-db-record-mapping.ts';
 import {
     type FrameWindowQuery,
@@ -305,10 +306,6 @@ function keepEvery<TRecord extends { capturedAtMs: number }>(
     return kept;
 }
 
-function resolveSampleInterval(query: FrameWindowQuery): number {
-    const rangeMs = Math.max(1, query.toMs - query.fromMs);
-    return Math.max(1, Math.ceil(rangeMs / Math.max(1, query.maxColumns)));
-}
 
 interface BarFoldRequest {
     readonly records: readonly FrameRecord[];
@@ -413,10 +410,4 @@ function addVolume(
     });
 }
 
-function alignDown(instantMs: number, intervalMs: number): number {
-    return Math.floor(instantMs / intervalMs) * intervalMs;
-}
 
-function alignUp(instantMs: number, intervalMs: number): number {
-    return Math.ceil(instantMs / intervalMs) * intervalMs;
-}

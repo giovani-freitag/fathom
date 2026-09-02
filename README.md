@@ -85,8 +85,16 @@ docker compose down -v                # stop and delete it, permanently
 
 ### What to change
 
-Everything is optional and lives in a `.env` beside the compose file.
-`.env.example` documents all of it; these four decide what you get:
+The command above runs on the defaults. To change any of them, take the file
+down and edit it:
+
+```bash
+docker compose -f oci://ghcr.io/giovani-freitag/fathom/compose:latest config > docker-compose.yml
+docker compose up -d
+```
+
+From then on a `.env` beside it is read as usual. `.env.example` documents every
+variable; these four decide what you get:
 
 | | |
 |---|---|

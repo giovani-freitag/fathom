@@ -172,12 +172,16 @@ describe('DepthField over a long live session', () => {
         // Measured on a four hour window, folding and colouring all of it at
         // once held that thread for about three hundred milliseconds a rebuild,
         // three times over a single change of range.
+        //
+        // Asked of the painted range rather than of the clock: a wall-clock
+        // budget on a machine running other things is a test that fails for
+        // reasons that have nothing to do with the code, and this one did,
+        // three times in an afternoon.
         const frames = Array.from({ length: 4_000 }, (_unused, index) => buildFrame(index * 1_000));
-        const started = performance.now();
 
         const field = new DepthField({ dataset: buildDataset(frames), colourGain: 1, bucketsPerBand: 1 });
 
-        expect([field.columnCount, performance.now() - started < 20]).toEqual([4_000, true]);
+        expect([field.columnCount, painted(field)]).toEqual([4_000, 0]);
     });
 
     it('holds the thread for no longer than the share it was given', () => {

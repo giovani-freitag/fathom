@@ -1,3 +1,4 @@
+import { alignDown, alignUp, resolveSampleInterval } from '../../shared/core/window-grid.ts';
 import type { InstrumentCoverage, TradeClusterQuery, WindowQuery } from '../../shared/core/api-contract.ts';
 import { BAR_BUDGET, type PriceBar, type PriceBarQuery, type PriceBarWindow } from '../../shared/core/price-bar.ts';
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
@@ -348,10 +349,6 @@ export class LiquidityQueryService {
     }
 }
 
-function resolveSampleInterval(query: WindowQuery): number {
-    const rangeMs = Math.max(1, query.toMs - query.fromMs);
-    return Math.max(1, Math.ceil(rangeMs / Math.max(1, query.maxColumns)));
-}
 
 function selectTradeSource(sampleIntervalMs: number): TradeSource {
     let selected: TradeSource = TRADE_SOURCES[0];
@@ -473,13 +470,7 @@ function selectBarSource(intervalMs: number): BarSource {
     return selected;
 }
 
-function alignDown(instantMs: number, intervalMs: number): number {
-    return Math.floor(instantMs / intervalMs) * intervalMs;
-}
 
-function alignUp(instantMs: number, intervalMs: number): number {
-    return Math.ceil(instantMs / intervalMs) * intervalMs;
-}
 
 interface PriceBarAssembly {
     readonly row: PriceBarRow;

@@ -165,21 +165,6 @@ function findFirstReal(source: ArrayLike<number>, startIndex: number, endIndex: 
     return -1;
 }
 
-/**
- * The mean of a slice.
- *
- * @param values - Source values.
- * @param fromIndex - First index, inclusive.
- * @param toIndex - Last index, inclusive.
- * @returns The arithmetic mean.
- */
-export function meanOf(values: readonly number[], fromIndex: number, toIndex: number): number {
-    let total = 0;
-    for (let index = fromIndex; index <= toIndex; index += 1) {
-        total += values[index]!;
-    }
-    return total / (toIndex - fromIndex + 1);
-}
 
 /**
  * How far a bar travelled, counting the gap from where the last one closed.

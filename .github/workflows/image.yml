@@ -49,8 +49,11 @@ jobs:
             ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }}
           # The layer cache lives in the registry, because a runner is thrown
           # away and the dependency install is most of the build.
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
-          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache,mode=max
+          # Its own package rather than a tag beside the releases: the layers
+          # are not an image anybody runs, and listed next to `latest` they
+          # read as one.
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/buildcache:image
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/buildcache:image,mode=max
 
       # The compose file goes to the registry too, as an OCI artifact, so that
       # running this is one docker command and nothing to download by hand:
@@ -59,8 +62,12 @@ jobs:
       #
       # After the image, because publishing resolves what the file references
       # and a compose pointing at an image that is not there yet fails.
+      # `--with-env` because the services declare variables and publish will not
+      # send them unasked. What it sends is what this runner resolves, and a
+      # runner has no `.env`: the defaults written in the file, which is what
+      # the command in the README is meant to bring up.
       - run: |
-          docker compose publish \
+          docker compose publish --with-env \
             ghcr.io/${{ github.repository }}/compose:latest
-          docker compose publish \
+          docker compose publish --with-env \
             ghcr.io/${{ github.repository }}/compose:${{ steps.version.outputs.value }}
