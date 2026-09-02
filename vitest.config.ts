@@ -1,6 +1,9 @@
 import { defineConfig } from 'vitest/config';
 import { readReleaseDefines } from './scripts/release-notes.ts';
 
+/** How long one test may take before it is called stuck. */
+const TEST_TIMEOUT_MS = 20_000;
+
 export default defineConfig({
     test: {
         clearMocks: true,
@@ -11,7 +14,11 @@ export default defineConfig({
         // machine they were written on and several times that on a shared
         // runner — measured, three of them timed out on one CI run and three
         // different ones on the next, with nothing changed between them.
-        testTimeout: 20_000,
+        // Declared per project below as well as here: a project inherits none
+        // of this, which is the same lesson the injection above records — and
+        // set only here it was never in force at all, so the runs it was meant
+        // to steady went on timing out at the default five seconds.
+        testTimeout: TEST_TIMEOUT_MS,
         projects: [
             {
                 // The same build-time injection the app gets, so a test may
@@ -19,6 +26,7 @@ export default defineConfig({
                 // Declared per project: the projects do not inherit it.
                 define: readReleaseDefines(),
                 test: {
+                    testTimeout: TEST_TIMEOUT_MS,
                     // The browser half, which needs a DOM to draw into.
                     name: 'app',
                     environment: 'jsdom',
@@ -28,6 +36,7 @@ export default defineConfig({
             },
             {
                 test: {
+                    testTimeout: TEST_TIMEOUT_MS,
                     // Everything that runs on Node, plus the shared contract.
                     name: 'node',
                     environment: 'node',

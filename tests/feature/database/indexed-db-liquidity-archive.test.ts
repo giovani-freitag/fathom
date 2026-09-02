@@ -55,7 +55,7 @@ describe('IndexedDbLiquidityArchive', () => {
     });
 
     it('drops the oldest recording once the window is longer than it may be', async () => {
-        await recordInstants({ database, fromMs: FIRST_MS, count: 4_000 });
+        await recordInstants({ database, fromMs: FIRST_MS, count: 1_200 });
 
         const dropped = await archive.pruneToCapacity('BTCUSDT');
 
@@ -63,13 +63,13 @@ describe('IndexedDbLiquidityArchive', () => {
     });
 
     it('takes the executions that fell below the horizon with it', async () => {
-        await recordInstants({ database, fromMs: FIRST_MS, count: 4_000 });
+        await recordInstants({ database, fromMs: FIRST_MS, count: 1_200 });
         await archive.appendTradeClusters({
             instrumentSymbol: 'BTCUSDT',
             priceBucketSize: RECORDING_GRID.priceBucketSize,
             clusters: [
                 { executedAtMs: FIRST_MS, priceBucketIndex: 7_900, buyQuantity: 1, sellQuantity: 0, tradeCount: 1, largestTradeQuantity: 1 },
-                { executedAtMs: FIRST_MS + 3_999_000, priceBucketIndex: 7_900, buyQuantity: 1, sellQuantity: 0, tradeCount: 1, largestTradeQuantity: 1 },
+                { executedAtMs: FIRST_MS + 1_199_000, priceBucketIndex: 7_900, buyQuantity: 1, sellQuantity: 0, tradeCount: 1, largestTradeQuantity: 1 },
             ],
         });
 
@@ -81,12 +81,12 @@ describe('IndexedDbLiquidityArchive', () => {
     it('keeps a gap that is still open at the horizon', async () => {
         // A gap that ends inside the window it is still describing has to
         // survive, or the chart claims a stretch was recorded when it was not.
-        await recordInstants({ database, fromMs: FIRST_MS, count: 4_000 });
+        await recordInstants({ database, fromMs: FIRST_MS, count: 1_200 });
         await archive.recordGap({
             instrumentSymbol: 'BTCUSDT',
             gap: {
                 gapStartedAtMs: FIRST_MS + 500,
-                gapEndedAtMs: FIRST_MS + 3_998_000,
+                gapEndedAtMs: FIRST_MS + 1_198_000,
                 gapReason: 'the stream dropped',
             },
         });
@@ -99,7 +99,7 @@ describe('IndexedDbLiquidityArchive', () => {
     it('takes the squares of the whole book with the stretch they cover', async () => {
         // Left behind they are a store nothing prunes, and one block of the
         // coarsest level is a fifth of a megabyte that never leaves.
-        await recordInstants({ database, fromMs: FIRST_MS, count: 4_000 });
+        await recordInstants({ database, fromMs: FIRST_MS, count: 1_200 });
         const before = await countBlocks();
 
         await archive.pruneToCapacity('BTCUSDT');
