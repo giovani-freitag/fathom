@@ -51,3 +51,16 @@ jobs:
           # away and the dependency install is most of the build.
           cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
           cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache,mode=max
+
+      # The compose file goes to the registry too, as an OCI artifact, so that
+      # running this is one docker command and nothing to download by hand:
+      #
+      #   docker compose -f oci://ghcr.io/<owner>/<repo>/compose:latest up -d
+      #
+      # After the image, because publishing resolves what the file references
+      # and a compose pointing at an image that is not there yet fails.
+      - run: |
+          docker compose publish \
+            ghcr.io/${{ github.repository }}/compose:latest
+          docker compose publish \
+            ghcr.io/${{ github.repository }}/compose:${{ steps.version.outputs.value }}

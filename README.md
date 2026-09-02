@@ -58,9 +58,11 @@ be running before you need the data.
 ## 🚀 Run it
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/giovani-freitag/fathom/main/docker-compose.yml \
-  | docker compose -f - up -d
+docker compose -f oci://ghcr.io/giovani-freitag/fathom/compose:latest up -d
 ```
+
+Compose reads the file straight out of the registry, so there is nothing to
+clone and nothing to download by hand.
 
 Open **http://localhost:8787**. The first columns appear within seconds.
 

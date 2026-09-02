@@ -12,7 +12,11 @@ services:
       # anything that is not one person's laptop.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fathom}
     ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+      # The long form throughout: it is what `docker compose publish` will
+      # accept, and publishing this file is how somebody runs it without one.
+      - host_ip: 127.0.0.1
+        published: "${POSTGRES_PORT:-5433}"
+        target: 5432
     volumes:
       - fathom-data:/var/lib/postgresql/data
     healthcheck:
@@ -78,7 +82,9 @@ services:
       # The loopback, like the database. What reaches this is a browser on this
       # machine; put it behind something that asks who is calling before you
       # bind it wider.
-      - "127.0.0.1:${GATEWAY_PORT:-8787}:8787"
+      - host_ip: 127.0.0.1
+        published: "${GATEWAY_PORT:-8787}"
+        target: 8787
     environment:
       DATABASE_URL: postgres://fathom:${POSTGRES_PASSWORD:-fathom}@timescaledb:5432/fathom
       # Every address inside the container: what reaches it is decided by the
