@@ -1,6 +1,7 @@
 import type { ChartViewport } from './chart-viewport.ts';
 import type { LiquidityFrame, LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import { EMPTY_BAR_WINDOW, type PriceBarWindow } from '../../shared/core/price-bar.ts';
+import { type HigherBars, NO_HIGHER_BARS } from '../../shared/core/draw-plan.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
 import { resolveDepthRange } from '../indicators/book/depth-colour-scale.ts';
@@ -31,6 +32,8 @@ export interface ChartDataset {
     readonly gaps: readonly RecordingGap[];
     /** Bars on a declared interval, warm-up included at the front. */
     readonly bars: PriceBarWindow;
+    /** Coarser rungs, for whatever on the chart declared it reads one. */
+    readonly higher: HigherBars;
     /**
      * Resting size that reaches the hot end of the ramp.
      */
@@ -51,6 +54,7 @@ export const EMPTY_DATASET: ChartDataset = {
     clusters: [],
     gaps: [],
     bars: EMPTY_BAR_WINDOW,
+    higher: NO_HIGHER_BARS,
     saturationQuantity: 1,
     floorQuantity: 0,
     revision: 0,
@@ -65,6 +69,7 @@ export interface DatasetReplaceRequest {
     readonly clusterIntervalMs: number;
     readonly gaps: readonly RecordingGap[];
     readonly bars: PriceBarWindow;
+    readonly higher: HigherBars;
     readonly previousRevision: number;
     /** Floor the previous window was drawn with, held to stop a pan recolouring the field. */
     readonly previousFloorQuantity?: number;
@@ -101,6 +106,7 @@ export function replaceDataset(request: DatasetReplaceRequest): ChartDataset {
         clusters: request.clusters,
         gaps: request.gaps,
         bars: request.bars,
+        higher: request.higher,
         ...resolveStableDepthRange(request),
         revision: request.previousRevision + 1,
     };

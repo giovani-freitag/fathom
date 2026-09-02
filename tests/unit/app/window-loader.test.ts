@@ -1,4 +1,5 @@
 import { MAXIMUM_WINDOW_MS } from '../../../src/shared/core/api-contract.ts';
+import { EMPTY_BAR_WINDOW } from '../../../src/shared/core/price-bar.ts';
 import {
     type LoadedWindow,
     WindowLoader,
@@ -42,6 +43,7 @@ function buildRequest(overrides: Partial<Parameters<WindowLoader['load']>[0]> = 
         priceGroupSize: 1,
         warmupBars: 1,
         barIntervalMs: null,
+        higherBars: [],
         sources: ['frames', 'trades'] as readonly WindowSource[],
         priceBand: null,
         ...overrides,
@@ -645,5 +647,99 @@ describe('WindowLoader and a band the reader has zoomed inside of', () => {
         await new Promise((resolve) => { setTimeout(resolve, 300); });
 
         expect(harness.mocks.fetchFrameWindow.mock.calls.length).toBe(before);
+    });
+});
+
+describe('WindowLoader and the coarser rungs a reading asked for', () => {
+    const DAY_MS = 86_400_000;
+
+    /** The rungs asked for on the last fetch, whatever order they went out in. */
+    function askedRungs(harness: Harness): number[] {
+        return harness.mocks.fetchPriceBars.mock.calls
+            .map((call) => call[0].intervalMs)
+            .filter((one) => one === DAY_MS);
+    }
+
+    /** A venue with the drawn rung and no candle of the coarser one. */
+    function refuseTheDailyRung(harness: Harness): void {
+        harness.mocks.fetchPriceBars.mockImplementation((query) => (
+            query.intervalMs === DAY_MS
+                ? Promise.reject(new Error('No venue candle of that width'))
+                : Promise.resolve(EMPTY_BAR_WINDOW)
+        ));
+    }
+
+    it('fetches a declared rung alongside the drawn one', async () => {
+        const harness = buildHarness();
+
+        await harness.loader.load(buildRequest({
+            higherBars: [{ intervalMs: DAY_MS, warmupBars: 2 }],
+        }));
+
+        expect(askedRungs(harness)).toEqual([DAY_MS]);
+    });
+
+    it('asks the rung for the warm-up the reading declared, in its own bars', async () => {
+        // Counted in bars of the rung. Inherited from the drawn window instead,
+        // a reading over two hundred minutes would ask for two hundred days.
+        const harness = buildHarness();
+
+        await harness.loader.load(buildRequest({
+            warmupBars: 200,
+            higherBars: [{ intervalMs: DAY_MS, warmupBars: 2 }],
+        }));
+
+        const asked = harness.mocks.fetchPriceBars.mock.calls
+            .map((call) => call[0])
+            .find((one) => one.intervalMs === DAY_MS);
+
+        expect(asked?.warmupBars).toBe(2);
+    });
+
+    it('still hands the window over when a rung could not be answered', async () => {
+        // No venue publishes a candle for every width. A reading that wanted one
+        // it cannot have should draw nothing, not take the book down with it.
+        const harness = buildHarness();
+        refuseTheDailyRung(harness);
+
+        await harness.loader.load(buildRequest({
+            higherBars: [{ intervalMs: DAY_MS, warmupBars: 2 }],
+        }));
+
+        expect([harness.failures.length, harness.loaded.length]).toEqual([0, 1]);
+    });
+
+    it('tells the reading the rung is missing rather than handing it empty bars', async () => {
+        const harness = buildHarness();
+        refuseTheDailyRung(harness);
+
+        await harness.loader.load(buildRequest({
+            higherBars: [{ intervalMs: DAY_MS, warmupBars: 2 }],
+        }));
+
+        expect((harness.loaded[0] as LoadedWindow).higher.at(DAY_MS)).toBeNull();
+    });
+
+    it('fetches again when a reading is added that reads a rung nobody was reading', async () => {
+        // Nothing already loaded can be folded into a daily bar, so the window
+        // that was enough a moment ago is not enough now.
+        const harness = buildHarness();
+        await harness.loader.load(buildRequest({ higherBars: [] }));
+
+        await harness.loader.load(buildRequest({
+            higherBars: [{ intervalMs: DAY_MS, warmupBars: 2 }],
+        }));
+
+        expect(askedRungs(harness)).toEqual([DAY_MS]);
+    });
+
+    it('does not fetch again for a rung the last window already covered', async () => {
+        const harness = buildHarness();
+        const rungs = [{ intervalMs: DAY_MS, warmupBars: 2 }];
+        await harness.loader.load(buildRequest({ higherBars: rungs }));
+
+        await harness.loader.load(buildRequest({ higherBars: rungs }));
+
+        expect(askedRungs(harness)).toEqual([DAY_MS]);
     });
 });

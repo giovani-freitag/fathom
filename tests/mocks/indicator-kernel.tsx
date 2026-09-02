@@ -9,7 +9,7 @@ import { EMPTY_DATASET } from '../../src/app/core/chart-dataset.ts';
 import { findIndicator } from '../../src/app/indicators/indicator-catalogue.ts';
 import { KernelProvider } from '../../src/app/react/kernel-provider.tsx';
 import { ObservableStore } from '../../src/app/core/observable-store.ts';
-import { recolourPlan } from '../../src/shared/core/draw-plan.ts';
+import { recolourPlan, NO_HIGHER_BARS } from '../../src/shared/core/draw-plan.ts';
 import type { ServiceContainer } from '../../src/app/core/service-container.ts';
 import { buildRun, buildWindow } from './price-bars.ts';
 
@@ -119,7 +119,7 @@ function toPlan(entry: AddedIndicator): DrawPlan[] {
     if (indicator === null || entry.isHidden === true) {
         return [];
     }
-    const plan = indicator.compute({ bars: BARS, warmupBarCount: 300, settings: entry.settings });
+    const plan = indicator.compute({ bars: BARS, warmupBarCount: 300, higher: NO_HIGHER_BARS, settings: entry.settings });
     return [{
         ...recolourPlan(plan, entry.tone),
         instanceId: entry.instanceId,

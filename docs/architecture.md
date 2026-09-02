@@ -378,6 +378,15 @@ less than it wanted is drawn dashed — because a seeded average looks exactly
 like a settled one. Adding an indicator that reaches further back than the loaded
 window does is a reason to fetch again, not a reason to seed from what is there.
 
+An indicator may also ask for a coarser rung than the one being drawn, which is
+what a reading anchored to a session is made of. It declares the rung and how
+far back it needs it, counted in bars of that rung; the host merges the
+declarations across the chart, fetches them alongside the window, and hands them
+back keyed by what was asked for. What it hands back is only ever sessions that
+have *closed* — a daily level taken off the day being lived through settles at
+midnight and is a different number all afternoon, and a chart of the past painted
+that way looks extraordinary for exactly the wrong reason.
+
 Where a reading has a conventional definition, the definition is what ships.
 The averages, relative strength, the Bollinger channel, the true range, the two
 trailing stops, the directional lines, the money flow and the channel index are

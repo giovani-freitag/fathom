@@ -19,6 +19,7 @@ import type { ChartViewport } from './chart-viewport.ts';
 import type { FrameRegion } from '../../shared/core/frame-merge.ts';
 import { assembleWindow, WindowCache } from './window-cache.ts';
 import type { PriceBarWindow } from '../../shared/core/price-bar.ts';
+import { type HigherBarRequest, HigherBars } from '../../shared/core/draw-plan.ts';
 import type {
     FrameWindowQuery,
     HeatmapSource,
@@ -103,6 +104,8 @@ export interface LoadedWindow {
      */
     readonly priceBand: PriceBandQuery | null;
     readonly bars: PriceBarWindow;
+    /** Coarser rungs, for whatever on the chart declared it reads one. */
+    readonly higher: HigherBars;
     readonly clusters: readonly TradeCluster[];
     readonly clusterPriceBucketSize: number;
     readonly clusterIntervalMs: number;
@@ -121,6 +124,8 @@ export interface WindowLoadRequest {
     readonly warmupBars: number;
     /** The rung the reader named, or null to let the window decide. */
     readonly barIntervalMs: BarIntervalMs | null;
+    /** Coarser rungs to fetch alongside, for whatever reads one. */
+    readonly higherBars: readonly HigherBarRequest[];
     /**
      * What something on the chart is going to read.
      *
@@ -572,6 +577,11 @@ export class WindowLoader {
                 maxColumns,
                 barIntervalMs,
                 request.warmupBars,
+                // And a coarser rung is history of another kind. A reading
+                // anchored to a session, added over a window already held,
+                // changes nothing about the range: without this its fetch is
+                // deduplicated against the one that had no rung to fetch.
+                describeRungs(request.higherBars),
                 // Turning the book on has to fetch what it draws, and the range
                 // it is drawn over has not moved. Reading the same range out of
                 // another store is the same kind of change: without this the
@@ -644,7 +654,7 @@ export class WindowLoader {
         // is by far the heaviest thing the gateway serves, and a chart showing
         // candles alone was paying for it on every fetch to draw nothing.
         const wanted = new Set(request.sources);
-        const [window, tradeResult, gaps, bars] = await Promise.all([
+        const [window, tradeResult, gaps, bars, higher] = await Promise.all([
             wanted.has('frames') ? readFrames() : Promise.resolve(EMPTY_FRAME_WINDOW),
             wanted.has('trades')
                 ? this.config.api.fetchTradeClusters(
@@ -665,20 +675,75 @@ export class WindowLoader {
                 intervalMs: range.barIntervalMs,
                 warmupBars: request.warmupBars,
             }, signal),
+            this.readHigherBars(request, range, signal),
         ]);
 
         return {
             window,
             priceBand: range.priceBand,
             bars,
+            higher,
             clusters: tradeResult.clusters,
             clusterPriceBucketSize: tradeResult.priceBucketSize,
             clusterIntervalMs: tradeResult.sampleIntervalMs,
             gaps,
         };
     }
+
+    /**
+     * The coarser windows whatever is on the chart declared it reads.
+     *
+     * A rung that cannot be answered is dropped rather than raised. No venue
+     * publishes a candle for every width, and a reading that wanted one it
+     * cannot have should draw nothing and say so — not take the window that
+     * every other layer on the chart is waiting on down with it.
+     */
+    private async readHigherBars(
+        request: WindowLoadRequest,
+        range: ResolvedRange,
+        signal: AbortSignal,
+    ): Promise<HigherBars> {
+        const over = { symbol: request.symbol, fromMs: range.fromMs, toMs: range.toMs };
+        const settled = await Promise.all(request.higherBars.map(
+            (one) => this.readOneRung(one, over, signal),
+        ));
+
+        return new HigherBars(settled.filter((window) => window !== null));
+    }
+
+    private async readOneRung(
+        rung: HigherBarRequest,
+        over: { readonly symbol: string; readonly fromMs: number; readonly toMs: number },
+        signal: AbortSignal,
+    ): Promise<PriceBarWindow | null> {
+        try {
+            return await this.config.api.fetchPriceBars({
+                ...over,
+                intervalMs: rung.intervalMs,
+                warmupBars: rung.warmupBars,
+            }, signal);
+        } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                throw error;
+            }
+            return null;
+        }
+    }
 }
 
+
+/**
+ * The coarser rungs a request carries, as one comparable string.
+ *
+ * @param rungs - What the readings on the chart between them asked for.
+ * @returns The rungs and their depths, in an order two equal requests share.
+ */
+function describeRungs(rungs: readonly HigherBarRequest[]): string {
+    return [...rungs]
+        .map((one) => `${one.intervalMs}:${one.warmupBars}`)
+        .sort()
+        .join(',');
+}
 
 /** How a window of instants is asked for, over the whole of a range. */
 function toFrameQuery(request: WindowLoadRequest, range: ResolvedRange): FrameWindowQuery {

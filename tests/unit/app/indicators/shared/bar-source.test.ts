@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { NO_HIGHER_BARS } from '../../../../../src/shared/core/draw-plan.ts';
 import { collectSource, readBarSource } from '../../../../../src/app/indicators/shared/bar-source.ts';
 import { buildBar, buildRun, buildWindow } from '../../../../mocks/price-bars.ts';
 import { EXPONENTIAL_AVERAGE } from '../../../../../src/app/indicators/exponential-average/exponential-average.ts';
@@ -34,10 +35,11 @@ describe('collectSource', () => {
         const bars = buildWindow(buildRun(60, (index) => 100 + index));
         const settings = { periodBars: 10 };
 
-        const onClose = EXPONENTIAL_AVERAGE.compute({ bars, warmupBarCount: 60, settings });
+        const onClose = EXPONENTIAL_AVERAGE.compute({ bars, warmupBarCount: 60, higher: NO_HIGHER_BARS, settings });
         const onHigh = EXPONENTIAL_AVERAGE.compute({
             bars,
             warmupBarCount: 60,
+            higher: NO_HIGHER_BARS,
             settings: { ...settings, source: 'high' },
         });
 

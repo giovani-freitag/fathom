@@ -1,4 +1,10 @@
-import type { FieldLayer, Indicator, IndicatorSettings, PlotTone } from '../../shared/core/draw-plan.ts';
+import type {
+    FieldLayer,
+    HigherBarRequest,
+    Indicator,
+    IndicatorSettings,
+    PlotTone,
+} from '../../shared/core/draw-plan.ts';
 import { type AddedIndicator, chooseInstanceTone } from '../../shared/core/indicator-selection.ts';
 import { AVERAGE_CONVERGENCE } from './average-convergence/average-convergence.ts';
 import { FIELD_LAYERS, findFieldLayer } from './field-layers.ts';
@@ -101,6 +107,30 @@ export function findIndicator(indicatorId: string): Indicator | null {
  * @param added - What is on the chart.
  * @returns Bars to read before the window, and never fewer than one.
  */
+/**
+ * The coarser rungs everything on the chart between them reads.
+ *
+ * Merged rather than listed per indicator: two copies of a reading anchored to
+ * the same session are one fetch, and the deeper warm-up covers the shallower.
+ *
+ * @param added - What the reader has put on the chart.
+ * @returns One request per rung, or none where nothing reads another.
+ */
+export function resolveRequiredHigherBars(
+    added: readonly AddedIndicator[],
+): readonly HigherBarRequest[] {
+    const deepest = new Map<number, number>();
+    for (const entry of added) {
+        const indicator = findIndicator(entry.indicatorId);
+        for (const request of indicator?.resolveHigherIntervals?.(entry.settings) ?? []) {
+            const held = deepest.get(request.intervalMs) ?? 0;
+            deepest.set(request.intervalMs, Math.max(held, request.warmupBars));
+        }
+    }
+
+    return [...deepest].map(([intervalMs, warmupBars]) => ({ intervalMs, warmupBars }));
+}
+
 export function resolveRequiredWarmupBars(added: readonly AddedIndicator[]): number {
     let deepest = 1;
     for (const entry of added) {

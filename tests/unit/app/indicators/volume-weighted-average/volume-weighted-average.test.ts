@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { NO_HIGHER_BARS } from '../../../../../src/shared/core/draw-plan.ts';
 import { buildBar, buildWindow } from '../../../../mocks/price-bars.ts';
 import { VOLUME_WEIGHTED_AVERAGE } from '../../../../../src/app/indicators/volume-weighted-average/volume-weighted-average.ts';
 import type { PriceBar } from '../../../../../src/shared/core/price-bar.ts';
@@ -9,6 +10,7 @@ function compute(bars: readonly PriceBar[], vwapAnchor = 'session') {
     return VOLUME_WEIGHTED_AVERAGE.compute({
         bars: buildWindow([...bars]),
         warmupBarCount: 0,
+        higher: NO_HIGHER_BARS,
         settings: { vwapAnchor },
     });
 }

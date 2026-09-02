@@ -225,10 +225,56 @@ export interface Tunable {
 /** Parameter values by name. */
 export type IndicatorSettings = Readonly<Record<string, number | string | boolean>>;
 
+/**
+ * A coarser rung an indicator also reads, and how far back it needs it.
+ *
+ * The warm-up is counted in bars of the rung being asked for, not in bars of
+ * the one being drawn. An average of fifty daily closes wants fifty days
+ * whether it is drawn on a minute chart or an hourly one, and a warm-up
+ * inherited from the drawn rung would fetch fifty minutes or four years.
+ */
+export interface HigherBarRequest {
+    readonly intervalMs: number;
+    /** Bars of that rung needed before the window opens. */
+    readonly warmupBars: number;
+}
+
+/**
+ * The coarser windows an indicator asked for, keyed by the rung.
+ *
+ * A lookup rather than a list, because an indicator that asked for two rungs
+ * has to be able to tell them apart, and it already knows the numbers it asked
+ * with. Missing rather than empty when the host could not supply one: a venue
+ * publishes no candle for every rung, and a reading drawn from bars that were
+ * never fetched would be a reading about nothing.
+ */
+export class HigherBars {
+    private readonly windows: ReadonlyMap<number, PriceBarWindow>;
+
+    constructor(windows: Iterable<PriceBarWindow> = []) {
+        this.windows = new Map([...windows].map((window) => [window.intervalMs, window]));
+    }
+
+    /**
+     * The window on one rung.
+     *
+     * @param intervalMs - The rung, as it was asked for.
+     * @returns The bars, or null where the host had none to give.
+     */
+    at(intervalMs: number): PriceBarWindow | null {
+        return this.windows.get(intervalMs) ?? null;
+    }
+}
+
+/** What an indicator that reads only the drawn rung is handed. */
+export const NO_HIGHER_BARS = new HigherBars();
+
 export interface IndicatorInput {
     readonly bars: PriceBarWindow;
     /** Bars at the front that exist only to seed the output. */
     readonly warmupBarCount: number;
+    /** Coarser rungs, for an indicator that declared it reads any. */
+    readonly higher: HigherBars;
     readonly settings: IndicatorSettings;
 }
 
@@ -265,6 +311,13 @@ export interface Indicator {
     readonly parameters: readonly IndicatorParameter[];
     /** Bars it needs before the drawn window for its output to have converged. */
     resolveWarmupBars(settings: IndicatorSettings): number;
+    /**
+     * Coarser rungs it also reads, for the host to fetch alongside.
+     *
+     * Absent on almost every reading, which is why it is optional: an indicator
+     * is a function of the bars it is drawn on until it says otherwise.
+     */
+    resolveHigherIntervals?(settings: IndicatorSettings): readonly HigherBarRequest[];
     compute(input: IndicatorInput): DrawPlan;
 }
 

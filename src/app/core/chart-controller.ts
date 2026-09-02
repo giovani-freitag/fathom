@@ -35,6 +35,7 @@ import {
 import { describeBand, DRAWN_FROM, type LoadedWindow, type WindowLoadRequest, type WindowSource, WindowLoader } from './window-loader.ts';
 import {
     findIndicator,
+    resolveRequiredHigherBars,
     resolveRequiredWarmupBars,
 } from '../indicators/indicator-catalogue.ts';
 import { type BarIntervalMs, TARGET_BAR_COUNT } from './bar-interval.ts';
@@ -399,6 +400,7 @@ export class ChartController {
             const plan = indicator.compute({
                 bars: state.dataset.bars,
                 warmupBarCount: state.dataset.bars.warmupBarsReturned,
+                higher: state.dataset.higher,
                 settings: entry.settings,
             });
             // Rejected whole rather than clipped. A plan over budget is a bug in
@@ -490,6 +492,7 @@ export class ChartController {
             frameIntervalMs: instrument?.frameIntervalMs ?? state.dataset.sampleIntervalMs,
             priceGroupSize: resolveTradePriceGroupSize(state.viewport, state.dataset.priceBucketSize),
             warmupBars: resolveRequiredWarmupBars(state.addedIndicators),
+            higherBars: resolveRequiredHigherBars(state.addedIndicators),
             barIntervalMs: state.barIntervalMs,
             sources: resolveWindowSources(state),
             // Held back until the axis has been framed on the book: before
@@ -535,6 +538,7 @@ export class ChartController {
                 clusterIntervalMs: loaded.clusterIntervalMs,
                 gaps: loaded.gaps,
                 bars: loaded.bars,
+                higher: loaded.higher,
                 previousRevision: current.dataset.revision,
                 previousSaturationQuantity: current.dataset.saturationQuantity,
                 previousFloorQuantity: current.dataset.floorQuantity,

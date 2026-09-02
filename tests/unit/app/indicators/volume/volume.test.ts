@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { NO_HIGHER_BARS } from '../../../../../src/shared/core/draw-plan.ts';
 import { resolvePlanRange } from '../../../../../src/app/painting/pane-projector.ts';
 import { buildBar, buildWindow } from '../../../../mocks/price-bars.ts';
 import { VOLUME } from '../../../../../src/app/indicators/volume/volume.ts';
@@ -9,7 +10,7 @@ const BARS = buildWindow([
 ]);
 
 function compute(volumeMode: string) {
-    return VOLUME.compute({ bars: BARS, warmupBarCount: 0, settings: { volumeMode } });
+    return VOLUME.compute({ bars: BARS, warmupBarCount: 0, higher: NO_HIGHER_BARS, settings: { volumeMode } });
 }
 
 describe('Volume', () => {

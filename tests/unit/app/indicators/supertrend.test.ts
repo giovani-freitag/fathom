@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
 import { BAR_INTERVAL_MS, buildBar, buildRun, buildWindow } from '../../../mocks/price-bars.ts';
 import { SUPERTREND } from '../../../../src/app/indicators/supertrend/supertrend.ts';
 import type { PriceBar } from '../../../../src/shared/core/price-bar.ts';
@@ -6,7 +7,7 @@ import type { PriceBar } from '../../../../src/shared/core/price-bar.ts';
 const SETTINGS = { periodBars: 5, multiplier: 3 };
 
 function computeOver(bars: readonly PriceBar[], settings = SETTINGS) {
-    return SUPERTREND.compute({ bars: buildWindow(bars), warmupBarCount: 60, settings });
+    return SUPERTREND.compute({ bars: buildWindow(bars), warmupBarCount: 60, higher: NO_HIGHER_BARS, settings });
 }
 
 /** The last value of a series that is not blank. */
@@ -115,6 +116,7 @@ describe('Supertrend', () => {
         const plan = SUPERTREND.compute({
             bars: buildWindow([buildBar(0, 100)]),
             warmupBarCount: 1,
+            higher: NO_HIGHER_BARS,
             settings: SETTINGS,
         });
 

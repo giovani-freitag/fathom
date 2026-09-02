@@ -6,7 +6,7 @@ import {
     readLayerDefaults,
 } from '../../../../src/app/indicators/indicator-catalogue.ts';
 import { resolveFieldSettings } from '../../../../src/app/indicators/field-layers.ts';
-import { isPlanWithinBudget } from '../../../../src/shared/core/draw-plan.ts';
+import { isPlanWithinBudget, NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
 import type { Indicator } from '../../../../src/shared/core/draw-plan.ts';
 import { BAR_INTERVAL_MS, buildRun, buildWindow } from '../../../mocks/price-bars.ts';
 
@@ -17,6 +17,7 @@ function computeOver(indicator: Indicator, bars: ReturnType<typeof buildRun>) {
     return indicator.compute({
         bars: buildWindow(bars),
         warmupBarCount: 0,
+        higher: NO_HIGHER_BARS,
         settings: readLayerDefaults(indicator),
     });
 }
@@ -82,6 +83,7 @@ describe('every shipped indicator', () => {
             const plan = indicator.compute({
                 bars: buildWindow(buildRun(RUN_LENGTH, wander)),
                 warmupBarCount: 0,
+                higher: NO_HIGHER_BARS,
                 settings: wild,
             });
 

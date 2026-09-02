@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
 import { KELTNER_CHANNELS } from '../../../../src/app/indicators/keltner-channels/keltner-channels.ts';
 import { buildRun, buildWindow } from '../../../mocks/price-bars.ts';
 
@@ -9,6 +10,7 @@ function computeOver(length: number, settings: Record<string, number | string> =
     return KELTNER_CHANNELS.compute({
         bars: buildWindow(buildRun(length, (index) => 100 + index)),
         warmupBarCount: 60,
+        higher: NO_HIGHER_BARS,
         settings,
     });
 }
@@ -56,6 +58,7 @@ describe('KeltnerChannels', () => {
         const plan = KELTNER_CHANNELS.compute({
             bars: buildWindow(buildRun(60, (index) => 100 + index)),
             warmupBarCount: 0,
+            higher: NO_HIGHER_BARS,
             settings: SETTINGS,
         });
 
@@ -71,7 +74,7 @@ describe('KeltnerChannels', () => {
 
         const widthOf = (bars: typeof steady): number => {
             const plan = KELTNER_CHANNELS.compute({
-                bars: buildWindow(bars), warmupBarCount: 60, settings: SETTINGS,
+                bars: buildWindow(bars), warmupBarCount: 60, higher: NO_HIGHER_BARS, settings: SETTINGS,
             });
             return lastReal(plan.series[0]!.value) - lastReal(plan.series[2]!.value);
         };

@@ -1,4 +1,5 @@
 import type { PriceBar, PriceBarWindow } from '../../../src/shared/core/price-bar.ts';
+import { NO_HIGHER_BARS } from '../../../src/shared/core/draw-plan.ts';
 import { DEFAULT_FLOOR_PERCENTILE } from '../../../src/app/indicators/book/book.ts';
 import { EMPTY_BAR_WINDOW } from '../../../src/shared/core/price-bar.ts';
 import type { LiquidityFrame } from '../../../src/shared/core/liquidity-frame.ts';
@@ -35,6 +36,7 @@ function buildDataset(...capturedAtMs: number[]) {
         clusterIntervalMs: 1_000,
         gaps: [],
         bars: EMPTY_BAR_WINDOW,
+        higher: NO_HIGHER_BARS,
         previousRevision: 0,
         floorPercentile: DEFAULT_FLOOR_PERCENTILE,
         saturationPercentile: DEFAULT_SATURATION_PERCENTILE,
@@ -59,6 +61,7 @@ describe('replaceDataset', () => {
             clusterIntervalMs: 1_000,
             gaps: [],
             bars: EMPTY_BAR_WINDOW,
+            higher: NO_HIGHER_BARS,
             previousRevision: 0,
             floorPercentile: DEFAULT_FLOOR_PERCENTILE,
             saturationPercentile: DEFAULT_SATURATION_PERCENTILE,
@@ -195,6 +198,7 @@ describe('appendClusters onto a grouped price grid', () => {
             clusterIntervalMs: 60_000,
             gaps: [],
             bars: EMPTY_BAR_WINDOW,
+            higher: NO_HIGHER_BARS,
             previousRevision: 0,
             floorPercentile: DEFAULT_FLOOR_PERCENTILE,
             saturationPercentile: DEFAULT_SATURATION_PERCENTILE,
@@ -254,6 +258,7 @@ describe('replaceDataset saturation stability', () => {
             clusterIntervalMs: 1_000,
             gaps: [],
             bars: EMPTY_BAR_WINDOW,
+            higher: NO_HIGHER_BARS,
             previousRevision: 0,
             floorPercentile: DEFAULT_FLOOR_PERCENTILE,
             saturationPercentile: DEFAULT_SATURATION_PERCENTILE,
@@ -321,6 +326,7 @@ describe('colouring a window from what the reader can see', () => {
             clusterIntervalMs: 1_000,
             gaps: [],
             bars: EMPTY_BAR_WINDOW,
+            higher: NO_HIGHER_BARS,
             previousRevision: 0,
             floorPercentile: DEFAULT_FLOOR_PERCENTILE,
             saturationPercentile: 0.99,
@@ -388,6 +394,7 @@ describe('recutDataset', () => {
             clusterIntervalMs: 1_000,
             gaps: [],
             bars: EMPTY_BAR_WINDOW,
+            higher: NO_HIGHER_BARS,
             previousRevision: 0,
             floorPercentile: DEFAULT_FLOOR_PERCENTILE,
             saturationPercentile: DEFAULT_SATURATION_PERCENTILE,

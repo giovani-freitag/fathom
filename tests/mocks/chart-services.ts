@@ -1,4 +1,5 @@
 import { EMPTY_BAR_WINDOW } from '../../src/shared/core/price-bar.ts';
+import type { PriceBarWindow } from '../../src/shared/core/price-bar.ts';
 import type { InstrumentCoverage } from '../../src/shared/core/api-contract.ts';
 import type { LiquidityFrame, LiquidityFrameWindow } from '../../src/shared/core/liquidity-frame.ts';
 import type { HeatmapApiService } from '../../src/app/services/heatmap-api-service.ts';
@@ -31,6 +32,12 @@ export function buildWindow(frames: LiquidityFrame[]): LiquidityFrameWindow {
     return { priceBucketSize: 10, sampleIntervalMs: 1_000, frames };
 }
 
+/** How bars on a rung are asked for, as the spy sees it. */
+type PriceBarRead = (
+    query: { symbol: string; fromMs: number; toMs: number; intervalMs: number; warmupBars: number },
+    signal?: AbortSignal,
+) => Promise<PriceBarWindow>;
+
 /** How a window of instants is asked for, as the spy sees it. */
 type FrameWindowRead = (
     query: {
@@ -57,7 +64,7 @@ export interface ChartServiceMocks {
     readonly fetchFrameWindow: ReturnType<typeof vi.fn<FrameWindowRead>>;
     readonly fetchTradeClusters: ReturnType<typeof vi.fn>;
     readonly fetchGaps: ReturnType<typeof vi.fn>;
-    readonly fetchPriceBars: ReturnType<typeof vi.fn>;
+    readonly fetchPriceBars: ReturnType<typeof vi.fn<PriceBarRead>>;
     readonly connect: ReturnType<typeof vi.fn>;
     readonly disconnect: ReturnType<typeof vi.fn>;
     readonly writePreferences: ReturnType<typeof vi.fn>;
@@ -86,7 +93,7 @@ export function createChartServiceMocks(
         clusters: [],
     });
     const fetchGaps = vi.fn().mockResolvedValue([]);
-    const fetchPriceBars = vi.fn().mockResolvedValue(EMPTY_BAR_WINDOW);
+    const fetchPriceBars = vi.fn<PriceBarRead>().mockResolvedValue(EMPTY_BAR_WINDOW);
     const connect = vi.fn();
     const disconnect = vi.fn();
     const writePreferences = vi.fn();
