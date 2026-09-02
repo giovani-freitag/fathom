@@ -108,7 +108,7 @@ export function clipToRegion(
     const highest = Math.ceil(region.highPrice / window.priceBucketSize);
     const frames = window.frames
         .filter((frame) => frame.capturedAtMs >= region.fromMs && frame.capturedAtMs <= region.toMs)
-        .map((frame) => clipFrame(frame, {
+        .map((frame) => keepBucketsWithin(frame, {
             lowest, highest, priceBucketSize: window.priceBucketSize,
         }));
     return { ...window, frames };
@@ -121,8 +121,8 @@ interface ClipBand {
     readonly priceBucketSize: number;
 }
 
-/** One instant holding only the prices inside a band. */
-function clipFrame(frame: LiquidityFrame, band: ClipBand): LiquidityFrame {
+/** One instant holding only the prices inside a band, on the grid it is on. */
+function keepBucketsWithin(frame: LiquidityFrame, band: ClipBand): LiquidityFrame {
     const { lowest, highest, priceBucketSize } = band;
     const held = new Map<number, number>();
     for (const ladder of [frame.bids, frame.asks]) {
