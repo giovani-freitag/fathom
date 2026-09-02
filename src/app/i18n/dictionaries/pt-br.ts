@@ -89,6 +89,8 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'indicator.keltner.lower': 'Inferior',
     'indicator.atr.help': 'O quanto o preço tem andado por barra',
     'indicator.cvd.help': 'Tamanho líquido que cruzou o spread, somado',
+    'indicator.delta': 'Delta',
+    'indicator.delta.help': 'Tamanho líquido que cruzou o spread em cada barra',
     'indicator.pivots': 'Pontos de pivô',
     'indicator.pivots.help': 'Níveis que a sessão anterior fechou, mantidos ao longo desta',
     'indicator.pivots.central': 'Pivô',

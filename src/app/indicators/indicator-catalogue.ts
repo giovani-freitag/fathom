@@ -10,6 +10,7 @@ import { AVERAGE_CONVERGENCE } from './average-convergence/average-convergence.t
 import { FIELD_LAYERS, findFieldLayer } from './field-layers.ts';
 import { AVERAGE_TRUE_RANGE } from './average-true-range/average-true-range.ts';
 import { CUMULATIVE_DELTA } from './cumulative-delta/cumulative-delta.ts';
+import { VOLUME_DELTA } from './volume-delta/volume-delta.ts';
 import { KELTNER_CHANNELS } from './keltner-channels/keltner-channels.ts';
 import { BOLLINGER_BANDS } from './bollinger-bands/bollinger-bands.ts';
 import { COMMODITY_CHANNEL } from './commodity-channel/commodity-channel.ts';
@@ -51,6 +52,7 @@ export const INDICATOR_CATALOGUE: readonly Indicator[] = [
     DIRECTIONAL_MOVEMENT,
     MONEY_FLOW,
     COMMODITY_CHANNEL,
+    VOLUME_DELTA,
     CUMULATIVE_DELTA,
 ];
 

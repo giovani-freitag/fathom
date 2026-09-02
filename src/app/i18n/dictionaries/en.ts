@@ -87,6 +87,8 @@ export const EN_DICTIONARY = {
     'indicator.keltner.lower': 'Lower',
     'indicator.atr.help': 'How far price has been travelling per bar',
     'indicator.cvd.help': 'Net size that crossed the spread, added up',
+    'indicator.delta': 'Delta',
+    'indicator.delta.help': 'Net size that crossed the spread in each bar',
     'indicator.pivots': 'Pivot points',
     'indicator.pivots.help': 'Levels the previous session settled on, held across this one',
     'indicator.pivots.central': 'Pivot',
