@@ -2,73 +2,57 @@ import { describe, expect, it, vi } from 'vitest';
 import type { LiquidityQueryService } from '../../../src/database/services/liquidity-query-service.ts';
 import { PostgresLiveTailSource } from '../../../src/server/services/postgres-live-tail-source.ts';
 
-const BUCKET_SIZE = 10;
-const TOUCH_BUCKET = 7_900;
-
-/** One instant holding far more prices than any chart draws at once. */
-function buildWideFrame() {
-    const quantities = new Float32Array(2_000).fill(3);
-    return {
-        capturedAtMs: 1_700_000_000_000,
-        bestBidPrice: TOUCH_BUCKET * BUCKET_SIZE,
-        bestAskPrice: (TOUCH_BUCKET + 1) * BUCKET_SIZE,
-        bids: { lowestBucketIndex: TOUCH_BUCKET - 1_999, quantities },
-        asks: { lowestBucketIndex: TOUCH_BUCKET + 1, quantities },
-    };
-}
+const BETWEEN = { symbol: 'BTCUSDT', fromMs: 1_000, toMs: 2_000 };
 
 function buildSource() {
-    const fetchFramesAfter = vi.fn().mockResolvedValue({
-        priceBucketSize: BUCKET_SIZE,
+    const fetchTradeClusters = vi.fn().mockResolvedValue({
+        priceBucketSize: 10,
         sampleIntervalMs: 1_000,
-        frames: [buildWideFrame()],
+        clusters: [],
     });
-    const query = { fetchFramesAfter } as unknown as LiquidityQueryService;
-    return { fetchFramesAfter, source: new PostgresLiveTailSource({ query }) };
-}
-
-/** How many prices one instant carries, both sides counted. */
-function priceCount(frame: { bids: { quantities: Float32Array }; asks: { quantities: Float32Array } }): number {
-    return frame.bids.quantities.length + frame.asks.quantities.length;
+    const fetchGaps = vi.fn().mockResolvedValue([]);
+    const query = { fetchTradeClusters, fetchGaps } as unknown as LiquidityQueryService;
+    return { fetchTradeClusters, fetchGaps, source: new PostgresLiveTailSource({ query }) };
 }
 
 describe('PostgresLiveTailSource', () => {
-    it('carries only the prices the reader is drawing', async () => {
-        // The recording holds four thousand prices around the touch and a chart
-        // draws about sixty. Measured on the live gateway, the tail was sending
-        // sixty-two kilobytes a second for a picture with room for a four
-        // hundredth of it.
-        const { source } = buildSource();
+    it('reads the executions of a stretch ungrouped, as they were recorded', async () => {
+        // A tail extends a window the chart already holds, so what it carries
+        // has to be on the same grid. Grouped on the way out it would arrive
+        // finer or coarser than everything beside it.
+        const { fetchTradeClusters, source } = buildSource();
 
-        const window = await source.fetchFramesAfter({
-            symbol: 'BTCUSDT', afterMs: 0, maxFrames: 60,
-            lowPrice: (TOUCH_BUCKET - 30) * BUCKET_SIZE,
-            highPrice: (TOUCH_BUCKET + 30) * BUCKET_SIZE,
+        await source.fetchTradeClustersBetween(BETWEEN);
+
+        expect(fetchTradeClusters.mock.calls[0]?.[0]).toMatchObject({
+            priceGroupSize: 1,
+            minimumQuantity: 0,
         });
-
-        expect(priceCount(window.frames[0]!)).toBeLessThan(70);
     });
 
-    it('keeps the prices inside the band rather than only counting them', async () => {
-        const { source } = buildSource();
+    it('bounds one pass, so a long stall is not one flood', async () => {
+        const { fetchTradeClusters, source } = buildSource();
 
-        const window = await source.fetchFramesAfter({
-            symbol: 'BTCUSDT', afterMs: 0, maxFrames: 60,
-            lowPrice: (TOUCH_BUCKET - 30) * BUCKET_SIZE,
-            highPrice: (TOUCH_BUCKET + 30) * BUCKET_SIZE,
-        });
+        await source.fetchTradeClustersBetween(BETWEEN);
 
-        expect(Math.max(...window.frames[0]!.bids.quantities)).toBe(3);
+        expect((fetchTradeClusters.mock.calls[0]?.[0] as { maxColumns: number }).maxColumns)
+            .toBeGreaterThan(0);
     });
 
-    it('carries every price when the reader named none', async () => {
-        // A reader that has not framed itself on the book is looking for the
-        // market, and clipping it to a band it never asked for hides the market
-        // it is looking for.
+    it('reads the holes of the same stretch', async () => {
+        const { fetchGaps, source } = buildSource();
+
+        await source.fetchGapsBetween(BETWEEN);
+
+        expect(fetchGaps.mock.calls[0]?.[0]).toMatchObject({ symbol: 'BTCUSDT' });
+    });
+
+    it('answers for neither the depth nor anything a store keeps its own copy of', () => {
+        // The point of it: there is one execution table and one gap ledger, so
+        // a tail over any archive takes both from here and takes only the depth
+        // from the archive the chart is drawn out of.
         const { source } = buildSource();
 
-        const window = await source.fetchFramesAfter({ symbol: 'BTCUSDT', afterMs: 0, maxFrames: 60 });
-
-        expect(priceCount(window.frames[0]!)).toBe(4_000);
+        expect('fetchFramesAfter' in source).toBe(false);
     });
 });

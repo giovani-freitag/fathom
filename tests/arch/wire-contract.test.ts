@@ -30,19 +30,12 @@ function readSchemaFields(path: string, name: string): string[] {
  * Depth frames are left out on purpose: they answer as a binary window rather
  * than as JSON, so nothing whitelists their fields. What guards them is the
  * codec's own round trip.
+ *
+ * Bars are left out because they do not come from here. A venue publishes
+ * candles for every past day and a recording only ever holds the days it ran
+ * for, so the chart asks the venue and this gateway never serialises one.
  */
 describe('what the gateway is allowed to say', () => {
-    it('serialises every field a bar carries', () => {
-        // The response schema is a whitelist, and anything missing from it is
-        // dropped on the way out with no error anywhere: the field is simply
-        // absent in the browser, and the chart draws as though it were nought.
-        const declared = readInterfaceFields('src/shared/core/price-bar.ts', 'PriceBar');
-        const serialised = readSchemaFields('src/server/http/schemas/bars-schema.ts', 'PriceBarItemSchema');
-
-        expect(declared.length).toBeGreaterThan(10);
-        expect(declared.filter((field) => !serialised.includes(field))).toEqual([]);
-    });
-
     it('serialises every field an execution cluster carries', () => {
         const declared = readInterfaceFields('src/shared/core/trade-cluster.ts', 'TradeCluster');
         const serialised = readSchemaFields(
@@ -58,7 +51,10 @@ describe('what the gateway is allowed to say', () => {
         // Both checks above compare against a list parsed out of a file. A typo
         // in a path or a name would parse an empty list, and an empty list
         // contains no missing fields.
-        expect(readSchemaFields('src/server/http/schemas/bars-schema.ts', 'NoSuchSchema')).toEqual([]);
-        expect(readInterfaceFields('src/shared/core/price-bar.ts', 'NoSuchInterface')).toEqual([]);
+        expect(readSchemaFields(
+            'src/server/http/schemas/trade-clusters-schema.ts',
+            'NoSuchSchema',
+        )).toEqual([]);
+        expect(readInterfaceFields('src/shared/core/trade-cluster.ts', 'NoSuchInterface')).toEqual([]);
     });
 });

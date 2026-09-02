@@ -4,7 +4,7 @@ import { BrowserRecordingControl } from '../../database/browser/browser-recordin
 import { createBrowserCollectorLog } from './browser-collector-log.ts';
 import { CollectorSupervisor } from '../collector-supervisor.ts';
 import type { CollectorWorkerScope } from './worker-scope.ts';
-import { DEMO_CATALOGUE, readDemoConfiguration, resolveFrameCapacity } from './demo-collector-configuration.ts';
+import { DEMO_CATALOGUE, readDemoConfiguration } from './demo-collector-configuration.ts';
 import { describeError } from '../core/collector-log.ts';
 import { IndexedDbLiquidityArchive } from '../../database/browser/indexed-db-liquidity-archive.ts';
 import { IndexedDbLiveTailSource } from '../../database/browser/indexed-db-live-tail-source.ts';
@@ -14,7 +14,6 @@ import { ChunkTileRecorder } from '../../database/services/chunk-tile-recorder.t
 import { IndexedDbChunkRowStore } from '../../database/browser/indexed-db-chunk-row-store.ts';
 import { StoredDepthTailSource } from '../../shared/core/stored-depth-tail-source.ts';
 import { LiveTail } from '../../shared/core/live-tail.ts';
-import { NotifyingLiquidityArchive } from '../../database/services/notifying-liquidity-archive.ts';
 import { openBrowserMarketDataSocket } from './browser-market-data-socket.ts';
 
 /**
@@ -90,29 +89,23 @@ async function start(): Promise<void> {
 async function bringUpRecording(): Promise<void> {
     await database.open();
 
-    const store = new IndexedDbLiquidityArchive({
-        database,
-        frameCapacity: await resolveFrameCapacity(scope.navigator),
-    });
-    // The write side is wrapped so a landed write can tell the tail to catch
-    // up. It is the same signal the gateway gets from the database; here the
-    // writer and the reader are one worker, so it is a call rather than a wire.
-    const archive = new NotifyingLiquidityArchive({ archive: store, onWritten: handleArchiveWritten });
-    // The whole book beside the band, as fixed squares, exactly as a server
-    // keeps it. Fed from a framing of its own, because the recording above is
-    // clipped to a couple of percent before it is written.
-    wholeBook = new ChunkArchiveService({ rows: new IndexedDbChunkRowStore({ database }) });
+    const chunkRows = new IndexedDbChunkRowStore({ database });
+    const archive = new IndexedDbLiquidityArchive({ database, chunks: chunkRows });
+    // The whole book as fixed squares, exactly as a server keeps it.
+    wholeBook = new ChunkArchiveService({ rows: chunkRows });
     chunks = new ChunkTileRecorder({
         archive: wholeBook,
         priceRangeRatio: WHOLE_BOOK_FRAMING.priceRangeRatio,
         intervalMs: WHOLE_BOOK_FRAMING.frameIntervalMs,
         stepRatio: 1 + WHOLE_BOOK_FRAMING.stepPrecision,
         liveEdgeColumns: BROWSER_WRITE_SETTINGS.liveEdgeColumns,
+        // A landed write tells the tail to catch up. It is the same signal the
+        // gateway takes off the database; here the writer and the reader are
+        // one worker, so it is a call rather than a wire.
+        onWritten: handleArchiveWritten,
     });
     const control = new BrowserRecordingControl({
-        // The concrete store: pruning is its own operation, not one a writer
-        // announces, and the wrapper deliberately carries only the write side.
-        archive: store,
+        archive,
         database,
         estimateStorage: () => scope.navigator.storage?.estimate() ?? Promise.resolve({}),
         // A link may name a contract the catalogue does not, so it is offered too.
@@ -168,13 +161,11 @@ function subscribe(instrumentSymbol: string, afterMs: number): void {
         // prices outside it stop at the last written block while the ones
         // inside go on — which draws as a row of teeth along the live edge.
         // The executions and the holes stay behind it: neither is in a square.
-        source: wholeBook === null
-            ? recorded
-            : new StoredDepthTailSource({
-                readWindow: (request) => wholeBook!.fetchWindow(request),
-                rest: recorded,
-                readNowMs: () => Date.now(),
-            }),
+        source: new StoredDepthTailSource({
+            readWindow: (request) => wholeBook!.fetchWindow(request),
+            rest: recorded,
+            readNowMs: () => Date.now(),
+        }),
         instrumentSymbol,
         afterMs,
         maxFramesPerPoll: MAXIMUM_FRAMES_PER_CATCH_UP,

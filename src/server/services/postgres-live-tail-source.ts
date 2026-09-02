@@ -1,10 +1,4 @@
-import type {
-    BetweenRequest,
-    FramesAfterRequest,
-    LiveTailSource,
-} from '../../shared/core/live-tail.ts';
-import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
-import { bandReadWindow } from '../../shared/core/frame-fold.ts';
+import type { BetweenRequest, TailCompanions } from '../../shared/core/live-tail.ts';
 import type { LiquidityQueryService } from '../../database/services/liquidity-query-service.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
@@ -17,23 +11,17 @@ export interface PostgresLiveTailSourceConfig {
 }
 
 /**
- * The reads a tail makes, answered from the archive on disk.
+ * What a tail needs beyond depth, answered from the tables that keep it.
+ *
+ * Neither the executions nor the holes are kept per store — there is one of
+ * each — so a tail over any archive takes them from here and takes only the
+ * depth from the archive itself.
  */
-export class PostgresLiveTailSource implements LiveTailSource {
+export class PostgresLiveTailSource implements TailCompanions {
     private readonly query: LiquidityQueryService;
 
     constructor(config: PostgresLiveTailSourceConfig) {
         this.query = config.query;
-    }
-
-    /**
-     * Frames recorded after an instant.
-     *
-     * @param request - The instrument, the cursor, and how many to carry.
-     * @returns The frames, oldest first.
-     */
-    async fetchFramesAfter(request: FramesAfterRequest): Promise<LiquidityFrameWindow> {
-        return bandReadWindow(await this.query.fetchFramesAfter(request), request);
     }
 
     /**

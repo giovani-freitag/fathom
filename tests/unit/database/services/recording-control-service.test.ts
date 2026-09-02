@@ -76,7 +76,7 @@ describe('RecordingControlService.pruneToBudget', () => {
         expect(removing.every((statement) => statement.includes('drop_chunks'))).toBe(true);
     });
 
-    it('takes both hypertables to the same boundary, so trades never outlive frames', async () => {
+    it('takes every hypertable to the same boundary, so one never outlives another', async () => {
         stubShrinkingArchive(mock, [GIGABYTE * 2, GIGABYTE - 1], buildChunkEnds(4));
 
         await buildService(mock).pruneToBudget();
@@ -84,12 +84,12 @@ describe('RecordingControlService.pruneToBudget', () => {
         const statement = mock.execute.mock.calls
             .map((call) => String(call[0]))
             .find((candidate) => candidate.includes('drop_chunks')) ?? '';
-        expect([statement.includes('liquidity_frame'), statement.includes('trade_cluster')])
+        expect([statement.includes('liquidity_chunk'), statement.includes('trade_cluster')])
             .toEqual([true, true]);
     });
 
     it('keeps the partition it is still recording into', async () => {
-        // Dropped, it takes the frames written a second ago with it, and the
+        // Dropped, it takes the squares written a second ago with it, and the
         // next pass drops the one that replaced it: the archive never keeps
         // anything and nothing says why.
         stubShrinkingArchive(mock, [GIGABYTE * 4], buildChunkEnds(1));

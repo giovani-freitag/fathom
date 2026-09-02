@@ -2,7 +2,7 @@ import { EMPTY_BAR_WINDOW } from '../../src/shared/core/price-bar.ts';
 import type { PriceBarWindow } from '../../src/shared/core/price-bar.ts';
 import type { InstrumentCoverage } from '../../src/shared/core/api-contract.ts';
 import type { LiquidityFrame, LiquidityFrameWindow } from '../../src/shared/core/liquidity-frame.ts';
-import type { HeatmapApiService } from '../../src/app/services/heatmap-api-service.ts';
+import type { HeatmapSource } from '../../src/shared/core/heatmap-source.ts';
 import type { LiveFeedService, LiveFeedSubscription } from '../../src/app/services/live-feed-service.ts';
 import type { PreferencesService, ViewerPreferences } from '../../src/app/services/preferences-service.ts';
 import { DEFAULT_PREFERENCES } from '../../src/app/services/preferences-service.ts';
@@ -50,7 +50,7 @@ type FrameWindowRead = (
 ) => Promise<LiquidityFrameWindow>;
 
 export interface ChartServiceMocks {
-    readonly api: HeatmapApiService;
+    readonly api: HeatmapSource;
     readonly liveFeed: LiveFeedService;
     readonly preferences: PreferencesService;
     readonly fetchInstruments: ReturnType<typeof vi.fn>;
@@ -101,7 +101,10 @@ export function createChartServiceMocks(
     return {
         api: {
             fetchInstruments, fetchFrameWindow, fetchTradeClusters, fetchGaps, fetchPriceBars,
-        } as unknown as HeatmapApiService,
+            // Cast to the whole surface the chart reads: the archive answers
+            // four of the five questions and the venue answers the bars, and a
+            // test drives the pair the way the application wires them.
+        },
         liveFeed: { connect, disconnect } as unknown as LiveFeedService,
         preferences: {
             read: () => ({ ...DEFAULT_PREFERENCES, ...preferences }),

@@ -2,7 +2,6 @@ import { CollectorSupervisor } from './collector-supervisor.ts';
 import { openNodeCollectorLog } from './transport/node-collector-log.ts';
 import { describeError } from './core/collector-log.ts';
 import { LiquidityArchiveService } from '../database/services/liquidity-archive-service.ts';
-import { NotifyingLiquidityArchive } from '../database/services/notifying-liquidity-archive.ts';
 import { PostgresChunkRowStore } from '../database/postgres/postgres-chunk-row-store.ts';
 import { ChunkArchiveService } from '../database/services/chunk-archive-service.ts';
 import { ChunkTileRecorder } from '../database/services/chunk-tile-recorder.ts';
@@ -43,8 +42,9 @@ const control = new RecordingControlService({ postgres });
 
 // Fed from a framing of its own, because the recording the chart reads is
 // clipped to a couple of percent before it is written.
+const chunkRows = new PostgresChunkRowStore({ postgres });
 const chunkTiles = new ChunkTileRecorder({
-    archive: new ChunkArchiveService({ rows: new PostgresChunkRowStore({ postgres }) }),
+    archive: new ChunkArchiveService({ rows: chunkRows }),
     priceRangeRatio: WHOLE_BOOK_FRAMING.priceRangeRatio,
     intervalMs: WHOLE_BOOK_FRAMING.frameIntervalMs,
     stepRatio: 1 + WHOLE_BOOK_FRAMING.stepPrecision,
@@ -54,22 +54,20 @@ const chunkTiles = new ChunkTileRecorder({
             reason: describeError(reason),
         });
     },
+    // Announced through the recorder itself, which is the one place that knows
+    // a square landed. The gateway is listening, so a second reaches a reader
+    // in the time it takes to store it rather than on their next interval.
+    //
+    // Deliberately unawaited and unreported: a reader that misses a nudge
+    // catches up on its own, and a write must not be held up by the telling.
+    onWritten: (instrumentSymbol) => {
+        void postgres.notify(RECORDING_CHANNEL, instrumentSymbol).catch(() => undefined);
+    },
 });
 
 const supervisor = new CollectorSupervisor({
     control,
-    // Announced through the archive itself, which is the one place that knows
-    // a write landed. The gateway is listening, so a second reaches a reader in
-    // the time it takes to store it rather than on their next interval.
-    archive: new NotifyingLiquidityArchive({
-        archive: new LiquidityArchiveService({ postgres }),
-        onWritten: (instrumentSymbol) => {
-            // Deliberately unawaited and unreported: a reader that misses a
-            // nudge catches up on its own, and a write must not be held up by
-            // the telling of it.
-            void postgres.notify(RECORDING_CHANNEL, instrumentSymbol).catch(() => undefined);
-        },
-    }),
+    archive: new LiquidityArchiveService({ postgres, chunks: chunkRows }),
     buildWideRecordings: (instrumentSymbol, priceBucketSize) => [
         chunkTiles.buildRecording(instrumentSymbol, priceBucketSize),
     ],

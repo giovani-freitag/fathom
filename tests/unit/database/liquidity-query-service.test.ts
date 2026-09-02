@@ -1,8 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ChunkCoverage, ChunkRowStore } from '../../../src/database/core/chunk-row-store.ts';
 import { LiquidityQueryService } from '../../../src/database/services/liquidity-query-service.ts';
 import type { PostgresService } from '../../../src/database/postgres/postgres-service.ts';
 
-const GRID_ROW = { price_bucket_size: 10, frame_interval_ms: 1_000 };
+const REGISTRY_ROW = {
+    instrument_symbol: 'BTCUSDT',
+    price_bucket_size: 10,
+    frame_interval_ms: 1_000,
+};
+
+const COVERAGE: ChunkCoverage = {
+    firstFrameAtMs: 1_000_000,
+    lastFrameAtMs: 1_600_000,
+    lastMidPrice: 78_500,
+};
 
 interface Asked {
     readonly statement: string;
@@ -11,74 +22,59 @@ interface Asked {
 
 describe('LiquidityQueryService', () => {
     let asked: Asked[];
+    let readCoverage: ReturnType<typeof vi.fn>;
     let service: LiquidityQueryService;
 
     beforeEach(() => {
         asked = [];
         const selectRows = vi.fn((statement: string, values: readonly unknown[]) => {
             asked.push({ statement, values });
-            // Every read resolves its grid first; everything after it is the
-            // query under test, which no test here needs rows back from.
-            return Promise.resolve(statement.includes('instrument_registry') ? [GRID_ROW] : []);
+            return Promise.resolve(statement.includes('instrument_registry') ? [REGISTRY_ROW] : []);
         });
-        service = new LiquidityQueryService({ postgres: { selectRows } as unknown as PostgresService });
+        readCoverage = vi.fn().mockResolvedValue(COVERAGE);
+        service = new LiquidityQueryService({
+            postgres: { selectRows } as unknown as PostgresService,
+            chunks: { readCoverage } as unknown as ChunkRowStore,
+        });
     });
 
-    /** The statement the read is actually about, past the grid lookup. */
+    /** The statement the read is actually about, past any lookup before it. */
     function theQuery(): Asked {
         return asked[asked.length - 1]!;
     }
 
-    it('reads a window with one bucketed scan rather than a probe per column', async () => {
-        // A lateral probe per bucket answers in 0.018 ms against a row chunk and
-        // has to decompress a whole batch against a compressed one, which turned
-        // an hour of two-day-old history into a seven-second read.
-        await service.fetchFrameWindow({
-            symbol: 'BTCUSDT', fromMs: 0, toMs: 3_600_000, maxColumns: 600,
-        });
+    it('reads what a contract covers out of the archive the chart draws', async () => {
+        // Answered from a second store kept beside it, a listing can say a
+        // stretch was recorded that the chart cannot draw a column of.
+        await service.listInstruments();
 
-        expect(theQuery().statement).toContain('DISTINCT ON (time_bucket(');
-        expect(asked.filter((query) => query.statement.includes('liquidity_frame'))).toHaveLength(1);
+        expect(readCoverage).toHaveBeenCalledWith('BTCUSDT');
     });
 
-    it('probes finer than the columns it returns, so a column is not one instant', async () => {
-        await service.fetchFrameWindow({
-            symbol: 'BTCUSDT', fromMs: 0, toMs: 600_000, maxColumns: 60,
-        });
+    it('carries the coverage it was given, both edges and the touch', async () => {
+        const [instrument] = await service.listInstruments();
 
-        // 600s over 60 columns is 10s a column; the probe has to be under that.
-        const probeSeconds = theQuery().values[3] as number;
-        expect(probeSeconds).toBeLessThan(10);
-        expect(probeSeconds).toBeGreaterThanOrEqual(1);
+        expect(instrument).toMatchObject({
+            instrumentSymbol: 'BTCUSDT',
+            firstFrameAtMs: COVERAGE.firstFrameAtMs,
+            lastFrameAtMs: COVERAGE.lastFrameAtMs,
+            lastMidPrice: COVERAGE.lastMidPrice,
+        });
     });
 
-    it('never probes finer than the grid the frames were recorded on', async () => {
-        await service.fetchFrameWindow({
-            symbol: 'BTCUSDT', fromMs: 0, toMs: 10_000, maxColumns: 4_000,
+    it('lists a contract that has been switched on and not yet recorded', async () => {
+        // A registry entry with nothing against it is a real answer: the
+        // contract is being captured and has produced nothing to draw yet.
+        readCoverage.mockResolvedValue(null);
+
+        const [instrument] = await service.listInstruments();
+
+        expect(instrument).toMatchObject({
+            instrumentSymbol: 'BTCUSDT',
+            firstFrameAtMs: null,
+            lastFrameAtMs: null,
+            lastMidPrice: null,
         });
-
-        expect(theQuery().values[3]).toBe(1);
-    });
-
-    it('asks the raw table for a window fine enough to need it', async () => {
-        await service.fetchTradeClusters({
-            symbol: 'BTCUSDT', fromMs: 0, toMs: 60_000, maxColumns: 600,
-            priceGroupSize: 1, minimumQuantity: 0, maxClusters: 5_000,
-        });
-
-        expect(theQuery().statement).toContain('FROM trade_cluster');
-    });
-
-    it('asks a rolled-up view once the window is wider than one', async () => {
-        // A week of prints read raw is millions of rows for a few hundred
-        // columns; the aggregate already holds them at that resolution.
-        await service.fetchTradeClusters({
-            symbol: 'BTCUSDT', fromMs: 0, toMs: 7 * 24 * 3_600_000, maxColumns: 600,
-            priceGroupSize: 1, minimumQuantity: 0, maxClusters: 5_000,
-        });
-
-        expect(theQuery().statement).not.toContain('FROM trade_cluster\n');
-        expect(theQuery().statement).toMatch(/FROM trade_cluster_\w+/);
     });
 
     it('asks for gaps that overlap the window, not only those inside it', async () => {
@@ -87,212 +83,18 @@ describe('LiquidityQueryService', () => {
         expect(theQuery().statement)
             .toContain('gap_ended_at >= $2 AND gap_started_at < $3');
     });
-});
 
-describe('LiquidityQueryService price bars', () => {
-    let asked: Asked[];
-    let service: LiquidityQueryService;
-    let rows: Record<string, unknown>[];
-
-    beforeEach(() => {
-        asked = [];
-        rows = [];
-        const selectRows = vi.fn((statement: string, values: readonly unknown[]) => {
-            asked.push({ statement, values });
-            return Promise.resolve(statement.includes('instrument_registry') ? [GRID_ROW] : rows);
-        });
-        service = new LiquidityQueryService({ postgres: { selectRows } as unknown as PostgresService });
-    });
-
-    /** One aggregated bucket, as the database hands it back. */
-    function buildRow(openedAtMs: number, frameCount: number): Record<string, unknown> {
-        return {
-            bucket_start: new Date(openedAtMs),
-            open_price: 100, high_price: 110, low_price: 90, close_price: 105,
-            frame_count: frameCount,
-            first_frame_at: new Date(openedAtMs),
-            last_frame_at: new Date(openedAtMs + frameCount * 1_000),
-        };
-    }
-
-    function theQuery(): Asked {
-        return asked[asked.length - 1]!;
-    }
-
-    it('never names the depth arrays, which is what makes the read cheap', async () => {
-        await service.fetchPriceBars({
-            symbol: 'BTCUSDT', fromMs: 0, toMs: 600_000, intervalMs: 60_000, warmupBars: 0,
+    it('reads what traded from the execution grid', async () => {
+        await service.fetchTradeClusters({
+            symbol: 'BTCUSDT',
+            fromMs: 1_000,
+            toMs: 2_000,
+            maxColumns: 60,
+            priceGroupSize: 1,
+            minimumQuantity: 0,
+            maxClusters: 5_000,
         });
 
-        expect(theQuery().statement).not.toContain('quantities');
-    });
-
-    it('snaps the range outward, so a bar keeps its shape however it was asked for', async () => {
-        // Asked from 23 seconds into a minute, the bucket still starts on the
-        // minute; otherwise the same bar arrives with a different high depending
-        // on where the reader happened to have panned to.
-        await service.fetchPriceBars({
-            symbol: 'BTCUSDT', fromMs: 23_000, toMs: 130_000, intervalMs: 60_000, warmupBars: 0,
-        });
-
-        const [, fromAt, toAt] = theQuery().values as [string, Date, Date];
-        expect(fromAt.getTime()).toBe(0);
-        expect(toAt.getTime()).toBe(180_000);
-    });
-
-    it('reads warm-up as whole buckets before the range, not as a wider range', async () => {
-        await service.fetchPriceBars({
-            symbol: 'BTCUSDT', fromMs: 600_000, toMs: 660_000, intervalMs: 60_000, warmupBars: 3,
-        });
-
-        expect((theQuery().values[1] as Date).getTime()).toBe(600_000 - 3 * 60_000);
-    });
-
-    it('counts the warm-up it could actually supply', async () => {
-        rows = [buildRow(480_000, 60), buildRow(540_000, 60), buildRow(600_000, 60)];
-
-        const window = await service.fetchPriceBars({
-            symbol: 'BTCUSDT', fromMs: 600_000, toMs: 660_000, intervalMs: 60_000, warmupBars: 5,
-        });
-
-        expect(window).toMatchObject({ warmupBarsRequested: 5, warmupBarsReturned: 2 });
-    });
-
-    it('says a bucket is short of frames rather than passing it off as whole', async () => {
-        rows = [buildRow(0, 3)];
-
-        const [bar] = (await service.fetchPriceBars({
-            symbol: 'BTCUSDT', fromMs: 0, toMs: 60_000, intervalMs: 60_000, warmupBars: 0,
-        })).bars;
-
-        expect(bar).toMatchObject({ frameCount: 3, expectedFrames: 60, isClosed: true });
-    });
-
-    it('marks a bucket that can still grow as unfinished', async () => {
-        // Without this a bar the collector is still filling reads exactly like
-        // one it missed most of, and the chart would mark it as a fault.
-        const openedAtMs = Math.floor(Date.now() / 60_000) * 60_000;
-        rows = [buildRow(openedAtMs, 12)];
-
-        const [bar] = (await service.fetchPriceBars({
-            symbol: 'BTCUSDT', fromMs: openedAtMs, toMs: openedAtMs + 60_000,
-            intervalMs: 60_000, warmupBars: 0,
-        })).bars;
-
-        expect(bar?.isClosed).toBe(false);
-    });
-
-    it('never bins finer than the grid the frames were recorded on', async () => {
-        const window = await service.fetchPriceBars({
-            symbol: 'BTCUSDT', fromMs: 0, toMs: 10_000, intervalMs: 100, warmupBars: 0,
-        });
-
-        expect(window.intervalMs).toBe(1_000);
-    });
-
-    it('leaves an unrecorded bucket out rather than filling it with zeros', async () => {
-        rows = [buildRow(0, 60), buildRow(120_000, 60)];
-
-        const window = await service.fetchPriceBars({
-            symbol: 'BTCUSDT', fromMs: 0, toMs: 180_000, intervalMs: 60_000, warmupBars: 0,
-        });
-
-        expect(window.bars.map((bar) => bar.openedAtMs)).toEqual([0, 120_000]);
-    });
-});
-
-describe('LiquidityQueryService bar sources', () => {
-    let asked: Asked[];
-    let service: LiquidityQueryService;
-
-    beforeEach(() => {
-        asked = [];
-        const selectRows = vi.fn((statement: string, values: readonly unknown[]) => {
-            asked.push({ statement, values });
-            return Promise.resolve(statement.includes('instrument_registry') ? [GRID_ROW] : []);
-        });
-        service = new LiquidityQueryService({ postgres: { selectRows } as unknown as PostgresService });
-    });
-
-    /**
-     * The statement that read the book, of the several a bar fetch runs.
-     */
-    async function sourceFor(intervalMs: number): Promise<string> {
-        await service.fetchPriceBars({ symbol: 'BTCUSDT', fromMs: 0, toMs: 10 * intervalMs, intervalMs, warmupBars: 0 });
-        return asked.find((ask) => ask.statement.includes('close_price'))!.statement;
-    }
-
-    /**
-     * The statement that read the executions.
-     */
-    async function volumeSourceFor(intervalMs: number): Promise<string> {
-        await service.fetchPriceBars({ symbol: 'BTCUSDT', fromMs: 0, toMs: 10 * intervalMs, intervalMs, warmupBars: 0 });
-        return asked.find((ask) => ask.statement.includes('buy_volume'))!.statement;
-    }
-
-    it('keeps the newest bars when a range holds more than it may return', async () => {
-        // Truncated from the other end, a reader who pinned a fine interval and
-        // zoomed out gets the oldest stretch of the range and a blank right
-        // edge, which is exactly where the price is.
-        const statement = await sourceFor(1_000);
-
-        expect(statement).toMatch(/ORDER BY[^)]*DESC\s*\n?\s*LIMIT/);
-    });
-
-    it('returns the bars it kept oldest first, however it picked them', async () => {
-        const statement = await sourceFor(1_000);
-
-        expect(statement.trimEnd().endsWith('ORDER BY bucket_start')).toBe(true);
-    });
-
-    it('reads the executions of the same buckets the bars came from', async () => {
-        // Truncated from opposite ends, every bar the reader sees reports no
-        // volume at all, because the volume rows cover a different stretch.
-        const statement = await volumeSourceFor(1_000);
-
-        expect(statement).toMatch(/ORDER BY[^)]*DESC\s*\n?\s*LIMIT/);
-    });
-
-    it('scans the frames themselves below a minute, where nothing holds bars yet', async () => {
-        expect(await sourceFor(15_000)).toContain('FROM liquidity_frame');
-    });
-
-    it('reads a minute and above from the grid that already holds it', async () => {
-        expect(await sourceFor(300_000)).toContain('FROM book_bar_minute');
-    });
-
-    it('climbs to the hourly grid rather than folding sixty times as many rows', async () => {
-        expect(await sourceFor(14_400_000)).toContain('FROM book_bar_hour');
-    });
-
-    it('reads what traded from the execution grid, not from the book', async () => {
-        // The book says where price was; it has no idea how much changed hands
-        // there. The two are stored apart and rolled up apart.
-        const statement = await volumeSourceFor(300_000);
-
-        expect(statement).toContain('FROM trade_cluster_minute');
-        expect(statement).toContain('sum(buy_quantity)');
-    });
-
-    it('lets each side pick the coarsest grid it has, rather than tying them together', async () => {
-        // Below a minute the book has to be scanned raw, but the executions were
-        // already rolled up to the second when they were written.
-        const book = await sourceFor(15_000);
-        const volume = await volumeSourceFor(15_000);
-
-        expect(book).toContain('FROM liquidity_frame');
-        expect(volume).toContain('FROM trade_cluster');
-    });
-
-    it('folds a coarser bar without losing what a finer one knew', async () => {
-        // Ends take first and last, extremes take max and min, and the frame
-        // count sums — which is what lets a rolled bar still know it is short.
-        const statement = await sourceFor(300_000);
-
-        expect(statement).toContain('first(open_price');
-        expect(statement).toContain('max(high_price)');
-        expect(statement).toContain('min(low_price)');
-        expect(statement).toContain('last(close_price');
-        expect(statement).toContain('sum(frame_count)');
+        expect(theQuery().statement).toContain('trade_cluster');
     });
 });

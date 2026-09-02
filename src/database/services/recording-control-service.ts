@@ -21,7 +21,6 @@ export type { RecordedContract as EnabledInstrument, StorageBudget as BudgetRead
  * fills the disk has stopped being an experiment.
  */
 const RECORDED_TABLES = [
-    'liquidity_frame',
     'trade_cluster',
     'whole_book.liquidity_block',
     'whole_book.liquidity_chunk',
@@ -186,17 +185,17 @@ export class RecordingControlService implements RecordingControl {
     /**
      * Marks what is about to be dropped as a stretch the archive no longer holds.
      *
-     * One row per contract, spanning from its oldest frame to the boundary, and
+     * One row per contract, spanning from its oldest block to the boundary, and
      * merged with whatever gap already reaches into that range so a partition
      * dropped every day does not leave a row for every day.
      */
     private async recordDroppedHistory(boundary: Date): Promise<void> {
         await this.postgres.execute(
             `INSERT INTO recording_gap (instrument_symbol, gap_started_at, gap_ended_at, gap_reason)
-             SELECT instrument_symbol, min(captured_at), $1::timestamptz,
+             SELECT instrument_symbol, min(started_at), $1::timestamptz,
                     'history dropped to stay inside the disk budget'
-             FROM liquidity_frame
-             WHERE captured_at < $1::timestamptz
+             FROM whole_book.liquidity_block
+             WHERE detail_level = 0 AND started_at < $1::timestamptz
              GROUP BY instrument_symbol
              ON CONFLICT (instrument_symbol, gap_started_at)
              DO UPDATE SET gap_ended_at = GREATEST(recording_gap.gap_ended_at, EXCLUDED.gap_ended_at)`,
@@ -211,13 +210,13 @@ export class RecordingControlService implements RecordingControl {
      */
     private async findDroppableBoundary(): Promise<Date | null> {
         // Two, so the newest is never the one taken: the newest partition is the
-        // one being written into, and dropping it takes the frames recorded a
+        // one being written into, and dropping it takes the squares written a
         // second ago with it. The pass after that drops its replacement, so the
         // archive never keeps anything and nothing says why.
         const rows = await this.postgres.selectRows<OldestChunkRow>(
             `SELECT range_end
              FROM timescaledb_information.chunks
-             WHERE hypertable_name = 'liquidity_frame'
+             WHERE hypertable_schema = 'whole_book' AND hypertable_name = 'liquidity_chunk'
              ORDER BY range_start ASC
              LIMIT 2`,
         );

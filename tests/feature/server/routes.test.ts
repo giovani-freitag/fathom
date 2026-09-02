@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createServerHarness, type ServerHarness } from '../../mocks/server-harness.ts';
-import { decodeLiquidityFrameWindow } from '../../../src/shared/codec/heatmap-codec.ts';
 
 const FROM_MS = 1_700_000_000_000;
 const TO_MS = FROM_MS + 900_000;
@@ -54,51 +53,6 @@ describe('GET /api/instruments', () => {
     });
 });
 
-describe('GET /api/bars', () => {
-    it('carries every figure of a bar through the schema', async () => {
-        // The one bug this layer has had: a schema whitelist that silently
-        // dropped the volume, leaving a chart that drew candles and no volume
-        // with nothing to say had gone wrong.
-        harness.query.fetchPriceBars.mockResolvedValue({
-            instrumentSymbol: 'BTCUSDT',
-            intervalMs: 60_000,
-            warmupBarsRequested: 2,
-            warmupBarsReturned: 1,
-            bars: [{
-                openedAtMs: FROM_MS,
-                closedAtMs: FROM_MS + 60_000,
-                openPrice: 100, highPrice: 110, lowPrice: 95, closePrice: 105,
-                buyVolume: 7.5, sellVolume: 2.25, tradeCount: 42,
-                expectedFrames: 60, frameCount: 60, isClosed: true,
-                firstFrameAtMs: FROM_MS, lastFrameAtMs: FROM_MS + 59_000,
-            }],
-        });
-
-        const response = await get(`/api/bars?symbol=BTCUSDT&fromMs=${FROM_MS}&toMs=${TO_MS}&intervalMs=60000`);
-
-        expect(bodyOf<{ bars: unknown[] }>(response).bars[0]).toEqual({
-            openedAtMs: FROM_MS,
-            closedAtMs: FROM_MS + 60_000,
-            openPrice: 100, highPrice: 110, lowPrice: 95, closePrice: 105,
-            buyVolume: 7.5, sellVolume: 2.25, tradeCount: 42,
-            expectedFrames: 60, frameCount: 60, isClosed: true,
-            firstFrameAtMs: FROM_MS, lastFrameAtMs: FROM_MS + 59_000,
-        });
-    });
-
-    it('says which of the returned bars were only seed', async () => {
-        const response = await get(`/api/bars?symbol=BTCUSDT&fromMs=${FROM_MS}&toMs=${TO_MS}&intervalMs=60000`);
-
-        expect(response.json()).toMatchObject({ warmupBarsReturned: 0, intervalMs: 60_000 });
-    });
-
-    it('refuses a request that names no contract', async () => {
-        const response = await get(`/api/bars?fromMs=${FROM_MS}&toMs=${TO_MS}&intervalMs=60000`);
-
-        expect(response.statusCode).toBe(400);
-    });
-});
-
 describe('GET /api/gaps', () => {
     it('answers with the stretches nothing was recorded in', async () => {
         harness.query.fetchGaps.mockResolvedValue([
@@ -129,6 +83,16 @@ describe('GET /api/heatmap', () => {
         expect(bodyOf<{ error: string }>(response).error).toBe('InvalidRange');
     });
 
+    it('refuses a price no venue could quote, rather than failing inside the read', async () => {
+        // A client with no band of its own reaches for the largest number it
+        // can spell. Laying out every row beneath that fails in the archive,
+        // and the reader is told the recording is unreachable when it is fine.
+        const response = await get(`/api/heatmap?symbol=BTCUSDT&fromMs=${FROM_MS}&toMs=${TO_MS}`
+            + `&maxColumns=800&maxRows=568&lowPrice=0&highPrice=${Number.MAX_SAFE_INTEGER}`);
+
+        expect(response.statusCode).toBe(400);
+    });
+
     it('refuses a range too wide to answer', async () => {
         const wideToMs = FROM_MS + 400 * 24 * 60 * 60 * 1_000;
 
@@ -138,57 +102,6 @@ describe('GET /api/heatmap', () => {
         expect(bodyOf<{ error: string }>(response).error).toBe('RangeTooWide');
     });
 
-    describe('the band a reader named', () => {
-        /** A store that answers on its own grid, whatever the reader asked for. */
-        function answerWholeBook(): void {
-            harness.query.fetchFrameWindow.mockResolvedValue({
-                priceBucketSize: 10,
-                sampleIntervalMs: 1_000,
-                frames: [{
-                    capturedAtMs: FROM_MS,
-                    bestBidPrice: 77_500,
-                    bestAskPrice: 77_510,
-                    bids: {
-                        lowestBucketIndex: 7_000,
-                        quantities: Float32Array.from({ length: 751 }, () => 2),
-                    },
-                    asks: {
-                        lowestBucketIndex: 7_751,
-                        quantities: Float32Array.from({ length: 750 }, () => 3),
-                    },
-                }],
-            });
-        }
-
-        /** How many prices the answer carries. */
-        function pricesIn(body: Buffer): number {
-            const window = decodeLiquidityFrameWindow(
-                body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer,
-            );
-            const frame = window.frames[0]!;
-            return frame.bids.quantities.length + frame.asks.quantities.length;
-        }
-
-        it('answers for every price when the reader named none', async () => {
-            answerWholeBook();
-
-            const response = await get(`/api/heatmap?symbol=BTCUSDT&fromMs=${FROM_MS}&toMs=${TO_MS}&maxColumns=800`);
-
-            expect(pricesIn(response.rawPayload)).toBeGreaterThan(1_000);
-        });
-
-        it('clips a store that answers on its own grid to the band asked for', async () => {
-            // The frame table reads whatever it holds, whatever it was asked
-            // for. Left unclipped, the reader is sent every price to draw the
-            // hundred on screen — and folds them on the thread it draws with.
-            answerWholeBook();
-
-            const response = await get(`/api/heatmap?symbol=BTCUSDT&fromMs=${FROM_MS}&toMs=${TO_MS}`
-                + '&maxColumns=800&lowPrice=77400&highPrice=77600&maxRows=1200');
-
-            expect(pricesIn(response.rawPayload)).toBeLessThan(50);
-        });
-    });
 });
 
 describe('GET /api/trade-clusters', () => {
@@ -246,7 +159,6 @@ describe('every window is refused on the same terms', () => {
         '/api/heatmap?symbol=BTCUSDT&maxColumns=800',
         '/api/trade-clusters?symbol=BTCUSDT&maxColumns=800',
         '/api/gaps?symbol=BTCUSDT&maxColumns=800',
-        '/api/bars?symbol=BTCUSDT&intervalMs=60000',
     ];
 
     const YEAR_MS = 365 * 24 * 60 * 60 * 1_000;
@@ -352,53 +264,20 @@ describe('GET /api/health when the archive cannot be reached', () => {
     });
 });
 
-describe('GET /api/heatmap choosing which stored shape to read', () => {
-    it('reads the frame table when the caller says nothing', async () => {
-        await get(`/api/heatmap?symbol=BTCUSDT&fromMs=${FROM_MS}&toMs=${TO_MS}&maxColumns=600`);
-
-        expect(harness.query.fetchFrameWindow).toHaveBeenCalledTimes(1);
-        expect(harness.chunks.fetchWindow).not.toHaveBeenCalled();
-    });
-
-    it('reads the frame table when the caller asks for it by name', async () => {
-        await get(`/api/heatmap?symbol=BTCUSDT&fromMs=${FROM_MS}&toMs=${TO_MS}&maxColumns=600&source=frames`);
-
-        expect(harness.query.fetchFrameWindow).toHaveBeenCalledTimes(1);
-        expect(harness.chunks.fetchWindow).not.toHaveBeenCalled();
-    });
-
-    it('answers a window read from the whole book as the same binary the frames answer as', async () => {
-        const response = await get(
-            `/api/heatmap?symbol=BTCUSDT&fromMs=${FROM_MS}&toMs=${TO_MS}&maxColumns=600&source=chunks`,
-        );
-
-        expect(response.statusCode).toBe(200);
-        expect(response.headers['content-type']).toBe('application/octet-stream');
-    });
-
-    it('refuses a source it has never heard of rather than guessing one', async () => {
-        const response = await get(
-            `/api/heatmap?symbol=BTCUSDT&fromMs=${FROM_MS}&toMs=${TO_MS}&maxColumns=600&source=parquet`,
-        );
-
-        expect(response.statusCode).toBe(400);
-    });
-});
 
 describe('GET /api/heatmap reading the whole book', () => {
-    it('reads the chunked store when the caller asks for it', async () => {
-        await get(`/api/heatmap?symbol=BTCUSDT&fromMs=${FROM_MS}&toMs=${TO_MS}&maxColumns=600&source=chunks`);
+    it('reads the archive, which is the only store there is', async () => {
+        await get(`/api/heatmap?symbol=BTCUSDT&fromMs=${FROM_MS}&toMs=${TO_MS}&maxColumns=600`);
 
         expect(harness.chunks.fetchWindow).toHaveBeenCalledTimes(1);
-        expect(harness.query.fetchFrameWindow).not.toHaveBeenCalled();
     });
 
     it('narrows the read to the prices the caller named', async () => {
-        // The chunked store is addressed by price as well as by time, so a band
+        // The archive is addressed by price as well as by time, so a band
         // decides which squares are read at all. Applying it after the read
         // instead would fetch the whole book to draw a hundredth of it.
         await get(`/api/heatmap?symbol=BTCUSDT&fromMs=${FROM_MS}&toMs=${TO_MS}`
-            + '&maxColumns=600&source=chunks&lowPrice=60000&highPrice=61000&maxRows=400');
+            + '&maxColumns=600&lowPrice=60000&highPrice=61000&maxRows=400');
 
         expect(harness.chunks.fetchWindow).toHaveBeenCalledWith(expect.objectContaining({
             instrumentSymbol: 'BTCUSDT',

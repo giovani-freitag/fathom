@@ -1,7 +1,13 @@
+import {
+    firstRecordedInstant,
+    lastRecordedInstant,
+    lastRecordedMidPrice,
+} from '../core/chunk-row-store.ts';
 import type {
     ChunkBlockAddress,
     ChunkBlockRange,
     ChunkBlockRow,
+    ChunkCoverage,
     ChunkBlockWrite,
     ChunkRowStore,
     ChunkSquareQuery,
@@ -111,6 +117,39 @@ export class PostgresChunkRowStore implements ChunkRowStore {
             : { columnIntervalMs: row.column_interval_ms, priceBucketSize: row.price_bucket_size };
     }
 
+    async readCoverage(instrumentSymbol: string): Promise<ChunkCoverage | null> {
+        // The oldest block and the newest, and the touch prices inside each.
+        // A block is addressed by a fixed grid and carries empty places until
+        // the recording reaches it, so its own edges say nothing about where the
+        // recording begins or ends.
+        const rows = await this.config.postgres.selectRows<BlockEdgeRow>(
+            `(SELECT started_at, column_interval_ms, best_bid_prices, best_ask_prices
+              FROM whole_book.liquidity_block
+              WHERE instrument_symbol = $1 AND detail_level = 0
+              ORDER BY started_at ASC LIMIT 1)
+             UNION ALL
+             (SELECT started_at, column_interval_ms, best_bid_prices, best_ask_prices
+              FROM whole_book.liquidity_block
+              WHERE instrument_symbol = $1 AND detail_level = 0
+              ORDER BY started_at DESC LIMIT 1)`,
+            [instrumentSymbol],
+        );
+        const oldest = rows[0] === undefined ? null : toEdgeBlock(rows[0]);
+        const newest = rows[rows.length - 1] === undefined ? null : toEdgeBlock(rows[rows.length - 1]!);
+        if (oldest === null || newest === null) {
+            return null;
+        }
+
+        const firstFrameAtMs = firstRecordedInstant(oldest);
+        const lastFrameAtMs = lastRecordedInstant(newest);
+        const lastMidPrice = lastRecordedMidPrice(newest);
+        if (firstFrameAtMs === null || lastFrameAtMs === null || lastMidPrice === null) {
+            return null;
+        }
+
+        return { firstFrameAtMs, lastFrameAtMs, lastMidPrice };
+    }
+
     async readRevision(at: ChunkBlockAddress): Promise<string | null> {
         // Postgres stamps every version of a row with the transaction that
         // wrote it, so a writer that remembers its own stamp can tell whether
@@ -203,5 +242,32 @@ function toBlockRow(record: BlockRecord): ChunkBlockRow {
         smallestQuantity: record.smallest_quantity,
         bestBidPrices: record.best_bid_prices,
         bestAskPrices: record.best_ask_prices,
+    };
+}
+
+/** The two ends of a block, as the coverage read asks for them. */
+interface BlockEdgeRow {
+    readonly started_at: Date;
+    readonly column_interval_ms: number;
+    readonly best_bid_prices: readonly number[];
+    readonly best_ask_prices: readonly number[];
+}
+
+/**
+ * A block edge row in the terms the walk over its touch prices reads.
+ *
+ * @param row - The row as it arrived.
+ * @returns Enough of a block to find where its recording starts and stops.
+ */
+function toEdgeBlock(row: BlockEdgeRow): ChunkBlockRow {
+    return {
+        startedAtMs: row.started_at.getTime(),
+        columnIntervalMs: row.column_interval_ms,
+        priceBucketSize: 0,
+        columnCount: row.best_bid_prices.length,
+        stepRatio: 1,
+        smallestQuantity: 0,
+        bestBidPrices: row.best_bid_prices,
+        bestAskPrices: row.best_ask_prices,
     };
 }

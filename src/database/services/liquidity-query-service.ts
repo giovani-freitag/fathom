@@ -1,50 +1,21 @@
-import { alignDown, alignUp, resolveSampleInterval } from '../../shared/core/window-grid.ts';
+import { resolveSampleInterval } from '../../shared/core/window-grid.ts';
 import type { InstrumentCoverage, TradeClusterQuery, WindowQuery } from '../../shared/core/api-contract.ts';
-import { BAR_BUDGET, type PriceBar, type PriceBarQuery, type PriceBarWindow } from '../../shared/core/price-bar.ts';
-import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeClusterWindow } from '../../shared/core/trade-cluster.ts';
-import { foldFramesIntoColumns, INSTANTS_PER_COLUMN } from '../core/frame-aggregation.ts';
 import type { PostgresService } from '../postgres/postgres-service.ts';
+import type { ChunkRowStore } from '../core/chunk-row-store.ts';
 import {
-    type InstrumentRow,
-    type LiquidityFrameRow,
     type RecordingGapRow,
-    toInstrumentCoverage,
-    toLiquidityFrame,
     toRecordingGap,
     toTradeCluster,
     type TradeClusterRow,
 } from '../postgres/postgres-row-mapping.ts';
 
 const MILLISECONDS_PER_SECOND = 1_000;
-const FRAME_COLUMNS = `
-    captured_at,
-    best_bid_price,
-    best_ask_price,
-    bid_lowest_bucket_index,
-    bid_quantities,
-    ask_lowest_bucket_index,
-    ask_quantities`;
 
 // Rolling up executions on demand means grouping tens of millions of rows on a
 // wide range, so each request reads the coarsest pre-materialised grid that is
 // still finer than the resolution it asked for.
-/**
- * Where bars of a given width are read from, coarsest that fits winning.
- *
- * Below a minute there is nothing to lean on and a narrow scan is used, which
- * measured *faster* than a dedicated aggregate on a columnstore chunk — the
- * price columns are stored apart there, so the scan never touches the depth
- * arrays that make the row wide.
- */
-const BAR_SOURCES = [
-    { table: 'liquidity_frame', nativeIntervalMs: 0 },
-    { table: 'book_bar_minute', nativeIntervalMs: 60_000 },
-    { table: 'book_bar_hour', nativeIntervalMs: 3_600_000 },
-] as const;
-
-type BarSource = (typeof BAR_SOURCES)[number];
 
 const TRADE_SOURCES = [
     { table: 'trade_cluster', nativeIntervalMs: 1_000 },
@@ -56,6 +27,8 @@ type TradeSource = (typeof TRADE_SOURCES)[number];
 
 export interface LiquidityQueryServiceConfig {
     readonly postgres: PostgresService;
+    /** Where the recording is, for the coverage a listing carries. */
+    readonly chunks: ChunkRowStore;
 }
 
 export interface FrameTailQuery {
@@ -74,9 +47,11 @@ interface InstrumentGrid {
  */
 export class LiquidityQueryService {
     private readonly postgres: PostgresService;
+    private readonly chunks: ChunkRowStore;
 
     constructor(config: LiquidityQueryServiceConfig) {
         this.postgres = config.postgres;
+        this.chunks = config.chunks;
     }
 
     /**
@@ -86,118 +61,33 @@ export class LiquidityQueryService {
      * @throws PostgresQueryError when the read fails.
      */
     async listInstruments(): Promise<InstrumentCoverage[]> {
-        const rows = await this.postgres.selectRows<InstrumentRow>(`
-            SELECT
-                registry.instrument_symbol,
-                registry.price_bucket_size,
-                registry.frame_interval_ms,
-                oldest.captured_at AS first_frame_at,
-                newest.captured_at AS last_frame_at,
-                newest.best_bid_price,
-                newest.best_ask_price
-            FROM instrument_registry registry
-            LEFT JOIN LATERAL (
-                SELECT captured_at FROM liquidity_frame
-                WHERE instrument_symbol = registry.instrument_symbol
-                ORDER BY captured_at ASC LIMIT 1
-            ) oldest ON TRUE
-            LEFT JOIN LATERAL (
-                -- The touch prices come free with the instant: a chart that is
-                -- told where the market is can frame its axis before it asks
-                -- for a window, and so can ask for the band it will draw.
-                SELECT captured_at, best_bid_price, best_ask_price FROM liquidity_frame
-                WHERE instrument_symbol = registry.instrument_symbol
-                ORDER BY captured_at DESC LIMIT 1
-            ) newest ON TRUE
-            ORDER BY registry.instrument_symbol`);
+        const rows = await this.postgres.selectRows<{
+            instrument_symbol: string;
+            price_bucket_size: number;
+            frame_interval_ms: number;
+        }>(`
+            SELECT instrument_symbol, price_bucket_size, frame_interval_ms
+            FROM instrument_registry ORDER BY instrument_symbol`);
 
-        return rows.map(toInstrumentCoverage);
-    }
+        // Coverage out of the archive the chart reads, not out of a second
+        // store kept beside it. A registry entry with nothing recorded against
+        // it is a contract that was switched on and has not been captured yet,
+        // which is a real answer and not an omission.
+        const covered = await Promise.all(rows.map(
+            (row) => this.chunks.readCoverage(row.instrument_symbol),
+        ));
 
-    /**
-     * Depth frames across a time range, sampled down to the requested column count.
-     *
-     * @param query - Instrument, half-open time range, and column budget.
-     * @returns The sampled window; empty when the range holds no frames.
-     * @throws PostgresQueryError when the read fails.
-     */
-    async fetchFrameWindow(query: WindowQuery): Promise<LiquidityFrameWindow> {
-        const grid = await this.resolveInstrumentGrid(query.symbol);
-
-        // Never sample finer than the recording. A request for more columns than
-        // there are stored frames leaves empty buckets between the real ones, and
-        // a renderer laying frames onto that grid draws a comb of blank columns.
-        const sampleIntervalMs = Math.max(resolveSampleInterval(query), grid.frameIntervalMs);
-        // Probed finer than the grid the caller gets, so each column is folded
-        // from several instants rather than standing on whichever one happened
-        // to be first. Never finer than the recording itself.
-        const probeIntervalMs = Math.max(
-            grid.frameIntervalMs,
-            Math.floor(sampleIntervalMs / INSTANTS_PER_COLUMN),
-        );
-
-        // One range scan that keeps the first frame of each probe bucket. The
-        // shape matters more than it looks: a lateral probe per bucket is quick
-        // on a row chunk but has to decompress a whole batch to answer on a
-        // columnstore one, which turned an hour of two-day-old history into a
-        // seven-second read.
-        //
-        // This projection names the depth arrays, so it pays for them on either
-        // kind of chunk. A projection that does not — the price bars below — is
-        // the opposite case: on a columnstore chunk it never fetches them.
-        const rows = await this.postgres.selectRows<LiquidityFrameRow>(
-            `SELECT DISTINCT ON (time_bucket(make_interval(secs => $4), captured_at))
-                 ${FRAME_COLUMNS}
-             FROM liquidity_frame
-             WHERE instrument_symbol = $1
-               AND captured_at >= $2::timestamptz
-               AND captured_at < $3::timestamptz
-             ORDER BY time_bucket(make_interval(secs => $4), captured_at), captured_at`,
-            [
-                query.symbol,
-                new Date(query.fromMs),
-                new Date(query.toMs),
-                probeIntervalMs / MILLISECONDS_PER_SECOND,
-            ],
-        );
-
-        // Ordered here rather than in SQL: sorting there means an external merge
-        // over rows carrying two depth arrays each, which spills to disk long
-        // before the probes themselves cost anything.
-        const frames = rows
-            .map(toLiquidityFrame)
-            .sort((left, right) => left.capturedAtMs - right.capturedAtMs);
-
-        return {
-            priceBucketSize: grid.priceBucketSize,
-            sampleIntervalMs,
-            frames: foldFramesIntoColumns(frames, sampleIntervalMs),
-        };
-    }
-
-    /**
-     * Frames recorded after an instant, for a live tail.
-     *
-     * @param query - Instrument, exclusive lower bound, and row cap.
-     * @returns Frames in capture order, at their stored resolution.
-     * @throws PostgresQueryError when the read fails.
-     */
-    async fetchFramesAfter(query: FrameTailQuery): Promise<LiquidityFrameWindow> {
-        const rows = await this.postgres.selectRows<LiquidityFrameRow>(
-            `SELECT ${FRAME_COLUMNS}
-             FROM liquidity_frame
-             WHERE instrument_symbol = $1 AND captured_at > $2
-             ORDER BY captured_at ASC
-             LIMIT $3`,
-            [query.symbol, new Date(query.afterMs), query.maxFrames],
-        );
-
-        const grid = await this.resolveInstrumentGrid(query.symbol);
-        return {
-            priceBucketSize: grid.priceBucketSize,
-            sampleIntervalMs: grid.frameIntervalMs,
-            frames: rows.map(toLiquidityFrame),
-        };
+        return rows.map((row, index) => {
+            const coverage = covered[index] ?? null;
+            return {
+                instrumentSymbol: row.instrument_symbol,
+                priceBucketSize: row.price_bucket_size,
+                frameIntervalMs: row.frame_interval_ms,
+                firstFrameAtMs: coverage?.firstFrameAtMs ?? null,
+                lastFrameAtMs: coverage?.lastFrameAtMs ?? null,
+                lastMidPrice: coverage?.lastMidPrice ?? null,
+            };
+        });
     }
 
     /**
@@ -263,70 +153,6 @@ export class LiquidityQueryService {
         return rows.map(toRecordingGap);
     }
 
-    /**
-     * Open-high-low-close bars of the book mid, on a declared interval.
-     *
-     * @param query - The instrument, the range, the interval, and the warm-up.
-     * @returns The bars, oldest first, warm-up included at the front.
-     * @throws Error when the instrument has never been recorded.
-     */
-    async fetchPriceBars(query: PriceBarQuery): Promise<PriceBarWindow> {
-        const grid = await this.resolveInstrumentGrid(query.symbol);
-        const intervalMs = Math.max(grid.frameIntervalMs, Math.floor(query.intervalMs));
-        const warmupBars = Math.max(0, Math.floor(query.warmupBars));
-
-        // Snapped outward to bucket edges, so a bar keeps its shape however the
-        // range that asked for it was rounded. A bucket the range cut in half
-        // would otherwise arrive with a different high than the same bucket
-        // fetched a second later.
-        const fromMs = alignDown(query.fromMs, intervalMs) - warmupBars * intervalMs;
-        const toMs = alignUp(query.toMs, intervalMs);
-
-        const source = selectBarSource(intervalMs);
-        const parameters = [
-            query.symbol,
-            new Date(fromMs),
-            new Date(toMs),
-            intervalMs / MILLISECONDS_PER_SECOND,
-        ];
-
-        // Two scans rather than a join. The book and the executions are stored
-        // apart and rolled up apart, so each picks the coarsest grid its own
-        // side has; a join would tie both to whichever grid the other needed.
-        const [rows, volumeRows] = await Promise.all([
-            this.postgres.selectRows<PriceBarRow>(
-                source.nativeIntervalMs === 0 ? RAW_BAR_STATEMENT : rolledBarStatement(source),
-                parameters,
-            ),
-            this.postgres.selectRows<BarVolumeRow>(
-                volumeStatement(selectTradeSource(intervalMs)),
-                parameters,
-            ),
-        ]);
-        const volumeByBucket = new Map(
-            volumeRows.map((row) => [row.bucket_start.getTime(), row]),
-        );
-
-        const expectedFrames = Math.max(1, Math.round(intervalMs / grid.frameIntervalMs));
-        const closedBeforeMs = Date.now() - intervalMs;
-        const bars = rows.map((row) => toPriceBar({
-            row,
-            volume: volumeByBucket.get(row.bucket_start.getTime()) ?? null,
-            intervalMs,
-            expectedFrames,
-            closedBeforeMs,
-        }));
-        const drawnFromMs = alignDown(query.fromMs, intervalMs);
-
-        return {
-            instrumentSymbol: query.symbol,
-            intervalMs,
-            warmupBarsRequested: warmupBars,
-            warmupBarsReturned: bars.filter((bar) => bar.openedAtMs < drawnFromMs).length,
-            bars,
-        };
-    }
-
     private async resolveInstrumentGrid(instrumentSymbol: string): Promise<InstrumentGrid> {
         const rows = await this.postgres.selectRows<{
             price_bucket_size: number;
@@ -360,149 +186,6 @@ function selectTradeSource(sampleIntervalMs: number): TradeSource {
     return selected;
 }
 
-interface PriceBarRow {
-    readonly bucket_start: Date;
-    readonly open_price: number;
-    readonly high_price: number;
-    readonly low_price: number;
-    readonly close_price: number;
-    readonly frame_count: number;
-    readonly first_frame_at: Date;
-    readonly last_frame_at: Date;
-}
-
-/**
- * Bars scanned from the frames themselves, naming only the two price columns.
- */
-const RAW_BAR_STATEMENT = `SELECT * FROM (
-        SELECT
-            time_bucket(make_interval(secs => $4), captured_at) AS bucket_start,
-            first(mid_price, captured_at)                       AS open_price,
-            max(mid_price)                                      AS high_price,
-            min(mid_price)                                      AS low_price,
-            last(mid_price, captured_at)                        AS close_price,
-            count(*)::int                                       AS frame_count,
-            min(captured_at)                                    AS first_frame_at,
-            max(captured_at)                                    AS last_frame_at
-        FROM (
-            SELECT captured_at, (best_bid_price + best_ask_price) / 2 AS mid_price
-            FROM liquidity_frame
-            WHERE instrument_symbol = $1
-              AND captured_at >= $2::timestamptz
-              AND captured_at < $3::timestamptz
-        ) narrow
-        GROUP BY 1
-        ORDER BY 1 DESC
-        LIMIT ${BAR_BUDGET.maximumBars}
-    ) recent
-    ORDER BY bucket_start`;
-
-/**
- * Bars rolled up from a coarser grid that already holds them.
- *
- * Every field folds without loss: the ends take first and last, the extremes
- * take max and min, and the frame count sums — which is what lets a bar know it
- * is short of frames however many levels it was rolled through.
- */
-function rolledBarStatement(source: BarSource): string {
-    return `SELECT * FROM (
-            SELECT
-                time_bucket(make_interval(secs => $4), opened_at) AS bucket_start,
-                first(open_price, opened_at)                      AS open_price,
-                max(high_price)                                   AS high_price,
-                min(low_price)                                    AS low_price,
-                last(close_price, opened_at)                      AS close_price,
-                sum(frame_count)::int                             AS frame_count,
-                min(first_frame_at)                               AS first_frame_at,
-                max(last_frame_at)                                AS last_frame_at
-            FROM ${source.table}
-            WHERE instrument_symbol = $1
-              AND opened_at >= $2::timestamptz
-              AND opened_at < $3::timestamptz
-            GROUP BY 1
-            ORDER BY 1 DESC
-            LIMIT ${BAR_BUDGET.maximumBars}
-        ) recent
-        ORDER BY bucket_start`;
-}
-
-interface BarVolumeRow {
-    bucket_start: Date;
-    buy_volume: number;
-    sell_volume: number;
-    trade_count: number;
-}
-
-/**
- * What changed hands in each bucket, summed across every price band.
- *
- * The price bands are what the heat map needs and what a bar does not: a bar
- * says how much traded in a stretch of time, not where in the book it traded.
- */
-function volumeStatement(source: TradeSource): string {
-    return `SELECT * FROM (
-            SELECT
-                time_bucket(make_interval(secs => $4), executed_at) AS bucket_start,
-                sum(buy_quantity)::double precision                 AS buy_volume,
-                sum(sell_quantity)::double precision                AS sell_volume,
-                sum(trade_count)::int                               AS trade_count
-            FROM ${source.table}
-            WHERE instrument_symbol = $1
-              AND executed_at >= $2::timestamptz
-              AND executed_at < $3::timestamptz
-            GROUP BY 1
-            ORDER BY 1 DESC
-            LIMIT ${BAR_BUDGET.maximumBars}
-        ) recent
-        ORDER BY bucket_start`;
-}
-
-/**
- * The coarsest grid no finer than the interval asked for.
- */
-function selectBarSource(intervalMs: number): BarSource {
-    let selected: BarSource = BAR_SOURCES[0];
-    for (const candidate of BAR_SOURCES) {
-        if (candidate.nativeIntervalMs <= intervalMs) {
-            selected = candidate;
-        }
-    }
-    return selected;
-}
 
 
 
-interface PriceBarAssembly {
-    readonly row: PriceBarRow;
-    /** Absent for a bucket the book was recorded through with nobody trading. */
-    readonly volume: BarVolumeRow | null;
-    readonly intervalMs: number;
-    readonly expectedFrames: number;
-    readonly closedBeforeMs: number;
-}
-
-function toPriceBar({
-    row,
-    volume,
-    intervalMs,
-    expectedFrames,
-    closedBeforeMs,
-}: PriceBarAssembly): PriceBar {
-    const openedAtMs = row.bucket_start.getTime();
-    return {
-        openedAtMs,
-        closedAtMs: openedAtMs + intervalMs,
-        openPrice: row.open_price,
-        highPrice: row.high_price,
-        lowPrice: row.low_price,
-        closePrice: row.close_price,
-        buyVolume: volume?.buy_volume ?? 0,
-        sellVolume: volume?.sell_volume ?? 0,
-        tradeCount: volume?.trade_count ?? 0,
-        expectedFrames,
-        frameCount: row.frame_count,
-        isClosed: openedAtMs <= closedBeforeMs,
-        firstFrameAtMs: row.first_frame_at.getTime(),
-        lastFrameAtMs: row.last_frame_at.getTime(),
-    };
-}

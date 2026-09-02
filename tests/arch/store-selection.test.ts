@@ -1,47 +1,71 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { join } from 'node:path';
 
-const ROOT = fileURLToPath(new URL('../..', import.meta.url));
+const ROOT = process.cwd();
 
-function read(path: string): string {
-    return readFileSync(new URL(path, new URL('file://' + ROOT + '/')), 'utf8');
+/** Every source file, wherever in the tree it sits. */
+function listSources(root: string): string[] {
+    return readdirSync(root).flatMap((entry) => {
+        const path = join(root, entry);
+        if (statSync(path).isDirectory()) {
+            return listSources(path);
+        }
+        return /\.tsx?$/.test(entry) ? [path] : [];
+    });
 }
 
-/** The store names a route offers, taken from its literal union. */
-function offeredStores(source: string): string[] {
-    const union = /source:\s*Type\.Optional\(Type\.Union\(\[([\s\S]*?)\]\)\)/.exec(source);
-    return [...(union?.[1] ?? '').matchAll(/Type\.Literal\('([^']+)'\)/g)].map((one) => one[1]!);
+const SOURCES = listSources(join(ROOT, 'src'));
+const MIGRATIONS = join(ROOT, 'database', 'migrations');
+
+/** Files whose text matches, named relative to the repository. */
+function filesMatching(pattern: RegExp): string[] {
+    return SOURCES
+        .filter((path) => pattern.test(readFileSync(path, 'utf8')))
+        .map((path) => path.slice(ROOT.length + 1));
 }
 
-/** The store names the gateway wired a live tail for. */
-function streamableStores(main: string): string[] {
-    const block = /sourcesByName:\s*\{([\s\S]*?)\n {4}\},/.exec(main);
-    return [...(block?.[1] ?? '').matchAll(/^ {8}(\w+):/gm)].map((one) => one[1]!);
-}
-
-describe('the stores a reader can choose between', () => {
-    const heatmap = read('src/server/http/schemas/heatmap-schema.ts');
-    const live = read('src/server/http/schemas/live-schema.ts');
-    const main = read('src/server/main.ts');
-
-    it('offers the same names for history and for the live tail', () => {
-        // These stores exist to be weighed against each other. One a reader can
-        // ask history for but not be streamed is one they would watch stand
-        // still, or — worse — be quietly served from somewhere else.
-        expect(offeredStores(live).sort()).toEqual(offeredStores(heatmap).sort());
+describe('the one store the recording lives in', () => {
+    it('is never chosen between, because there is nothing to choose', () => {
+        // Two stores were kept side by side while one was being proved against
+        // the other, and every layer that touched the book grew a way to name
+        // which one it meant — a query parameter, a socket field, a constant, a
+        // map of tails. Each round of taking them out left one of those behind,
+        // and a name with one store behind it reads like a choice that is
+        // simply not offered yet.
+        //
+        // Matched on the shapes it actually came back as, not on the word:
+        // `frames` also names one of the two bodies a window holds, against
+        // the executions, and that is a different distinction about a
+        // different thing.
+        expect(filesMatching(
+            /\bFrameSource\b|sourcesByName|\bDRAWN_FROM\b|Type\.Literal\('frames'\)/,
+        )).toEqual([]);
     });
 
-    it('wires a live tail for every name it offers', () => {
-        // The class of mistake this catches was made once already: two of the
-        // five names had no tail behind them, so a chart drawn from one store
-        // was fed from another and the comparison measured nothing.
-        expect(offeredStores(live).filter((name) => !streamableStores(main).includes(name)))
+    it('is never read out of a table of one row per instant', () => {
+        // What the recording was before it was squares. Every instant it held
+        // was written into the archive and checked against it column by column
+        // before it went, and nothing may reach for it again.
+        expect(filesMatching(/\bliquidity_frame\b(?!')/)).toEqual([]);
+    });
+
+    it('is never written a row at a time either', () => {
+        // Named for the write rather than for the word: the chart appends
+        // drawn columns to what it is holding, and that is a different verb
+        // about a different thing entirely.
+        expect(filesMatching(/INSERT INTO liquidity_frame|createObjectStore\(STORES\.liquidityFrame/))
             .toEqual([]);
     });
 
-    it('finds the names at all, so a rename cannot empty this check', () => {
-        expect(offeredStores(heatmap).length).toBeGreaterThan(1);
-        expect(streamableStores(main).length).toBeGreaterThan(1);
+    it('is the only place a migration builds the book', () => {
+        // A migration that recreates the table would put it back on every run,
+        // because these are re-applied in order and keep no ledger.
+        const built = readdirSync(MIGRATIONS)
+            .filter((name) => name.endsWith('.sql'))
+            .filter((name) => /CREATE TABLE[^;]*liquidity_frame/i
+                .test(readFileSync(join(MIGRATIONS, name), 'utf8')));
+
+        expect(built).toEqual([]);
     });
 });

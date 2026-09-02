@@ -66,14 +66,14 @@ interface Pipeline {
     readonly spy: ArchiveSpy;
     readonly statuses: string[];
     /** Every wide instant handed on, with the grid it was laid on. */
-    readonly wide: { frame: unknown; priceBucketSize: number }[];
+    readonly wide: { frame: LiquidityFrame; priceBucketSize: number }[];
 }
 
 function buildPipeline(lastFrameMs: number | null = null): Pipeline {
     const source = createSnapshotSource(100);
     const spy = createArchiveSpy(lastFrameMs);
     const statuses: string[] = [];
-    const wide: { frame: unknown; priceBucketSize: number }[] = [];
+    const wide: { frame: LiquidityFrame; priceBucketSize: number }[] = [];
 
     const orderBook = new OrderBookService({
         fetchDepthSnapshot: source.fetchDepthSnapshot,
@@ -90,10 +90,8 @@ function buildPipeline(lastFrameMs: number | null = null): Pipeline {
         instrumentSymbol: 'BTCUSDT',
         priceBucketSize: 1,
         frameIntervalMs: FRAME_INTERVAL_MS,
-        recordedPriceRangeRatio: 0.5,
         flushIntervalMs: 500,
         framesPerFlush: 1,
-        maximumBufferedFrames: 100,
         maximumBufferedTradeClusters: 1_000,
         onStatusChanged: (status) => statuses.push(status),
         wideRecordings: [{
@@ -126,7 +124,7 @@ describe('recording pipeline', () => {
         vi.useRealTimers();
     });
 
-    it('turns a synchronised book into recorded frames', async () => {
+    it('turns a synchronised book into recorded instants', async () => {
         const pipeline = buildPipeline();
         await pipeline.recorder.start();
         await synchronize(pipeline);
@@ -134,10 +132,10 @@ describe('recording pipeline', () => {
         await vi.advanceTimersByTimeAsync(2_500);
         await pipeline.recorder.stop();
 
-        expect(pipeline.spy.appendFrames).toHaveBeenCalled();
+        expect(pipeline.wide.length).toBeGreaterThan(0);
     });
 
-    it('lands frames on whole grid instants', async () => {
+    it('lands every instant on a whole grid instant', async () => {
         const pipeline = buildPipeline();
         await pipeline.recorder.start();
         await synchronize(pipeline);
@@ -145,10 +143,8 @@ describe('recording pipeline', () => {
         await vi.advanceTimersByTimeAsync(3_500);
         await pipeline.recorder.stop();
 
-        const frames = pipeline.spy.appendFrames.mock.calls.flatMap(
-            (call) => (call[0] as { frames: { capturedAtMs: number }[] }).frames,
-        );
-        expect(frames.every((frame) => frame.capturedAtMs % FRAME_INTERVAL_MS === 0)).toBe(true);
+        expect(pipeline.wide.every(({ frame }) => frame.capturedAtMs % FRAME_INTERVAL_MS === 0))
+            .toBe(true);
     });
 
     it('separates resting bids from resting asks', async () => {
@@ -159,17 +155,14 @@ describe('recording pipeline', () => {
         await vi.advanceTimersByTimeAsync(1_500);
         await pipeline.recorder.stop();
 
-        const frame = pipeline.spy.appendFrames.mock.calls[0]?.[0] as {
-            frames: { bids: { quantities: Float32Array }; asks: { quantities: Float32Array } }[];
-        };
-        const first = frame.frames[0]!;
+        const first = pipeline.wide[0]!.frame;
         expect([
             [...first.bids.quantities].reduce((a, b) => a + b, 0),
             [...first.asks.quantities].reduce((a, b) => a + b, 0),
         ]).toEqual([9, 6]);
     });
 
-    it('bins executions onto the same grid as the frames', async () => {
+    it('bins executions onto the same grid as the recording', async () => {
         const pipeline = buildPipeline();
         await pipeline.recorder.start();
         await synchronize(pipeline);
@@ -197,7 +190,7 @@ describe('recording pipeline', () => {
         await vi.advanceTimersByTimeAsync(3_500);
         await pipeline.recorder.stop();
 
-        expect(pipeline.spy.appendFrames).not.toHaveBeenCalled();
+        expect(pipeline.wide).toEqual([]);
     });
 
     it('files a gap when the recording clock skips grid instants', async () => {
@@ -383,7 +376,13 @@ describe('recording pipeline', () => {
 
     it('keeps a failed batch queued rather than losing those seconds', async () => {
         const pipeline = buildPipeline();
-        pipeline.spy.appendFrames.mockRejectedValue(new Error('archive unavailable'));
+        pipeline.spy.appendTradeClusters.mockRejectedValue(new Error('archive unavailable'));
+        pipeline.recorder.ingestTrade({
+            executedAtMs: 10_100,
+            price: 100,
+            quantity: 2,
+            isAggressorSelling: false,
+        });
         await pipeline.recorder.start();
         await synchronize(pipeline);
 
@@ -401,9 +400,7 @@ describe('recording pipeline', () => {
         await vi.advanceTimersByTimeAsync(4_500);
         await pipeline.recorder.stop();
 
-        const instants = pipeline.spy.appendFrames.mock.calls.flatMap(
-            (call) => (call[0] as { frames: { capturedAtMs: number }[] }).frames.map((f) => f.capturedAtMs),
-        );
+        const instants = pipeline.wide.map(({ frame }) => frame.capturedAtMs);
         expect(new Set(instants).size).toBe(instants.length);
     });
 });
@@ -465,10 +462,8 @@ describe('recording pipeline framing the far field more than once', () => {
             instrumentSymbol: 'BTCUSDT',
             priceBucketSize: 1,
             frameIntervalMs: FRAME_INTERVAL_MS,
-            recordedPriceRangeRatio: 0.5,
             flushIntervalMs: 500,
             framesPerFlush: 1,
-            maximumBufferedFrames: 100,
             maximumBufferedTradeClusters: 1_000,
             onStatusChanged: () => undefined,
             wideRecordings: [

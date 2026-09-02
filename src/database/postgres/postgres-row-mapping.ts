@@ -1,30 +1,5 @@
-import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
-import type { DepthLadder, LiquidityFrame } from '../../shared/core/liquidity-frame.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
-
-/**
- * Row shapes each query produces, named as PostgreSQL returns them.
- */
-export interface LiquidityFrameRow {
-    readonly captured_at: Date;
-    readonly best_bid_price: number;
-    readonly best_ask_price: number;
-    readonly bid_lowest_bucket_index: number;
-    readonly bid_quantities: unknown;
-    readonly ask_lowest_bucket_index: number;
-    readonly ask_quantities: unknown;
-}
-
-export interface InstrumentRow {
-    readonly instrument_symbol: string;
-    readonly price_bucket_size: number;
-    readonly frame_interval_ms: number;
-    readonly first_frame_at: Date | null;
-    readonly last_frame_at: Date | null;
-    readonly best_bid_price: number | null;
-    readonly best_ask_price: number | null;
-}
 
 export interface TradeClusterRow {
     readonly bucket_start: Date;
@@ -41,8 +16,11 @@ export interface RecordingGapRow {
     readonly gap_reason: string;
 }
 
+const COMMA = 44;
+const CLOSING_BRACE = 125;
+
 /**
- * Converts a `REAL[]` column into the dense typed array the renderer consumes.
+ * Converts a `REAL[]` column into the dense typed array the reader consumes.
  *
  * @param column - Value the driver produced for a `REAL[]` column.
  * @returns The quantities, in column order.
@@ -62,24 +40,14 @@ export function toQuantityArray(column: unknown): Float32Array {
 }
 
 /**
- * Builds one side of a depth ladder from its offset and quantity columns.
+ * Reads a Postgres `REAL[]` literal straight into a typed array.
  *
- * @param lowestBucketIndex - Absolute index of the first quantity.
- * @param quantityColumn - Value the driver produced for the quantity column.
- * @returns The ladder for that side.
- */
-export function toDepthLadder(lowestBucketIndex: number, quantityColumn: unknown): DepthLadder {
-    return { lowestBucketIndex, quantities: toQuantityArray(quantityColumn) };
-}
-
-const COMMA = 44;
-const CLOSING_BRACE = 125;
-
-/**
- * Reads a `real[]` literal straight into a typed array.
+ * The driver's own parser is the single largest cost of reading a wide window,
+ * and every `real[]` this project selects is a row of figures that is about to
+ * become a typed array anyway.
  *
- * @param literal - The array literal, `{1.5,2.25,0}`.
- * @returns The quantities, in order.
+ * @param literal - The array literal as the wire carried it.
+ * @returns The figures, in order.
  */
 export function parseQuantityLiteral(literal: string): Float32Array {
     const length = literal.length;
@@ -106,41 +74,6 @@ export function parseQuantityLiteral(literal: string): Float32Array {
         }
     }
     return quantities;
-}
-
-/**
- * Builds a depth frame from its row.
- *
- * @param row - A row of `liquidity_frame`.
- * @returns The frame, with both ladders decoded.
- */
-export function toLiquidityFrame(row: LiquidityFrameRow): LiquidityFrame {
-    return {
-        capturedAtMs: row.captured_at.getTime(),
-        bestBidPrice: row.best_bid_price,
-        bestAskPrice: row.best_ask_price,
-        bids: toDepthLadder(row.bid_lowest_bucket_index, row.bid_quantities),
-        asks: toDepthLadder(row.ask_lowest_bucket_index, row.ask_quantities),
-    };
-}
-
-/**
- * Builds an instrument descriptor from its row.
- *
- * @param row - A registry row joined with its recorded extent.
- * @returns The coverage, with instants as milliseconds.
- */
-export function toInstrumentCoverage(row: InstrumentRow): InstrumentCoverage {
-    return {
-        instrumentSymbol: row.instrument_symbol,
-        priceBucketSize: row.price_bucket_size,
-        frameIntervalMs: row.frame_interval_ms,
-        firstFrameAtMs: row.first_frame_at?.getTime() ?? null,
-        lastFrameAtMs: row.last_frame_at?.getTime() ?? null,
-        lastMidPrice: row.best_bid_price === null || row.best_ask_price === null
-            ? null
-            : (row.best_bid_price + row.best_ask_price) / 2,
-    };
 }
 
 /**

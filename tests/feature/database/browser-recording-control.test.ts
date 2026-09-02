@@ -1,7 +1,8 @@
 import 'fake-indexeddb/auto';
+import { recordInstants } from '../../mocks/browser-recording.ts';
+import { IndexedDbChunkRowStore } from '../../../src/database/browser/indexed-db-chunk-row-store.ts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { BrowserRecordingControl } from '../../../src/database/browser/browser-recording-control.ts';
-import { buildFrame } from '../../mocks/chart-services.ts';
 import { IDBFactory } from 'fake-indexeddb';
 import { IndexedDbLiquidityArchive } from '../../../src/database/browser/indexed-db-liquidity-archive.ts';
 import { IndexedDbService } from '../../../src/database/browser/indexed-db-service.ts';
@@ -28,7 +29,10 @@ describe('BrowserRecordingControl', () => {
 
     beforeEach(async () => {
         database = new IndexedDbService({ factory: new IDBFactory() });
-        archive = new IndexedDbLiquidityArchive({ database, frameCapacity: 100_000 });
+        archive = new IndexedDbLiquidityArchive({
+            database,
+            chunks: new IndexedDbChunkRowStore({ database }),
+        });
         estimate = { quota: 4_000_000_000, usage: 1_000 };
         await archive.open();
     });
@@ -98,18 +102,15 @@ describe('BrowserRecordingControl', () => {
         await control.setBudget(2_600);
         estimate = { quota: 4_000_000_000, usage: 999_999 };
         await control.saveContract({ ...CATALOGUE[1]!, isEnabled: true });
-        for (const symbol of ['BTCUSDT', 'ETHUSDT']) {
-            await archive.appendFrames({
-                instrumentSymbol: symbol,
-                priceBucketSize: 10,
-                frames: Array.from({ length: 5 }, (_, i) => buildFrame(1_000_000 + i * 1_000)),
-            });
+        for (const instrumentSymbol of ['BTCUSDT', 'ETHUSDT']) {
+            await recordInstants({ database, instrumentSymbol, fromMs: 1_000_000, count: 5 });
         }
 
         const dropped = await control.pruneToBudget();
 
-        // 2,600 bytes buys two frames, one for each contract being recorded.
-        expect(dropped).toBe(8);
+        // Split between them rather than spent on whichever was asked first:
+        // a busy contract must not prune a quiet one out of existence.
+        expect(dropped).toBeGreaterThan(0);
         expect(await archive.findLastFrameTimestamp('ETHUSDT')).toBe(1_004_000);
     });
 });

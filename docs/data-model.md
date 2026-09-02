@@ -15,55 +15,20 @@ they are. Measured on a page recording one contract for a minute and a half,
 nine and a half megabytes of plane stored as thirty-seven kilobytes — the planes
 are mostly empty, and empty compresses.
 
-## One row per instant, not per level
-
-`liquidity_frame` holds **one row per time bucket**, with the whole depth ladder
-in arrays.
-
-Modelling a row per price level would produce around forty million rows a day at
-this resolution, which no single-node database serves well. This is 86,400 rows a
-day instead.
-
-```sql
-CREATE TABLE liquidity_frame (
-    captured_at             TIMESTAMPTZ,
-    instrument_symbol       TEXT,
-    price_bucket_size       DOUBLE PRECISION,
-    best_bid_price          DOUBLE PRECISION,
-    best_ask_price          DOUBLE PRECISION,
-    bid_lowest_bucket_index INTEGER,
-    bid_quantities          REAL[],
-    ask_lowest_bucket_index INTEGER,
-    ask_quantities          REAL[]
-);
-```
-
-The price of `bid_quantities[i]` (1-based, as PostgreSQL indexes arrays) is
-`(bid_lowest_bucket_index + i - 1) * price_bucket_size`.
-
-### Why two arrays and not one
-
-Each side carries its own offset and array. Two reasons:
-
-1. **The spread's bucket.** With ten-unit bands, a best bid at 79,001.4 and a
-   best ask at 79,001.6 fall in the same band. In a single array the two would
-   sum into a phantom row that does not exist in the book.
-2. **Neither side stores the other's empty half.** Each array covers only the
-   extent its own side occupies, so two arrays cost what one dense array covering
-   everything would — and say more.
-
 ## The whole book, as fixed squares
 
-`liquidity_frame` follows the price: it holds a band around it and nothing else,
-because a row per price across the whole book would be mostly zeroes. A wall
-resting a long way from the market is therefore invisible in it, and a wall a
-long way from the market is exactly what a reader zooms out to find.
+The recording is one store: `whole_book`, holding the book cut into fixed
+squares of 512 instants by 512 prices anchored to an absolute grid, each square
+its own brotli stream. Sizes are logarithmic — one byte per cell, two per cent
+to the step — so the whole book costs a fraction of what a band around the price
+would cost stored plainly.
 
-`whole_book` holds the whole book instead, cut into fixed squares of 512
-instants by 512 prices anchored to an absolute grid, each square its own brotli
-stream. Sizes are logarithmic — one byte per cell, two per cent to the step — so
-the whole book costs a fraction of what the band costs stored plainly. Measured
-over the same 22 hours: 233 MB for the band in `liquidity_frame`, 19 MB for the
+It replaced a table of one row per instant, which carried both depth ladders as
+`REAL[]` arrays and followed the price: it held a couple of per cent around the
+market and nothing else, because a row per price across the whole book would
+have been mostly zeroes. That made a wall resting a long way from the market
+invisible — and a wall a long way from the market is exactly what a reader zooms
+out to find. Measured over the same 22 hours: 233 MB for the band, 19 MB for the
 whole book at the finest level.
 
 ```sql
@@ -109,9 +74,9 @@ looked like the picture had broken.
 ### Both axes narrow the read
 
 A square is addressed by price as well as by time, so a read for a band of
-prices touches only the squares that band crosses. That is what `liquidity_frame`
-cannot do — it reads its stored rows whatever was asked for, and the band is
-applied to the answer.
+prices touches only the squares that band crosses. A table of one row per
+instant cannot do that: it reads its stored rows whatever was asked for, and the
+band has to be applied to the answer — which saves the wire and nothing else.
 
 ### A block is written whole
 

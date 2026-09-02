@@ -16,7 +16,6 @@ export interface LiveTailSubscriptionRequest {
      * band around the price into a chart drawn from the whole book leaves
      * everything outside that band standing still.
      */
-    readonly source?: string;
     /** The prices the reader is drawing, so the tail carries only those. */
     readonly lowPrice?: number;
     readonly highPrice?: number;
@@ -27,7 +26,6 @@ export interface LiveTailSubscriptionRequest {
 export interface LiveTailServiceConfig {
     readonly source: LiveTailSource;
     /** The stores a reader may name, beside the frame table the default reads. */
-    readonly sourcesByName?: Readonly<Record<string, LiveTailSource>>;
     /**
      * How often a tail catches up on its own.
      *
@@ -85,7 +83,7 @@ export class LiveTailService {
         }
 
         const tail = new LiveTail({
-            source: this.resolveSource(request.source),
+            source: this.config.source,
             instrumentSymbol: request.instrumentSymbol,
             afterMs: request.afterMs,
             maxFramesPerPoll: this.config.maxFramesPerPoll,
@@ -136,28 +134,6 @@ export class LiveTailService {
 
     get subscriptionCount(): number {
         return this.running.size;
-    }
-
-    /**
-     * The store a named reader is streamed from.
-     *
-     * A name with nothing behind it is refused rather than quietly served from
-     * somewhere else. These stores exist to be weighed against each other, and a
-     * chart fed from a store the reader did not choose is a measurement of
-     * nothing — which is far worse, and far harder to notice, than a socket that
-     * closes and says why.
-     *
-     * @throws UnknownTailSourceError when the name was never wired up.
-     */
-    private resolveSource(name: string | undefined): LiveTailSource {
-        if (name === undefined) {
-            return this.config.source;
-        }
-        const named = this.config.sourcesByName?.[name];
-        if (named === undefined) {
-            throw new UnknownTailSourceError(name);
-        }
-        return named;
     }
 
     private release(entry: RunningTail): void {

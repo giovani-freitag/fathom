@@ -1,4 +1,5 @@
 import { type AppearanceHost, AppearanceController } from './appearance-controller.ts';
+import { IndexedDbChunkRowStore } from '../../database/browser/indexed-db-chunk-row-store.ts';
 import { ChartController } from './chart-controller.ts';
 import { DrawingsController } from '../drawings/drawings-controller.ts';
 import { createCursorStore } from './cursor-store.ts';
@@ -71,7 +72,11 @@ export function createDemoServiceContainer(
     // the store, because a Worker cannot see local storage and a page cannot
     // reach into a Worker's memory.
     const recording = new BrowserRecordingControl({
-        archive: new IndexedDbLiquidityArchive({ database, frameCapacity: 1 }),
+        archive: new IndexedDbLiquidityArchive({
+            database,
+            chunks: new IndexedDbChunkRowStore({ database }),
+            frameCapacity: 1,
+        }),
         database,
         estimateStorage: () => navigator.storage.estimate(),
         catalogue: DEMO_CATALOGUE,

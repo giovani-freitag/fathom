@@ -82,6 +82,22 @@ export interface FinestChunkGrid {
 }
 
 /**
+ * How much of one contract the archive holds, and where the market last was.
+ *
+ * Read out of the finest level rather than kept beside it. A block is addressed
+ * by a fixed grid and carries empty places until the recording reaches it, so
+ * neither edge of what is stored is where a block opens or closes — both have
+ * to be found in the touch prices the block carries, which are nought exactly
+ * where nothing was recorded.
+ */
+export interface ChunkCoverage {
+    readonly firstFrameAtMs: number;
+    readonly lastFrameAtMs: number;
+    /** The touch, midway, at the newest instant recorded. */
+    readonly lastMidPrice: number;
+}
+
+/**
  * The first instant one block actually holds a recording of.
  *
  * A block is addressed by a fixed grid and carries empty places until the
@@ -94,6 +110,40 @@ export interface FinestChunkGrid {
 export function firstRecordedInstant(row: ChunkBlockRow): number | null {
     const column = row.bestBidPrices.findIndex((price) => price > 0);
     return column < 0 ? null : row.startedAtMs + column * row.columnIntervalMs;
+}
+
+/**
+ * The last instant one block actually holds a recording of.
+ *
+ * The other end of the same walk: nought for a touch price is a place the fixed
+ * grid left empty, and a block at the live edge is mostly those.
+ *
+ * @param row - The block to look at.
+ * @returns The instant, or null when the block holds no recording at all.
+ */
+export function lastRecordedInstant(row: ChunkBlockRow): number | null {
+    for (let column = row.bestBidPrices.length - 1; column >= 0; column -= 1) {
+        if (row.bestBidPrices[column]! > 0) {
+            return row.startedAtMs + column * row.columnIntervalMs;
+        }
+    }
+    return null;
+}
+
+/**
+ * The touch, midway, at the newest instant one block recorded.
+ *
+ * @param row - The block to look at.
+ * @returns The price, or null when the block holds no recording at all.
+ */
+export function lastRecordedMidPrice(row: ChunkBlockRow): number | null {
+    for (let column = row.bestBidPrices.length - 1; column >= 0; column -= 1) {
+        const bid = row.bestBidPrices[column]!;
+        if (bid > 0) {
+            return (bid + (row.bestAskPrices[column] ?? bid)) / 2;
+        }
+    }
+    return null;
 }
 
 /**
@@ -135,6 +185,14 @@ export interface ChunkRowStore {
      * @returns Its grid, or null where nothing is stored for it.
      */
     readFinestGrid(instrumentSymbol: string): Promise<FinestChunkGrid | null>;
+
+    /**
+     * The stretch one contract is recorded through, and where it ended up.
+     *
+     * @param instrumentSymbol - The contract.
+     * @returns Its coverage, or null where nothing is stored for it.
+     */
+    readCoverage(instrumentSymbol: string): Promise<ChunkCoverage | null>;
 
     /**
      * What write the stored block stands on, for telling one writer from another.

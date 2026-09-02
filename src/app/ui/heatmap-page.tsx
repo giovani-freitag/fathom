@@ -97,6 +97,10 @@ export function HeatmapPage(): ReactElement {
             viewport: { ...kernel.chart.store.read().viewport, fromMs: nowMs - spanMs, toMs: nowMs },
             surfaceWidthPx: window.innerWidth,
             isFollowingLive: true,
+            // The prices on screen belong to how much time was on screen
+            // before. Kept, fifteen minutes of chart is drawn against a week of
+            // price and reads as one flat line.
+            isRefittingPrice: true,
         });
     }, [kernel]);
 

@@ -25,26 +25,21 @@ const postgres = new PostgresService({
     statementTimeoutMs: DATABASE_STATEMENT_TIMEOUT_MS,
     channelRetryDelayMs: DATABASE_CHANNEL_RETRY_DELAY_MS,
 });
-const query = new LiquidityQueryService({ postgres });
-const chunks = new ChunkArchiveService({ rows: new PostgresChunkRowStore({ postgres }) });
+const chunkRows = new PostgresChunkRowStore({ postgres });
+const query = new LiquidityQueryService({ postgres, chunks: chunkRows });
+const chunks = new ChunkArchiveService({ rows: chunkRows });
 const control = new RecordingControlService({ postgres });
-const framesTail = new PostgresLiveTailSource({ query });
-const readNowMs = () => Date.now();
-
-/** A tail over one store, sharing the executions and holes nobody stores twice. */
-const tailOver = (readWindow: ConstructorParameters<typeof StoredDepthTailSource>[0]['readWindow']) => (
-    new StoredDepthTailSource({ readWindow, rest: framesTail, readNowMs })
-);
+// Executions and holes are not kept per store — there is one of each — so the
+// tail takes them from the query service and takes only the depth from the
+// archive the chart is drawn out of.
+const companions = new PostgresLiveTailSource({ query });
 
 const liveTail = new LiveTailService({
-    source: framesTail,
-    // One entry per store the reader can name: a chart drawn out of one store
-    // and streamed out of another shows neither. Every name the route accepts
-    // has to appear here.
-    sourcesByName: {
-        frames: framesTail,
-        chunks: tailOver((request) => chunks.fetchWindow(request)),
-    },
+    source: new StoredDepthTailSource({
+        readWindow: (request) => chunks.fetchWindow(request),
+        rest: companions,
+        readNowMs: () => Date.now(),
+    }),
     pollIntervalMs: LIVE_TAIL_SETTINGS.pollIntervalMs,
     maxFramesPerPoll: LIVE_TAIL_SETTINGS.maxFramesPerPoll,
     maximumSubscriptions: LIVE_TAIL_SETTINGS.maximumSubscriptions,

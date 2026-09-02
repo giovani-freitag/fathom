@@ -138,21 +138,18 @@ npm run dev:demo
 
 ### The tools it was built with
 
-Three scripts nothing runs for you, kept because every optimisation in this
+Two scripts nothing runs for you, kept because every optimisation in this
 project was chosen from one of them:
 
 ```bash
-node --env-file-if-exists=.env scripts/compare-stores.mjs BTCUSDT 10
 node --env-file-if-exists=.env scripts/measure-chart.mjs --repeat 4
 node --env-file-if-exists=.env scripts/rebuild-pyramid.mjs
 ```
 
-The first reads the same minutes out of both stores and compares them cell by
-cell — it has caught two folding bugs that nothing else would have. The second
-drives the real chart through pan, zoom and price gestures over the Chrome
-debugging protocol and reports what each cost. The third rebuilds the coarse
-levels of the archive from the finest one, which is what a change to how they
-fold needs afterwards.
+The first drives the real chart through pan, zoom and price gestures over the
+Chrome debugging protocol and reports what each cost. The second rebuilds the
+coarse levels of the archive from the finest one, which is what a change to how
+they fold needs afterwards.
 
 ## 📚 Docs
 

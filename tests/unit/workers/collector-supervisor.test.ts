@@ -12,7 +12,6 @@ function buildArchive(): LiquidityArchive {
         open: vi.fn().mockResolvedValue(undefined),
         close: vi.fn().mockResolvedValue(undefined),
         registerInstrument: vi.fn().mockResolvedValue(undefined),
-        appendFrames: vi.fn().mockResolvedValue(undefined),
         appendTradeClusters: vi.fn().mockResolvedValue(undefined),
         recordGap: vi.fn().mockResolvedValue(undefined),
         findLastFrameTimestamp: vi.fn().mockResolvedValue(null),

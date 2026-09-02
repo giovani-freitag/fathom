@@ -1,9 +1,8 @@
-import type { LiquidityFrame } from '../../shared/core/liquidity-frame.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
 import type { PostgresService } from '../postgres/postgres-service.ts';
+import type { ChunkRowStore } from '../core/chunk-row-store.ts';
 import { buildValuesClause, chunkItems } from '../postgres/multi-row-insert.ts';
 import type {
-    FrameAppendRequest,
     GapRecordRequest,
     InstrumentRegistrationRequest,
     LiquidityArchive,
@@ -11,19 +10,18 @@ import type {
 } from './liquidity-archive.ts';
 
 export type {
-    FrameAppendRequest,
     GapRecordRequest,
     InstrumentRegistrationRequest,
     TradeClusterAppendRequest,
 } from './liquidity-archive.ts';
 
-const FRAME_COLUMN_COUNT = 9;
 const TRADE_CLUSTER_COLUMN_COUNT = 8;
-const FRAMES_PER_STATEMENT = 500;
 const TRADE_CLUSTERS_PER_STATEMENT = 800;
 
 export interface LiquidityArchiveServiceConfig {
     readonly postgres: PostgresService;
+    /** Where the recording is, for the one question about it this answers. */
+    readonly chunks: ChunkRowStore;
 }
 
 /**
@@ -31,9 +29,11 @@ export interface LiquidityArchiveServiceConfig {
  */
 export class LiquidityArchiveService implements LiquidityArchive {
     private readonly postgres: PostgresService;
+    private readonly chunks: ChunkRowStore;
 
     constructor(config: LiquidityArchiveServiceConfig) {
         this.postgres = config.postgres;
+        this.chunks = config.chunks;
     }
 
     /**
@@ -48,18 +48,6 @@ export class LiquidityArchiveService implements LiquidityArchive {
      */
     async close(): Promise<void> {
         await this.postgres.close();
-    }
-
-    /**
-     * Appends depth frames, ignoring any whose instant is already recorded.
-     *
-     * @param request - Instrument, price grid, and frames in capture order.
-     * @throws PostgresQueryError when the write fails.
-     */
-    async appendFrames(request: FrameAppendRequest): Promise<void> {
-        for (const chunk of chunkItems(request.frames, FRAMES_PER_STATEMENT)) {
-            await this.insertFrameChunk(request, chunk);
-        }
     }
 
     /**
@@ -119,46 +107,10 @@ export class LiquidityArchiveService implements LiquidityArchive {
      * @throws PostgresQueryError when the read fails.
      */
     async findLastFrameTimestamp(instrumentSymbol: string): Promise<number | null> {
-        const rows = await this.postgres.selectRows<{ last_captured_at: Date | null }>(
-            `SELECT MAX(captured_at) AS last_captured_at
-             FROM liquidity_frame
-             WHERE instrument_symbol = $1`,
-            [instrumentSymbol],
-        );
-        const lastCapturedAt = rows[0]?.last_captured_at ?? null;
-        return lastCapturedAt === null ? null : lastCapturedAt.getTime();
+        const coverage = await this.chunks.readCoverage(instrumentSymbol);
+        return coverage?.lastFrameAtMs ?? null;
     }
 
-    private async insertFrameChunk(
-        request: FrameAppendRequest,
-        frames: readonly LiquidityFrame[],
-    ): Promise<void> {
-        const parameters: unknown[] = [];
-        for (const frame of frames) {
-            parameters.push(
-                new Date(frame.capturedAtMs),
-                request.instrumentSymbol,
-                request.priceBucketSize,
-                frame.bestBidPrice,
-                frame.bestAskPrice,
-                frame.bids.lowestBucketIndex,
-                Array.from(frame.bids.quantities),
-                frame.asks.lowestBucketIndex,
-                Array.from(frame.asks.quantities),
-            );
-        }
-
-        await this.postgres.execute(
-            `INSERT INTO liquidity_frame (
-                 captured_at, instrument_symbol, price_bucket_size,
-                 best_bid_price, best_ask_price,
-                 bid_lowest_bucket_index, bid_quantities,
-                 ask_lowest_bucket_index, ask_quantities
-             ) VALUES ${buildValuesClause(frames.length, FRAME_COLUMN_COUNT)}
-             ON CONFLICT DO NOTHING`,
-            parameters,
-        );
-    }
 
     private async insertTradeClusterChunk(
         request: TradeClusterAppendRequest,

@@ -2,14 +2,16 @@
 export const DATABASE_NAME = 'fathom-demo';
 
 /** Bumped only when a store or a key path changes. */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
+
+/** The store a page kept a row per instant in, before it kept squares. */
+const RETIRED_STORE = 'liquidity_frame';
 
 /**
  * Store names, deliberately identical to the SQL tables.
  */
 export const STORES = {
     instrumentRegistry: 'instrument_registry',
-    liquidityFrame: 'liquidity_frame',
     tradeCluster: 'trade_cluster',
     recordingGap: 'recording_gap',
     recordingControl: 'recording_control',
@@ -37,13 +39,16 @@ export const BLOCK_REACH_INDEX = 'endedAt';
  *                  already exists to add an index to it.
  */
 export function createStores(database: IDBDatabase, upgrade: IDBTransaction): void {
+    // A page that recorded under an older build is carrying a store nothing
+    // reads. It is the largest thing in there — a row per instant against the
+    // squares that replaced it — so it goes on the way past rather than being
+    // left for a visitor to wonder about.
+    if (database.objectStoreNames.contains(RETIRED_STORE)) {
+        database.deleteObjectStore(RETIRED_STORE);
+    }
+
     if (!database.objectStoreNames.contains(STORES.instrumentRegistry)) {
         database.createObjectStore(STORES.instrumentRegistry, { keyPath: 'instrumentSymbol' });
-    }
-    if (!database.objectStoreNames.contains(STORES.liquidityFrame)) {
-        database.createObjectStore(STORES.liquidityFrame, {
-            keyPath: ['instrumentSymbol', 'capturedAtMs'],
-        });
     }
     if (!database.objectStoreNames.contains(STORES.tradeCluster)) {
         database.createObjectStore(STORES.tradeCluster, {

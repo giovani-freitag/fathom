@@ -1,4 +1,5 @@
 import type {
+    ChunkCoverage,
     ChunkBlockAddress,
     ChunkBlockRange,
     ChunkBlockRow,
@@ -9,7 +10,11 @@ import type {
     ChunkSquareWrite,
     FinestChunkGrid,
 } from '../core/chunk-row-store.ts';
-import { firstRecordedInstant } from '../core/chunk-row-store.ts';
+import {
+    firstRecordedInstant,
+    lastRecordedInstant,
+    lastRecordedMidPrice,
+} from '../core/chunk-row-store.ts';
 import type { IndexedDbService } from './indexed-db-service.ts';
 import { BLOCK_REACH_INDEX, STORES } from './browser-schema.ts';
 
@@ -131,6 +136,51 @@ export class IndexedDbChunkRowStore implements ChunkRowStore {
         return found === undefined
             ? null
             : { columnIntervalMs: found.columnIntervalMs, priceBucketSize: found.priceBucketSize };
+    }
+
+    async readCoverage(instrumentSymbol: string): Promise<ChunkCoverage | null> {
+        const oldest = await this.readEdgeBlock(instrumentSymbol, 'next');
+        const newest = await this.readEdgeBlock(instrumentSymbol, 'prev');
+        if (oldest === null || newest === null) {
+            return null;
+        }
+
+        const firstFrameAtMs = firstRecordedInstant(oldest);
+        const lastFrameAtMs = lastRecordedInstant(newest);
+        const lastMidPrice = lastRecordedMidPrice(newest);
+        if (firstFrameAtMs === null || lastFrameAtMs === null || lastMidPrice === null) {
+            return null;
+        }
+
+        return { firstFrameAtMs, lastFrameAtMs, lastMidPrice };
+    }
+
+    /**
+     * The first or last block of the finest level, and nothing between them.
+     *
+     * A block is addressed by a fixed grid and carries empty places until the
+     * recording reaches it, so where the recording begins and ends is found in
+     * the touch prices these two carry rather than in the blocks themselves.
+     */
+    private async readEdgeBlock(
+        instrumentSymbol: string,
+        direction: IDBCursorDirection,
+    ): Promise<ChunkBlockRow | null> {
+        const found: BlockRecord[] = [];
+        await this.config.database.transact([STORES.liquidityBlock], 'readonly', ([store]) => {
+            const request = store!.openCursor(IDBKeyRange.bound(
+                [instrumentSymbol, 0],
+                [instrumentSymbol, 0, Number.MAX_SAFE_INTEGER],
+            ), direction);
+            request.onsuccess = () => {
+                const cursor = request.result;
+                if (cursor !== null) {
+                    found.push(cursor.value as BlockRecord);
+                }
+            };
+        });
+        const record = found[0];
+        return record === undefined ? null : toBlockRow(record);
     }
 
     async readRevision(at: ChunkBlockAddress): Promise<string | null> {

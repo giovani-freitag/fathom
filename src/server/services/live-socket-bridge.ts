@@ -10,7 +10,6 @@ export interface LiveSocketBridgeConfig {
     readonly afterMs: number;
     readonly priceBucketSize: number;
     /** Which store the reader is drawing, or absent for the frame table. */
-    readonly source?: string;
     /** The prices on screen, so the tail carries only those. */
     readonly lowPrice?: number;
     readonly highPrice?: number;
@@ -44,7 +43,6 @@ export class LiveSocketBridge {
                 afterMs: this.config.afterMs,
                 priceBucketSize: this.config.priceBucketSize,
                 onMessage: this.handleMessage,
-                ...(this.config.source === undefined ? {} : { source: this.config.source }),
                 ...(this.config.lowPrice === undefined ? {} : { lowPrice: this.config.lowPrice }),
                 ...(this.config.highPrice === undefined
                     ? {}

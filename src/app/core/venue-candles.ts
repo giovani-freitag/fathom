@@ -1,4 +1,4 @@
-import type { HeatmapSource } from '../../shared/core/heatmap-source.ts';
+import type { ArchiveSource, HeatmapSource } from '../../shared/core/heatmap-source.ts';
 import { VenueBarSource } from '../services/venue-bar-source.ts';
 import { VenueCandleService } from '../services/venue-candle-service.ts';
 
@@ -22,7 +22,7 @@ const VENUE_REST_BASE_URL = 'https://fapi.binance.com';
  * @param archive - Whatever holds the recording, on a server or in the browser.
  * @returns A source answering candles from the venue and the rest from the archive.
  */
-export function wrapWithVenueCandles(archive: HeatmapSource): HeatmapSource {
+export function wrapWithVenueCandles(archive: ArchiveSource): HeatmapSource {
     return new VenueBarSource({
         archive,
         candles: new VenueCandleService({

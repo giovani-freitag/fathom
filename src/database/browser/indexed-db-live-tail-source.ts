@@ -1,12 +1,10 @@
 import type {
     BetweenRequest,
-    FramesAfterRequest,
-    LiveTailSource,
+    TailCompanions,
 } from '../../shared/core/live-tail.ts';
-import type { FrameRecord, GapRecord, InstrumentRecord, TradeClusterRecord } from './indexed-db-record-mapping.ts';
-import { toLiquidityFrame, toRecordingGap, toTradeCluster } from './indexed-db-record-mapping.ts';
+import type { GapRecord, InstrumentRecord, TradeClusterRecord } from './indexed-db-record-mapping.ts';
+import { toRecordingGap, toTradeCluster } from './indexed-db-record-mapping.ts';
 import type { IndexedDbService } from './indexed-db-service.ts';
-import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import { STORES } from './browser-schema.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
@@ -18,40 +16,11 @@ export interface IndexedDbLiveTailSourceConfig {
 /**
  * The reads a tail makes, answered from the store this page records into.
  */
-export class IndexedDbLiveTailSource implements LiveTailSource {
+export class IndexedDbLiveTailSource implements TailCompanions {
     private readonly database: IndexedDbService;
 
     constructor(config: IndexedDbLiveTailSourceConfig) {
         this.database = config.database;
-    }
-
-    /**
-     * Frames recorded after an instant.
-     *
-     * @param request - The instrument, the cursor, and how many to carry.
-     * @returns The frames, oldest first, on the grid they were recorded on.
-     */
-    async fetchFramesAfter(request: FramesAfterRequest): Promise<LiquidityFrameWindow> {
-        // Bounded open at the low end, which is what "strictly after" means on a
-        // compound key: the reader already holds the frame at the cursor.
-        const range = IDBKeyRange.bound(
-            [request.symbol, request.afterMs],
-            [request.symbol, Number.POSITIVE_INFINITY],
-            true,
-            false,
-        );
-        const records = await this.database.readRange<FrameRecord>(
-            STORES.liquidityFrame,
-            range,
-            request.maxFrames,
-        );
-        const grid = await this.readGrid(request.symbol);
-
-        return {
-            priceBucketSize: grid?.priceBucketSize ?? 1,
-            sampleIntervalMs: grid?.frameIntervalMs ?? 1,
-            frames: records.map(toLiquidityFrame),
-        };
     }
 
     /**

@@ -55,7 +55,6 @@ export interface LiquidityRecorderServiceConfig {
     readonly instrumentSymbol: string;
     readonly priceBucketSize: number;
     readonly frameIntervalMs: number;
-    readonly recordedPriceRangeRatio: number;
     /**
      * A second, far wider framing of the same instants.
      *
@@ -68,7 +67,6 @@ export interface LiquidityRecorderServiceConfig {
     readonly wideRecordings?: readonly WideRecordingConfig[];
     readonly flushIntervalMs: number;
     readonly framesPerFlush: number;
-    readonly maximumBufferedFrames: number;
     readonly maximumBufferedTradeClusters: number;
     readonly onStatusChanged: (status: string) => void;
 }
@@ -85,6 +83,8 @@ export class LiquidityRecorderService {
     private flushTimer: TimerHandle | null = null;
     private isRunning = false;
     private lastCapturedAtMs: number | null = null;
+    /** Instants captured since the last flush, which is what triggers the next. */
+    private capturesSinceFlush = 0;
 
     /** When the recording clock last produced a frame, or null before the first. */
     get lastFrameAtMs(): number | null {
@@ -105,10 +105,8 @@ export class LiquidityRecorderService {
             archive: config.archive,
             instrumentSymbol: config.instrumentSymbol,
             priceBucketSize: config.priceBucketSize,
-            maximumBufferedFrames: config.maximumBufferedFrames,
             maximumBufferedTradeClusters: config.maximumBufferedTradeClusters,
             onWriteFailed: this.handleWriteFailure.bind(this),
-            onFramesDropped: this.handleFramesDropped.bind(this),
         });
 
         this.handleFrameDue = this.handleFrameDue.bind(this);
@@ -264,17 +262,17 @@ export class LiquidityRecorderService {
         }
 
         this.closeOpenGap(capturedAtMs);
-        this.writeBuffer.enqueueFrame(buildLiquidityFrame({
-            reading,
-            capturedAtMs,
-            priceBucketSize: this.config.priceBucketSize,
-            recordedPriceRangeRatio: this.config.recordedPriceRangeRatio,
-        }));
         this.captureWideFrame(reading, capturedAtMs);
         this.writeBuffer.enqueueTradeClusters(this.tradeClusters.drainBefore(capturedAtMs));
         this.lastCapturedAtMs = capturedAtMs;
 
-        if (this.writeBuffer.pendingFrameCount >= this.config.framesPerFlush) {
+        // Counted rather than measured off a queue. What the buffer holds is
+        // executions and holes, and a quiet minute produces none of either —
+        // so a flush driven by its depth would never come round, and a gap
+        // would sit unwritten for as long as nothing traded.
+        this.capturesSinceFlush += 1;
+        if (this.capturesSinceFlush >= this.config.framesPerFlush) {
+            this.capturesSinceFlush = 0;
             void this.writeBuffer.flush();
         }
     }

@@ -743,3 +743,43 @@ describe('WindowLoader and the coarser rungs a reading asked for', () => {
         expect(askedRungs(harness)).toEqual([DAY_MS]);
     });
 });
+
+describe('WindowLoader and the prices it is willing to ask for', () => {
+    /** Every price the loader named on the wire, across every call. */
+    function askedPrices(harness: Harness): number[] {
+        return harness.mocks.fetchFrameWindow.mock.calls
+            .flatMap((call) => {
+                const band = (call[0] as { priceBand?: { lowPrice: number; highPrice: number } }).priceBand;
+                return band === undefined ? [] : [band.lowPrice, band.highPrice];
+            });
+    }
+
+    it('never asks for a price the archive could not lay out', async () => {
+        // A reader who has not framed itself is asking to be shown the book so
+        // it can find its place, and the region that stands for is bounded by
+        // the largest number there is. That is arithmetic for the cache, not a
+        // price: sent as one it fails the whole window.
+        const harness = buildHarness();
+
+        await harness.loader.load(buildRequest({ priceBand: null }));
+        await harness.loader.load(buildRequest({
+            priceBand: null,
+            viewport: { ...VIEWPORT, fromMs: VIEWPORT.fromMs + 400_000, toMs: VIEWPORT.toMs + 400_000 },
+        }));
+
+        expect(askedPrices(harness).every((price) => price < Number.MAX_SAFE_INTEGER)).toBe(true);
+    });
+
+    it('still says how many rows it has room for while it has no prices', async () => {
+        // The rows are what stops an unframed reader being sent every price in
+        // the market, so they have to travel even when the prices do not.
+        const harness = buildHarness();
+
+        await harness.loader.load(buildRequest({ priceBand: null }));
+
+        const bands = harness.mocks.fetchFrameWindow.mock.calls
+            .map((call) => (call[0] as { priceBand?: { maxRows: number } }).priceBand)
+            .filter((band) => band !== undefined);
+        expect(bands.every((band) => band.maxRows > 0)).toBe(true);
+    });
+});

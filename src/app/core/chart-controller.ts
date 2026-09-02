@@ -32,7 +32,7 @@ import {
     resolveTradePriceGroupSize,
     resolveViewportBounds,
 } from './viewport-policy.ts';
-import { describeBand, DRAWN_FROM, type LoadedWindow, type WindowLoadRequest, type WindowSource, WindowLoader } from './window-loader.ts';
+import { describeBand, type LoadedWindow, type WindowLoadRequest, type WindowSource, WindowLoader } from './window-loader.ts';
 import {
     findIndicator,
     resolveRequiredHigherBars,
@@ -56,7 +56,15 @@ const RIGHT_MARGIN_BARS = 5;
  */
 const RIGHT_MARGIN_SPAN_RATIO = 0.04;
 
-const COVERAGE_REFRESH_MS = 5_000;
+/**
+ * How often the listing and the coverage it carries are re-read.
+ *
+ * Coverage grows by a second a second and the picker only changes when someone
+ * switches a contract on, so this was answering a question nobody had asked
+ * twelve times a minute — for ever, in every open tab, whether or not anything
+ * was showing it.
+ */
+const COVERAGE_REFRESH_MS = 30_000;
 
 export type ChartPhase = 'initialising' | 'ready' | 'empty' | 'failed';
 
@@ -125,6 +133,16 @@ export interface ViewRequest {
     /** Pass false when the gesture chose a price band of its own. */
     readonly isFollowingPrice?: boolean;
     /**
+     * True when the prices on screen no longer belong to what is being shown.
+     *
+     * Choosing how much time to look at is the case. Every price bound is
+     * carried over from the view before it, so a reader who looked at a week
+     * and then asked for fifteen minutes is handed a quarter of an hour drawn
+     * against a week of price: a flat line across the middle of an empty chart,
+     * with no way back but a reload.
+     */
+    readonly isRefittingPrice?: boolean;
+    /**
      * True on the view a gesture leaves behind when the hand lifts.
      *
      * A drag writes a viewport every frame, and asking for a window on each of
@@ -168,6 +186,8 @@ export class ChartController {
         this.handleLiveStatus = this.handleLiveStatus.bind(this);
         this.handleWindowLoaded = this.handleWindowLoaded.bind(this);
         this.handleLoadingChanged = this.handleLoadingChanged.bind(this);
+        this.handleCoverageDue = this.handleCoverageDue.bind(this);
+        this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
         this.publishFailure = this.publishFailure.bind(this);
 
         this.windowLoader = new WindowLoader({
@@ -249,7 +269,30 @@ export class ChartController {
         // Read once at startup, the listing freezes: a contract switched on
         // never appears in the picker, and "recorded so far" keeps reporting
         // the span the page happened to open with.
-        this.coverageTimer = setInterval(() => { void this.refreshInstruments(); }, intervalMs);
+        this.coverageTimer = setInterval(this.handleCoverageDue, intervalMs);
+        document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    }
+
+    /**
+     * Re-reads the listing, unless nobody is looking at it.
+     *
+     * A hidden tab is not reading a picker or a coverage figure, and it picks
+     * both up the moment it is looked at again.
+     */
+    private handleCoverageDue(): void {
+        if (document.visibilityState === 'hidden') {
+            return;
+        }
+        void this.refreshInstruments();
+    }
+
+    /**
+     * Catches the listing up when a tab is looked at again.
+     */
+    private handleVisibilityChange(): void {
+        if (document.visibilityState === 'visible') {
+            void this.refreshInstruments();
+        }
     }
 
     /**
@@ -260,6 +303,7 @@ export class ChartController {
         if (this.coverageTimer !== null) {
             clearInterval(this.coverageTimer);
             this.coverageTimer = null;
+            document.removeEventListener('visibilitychange', this.handleVisibilityChange);
         }
         this.windowLoader.dispose();
         this.config.liveFeed.disconnect();
@@ -306,11 +350,10 @@ export class ChartController {
      * widened: nothing else ever shrinks the axis.
      */
     refitPrice(): void {
-        this.needsPriceFraming = true;
-        this.store.update((state) => ({ ...state, isFollowingPrice: true }));
         this.applyView({
             viewport: this.store.read().viewport,
             surfaceWidthPx: this.surfaceWidthPx,
+            isRefittingPrice: true,
         });
     }
 
@@ -368,12 +411,24 @@ export class ChartController {
         const isFollowingLive = request.isFollowingLive ?? this.store.read().isFollowingLive;
         const viewport = this.restEdgeOnData(clampViewport(request.viewport, bounds), isFollowingLive);
 
+        this.needsPriceFraming = this.needsPriceFraming || request.isRefittingPrice === true;
         this.store.update((state) => ({
             ...state,
             viewport,
             isFollowingLive,
-            isFollowingPrice: request.isFollowingPrice ?? state.isFollowingPrice,
+            isFollowingPrice: request.isRefittingPrice === true
+                || (request.isFollowingPrice ?? state.isFollowingPrice),
         }));
+
+        // Asked for outright rather than offered to the staleness check. What
+        // changed is which prices the window should be *asked* for, and the
+        // check compares the view against what was loaded — so a request that
+        // gives up its band looks like the one that had it, and the reader is
+        // left framed on a stretch they have left.
+        if (request.isRefittingPrice === true) {
+            void this.loadWindow();
+            return;
+        }
 
         const loadRequest = this.buildLoadRequest();
         if (loadRequest !== null) {
@@ -598,7 +653,6 @@ export class ChartController {
         this.config.liveFeed.connect({
             instrumentSymbol: state.instrumentSymbol,
             afterMs: newestFrameTimestamp(state.dataset) ?? Date.now(),
-            source: DRAWN_FROM,
             // A band the chart has not framed itself on yet names no prices,
             // and a tail asked for none of them reads all of them, which is
             // right: it is still looking for the market.

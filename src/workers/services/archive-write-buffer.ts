@@ -1,4 +1,3 @@
-import type { LiquidityFrame } from '../../shared/core/liquidity-frame.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
 import type { LiquidityArchive } from '../../database/services/liquidity-archive.ts';
@@ -8,10 +7,8 @@ export interface ArchiveWriteBufferConfig {
     readonly archive: LiquidityArchive;
     readonly instrumentSymbol: string;
     readonly priceBucketSize: number;
-    readonly maximumBufferedFrames: number;
     readonly maximumBufferedTradeClusters: number;
     readonly onWriteFailed: (reason: string) => void;
-    readonly onFramesDropped: (droppedFrames: readonly LiquidityFrame[]) => void;
 }
 
 /**
@@ -19,22 +16,12 @@ export interface ArchiveWriteBufferConfig {
  */
 export class ArchiveWriteBuffer {
     private readonly config: ArchiveWriteBufferConfig;
-    private readonly pendingFrames: LiquidityFrame[] = [];
     private readonly pendingTradeClusters: TradeCluster[] = [];
     private readonly pendingGaps: RecordingGap[] = [];
     private flushInFlight: Promise<void> | null = null;
 
     constructor(config: ArchiveWriteBufferConfig) {
         this.config = config;
-    }
-
-    /**
-     * Queues one frame for the next flush.
-     *
-     * @param frame - The frame to persist.
-     */
-    enqueueFrame(frame: LiquidityFrame): void {
-        this.pendingFrames.push(frame);
     }
 
     /**
@@ -85,10 +72,6 @@ export class ArchiveWriteBuffer {
         }
     }
 
-    get pendingFrameCount(): number {
-        return this.pendingFrames.length;
-    }
-
     get pendingGapCount(): number {
         return this.pendingGaps.length;
     }
@@ -106,7 +89,6 @@ export class ArchiveWriteBuffer {
     }
 
     private async writePending(): Promise<void> {
-        await this.writeFrames();
         await this.writeTradeClusters();
         await this.writeGaps();
     }
@@ -133,25 +115,6 @@ export class ArchiveWriteBuffer {
         this.pendingGaps.unshift(...failed);
     }
 
-    private async writeFrames(): Promise<void> {
-        const frames = this.pendingFrames.splice(0);
-        if (frames.length === 0) {
-            return;
-        }
-
-        try {
-            await this.config.archive.appendFrames({
-                instrumentSymbol: this.config.instrumentSymbol,
-                priceBucketSize: this.config.priceBucketSize,
-                frames,
-            });
-        } catch (error) {
-            this.pendingFrames.unshift(...frames);
-            this.config.onWriteFailed(describeError(error));
-            this.dropOldestFramesOverCapacity();
-        }
-    }
-
     private async writeTradeClusters(): Promise<void> {
         const clusters = this.pendingTradeClusters.splice(0);
         if (clusters.length === 0) {
@@ -169,15 +132,6 @@ export class ArchiveWriteBuffer {
             this.config.onWriteFailed(describeError(error));
             this.dropOldestClustersOverCapacity();
         }
-    }
-
-    private dropOldestFramesOverCapacity(): void {
-        const excessCount = this.pendingFrames.length - this.config.maximumBufferedFrames;
-        if (excessCount <= 0) {
-            return;
-        }
-        const droppedFrames = this.pendingFrames.splice(0, excessCount);
-        this.config.onFramesDropped(droppedFrames);
     }
 
     private dropOldestClustersOverCapacity(): void {

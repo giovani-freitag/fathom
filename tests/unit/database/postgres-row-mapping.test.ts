@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
     parseQuantityLiteral,
-    toDepthLadder,
     toQuantityArray,
 } from '../../../src/database/postgres/postgres-row-mapping.ts';
 
@@ -26,14 +25,6 @@ describe('toQuantityArray', () => {
 
     it('rejects a column that is neither an array nor a literal', () => {
         expect(() => toQuantityArray(42)).toThrow(TypeError);
-    });
-});
-
-describe('toDepthLadder', () => {
-    it('pairs the offset with the parsed quantities', () => {
-        const ladder = toDepthLadder(7_894, [2, 4]);
-
-        expect([ladder.lowestBucketIndex, [...ladder.quantities]]).toEqual([7_894, [2, 4]]);
     });
 });
 

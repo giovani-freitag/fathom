@@ -1,4 +1,5 @@
 import type {
+    ArchiveSource,
     FrameWindowQuery,
     HeatmapSource,
     TradeClusterQuery,
@@ -12,7 +13,7 @@ import type { VenueCandleService } from './venue-candle-service.ts';
 
 export interface VenueBarSourceConfig {
     /** Where everything but the bars is read from. */
-    readonly archive: HeatmapSource;
+    readonly archive: ArchiveSource;
     readonly candles: VenueCandleService;
 }
 

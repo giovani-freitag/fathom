@@ -1,27 +1,30 @@
 import {
     ArchiveUnavailableError,
-    type FrameAppendRequest,
     type GapRecordRequest,
     type InstrumentRegistrationRequest,
     type LiquidityArchive,
     type TradeClusterAppendRequest,
 } from '../services/liquidity-archive.ts';
-import type { FrameRecord } from './indexed-db-record-mapping.ts';
 import { IndexedDbQueryError, type IndexedDbService } from './indexed-db-service.ts';
+import type { ChunkRowStore } from '../core/chunk-row-store.ts';
 import { STORES } from './browser-schema.ts';
 import {
-    toFrameRecord,
     toTradeClusterRecord,
 } from './indexed-db-record-mapping.ts';
 
 export interface IndexedDbLiquidityArchiveConfig {
     readonly database: IndexedDbService;
-    /** Newest frames kept before the oldest are dropped. */
-    readonly frameCapacity: number;
+    /** Where the recording is, for reading how far it reaches. */
+    readonly chunks: ChunkRowStore;
+    /** Newest instants kept before the oldest are dropped. */
+    readonly frameCapacity?: number;
 }
 
-/** How many frames are dropped per prune, so one pass never stalls a paint. */
-const PRUNE_BATCH_FRAMES = 600;
+/** Instants kept when nothing says otherwise: a little over an hour. */
+const DEFAULT_CAPACITY = 4_000;
+
+/** How much time one recorded instant stands for. */
+const INSTANT_MS = 1_000;
 
 /**
  * The browser's write side, keeping the newest window and dropping the rest.
@@ -36,11 +39,13 @@ interface SquarePrune {
 
 export class IndexedDbLiquidityArchive implements LiquidityArchive {
     private readonly database: IndexedDbService;
+    private readonly chunks: ChunkRowStore;
     private readonly frameCapacity: number;
 
     constructor(config: IndexedDbLiquidityArchiveConfig) {
         this.database = config.database;
-        this.frameCapacity = Math.max(1, config.frameCapacity);
+        this.chunks = config.chunks;
+        this.frameCapacity = Math.max(1, config.frameCapacity ?? DEFAULT_CAPACITY);
     }
 
     async open(): Promise<void> {
@@ -61,23 +66,6 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
     async registerInstrument(request: InstrumentRegistrationRequest): Promise<void> {
         await this.write([STORES.instrumentRegistry], ([registry]) => {
             registry!.put({ ...request, registeredAtMs: Date.now() });
-        });
-    }
-
-    /**
-     * Appends captured frames.
-     *
-     * @param request - The instrument, its grid, and the frames.
-     * @throws ArchiveUnavailableError when the write is refused.
-     */
-    async appendFrames(request: FrameAppendRequest): Promise<void> {
-        if (request.frames.length === 0) {
-            return;
-        }
-        await this.write([STORES.liquidityFrame], ([frames]) => {
-            for (const frame of request.frames) {
-                frames!.put(toFrameRecord(request.instrumentSymbol, request.priceBucketSize, frame));
-            }
         });
     }
 
@@ -113,50 +101,38 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
     }
 
     /**
-     * Instant of the newest recorded frame.
+     * Instant of the newest recorded instant.
      *
      * @param instrumentSymbol - Which contract.
      * @returns The instant, or null when nothing is stored.
      */
     async findLastFrameTimestamp(instrumentSymbol: string): Promise<number | null> {
-        let newest: number | null = null;
-        await this.database.transact([STORES.liquidityFrame], 'readonly', ([frames]) => {
-            const request = frames!.openCursor(rangeForInstrument(instrumentSymbol), 'prev');
-            request.onsuccess = () => {
-                const cursor = request.result;
-                newest = cursor === null ? null : (cursor.value as FrameRecord).capturedAtMs;
-            };
-        });
-        return newest;
+        const coverage = await this.chunks.readCoverage(instrumentSymbol);
+        return coverage?.lastFrameAtMs ?? null;
     }
 
     /**
-     * Drops the oldest frames once the window is longer than it may be.
+     * Drops the oldest recording once the window is longer than it may be.
+     *
+     * Bounded in time rather than in stored rows. It always meant a stretch —
+     * so many instants at a second each — and the archive it now measures keeps
+     * a block of columns rather than a row per instant, so a count of records
+     * would be a count of the wrong thing.
      *
      * @param instrumentSymbol - Which contract to trim.
      * @param frameCapacity - Overrides the capacity this archive was built with.
-     * @returns How many frames were dropped.
+     * @returns How many instants of recording were dropped.
      */
     async pruneToCapacity(instrumentSymbol: string, frameCapacity?: number): Promise<number> {
-        const range = rangeForInstrument(instrumentSymbol);
-        const stored = await this.database.countRange(STORES.liquidityFrame, range);
-        const excess = stored - Math.max(1, frameCapacity ?? this.frameCapacity);
-        if (excess <= 0) {
+        const coverage = await this.chunks.readCoverage(instrumentSymbol);
+        if (coverage === null) {
             return 0;
         }
 
-        const dropping = Math.min(excess, PRUNE_BATCH_FRAMES);
-        // One record more than is being dropped: the delete below is bounded
-        // strictly, so the horizon has to be the first frame that survives.
-        // Taking the last of the batch instead left that frame behind, and the
-        // count returned still claimed it had gone.
-        const batch = await this.database.readRange<FrameRecord>(
-            STORES.liquidityFrame,
-            range,
-            dropping + 1,
-        );
-        const horizonMs = batch[dropping]?.capturedAtMs;
-        if (horizonMs === undefined) {
+        const keptMs = Math.max(1, frameCapacity ?? this.frameCapacity) * INSTANT_MS;
+        const horizonMs = coverage.lastFrameAtMs - keptMs;
+        const excessMs = horizonMs - coverage.firstFrameAtMs;
+        if (excessMs <= 0) {
             return 0;
         }
 
@@ -166,22 +142,18 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
         const expired = boundedRange(instrumentSymbol, horizonMs);
         await this.write(
             [
-                STORES.liquidityFrame, STORES.tradeCluster, STORES.recordingGap,
+                STORES.tradeCluster, STORES.recordingGap,
                 STORES.liquidityBlock, STORES.liquidityChunk,
             ],
-            ([frames, clusters, gaps, blocks, squares]) => {
-                frames!.delete(expired);
+            ([clusters, gaps, blocks, squares]) => {
                 clusters!.delete(expired);
                 this.deleteGapsEndingBefore(gaps!, instrumentSymbol, horizonMs);
-                // The squares of the whole book go with the band they cover.
-                // Left behind they are a store nothing prunes, and one block of
-                // the coarsest level is a fifth of a megabyte that never leaves.
                 this.deleteSquaresEndingBefore({
                     blocks: blocks!, squares: squares!, instrumentSymbol, horizonMs,
                 });
             },
         );
-        return dropping;
+        return Math.round(excessMs / INSTANT_MS);
     }
 
     /**
@@ -254,10 +226,6 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
 }
 
 /** Every record of one instrument: `[symbol]` sorts before every `[symbol, n]`. */
-function rangeForInstrument(instrumentSymbol: string): IDBKeyRange {
-    return IDBKeyRange.bound([instrumentSymbol], [instrumentSymbol, Number.POSITIVE_INFINITY]);
-}
-
 /** One instrument's records strictly older than an instant. */
 function boundedRange(instrumentSymbol: string, horizonMs: number): IDBKeyRange {
     return IDBKeyRange.bound([instrumentSymbol], [instrumentSymbol, horizonMs], false, true);

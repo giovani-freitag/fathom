@@ -2,6 +2,7 @@ import type {
     BetweenRequest,
     FramesAfterRequest,
     LiveTailSource,
+    TailCompanions,
 } from './live-tail.ts';
 import type { LiquidityFrameWindow } from './liquidity-frame.ts';
 import type { RecordingGap } from './recording-gap.ts';
@@ -28,7 +29,7 @@ export interface StoredDepthTailSourceConfig {
      * mixing two answers into one. Depth is the only thing the stores keep their
      * own copy of, and it is the only thing this class redirects.
      */
-    readonly rest: LiveTailSource;
+    readonly rest: TailCompanions;
     readonly readNowMs: () => number;
 }
 

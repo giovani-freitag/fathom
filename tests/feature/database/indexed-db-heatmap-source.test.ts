@@ -7,6 +7,7 @@ import { IndexedDbLiquidityArchive } from '../../../src/database/browser/indexed
 import { IndexedDbService } from '../../../src/database/browser/indexed-db-service.ts';
 import { ChunkArchiveService } from '../../../src/database/services/chunk-archive-service.ts';
 import { ChunkTileRecorder } from '../../../src/database/services/chunk-tile-recorder.ts';
+import { recordInstants } from '../../mocks/browser-recording.ts';
 import { IndexedDbChunkRowStore } from '../../../src/database/browser/indexed-db-chunk-row-store.ts';
 import type { LiquidityFrame, LiquidityFrameWindow } from '../../../src/shared/core/liquidity-frame.ts';
 
@@ -20,16 +21,15 @@ describe('IndexedDbHeatmapSource', () => {
 
     beforeEach(async () => {
         database = new IndexedDbService({ factory: new IDBFactory() });
-        archive = new IndexedDbLiquidityArchive({ database, frameCapacity: 100_000 });
+        archive = new IndexedDbLiquidityArchive({
+            database,
+            chunks: new IndexedDbChunkRowStore({ database }),
+        });
         source = new IndexedDbHeatmapSource({ database });
         await archive.open();
 
         await archive.registerInstrument({ instrumentSymbol: 'BTCUSDT', ...GRID });
-        await archive.appendFrames({
-            instrumentSymbol: 'BTCUSDT',
-            ...GRID,
-            frames: Array.from({ length: 600 }, (_, i) => buildFrame(FIRST_MS + i * 1_000)),
-        });
+        await recordInstants({ database, fromMs: FIRST_MS, count: 600 });
     });
 
     it('reports the stretch it actually holds, not the one it was asked for', async () => {
@@ -52,15 +52,20 @@ describe('IndexedDbHeatmapSource', () => {
     });
 
     it('thins a long window down to about the columns the screen can show', async () => {
-        // 600 seconds into 60 columns: reading every frame would hand the page
+        // 600 seconds into 60 columns: reading every instant would hand the page
         // ten times the data it can draw and cost the memory to match.
+        //
+        // Answered on the archive's own grid rather than exactly the ten
+        // seconds asked for. It keeps levels a fixed factor apart, so it thins
+        // to the first level coarse enough — never finer than asked, which is
+        // the promise that matters, and never so coarse the window empties.
         const window = await source.fetchFrameWindow({
             symbol: 'BTCUSDT', fromMs: FIRST_MS, toMs: FIRST_MS + 600_000, maxColumns: 60,
         });
 
-        expect(window.sampleIntervalMs).toBe(10_000);
+        expect(window.sampleIntervalMs).toBeGreaterThanOrEqual(10_000);
         expect(window.frames.length).toBeLessThanOrEqual(60);
-        expect(window.frames.length).toBeGreaterThan(50);
+        expect(window.frames.length).toBeGreaterThan(20);
     });
 
     it('never samples finer than the grid the frames were recorded on', async () => {
@@ -139,27 +144,11 @@ describe('IndexedDbHeatmapSource', () => {
             fromMs: FIRST_MS,
             toMs: FIRST_MS + 20_000,
             maxColumns: 100,
-            source: 'chunks',
         });
 
         expect(highestPriced(window)).toBeGreaterThanOrEqual(FAR_WALL_BUCKET);
     });
 
-    it('answers from the store it was asked for and nothing behind it', async () => {
-        // Falling back to the band for the first seconds looked kinder and was
-        // not: the window then held the band while the tail extending it held
-        // the squares, and a chart handed two grids draws the seconds it opened
-        // with and never moves again.
-        const window = await source.fetchFrameWindow({
-            symbol: 'BTCUSDT',
-            fromMs: FIRST_MS,
-            toMs: FIRST_MS + 20_000,
-            maxColumns: 100,
-            source: 'chunks',
-        });
-
-        expect(window.frames).toEqual([]);
-    });
 });
 
 /** A price a long way above the touch, which the recorded band never reaches. */

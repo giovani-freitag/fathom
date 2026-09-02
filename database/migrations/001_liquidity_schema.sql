@@ -1,27 +1,5 @@
 CREATE EXTENSION IF NOT EXISTS timescaledb;
 
--- One row per time bucket: the whole visible depth ladder at that instant.
---
--- Bids and asks carry their own offset and array so neither stores the other
--- side's empty half, and the bucket straddling the spread cannot merge resting
--- bid size into resting ask size. The price of `bid_quantities[i]` (1-based, as
--- PostgreSQL indexes arrays) is `(bid_lowest_bucket_index + i - 1) * price_bucket_size`.
---
--- Modelling one row per price level instead would produce roughly 40 million
--- rows per day at this resolution, which no single-node database serves well.
-CREATE TABLE IF NOT EXISTS liquidity_frame (
-    captured_at             TIMESTAMPTZ      NOT NULL,
-    instrument_symbol       TEXT             NOT NULL,
-    price_bucket_size       DOUBLE PRECISION NOT NULL,
-    best_bid_price          DOUBLE PRECISION NOT NULL,
-    best_ask_price          DOUBLE PRECISION NOT NULL,
-    bid_lowest_bucket_index INTEGER          NOT NULL,
-    bid_quantities          REAL[]           NOT NULL,
-    ask_lowest_bucket_index INTEGER          NOT NULL,
-    ask_quantities          REAL[]           NOT NULL,
-    CONSTRAINT liquidity_frame_book_is_uncrossed CHECK (best_bid_price < best_ask_price)
-);
-
 -- Aggressive executions, pre-aggregated by the collector onto the same time and
 -- price grid as the frames. Raw prints reach ~100/s on a liquid perpetual, which
 -- is far below the resolution any zoom level of the heatmap can resolve.
@@ -53,30 +31,15 @@ CREATE TABLE IF NOT EXISTS recording_gap (
 );
 
 SELECT create_hypertable(
-    'liquidity_frame', by_range('captured_at', INTERVAL '1 day'),
-    if_not_exists => TRUE
-);
-SELECT create_hypertable(
     'trade_cluster', by_range('executed_at', INTERVAL '1 day'),
     if_not_exists => TRUE
 );
-
--- Restarts replay the current second, and a retried write batch replays whatever
--- the failed attempt already committed. Both collapse onto these keys.
-CREATE UNIQUE INDEX IF NOT EXISTS liquidity_frame_identity_idx
-    ON liquidity_frame (instrument_symbol, captured_at DESC);
 
 CREATE UNIQUE INDEX IF NOT EXISTS trade_cluster_identity_idx
     ON trade_cluster (instrument_symbol, executed_at DESC, price_bucket_index);
 
 CREATE INDEX IF NOT EXISTS recording_gap_symbol_time_idx
     ON recording_gap (instrument_symbol, gap_started_at DESC);
-
-ALTER TABLE liquidity_frame SET (
-    timescaledb.enable_columnstore = true,
-    timescaledb.segmentby          = 'instrument_symbol',
-    timescaledb.orderby            = 'captured_at DESC'
-);
 
 ALTER TABLE trade_cluster SET (
     timescaledb.enable_columnstore = true,
@@ -89,7 +52,6 @@ ALTER TABLE trade_cluster SET (
 -- around four times smaller on the depth arrays. The larger win is not the size:
 -- in columnar form each column is stored apart, so a query that names only the
 -- price columns never fetches the arrays at all.
-CALL add_columnstore_policy('liquidity_frame', after => INTERVAL '2 days', if_not_exists => TRUE);
 CALL add_columnstore_policy('trade_cluster', after => INTERVAL '2 days', if_not_exists => TRUE);
 
 -- Which contracts a collector has ever recorded, and on what grid. Deriving this

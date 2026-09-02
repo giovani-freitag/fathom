@@ -4,7 +4,6 @@ import { RecordingControlService } from '../../../src/database/services/recordin
 
 /** Every store the collector writes to, which is what the budget answers for. */
 const RECORDED_TABLES = [
-    'liquidity_frame',
     'trade_cluster',
     'whole_book.liquidity_block',
     'whole_book.liquidity_chunk',
@@ -88,7 +87,7 @@ describe('RecordingControlService pruning to the budget', () => {
         expect(await control.pruneToBudget()).toBe(0);
     });
 
-    it('drops the oldest partition of every store, not only of the frames', async () => {
+    it('drops the oldest partition of every store it counts', async () => {
         // Dropping some stores at a boundary and not others leaves the archive
         // saying two different things about the same stretch of time.
         answerWith([{ used: 400, maximum: 100 }, { used: 40, maximum: 100 }], '2026-01-01T00:00:00Z');

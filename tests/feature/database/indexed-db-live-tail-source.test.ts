@@ -1,8 +1,8 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { buildFrame } from '../../mocks/chart-services.ts';
 import { IDBFactory } from 'fake-indexeddb';
 import { IndexedDbLiquidityArchive } from '../../../src/database/browser/indexed-db-liquidity-archive.ts';
+import { IndexedDbChunkRowStore } from '../../../src/database/browser/indexed-db-chunk-row-store.ts';
 import { IndexedDbLiveTailSource } from '../../../src/database/browser/indexed-db-live-tail-source.ts';
 import { IndexedDbService } from '../../../src/database/browser/indexed-db-service.ts';
 
@@ -16,43 +16,19 @@ function buildCluster(executedAtMs: number, priceBucketIndex = 7_900) {
     };
 }
 
-describe('IndexedDbLiveTailSource', () => {
+describe('IndexedDbLiveTailSource carrying what no store keeps twice', () => {
     let archive: IndexedDbLiquidityArchive;
     let source: IndexedDbLiveTailSource;
 
     beforeEach(async () => {
         const database = new IndexedDbService({ factory: new IDBFactory() });
-        archive = new IndexedDbLiquidityArchive({ database, frameCapacity: 100_000 });
+        archive = new IndexedDbLiquidityArchive({
+            database,
+            chunks: new IndexedDbChunkRowStore({ database }),
+        });
         source = new IndexedDbLiveTailSource({ database });
         await archive.open();
         await archive.registerInstrument({ instrumentSymbol: 'BTCUSDT', ...GRID });
-    });
-
-    it('reads only what was recorded after the cursor', async () => {
-        await archive.appendFrames({
-            instrumentSymbol: 'BTCUSDT',
-            priceBucketSize: 10,
-            frames: [buildFrame(FIRST_MS), buildFrame(FIRST_MS + 1_000), buildFrame(FIRST_MS + 2_000)],
-        });
-
-        const window = await source.fetchFramesAfter({
-            symbol: 'BTCUSDT', afterMs: FIRST_MS, maxFrames: 50,
-        });
-
-        expect(window.frames.map((frame) => frame.capturedAtMs))
-            .toEqual([FIRST_MS + 1_000, FIRST_MS + 2_000]);
-    });
-
-    it('answers on the grid the contract was registered with', async () => {
-        await archive.appendFrames({
-            instrumentSymbol: 'BTCUSDT', priceBucketSize: 10, frames: [buildFrame(FIRST_MS)],
-        });
-
-        const window = await source.fetchFramesAfter({
-            symbol: 'BTCUSDT', afterMs: 0, maxFrames: 50,
-        });
-
-        expect(window).toMatchObject({ priceBucketSize: 10, sampleIntervalMs: 1_000 });
     });
 
     it('reads the executions of the stretch the frames just covered', async () => {

@@ -4,17 +4,6 @@ import type { RecordingGap } from './recording-gap.ts';
 import type { PriceBarQuery, PriceBarWindow } from './price-bar.ts';
 import type { TradeCluster } from './trade-cluster.ts';
 
-/**
- * The stored shape a window is read out of.
- *
- * The recording itself, and the chunked archive built from it. They answer the
- * same minutes in different shapes — one row per price the market stood at, and
- * fixed squares of the whole book stacked in levels — so a window drawn from
- * either can be held against the other, which is what has caught every fold
- * that drifted.
- */
-export type FrameSource = 'frames' | 'chunks';
-
 /** The stretch of price a window is asked to answer for, and the rows for it. */
 export interface PriceBandQuery {
     readonly lowPrice: number;
@@ -28,7 +17,6 @@ export interface FrameWindowQuery {
     readonly toMs: number;
     readonly maxColumns: number;
     /** Which stored shape the window is read out of. */
-    readonly source?: FrameSource;
     /** The prices the reader will draw, or absent for every price stored. */
     readonly priceBand?: PriceBandQuery;
 }
@@ -47,11 +35,23 @@ export interface TradeClusterResult {
 /**
  * Where the chart reads recorded history from.
  */
-export interface HeatmapSource {
+/**
+ * The four questions only this recording can answer.
+ *
+ * Not the bars. Candles are published by the venue for every past day and a
+ * recording can only ever hold the days it ran for, so a bar comes from there
+ * and the book comes from here — which is the whole reason this is its own
+ * interface rather than a fifth method on the one below.
+ */
+export interface ArchiveSource {
     fetchInstruments(signal?: AbortSignal): Promise<readonly InstrumentCoverage[]>;
     fetchFrameWindow(query: FrameWindowQuery, signal?: AbortSignal): Promise<LiquidityFrameWindow>;
     fetchTradeClusters(query: TradeClusterQuery, signal?: AbortSignal): Promise<TradeClusterResult>;
     fetchGaps(query: FrameWindowQuery, signal?: AbortSignal): Promise<readonly RecordingGap[]>;
+}
+
+/** Everything the chart reads, the archive and the bars laid over it. */
+export interface HeatmapSource extends ArchiveSource {
     /**
      * Bars on a declared interval, with what built each one.
      *

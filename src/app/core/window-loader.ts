@@ -1,15 +1,3 @@
-import type { FrameSource } from '../../shared/core/heatmap-source.ts';
-
-/**
- * The store the chart draws from.
- *
- * The whole book as squares, which is what the reader is looking for: the
- * recording keeps a band around the price and cannot show a wall standing where
- * the market has not been. The recording is still readable by name, and the two
- * are held against each other cell by cell, but nothing on the chart chooses
- * between them any more.
- */
-export const DRAWN_FROM: FrameSource = 'chunks';
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
@@ -752,7 +740,6 @@ function toFrameQuery(request: WindowLoadRequest, range: ResolvedRange): FrameWi
         fromMs: range.fromMs,
         toMs: range.toMs,
         maxColumns: range.maxColumns,
-        source: DRAWN_FROM,
         ...(range.priceBand === null ? {} : { priceBand: range.priceBand }),
     };
 }
@@ -796,20 +783,29 @@ function toPieceQuery(
 ): FrameWindowQuery {
     const timeShare = (region.toMs - region.fromMs) / Math.max(1, range.toMs - range.fromMs);
     const band = range.priceBand;
-    const priceShare = band === null || !(band.highPrice > band.lowPrice)
-        ? 1
-        : (region.highPrice - region.lowPrice) / (band.highPrice - band.lowPrice);
+    const namesPrices = band !== null && band.highPrice > band.lowPrice;
+    const priceShare = namesPrices
+        ? (region.highPrice - region.lowPrice) / (band.highPrice - band.lowPrice)
+        : 1;
     return {
         ...frameQuery,
         fromMs: region.fromMs,
         toMs: region.toMs,
         maxColumns: Math.max(1, Math.round(range.maxColumns * timeShare)),
         ...(band === null ? {} : {
-            priceBand: {
-                lowPrice: region.lowPrice,
-                highPrice: region.highPrice,
-                maxRows: Math.max(1, Math.round(band.maxRows * priceShare)),
-            },
+            // A region standing for every price is bounded by the largest
+            // number there is, which is arithmetic for deciding what a cache
+            // already holds and not a price anyone can be asked for. Sent as
+            // one, it asks the archive to lay out every row between nought and
+            // nine quadrillion, and the answer is a failure the reader is told
+            // to blame on the recording.
+            priceBand: namesPrices
+                ? {
+                    lowPrice: region.lowPrice,
+                    highPrice: region.highPrice,
+                    maxRows: Math.max(1, Math.round(band.maxRows * priceShare)),
+                }
+                : { lowPrice: 0, highPrice: 0, maxRows: band.maxRows },
         }),
     };
 }

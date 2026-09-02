@@ -1,12 +1,5 @@
-import type { LiquidityFrame } from '../../shared/core/liquidity-frame.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
-
-export interface FrameAppendRequest {
-    readonly instrumentSymbol: string;
-    readonly priceBucketSize: number;
-    readonly frames: readonly LiquidityFrame[];
-}
 
 export interface TradeClusterAppendRequest {
     readonly instrumentSymbol: string;
@@ -37,10 +30,9 @@ export interface LiquidityArchive {
     /** Releases it. Safe to call in any state. */
     close(): Promise<void>;
     registerInstrument(request: InstrumentRegistrationRequest): Promise<void>;
-    appendFrames(request: FrameAppendRequest): Promise<void>;
     appendTradeClusters(request: TradeClusterAppendRequest): Promise<void>;
     recordGap(request: GapRecordRequest): Promise<void>;
-    /** Instant of the newest recorded frame, or null when nothing is stored. */
+    /** Instant of the newest recorded instant, or null when nothing is stored. */
     findLastFrameTimestamp(instrumentSymbol: string): Promise<number | null>;
 }
 

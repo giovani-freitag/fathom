@@ -71,6 +71,15 @@ export interface ChunkTileRecorderConfig {
      */
     readonly liveEdgeColumns?: number;
     readonly onWriteFailed?: (instrumentSymbol: string, reason: unknown) => void;
+    /**
+     * Told after a square of the finest level has landed.
+     *
+     * A reader listening for this hears about a write in the time it takes to
+     * store it rather than on its next interval. Announced after the write and
+     * never before: told to catch up on a write that then failed, a reader
+     * fetches nothing and moves its cursor past the range it was meant to read.
+     */
+    readonly onWritten?: (instrumentSymbol: string) => void;
 }
 
 /** How one contract's whole book is framed, and who receives it. */
@@ -508,6 +517,11 @@ export class ChunkTileRecorder {
                 isComplete,
             });
             level.writtenColumns = columns.length;
+            // Only the finest level: the levels above it are folded from this
+            // one and carry nothing a reader has not already been told about.
+            if (detailLevel === 0) {
+                this.config.onWritten?.(instrumentSymbol);
+            }
         } catch (reason) {
             this.config.onWriteFailed?.(instrumentSymbol, reason);
         }

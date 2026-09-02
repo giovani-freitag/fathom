@@ -1,5 +1,4 @@
-import type { FrameSource } from '../../shared/core/heatmap-source.ts';
-import type { HeatmapSource } from '../../shared/core/heatmap-source.ts';
+import type { ArchiveSource } from '../../shared/core/heatmap-source.ts';
 import {
     API_ROUTES,
     type InstrumentCoverage,
@@ -8,7 +7,6 @@ import {
     type TradeClusterResponse,
 } from '../../shared/core/api-contract.ts';
 import { decodeLiquidityFrameWindow } from '../../shared/codec/heatmap-codec.ts';
-import type { PriceBarQuery, PriceBarWindow } from '../../shared/core/price-bar.ts';
 import { type LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import { type RecordingGap } from '../../shared/core/recording-gap.ts';
 
@@ -43,7 +41,6 @@ export interface FrameWindowQuery {
     readonly toMs: number;
     readonly maxColumns: number;
     /** Which stored shape the window is read out of. */
-    readonly source?: FrameSource;
     /** The prices the reader will draw, or absent for every price stored. */
     readonly priceBand?: PriceBandQuery;
 }
@@ -62,7 +59,7 @@ export interface TradeClusterResult {
 /**
  * The only place the gateway's HTTP surface is spoken.
  */
-export class HeatmapApiService implements HeatmapSource {
+export class HeatmapApiService implements ArchiveSource {
     private readonly baseUrl: string;
 
     constructor(config: HeatmapApiServiceConfig) {
@@ -95,9 +92,6 @@ export class HeatmapApiService implements HeatmapSource {
      */
     async fetchFrameWindow(query: FrameWindowQuery, signal?: AbortSignal): Promise<LiquidityFrameWindow> {
         const parameters = toWindowParameters(query);
-        if (query.source !== undefined) {
-            parameters.set('source', query.source);
-        }
         const band = query.priceBand;
         if (band !== undefined) {
             parameters.set('maxRows', String(Math.max(1, Math.round(band.maxRows))));
@@ -143,28 +137,6 @@ export class HeatmapApiService implements HeatmapSource {
             signal,
         );
         return payload.gaps;
-    }
-
-    /**
-     * Bars on a declared interval.
-     *
-     * @param query - Instrument, range, interval, and how much warm-up to read.
-     * @param signal - Aborts the request when the caller loses interest.
-     * @returns The bars, oldest first.
-     * @throws HeatmapApiError when the gateway rejects the request.
-     */
-    fetchPriceBars(query: PriceBarQuery, signal?: AbortSignal): Promise<PriceBarWindow> {
-        return this.requestJson<PriceBarWindow>(
-            API_ROUTES.bars,
-            new URLSearchParams({
-                symbol: query.symbol,
-                fromMs: String(Math.floor(query.fromMs)),
-                toMs: String(Math.floor(query.toMs)),
-                intervalMs: String(Math.floor(query.intervalMs)),
-                warmupBars: String(Math.floor(query.warmupBars)),
-            }),
-            signal,
-        );
     }
 
     private async requestJson<TPayload>(

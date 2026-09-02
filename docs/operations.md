@@ -70,8 +70,8 @@ what to expect: a ladder returns a thousand a side.
 systemctl --user status fathom-collector
 
 docker compose exec -T timescaledb psql -U fathom -d fathom -c "
-SELECT instrument_symbol, count(*), min(captured_at), max(captured_at)
-FROM liquidity_frame GROUP BY 1;
+SELECT instrument_symbol, count(*), min(started_at), max(ended_at)
+FROM whole_book.liquidity_block WHERE detail_level = 0 GROUP BY 1;
 SELECT instrument_symbol, gap_reason, count(*),
        sum(gap_ended_at - gap_started_at) AS lost
 FROM recording_gap GROUP BY 1, 2 ORDER BY 4 DESC;"

@@ -224,19 +224,6 @@ describe('ChartController layers', () => {
     });
 
 
-    it('reads the whole book, not the band the recording keeps', async () => {
-        // The recording holds a couple of percent around the price, so a chart
-        // drawn from it cannot show a wall standing where the market has not
-        // been — which is the thing a reader zooms out to look for.
-        const mocks = createChartServiceMocks();
-        const controller = buildController(mocks);
-
-        await controller.initialize();
-
-        expect(mocks.fetchFrameWindow.mock.calls.at(-1)?.[0])
-            .toMatchObject({ source: 'chunks' });
-    });
-
     it('leaves the window alone when a setting that only repaints is moved', async () => {
         const mocks = createChartServiceMocks();
         const controller = buildController(mocks);
@@ -632,19 +619,6 @@ describe('ChartController.selectInstrument', () => {
 describe('ChartController and a store that lags the recording', () => {
 
 
-    it('streams the same store the window was read out of', async () => {
-        // A tail extends the window the history route answered, so it has to
-        // stream out of the same store: one holds a band around the price and
-        // the other the whole book, and a chart fed both leaves everything
-        // outside that band standing still.
-        const mocks = createChartServiceMocks();
-        const controller = buildController(mocks);
-
-        await controller.initialize();
-
-        expect(mocks.lastSubscription()?.source).toBe('chunks');
-    });
-
     it('asks the tail for the prices the window was read over', async () => {
         // A whole-book store holds some fifteen thousand prices and a chart
         // draws about sixty. Measured on the live gateway, the tail was sending
@@ -828,5 +802,139 @@ describe('ChartController opening on a listed price', () => {
 
         const { lowPrice, highPrice } = controller.store.read().viewport;
         expect((lowPrice + highPrice) / 2).toBeCloseTo(79_000, -2);
+    });
+});
+
+describe('ChartController and the prices a new span is drawn against', () => {
+    /** The band each window was asked for, oldest first; null where it named none. */
+    function bandsAskedFor(mocks: ReturnType<typeof createChartServiceMocks>) {
+        return mocks.fetchFrameWindow.mock.calls.map((call) => (
+            (call[0] as { priceBand?: { lowPrice: number; highPrice: number } }).priceBand ?? null
+        ));
+    }
+
+    /**
+     * Whether the chart went back to the whole book to frame itself again.
+     *
+     * A band naming no prices is how that is asked for: nought to nought, which
+     * the wire drops entirely rather than sending as a range.
+     */
+    function didReframe(mocks: ReturnType<typeof createChartServiceMocks>, after: number): boolean {
+        return bandsAskedFor(mocks).slice(after)
+            .some((band) => band === null || !(band.highPrice > band.lowPrice));
+    }
+
+    it('asks for the book again when the reader changes how much time is on screen', async () => {
+        // Every price bound is carried over from the view before. A reader who
+        // looked at a week and then asked for fifteen minutes gets a quarter of
+        // an hour drawn against a week of price: one flat line, no way back.
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        const wide = controller.store.read().viewport;
+        controller.applyView({
+            viewport: { ...wide, lowPrice: 10_000, highPrice: 90_000 },
+            surfaceWidthPx: SURFACE_WIDTH,
+        });
+        await vi.waitFor(() => expect(bandsAskedFor(mocks).length).toBeGreaterThan(1));
+        const before = bandsAskedFor(mocks).length;
+
+        controller.applyView({
+            viewport: {
+                ...controller.store.read().viewport,
+                fromMs: wide.toMs - 900_000,
+                toMs: wide.toMs,
+            },
+            surfaceWidthPx: SURFACE_WIDTH,
+            isRefittingPrice: true,
+        });
+
+        // The whole book, then the band it framed to. What matters is that it
+        // went back to the book at all.
+        await vi.waitFor(() => expect(didReframe(mocks, before)).toBe(true));
+        expect(didReframe(mocks, before)).toBe(true);
+    });
+
+    it('keeps the band a reader chose when they are only panning', async () => {
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        const held = controller.store.read().viewport;
+        controller.applyView({
+            viewport: { ...held, lowPrice: 10_000, highPrice: 90_000 },
+            surfaceWidthPx: SURFACE_WIDTH,
+        });
+        await vi.waitFor(() => expect(bandsAskedFor(mocks).length).toBeGreaterThan(1));
+        const before = bandsAskedFor(mocks).length;
+
+        controller.applyView({
+            viewport: {
+                ...controller.store.read().viewport,
+                fromMs: held.fromMs + 60_000,
+                toMs: held.toMs + 60_000,
+            },
+            surfaceWidthPx: SURFACE_WIDTH,
+        });
+
+        expect(didReframe(mocks, before)).toBe(false);
+    });
+});
+
+describe('ChartController keeping the listing current', () => {
+    /** Pretends the tab is hidden or looked at, and says so. */
+    function setVisibility(state: 'visible' | 'hidden'): void {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            get: () => state,
+        });
+        document.dispatchEvent(new Event('visibilitychange'));
+    }
+
+    it('stops asking while nobody is looking at the tab', async () => {
+        // Coverage grows a second a second and the picker changes only when a
+        // contract is switched on. Asked for on a timer in a hidden tab, it is
+        // a round trip a minute for a figure nothing is showing.
+        vi.useFakeTimers();
+        try {
+            const mocks = createChartServiceMocks();
+            const controller = buildController(mocks);
+            await controller.initialize();
+            setVisibility('hidden');
+            const asked = mocks.fetchInstruments.mock.calls.length;
+
+            await vi.advanceTimersByTimeAsync(120_000);
+
+            expect(mocks.fetchInstruments.mock.calls.length).toBe(asked);
+            controller.dispose();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('catches up the moment the tab is looked at again', async () => {
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        setVisibility('hidden');
+        const asked = mocks.fetchInstruments.mock.calls.length;
+
+        setVisibility('visible');
+
+        await vi.waitFor(() => {
+            expect(mocks.fetchInstruments.mock.calls.length).toBeGreaterThan(asked);
+        });
+        controller.dispose();
+    });
+
+    it('stops listening once it is disposed', async () => {
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        controller.dispose();
+        const asked = mocks.fetchInstruments.mock.calls.length;
+
+        setVisibility('visible');
+
+        expect(mocks.fetchInstruments.mock.calls.length).toBe(asked);
     });
 });
