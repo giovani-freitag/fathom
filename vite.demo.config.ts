@@ -4,23 +4,27 @@ import { defineConfig } from 'vite';
 import { readReleaseDefines } from './scripts/release-notes.ts';
 
 /**
- * Where the demo will be served from.
+ * Where the demo will be served from once it is published.
  *
  * A GitHub project site lives under `/<repo>/`, not at the root, and every
  * asset path in the built page is resolved against this. Left at the default
  * the page loads and every script 404s, which looks like a broken build rather
  * than a misconfigured one.
  */
-const BASE_PATH = process.env['DEMO_BASE_PATH'] ?? '/fathom/';
+const PUBLISHED_BASE_PATH = process.env['DEMO_BASE_PATH'] ?? '/fathom/';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
     // The page is its own root so the built entry is `index.html`, which is what
     // a static host serves at a directory URL. Naming it anything else means a
     // visitor to the bare address gets a 404 instead of the chart.
     root: 'demo',
     // Brand asset lives with the app, not with the demo's own root.
     publicDir: '../public',
-    base: BASE_PATH,
+    // Only what is published lives under the repository's name. A dev server
+    // serves from the root, and the entry sits outside the root this config
+    // declares: given a base, vite rewrites the entry without it and the page
+    // asks for a script that is not there.
+    base: command === 'build' ? PUBLISHED_BASE_PATH : '/',
     plugins: [react(), tailwindcss()],
     // Read at build time: the page is static, so there is nothing to ask later.
     define: readReleaseDefines(),
@@ -35,4 +39,4 @@ export default defineConfig({
         // have to survive bundling rather than being inlined into one script.
         format: 'es',
     },
-});
+}));
