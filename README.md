@@ -55,23 +55,97 @@ be running before you need the data.
 - 🔌 **Venue-neutral core** — the exchange lives behind a driver; Binance USD-M is the first
 - 🌐 **Runs with no backend** — the same collector registers as a Web Worker and records into IndexedDB
 
-## 🚀 Run it locally
+## 🚀 Run it
+
+Two ways in. The first asks for Docker and nothing else; the second is for
+working on the source.
+
+Either way, the recording starts empty. **The chart only ever covers time the
+collector was running** — an order book cannot be fetched after the fact, so
+there is no history to load and nothing to wait for. Leave it up.
+
+### With Docker
+
+```bash
+git clone https://github.com/giovani-freitag/fathom.git
+cd fathom
+cp .env.example .env                       # then set POSTGRES_PASSWORD
+
+docker compose --profile full up -d        # database, collector, gateway
+```
+
+Open **http://localhost:8787**. The first columns appear within seconds of the
+collector reaching the exchange.
+
+The database applies the migrations itself the first time its volume is created,
+so there is no separate step. What each service is doing:
+
+```bash
+docker compose --profile full ps
+docker compose --profile full logs -f collector
+```
+
+To stop, keeping everything recorded so far:
+
+```bash
+docker compose --profile full down
+```
+
+`docker compose down -v` also deletes the volume, and with it the recording.
+Nothing can bring that back.
+
+### From the source
+
+Node 22.12 or newer, and Docker for the database — TimescaleDB is Postgres with
+an extension, so any instance that has it will do if you would rather not run a
+container. Point `DATABASE_URL` at it.
 
 ```bash
 git clone https://github.com/giovani-freitag/fathom.git
 cd fathom
 npm install
-cp .env.example .env          # set POSTGRES_PASSWORD
+cp .env.example .env                       # then set POSTGRES_PASSWORD
 
-docker compose up -d          # TimescaleDB
-npm run migrate
+docker compose up -d                       # the database alone
+npm run migrate                            # only needed against an existing one
 npm run build
 
-npm run collector &           # start recording — this is the part that must not stop
-npm run gateway               # http://localhost:8787
+npm run collector &                        # the half that must not stop
+npm run gateway                            # http://localhost:8787
 ```
 
-The chart only covers time the collector was running. Leave it up.
+`npm run dev` serves the viewer with hot reload against a gateway you have
+already started.
+
+### Worth setting
+
+Everything lives in `.env`, and `.env.example` documents all of it. The four
+that decide what you get:
+
+| | |
+|---|---|
+| `INSTRUMENT_SYMBOL` | Which contract to record. Any Binance USD-M perpetual. |
+| `PRICE_BUCKET_SIZE` | How tall one row of the heat map is, in quote units. Ten dollars on Bitcoin; a hundredth of that on Litecoin. |
+| `RECORDED_PRICE_RANGE_RATIO` | How far either side of the price the recording reaches. This is what a day of it costs on disk. |
+| `FATHOM_ACCESS_TOKEN` | Leave it empty and every route is open. Set it before the port is reachable by anyone you have not met. |
+
+### If nothing appears
+
+- `docker compose --profile full logs collector` — it says what it is doing every
+  time it reaches the exchange, loses it, or is refused by it.
+- A first run needs a moment to mirror the book before the first column exists.
+- Recorded gaps are drawn as gaps rather than filled in. A stripe across the
+  chart is the recording saying it was not running, which is the truth.
+
+### Without a backend at all
+
+The same collector registers as a Web Worker and records into IndexedDB, which
+is what the [demo](https://giovani-freitag.github.io/fathom/) is: no server, no
+database, and a recording that lives in the tab.
+
+```bash
+npm run dev:demo
+```
 
 ## 📚 Docs
 

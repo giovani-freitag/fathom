@@ -1,0 +1,19 @@
+# The build stage runs `npm ci` and `npm run build` for itself, so anything
+# built or fetched here is both useless in the image and enough to bust its
+# cache on every change.
+node_modules
+dist
+coverage
+logs
+
+.git
+.github
+.env
+.env.*
+!.env.example
+
+# The demo is published as a static site, not served by this image.
+demo
+
+*.log
+*.tsbuildinfo

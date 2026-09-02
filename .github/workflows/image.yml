@@ -1,0 +1,53 @@
+name: image
+
+# Built when a release is cut, so a tag and an image always name the same code.
+# Asked for by the release workflow rather than by the release itself, which
+# GitHub will not do for an event its own token created. `workflow_dispatch`
+# stays for the same reason the demo has one: something that can only be rebuilt
+# by cutting a release is something nobody rebuilds.
+on:
+  repository_dispatch:
+    types: [release-published]
+  workflow_dispatch:
+
+concurrency:
+  group: image
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The tag the release named, not whatever main has drifted to since.
+          ref: ${{ github.event.client_payload.ref || github.ref }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # `latest` and the version, so a compose file can name either: one to
+      # follow releases, one to pin.
+      - id: version
+        run: echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }}
+          # The layer cache lives in the registry, because a runner is thrown
+          # away and the dependency install is most of the build.
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache,mode=max
