@@ -36,13 +36,6 @@ export interface DepthFieldConfig {
  */
 const FRAMES_PER_SLICE = 48;
 
-interface FramePaint {
-    readonly image: ImageData;
-    readonly frame: LiquidityFrame;
-    readonly columnOffset: number;
-    readonly imageWidth: number;
-}
-
 /**
  * The depth window rendered once into an offscreen image, in time and bucket space.
  */
@@ -343,8 +336,28 @@ export class DepthField {
 
         const width = bounds.lastColumn - bounds.firstColumn + 1;
         const image = context.createImageData(width, this.rowCount);
+        // Instants sharing a drawn column are folded together, not painted over
+        // one another. A window wider than the recording is fine puts several
+        // seconds in every column: painted one after another, the column keeps
+        // whichever second went last, wherever that second happened to rest.
+        // The store folds the same stretch by the largest, so the live edge
+        // drew as a scatter beside history that was solid.
+        let openColumn: number | null = null;
+        let touched: TouchedRows | null = null;
         for (const frame of frames) {
-            this.paintFrame({ image, frame, columnOffset: bounds.firstColumn, imageWidth: width });
+            const column = Math.round(this.timeToColumn(frame.capturedAtMs)) - bounds.firstColumn;
+            if (column < 0 || column >= width) {
+                continue;
+            }
+            if (openColumn !== null && column !== openColumn) {
+                this.flushColumn({ image, column: openColumn, imageWidth: width }, touched);
+                touched = null;
+            }
+            openColumn = column;
+            touched = widenTo(touched, this.folder.fold(frame));
+        }
+        if (openColumn !== null) {
+            this.flushColumn({ image, column: openColumn, imageWidth: width }, touched);
         }
         context.putImageData(image, bounds.firstColumn, 0);
     }
@@ -367,19 +380,12 @@ export class DepthField {
         return Number.isFinite(firstColumn) ? { firstColumn, lastColumn } : null;
     }
 
-    private paintFrame(request: FramePaint): void {
-        const { image, frame, columnOffset, imageWidth } = request;
-        const column = Math.round(this.timeToColumn(frame.capturedAtMs)) - columnOffset;
-        if (column < 0 || column >= imageWidth) {
-            return;
-        }
-
-        const touched = this.folder.fold(frame);
+    /** Writes one column out of everything folded into it, and empties it. */
+    private flushColumn(target: RowTarget, touched: TouchedRows | null): void {
         if (touched === null) {
             return;
         }
-
-        this.paintRows({ image, column, imageWidth }, touched);
+        this.paintRows(target, touched);
         this.folder.clear(touched);
     }
 
@@ -404,6 +410,20 @@ export class DepthField {
             image.data[pixelOffset + 3] = ramp[rampOffset + 3]!;
         }
     }
+}
+
+/** The rows two folds reached between them, or whichever of them reached any. */
+function widenTo(held: TouchedRows | null, added: TouchedRows | null): TouchedRows | null {
+    if (held === null) {
+        return added;
+    }
+    if (added === null) {
+        return held;
+    }
+    return {
+        lowRow: Math.min(held.lowRow, added.lowRow),
+        highRow: Math.max(held.highRow, added.highRow),
+    };
 }
 
 /** Where one column of the image is being written. */

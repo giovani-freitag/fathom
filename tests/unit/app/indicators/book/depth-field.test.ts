@@ -175,4 +175,75 @@ describe('DepthField folding buckets into bands', () => {
 
         expect(field.absorb(buildDataset(frames), 1, 4)).toBe(false);
     });
+
+    /** One instant with a single size resting at one price. */
+    function buildWall(capturedAtMs: number, quantity: number): LiquidityFrame {
+        const touchBucket = Math.floor(1_000 / PRICE_BUCKET_SIZE);
+        return {
+            capturedAtMs,
+            bestBidPrice: 999.5,
+            bestAskPrice: 1_000.5,
+            bids: { lowestBucketIndex: touchBucket, quantities: Float32Array.from([quantity]) },
+            asks: { lowestBucketIndex: touchBucket + 1, quantities: Float32Array.from([]) },
+        };
+    }
+
+    /**
+     * The pixels one field paints, off a surface it can actually draw on.
+     *
+     * The field makes its own canvas, and the one this environment hands back
+     * has no context to paint into — so every test here has measured the shape
+     * of the picture and none of them what is in it.
+     */
+    function paintOnto(frames: LiquidityFrame[], sampleIntervalMs: number): Uint8ClampedArray {
+        let painted: ImageData | null = null;
+        const context = {
+            createImageData: (width: number, height: number) => ({
+                width, height, data: new Uint8ClampedArray(width * height * 4),
+            }),
+            putImageData: (image: ImageData) => { painted = image; },
+            clearRect: () => undefined,
+        };
+        const surface = {
+            width: 0, height: 0, getContext: () => context,
+        } as unknown as HTMLCanvasElement;
+
+        const field = new DepthField({
+            dataset: buildDataset(frames, { sampleIntervalMs }),
+            colourGain: 1,
+            bucketsPerBand: 1,
+            reuse: surface,
+        });
+        field.settle(1_000);
+        return (painted as ImageData | null)?.data ?? new Uint8ClampedArray();
+    }
+
+    it('folds the instants sharing a column instead of painting them over', () => {
+        // A window wider than the recording is fine puts several seconds in one
+        // drawn column. Painted one after another the column keeps whichever
+        // went last, so a wall that stood for three of four seconds vanishes if
+        // it was gone by the fourth — and the live edge draws as a scatter
+        // beside history the store folded by the largest.
+        // Two columns either way, so the two pictures are the same shape and
+        // only what is in them can differ. The wall stands through the second
+        // column and is gone by its last instant.
+        const crowded = paintOnto(
+            [buildWall(0, 9), buildWall(2_000, 9), buildWall(3_000, 1)],
+            4_000,
+        );
+        const stoodThroughout = paintOnto(
+            [buildWall(0, 9), buildWall(2_000, 9)],
+            4_000,
+        );
+
+        expect([...crowded]).toEqual([...stoodThroughout]);
+    });
+
+    it('draws a lone instant the same whatever the column is worth', () => {
+        // The guard on the test above: it only says something if the two fields
+        // agree when there is nothing to fold.
+        const one = paintOnto([buildWall(0, 9)], 4_000);
+
+        expect(one.some((channel) => channel > 0)).toBe(true);
+    });
 });
