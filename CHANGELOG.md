@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.11.0](https://github.com/giovani-freitag/fathom/compare/v0.10.1...v0.11.0) (2026-09-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* drop the access token and run the whole thing from one command
+
+### Features
+
+* drop the access token and run the whole thing from one command ([f65f1a1](https://github.com/giovani-freitag/fathom/commit/f65f1a12eb8d9b7caba335eba924e23f35bc3621))
+* give a pasted link a card that shows the chart ([296a9e7](https://github.com/giovani-freitag/fathom/commit/296a9e7c1293fa9f3b0cc6d8380f7a843f388a42))
+* publish an image and say how to run the whole thing ([58d174d](https://github.com/giovani-freitag/fathom/commit/58d174d98481e4d1660c41e99cd8c1234f8e10f0))
+* publish the compose file so running it is one docker command ([b431d04](https://github.com/giovani-freitag/fathom/commit/b431d04f202b22f1d86167d094ea045de9c4c4ac))
+
+
+### Bug Fixes
+
+* fold the instants that share a drawn column instead of painting them over ([db15efe](https://github.com/giovani-freitag/fathom/commit/db15efe2c67bc5ae302a325517f534e407ada98b))
+* leave the delete control as the icon it needs to be ([5870641](https://github.com/giovani-freitag/fathom/commit/5870641251cef63f4cc99fc740cbb644c4dfa07f))
+* let the reader close the notice about a backgrounded tab ([2f6266c](https://github.com/giovani-freitag/fathom/commit/2f6266c37c4eb8b31ddce5d3931b2a21ddd7e8f9))
+* serve the demo's entry from inside the root the dev server declares ([8a8310b](https://github.com/giovani-freitag/fathom/commit/8a8310bc599f0e79b167fbbe08abc2167840b3e7))
+
 ## [0.10.1](https://github.com/giovani-freitag/fathom/compare/v0.10.0...v0.10.1) (2026-09-01)
 
 
