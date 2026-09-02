@@ -125,65 +125,14 @@ by how busy the market was.
 
 ## Showing it to someone else
 
-The chart is born open on the LAN. To send the link to someone outside it, two
-pieces have to be in place: a token and a tunnel.
+The gateway asks nobody who they are. Anything that can reach the port gets the
+whole recording and the controls that write to it, so what decides who sees it
+is what sits in front of it — a reverse proxy that authenticates, a VPN, an SSH
+tunnel to one person. There is nothing to configure here because there is
+nothing here to configure.
 
-### The token
-
-Without `FATHOM_ACCESS_TOKEN` in `.env`, every route is open. With it, the
-gateway answers 401 to any request that does not carry the secret — including the
-WebSocket upgrade, which is where live data travels.
-
-```bash
-node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"
-```
-
-The shared link carries the token once:
-
-```
-https://YOUR-SUBDOMAIN.trycloudflare.com/?token=YOUR_TOKEN
-```
-
-On the first visit the gateway trades the token for a thirty-day cookie,
-redirects to `/`, and the secret leaves the address bar. Whoever receives the
-link has nothing to copy; whoever arrives without one sees a page asking for it.
-
-The cookie exists for a specific reason: a browser will not let a page set a
-header on a WebSocket handshake. An `Authorization` header would protect the HTTP
-and leave the stream open.
-
-Only `/api/health` is outside the protection, so the tunnel can be probed without
-spending the link.
-
-### The tunnel
-
-`serveo`, the option that installs nothing, **does not work for this chart**.
-Over HTTP/2 it truncates a large response and does not bridge the WebSocket, so
-the map loads empty and live data never connects. A browser negotiates HTTP/2 by
-itself, so there is no way to ask it not to.
-
-Use `cloudflared`, which speaks HTTP/1.1 to the gateway and handles WebSocket:
-
-```bash
-mkdir -p ~/.local/bin
-curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
-  -o ~/.local/bin/cloudflared && chmod +x ~/.local/bin/cloudflared
-
-cloudflared tunnel --url http://localhost:8787
-```
-
-It prints a `*.trycloudflare.com` URL, with no account and no interstitial. The
-address is random and lives as long as the process, which is enough to show
-someone the chart.
-
-To keep it up, a user unit pointing at that command, with `Restart=always`. When
-the tunnel is up, set `FATHOM_TUNNELLED=true` and restart the gateway: the cookie
-then goes out as `Secure`, so it cannot leak over a plaintext connection.
-
-The gateway refuses to start with `FATHOM_TUNNELLED=true` and no
-`FATHOM_ACCESS_TOKEN`. Tunnelled and unguarded means the whole recorded history,
-and the controls that write to it, are one public URL away from anyone who finds
-the address.
+By default both ports are published on the loopback and nothing outside the
+machine can reach either.
 
 ### The request ceiling
 
@@ -192,15 +141,6 @@ the venue's book is public — it is contention: a tab in a loop competing with 
 collector for the same database delays writing, and delayed writing becomes a
 permanent hole. Past the ceiling the gateway answers 429 and the collector keeps
 writing.
-
-### Closing it
-
-```bash
-systemctl --user disable --now fathom-tunnel
-```
-
-Changing `FATHOM_ACCESS_TOKEN` and restarting the gateway invalidates every
-cookie already handed out, at once.
 
 ## After a rebuild
 

@@ -17,9 +17,7 @@ export interface GatewayConfiguration {
     readonly databaseUrl: string;
     readonly viewerDistPath: string;
     /** Secret a shared link must carry; empty leaves every route open. */
-    readonly accessToken: string;
     /** True when the gateway is reached through a public tunnel. */
-    readonly isTunnelled: boolean;
 }
 
 export const LIVE_TAIL_SETTINGS = {
@@ -66,15 +64,6 @@ export function readGatewayConfiguration(): GatewayConfiguration {
         throw new ConfigurationError('GATEWAY_PORT must be a valid port number');
     }
 
-    const accessToken = readText('FATHOM_ACCESS_TOKEN', '');
-    const isTunnelled = readText('FATHOM_TUNNELLED', '') === 'true';
-    if (isTunnelled && accessToken === '') {
-        throw new ConfigurationError(
-            'FATHOM_ACCESS_TOKEN is required while FATHOM_TUNNELLED is true, '
-            + 'otherwise the whole recorded history and the controls that write to it '
-            + 'are one public URL away from anyone',
-        );
-    }
 
     return {
         host: readText('GATEWAY_HOST', DEFAULT_HOST),
@@ -83,8 +72,6 @@ export function readGatewayConfiguration(): GatewayConfiguration {
         // Blank would resolve to the directory the gateway runs in, and the
         // static route would then serve the project itself — `.env` included.
         viewerDistPath: readText('VIEWER_DIST_PATH', DEFAULT_VIEWER_DIST_PATH),
-        accessToken,
-        isTunnelled,
     };
 }
 

@@ -54,8 +54,6 @@ const server = new Server({
     host: configuration.host,
     port: configuration.port,
     viewerDistPath: configuration.viewerDistPath,
-    accessToken: configuration.accessToken,
-    isTunnelled: configuration.isTunnelled,
     postgres,
     query,
     chunks,
@@ -84,9 +82,6 @@ try {
     });
     await server.start();
     process.stdout.write(`Fathom gateway listening on http://${configuration.host}:${configuration.port}\n`);
-    process.stdout.write(server.isGuarded
-        ? 'Access is guarded: only a link carrying the token gets in\n'
-        : 'Access is OPEN: anyone who reaches this port sees everything\n');
 } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${new Date().toISOString()} WARN  Could not start: ${reason}\n`);

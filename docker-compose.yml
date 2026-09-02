@@ -6,12 +6,15 @@ services:
     environment:
       POSTGRES_DB: fathom
       POSTGRES_USER: fathom
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      # A default so the whole thing runs with no file to write first. The
+      # port is published on the loopback only, so what this protects is a
+      # database nothing outside this machine can reach. Set it in `.env` for
+      # anything that is not one person's laptop.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fathom}
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - fathom-data:/var/lib/postgresql/data
-      - ./database/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U fathom -d fathom"]
       interval: 10s
@@ -26,26 +29,36 @@ services:
       - -c
       - synchronous_commit=off
 
-  # Both halves behind a profile, so `docker compose up -d` on its own still
-  # brings up the database and nothing else — which is what somebody working on
-  # the source wants, with the two processes running from their own checkout.
-  #
-  #   docker compose --profile full up -d
-  #
+  # Runs to completion and stops. The migrations are in the image, so this
+  # needs nothing on the host beside this file, and each of them is safe to
+  # re-run — so it is also what brings an existing database up to date.
+  migrate:
+    image: ${FATHOM_IMAGE:-ghcr.io/giovani-freitag/fathom:latest}
+    build: .
+    container_name: fathom-migrate
+    restart: "no"
+    command: ["node", "scripts/migrate.mjs"]
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://fathom:${POSTGRES_PASSWORD:-fathom}@timescaledb:5432/fathom
+
+  # `docker compose up -d` brings up all four. Somebody working on the source
+  # wants only the database, and names it: `docker compose up -d timescaledb`.
   collector:
-    profiles: ["full"]
     image: ${FATHOM_IMAGE:-ghcr.io/giovani-freitag/fathom:latest}
     build: .
     container_name: fathom-collector
     restart: unless-stopped
     command: ["node", "dist/workers/collector.js"]
     depends_on:
-      timescaledb:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       # Inside the network the database answers on its own name and its own
       # port, whatever it was published as on the host.
-      DATABASE_URL: postgres://fathom:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@timescaledb:5432/fathom
+      DATABASE_URL: postgres://fathom:${POSTGRES_PASSWORD:-fathom}@timescaledb:5432/fathom
       INSTRUMENT_SYMBOL: ${INSTRUMENT_SYMBOL:-BTCUSDT}
       PRICE_BUCKET_SIZE: ${PRICE_BUCKET_SIZE:-10}
       FRAME_INTERVAL_MS: ${FRAME_INTERVAL_MS:-1000}
@@ -54,25 +67,25 @@ services:
       DEEP_REPAIR_INTERVAL_MS: ${DEEP_REPAIR_INTERVAL_MS:-300000}
 
   gateway:
-    profiles: ["full"]
     image: ${FATHOM_IMAGE:-ghcr.io/giovani-freitag/fathom:latest}
     build: .
     container_name: fathom-gateway
     restart: unless-stopped
     depends_on:
-      timescaledb:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     ports:
-      - "${GATEWAY_PORT:-8787}:8787"
+      # The loopback, like the database. What reaches this is a browser on this
+      # machine; put it behind something that asks who is calling before you
+      # bind it wider.
+      - "127.0.0.1:${GATEWAY_PORT:-8787}:8787"
     environment:
-      DATABASE_URL: postgres://fathom:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@timescaledb:5432/fathom
+      DATABASE_URL: postgres://fathom:${POSTGRES_PASSWORD:-fathom}@timescaledb:5432/fathom
       # Every address inside the container: what reaches it is decided by the
       # port mapping above, not by what the process is willing to listen on.
       GATEWAY_HOST: 0.0.0.0
       GATEWAY_PORT: 8787
       VIEWER_DIST_PATH: dist/app
-      FATHOM_ACCESS_TOKEN: ${FATHOM_ACCESS_TOKEN:-}
-      FATHOM_TUNNELLED: ${FATHOM_TUNNELLED:-false}
 
 volumes:
   fathom-data:

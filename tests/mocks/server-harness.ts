@@ -8,11 +8,6 @@ import { vi } from 'vitest';
 
 type Spies<TNames extends string> = Readonly<Record<TNames, ReturnType<typeof vi.fn>>>;
 
-export interface GuardOverrides {
-    readonly accessToken?: string;
-    readonly isTunnelled?: boolean;
-}
-
 export interface ServerHarness {
     readonly server: Server;
     readonly query: Spies<
@@ -33,12 +28,10 @@ export interface ServerHarness {
  * the schema quietly dropped, which no test of the handler alone would see.
  *
  * @param overrides - What the read service should answer with.
- * @param guard - How the access guard should be configured; open by default.
  * @returns The server and the spies behind it.
  */
 export function createServerHarness(
     overrides: Readonly<Record<string, unknown>> = {},
-    guard: GuardOverrides = {},
 ): ServerHarness {
     const query = {
         listInstruments: vi.fn().mockResolvedValue([]),
@@ -86,8 +79,6 @@ export function createServerHarness(
         host: '127.0.0.1',
         port: 0,
         viewerDistPath: new URL('.', import.meta.url).pathname,
-        accessToken: guard.accessToken ?? '',
-        isTunnelled: guard.isTunnelled ?? false,
         postgres: postgres as unknown as PostgresService,
         query: query as unknown as LiquidityQueryService,
         chunks: chunks as unknown as ChunkArchiveService,

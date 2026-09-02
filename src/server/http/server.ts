@@ -14,7 +14,6 @@ import type { PostgresService } from '../../database/postgres/postgres-service.t
 import Fastify, { type FastifyInstance } from 'fastify';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { AccessGuard } from '../services/access-guard.ts';
 import { REQUEST_BUDGET } from '../core/gateway-configuration.ts';
 import type { LiveTailService } from '../services/live-tail-service.ts';
 import { createBarsHandler } from './actions/bars-action.ts';
@@ -50,8 +49,6 @@ export interface ServerConfig {
     readonly host: string;
     readonly port: number;
     readonly viewerDistPath: string;
-    readonly accessToken: string;
-    readonly isTunnelled: boolean;
     readonly postgres: PostgresService;
     readonly query: LiquidityQueryService;
     /** The whole book as fixed squares, stacked in levels of detail. */
@@ -65,15 +62,10 @@ export interface ServerConfig {
  */
 export class Server {
     private readonly config: ServerConfig;
-    private readonly accessGuard: AccessGuard;
     private readonly app: FastifyInstance;
 
     constructor(config: ServerConfig) {
         this.config = config;
-        this.accessGuard = new AccessGuard({
-            accessToken: config.accessToken,
-            isTunnelled: config.isTunnelled,
-        });
         this.registerApiRoutes = this.registerApiRoutes.bind(this);
         this.app = this.setupServer();
         this.setupRoutes();
@@ -97,14 +89,6 @@ export class Server {
         await this.app.listen({ host: this.config.host, port: this.config.port });
     }
 
-    /**
-     * Whether a shared link is required to reach anything.
-     *
-     * @returns True when an access token is configured.
-     */
-    get isGuarded(): boolean {
-        return this.accessGuard.isEnabled;
-    }
 
     /**
      * Closes the listening socket and every live tail.
@@ -143,7 +127,6 @@ export class Server {
 
         // Registered on the root instance so it also covers the static assets
         // and the websocket upgrade, not only the routes declared below.
-        app.addHook('onRequest', this.accessGuard.protect);
 
         this.registerViewerAssets(app);
         return app;

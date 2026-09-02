@@ -28,6 +28,14 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=build /app/dist ./dist
+# The migrations and the one script that applies them, so a database can be
+# brought up to date by something that was handed this image and no checkout.
+COPY database/migrations ./database/migrations
+COPY scripts/migrate.mjs ./scripts/migrate.mjs
+
+# The collector writes its log beside itself, and everything else here belongs
+# to root. One directory it owns is the whole of what it needs to write.
+RUN mkdir -p /app/logs && chown node:node /app/logs
 
 # Never root: the process reads a socket and writes to one database, and needs
 # nothing on this filesystem it did not arrive with.

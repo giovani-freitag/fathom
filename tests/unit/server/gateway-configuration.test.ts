@@ -10,8 +10,6 @@ const GATEWAY_VARIABLES = [
     'GATEWAY_HOST',
     'GATEWAY_PORT',
     'VIEWER_DIST_PATH',
-    'FATHOM_ACCESS_TOKEN',
-    'FATHOM_TUNNELLED',
 ];
 
 describe('readGatewayConfiguration', () => {
@@ -30,8 +28,6 @@ describe('readGatewayConfiguration', () => {
             port: 8787,
             databaseUrl: 'postgres://fathom@localhost/fathom',
             viewerDistPath: 'dist/app',
-            accessToken: '',
-            isTunnelled: false,
         });
     });
 
@@ -74,25 +70,6 @@ describe('readGatewayConfiguration', () => {
         expect(() => readGatewayConfiguration()).toThrow(ConfigurationError);
     });
 
-    it('guards every route once a token is set', () => {
-        vi.stubEnv('FATHOM_ACCESS_TOKEN', '  a-shared-secret  ');
 
-        expect(readGatewayConfiguration().accessToken).toBe('a-shared-secret');
-    });
 
-    it('knows it is reached through a public tunnel', () => {
-        vi.stubEnv('FATHOM_TUNNELLED', 'true');
-        vi.stubEnv('FATHOM_ACCESS_TOKEN', 'a-shared-secret');
-
-        expect(readGatewayConfiguration().isTunnelled).toBe(true);
-    });
-
-    it('refuses to open a public tunnel onto an unguarded gateway', () => {
-        // Tunnelled and unguarded means the whole recorded history, and the
-        // controls that write to it, are one URL away from anyone.
-        vi.stubEnv('FATHOM_TUNNELLED', 'true');
-        vi.stubEnv('FATHOM_ACCESS_TOKEN', '');
-
-        expect(() => readGatewayConfiguration()).toThrow(ConfigurationError);
-    });
 });

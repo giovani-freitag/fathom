@@ -57,85 +57,64 @@ be running before you need the data.
 
 ## 🚀 Run it
 
-Two ways in. The first asks for Docker and nothing else; the second is for
-working on the source.
-
-Either way, the recording starts empty. **The chart only ever covers time the
-collector was running** — an order book cannot be fetched after the fact, so
-there is no history to load and nothing to wait for. Leave it up.
-
-### With Docker
-
 ```bash
-git clone https://github.com/giovani-freitag/fathom.git
-cd fathom
-cp .env.example .env                       # then set POSTGRES_PASSWORD
-
-docker compose --profile full up -d        # database, collector, gateway
+curl -fsSL https://raw.githubusercontent.com/giovani-freitag/fathom/main/docker-compose.yml \
+  | docker compose -f - up -d
 ```
 
-Open **http://localhost:8787**. The first columns appear within seconds of the
-collector reaching the exchange.
+Open **http://localhost:8787**. The first columns appear within seconds.
 
-The database applies the migrations itself the first time its volume is created,
-so there is no separate step. What each service is doing:
+Four containers: TimescaleDB, a migration step that runs once and stops, the
+collector that mirrors the book, and the gateway that draws it. Nothing to
+configure and nothing to clone — the migrations travel in the image.
 
-```bash
-docker compose --profile full ps
-docker compose --profile full logs -f collector
-```
-
-To stop, keeping everything recorded so far:
+**The chart only ever covers time the collector was running.** An order book
+cannot be fetched after the fact, so there is no history to load and nothing to
+wait for. Leave it up.
 
 ```bash
-docker compose --profile full down
+# The collector keeps its own log, a line per thing that happened to it.
+docker compose exec collector tail -f logs/collector.*.log
+
+docker compose logs collector         # only what it could not survive
+docker compose down                   # stop, keeping the recording
+docker compose down -v                # stop and delete it, permanently
 ```
 
-`docker compose down -v` also deletes the volume, and with it the recording.
-Nothing can bring that back.
+### What to change
 
-### From the source
-
-Node 22.12 or newer, and Docker for the database — TimescaleDB is Postgres with
-an extension, so any instance that has it will do if you would rather not run a
-container. Point `DATABASE_URL` at it.
-
-```bash
-git clone https://github.com/giovani-freitag/fathom.git
-cd fathom
-npm install
-cp .env.example .env                       # then set POSTGRES_PASSWORD
-
-docker compose up -d                       # the database alone
-npm run migrate                            # only needed against an existing one
-npm run build
-
-npm run collector &                        # the half that must not stop
-npm run gateway                            # http://localhost:8787
-```
-
-`npm run dev` serves the viewer with hot reload against a gateway you have
-already started.
-
-### Worth setting
-
-Everything lives in `.env`, and `.env.example` documents all of it. The four
-that decide what you get:
+Everything is optional and lives in a `.env` beside the compose file.
+`.env.example` documents all of it; these four decide what you get:
 
 | | |
 |---|---|
 | `INSTRUMENT_SYMBOL` | Which contract to record. Any Binance USD-M perpetual. |
 | `PRICE_BUCKET_SIZE` | How tall one row of the heat map is, in quote units. Ten dollars on Bitcoin; a hundredth of that on Litecoin. |
 | `RECORDED_PRICE_RANGE_RATIO` | How far either side of the price the recording reaches. This is what a day of it costs on disk. |
-| `FATHOM_ACCESS_TOKEN` | Leave it empty and every route is open. Set it before the port is reachable by anyone you have not met. |
+| `POSTGRES_PASSWORD` | Defaults to `fathom`, which is fine while the port is on the loopback and not otherwise. |
 
-### If nothing appears
+Both ports are published to `127.0.0.1` only. Fathom asks nobody who they are —
+put it behind something that does before you bind it wider.
 
-- `docker compose --profile full logs collector` — it says what it is doing every
-  time it reaches the exchange, loses it, or is refused by it.
-- A first run needs a moment to mirror the book before the first column exists.
-- Recorded gaps are drawn as gaps rather than filled in. A stripe across the
-  chart is the recording saying it was not running, which is the truth.
+### From the source
+
+Node 22.12 or newer, and Docker for the database alone.
+
+```bash
+git clone https://github.com/giovani-freitag/fathom.git
+cd fathom
+npm install
+cp .env.example .env
+
+docker compose up -d timescaledb      # the database by itself
+npm run migrate                       # only against a database that already exists
+npm run build
+
+npm run collector &                   # the half that must not stop
+npm run gateway                       # http://localhost:8787
+```
+
+`npm run dev` serves the viewer with hot reload against a gateway already running.
 
 ### Without a backend at all
 
@@ -146,6 +125,24 @@ database, and a recording that lives in the tab.
 ```bash
 npm run dev:demo
 ```
+
+### The tools it was built with
+
+Three scripts nothing runs for you, kept because every optimisation in this
+project was chosen from one of them:
+
+```bash
+node --env-file-if-exists=.env scripts/compare-stores.mjs BTCUSDT 10
+node --env-file-if-exists=.env scripts/measure-chart.mjs --repeat 4
+node --env-file-if-exists=.env scripts/rebuild-pyramid.mjs
+```
+
+The first reads the same minutes out of both stores and compares them cell by
+cell — it has caught two folding bugs that nothing else would have. The second
+drives the real chart through pan, zoom and price gestures over the Chrome
+debugging protocol and reports what each cost. The third rebuilds the coarse
+levels of the archive from the finest one, which is what a change to how they
+fold needs afterwards.
 
 ## 📚 Docs
 
