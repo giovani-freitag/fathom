@@ -31,6 +31,8 @@ export interface IndicatorKernel {
     readonly container: ServiceContainer;
     readonly readAdded: () => readonly AddedIndicator[];
     readonly moveCursorTo: (atMs: number | null) => void;
+    /** Puts the chart in a state a test wants the interface to react to. */
+    readonly setState: (revise: (state: ChartState) => ChartState) => void;
 }
 
 /**
@@ -84,6 +86,7 @@ export function createIndicatorKernel(added: readonly AddedIndicator[] = []): In
         container,
         readAdded: () => store.read().addedIndicators,
         moveCursorTo: (atMs) => { cursor.update(() => ({ atMs })); },
+        setState: (revise) => { store.update(revise); },
     };
 }
 

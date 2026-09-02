@@ -4,6 +4,7 @@ import { buildFrame } from '../../../mocks/chart-services.ts';
 import { EMPTY_DATASET } from '../../../../src/app/core/chart-dataset.ts';
 import { EMPTY_DRAWINGS_VIEW } from '../../../../src/app/drawings/drawing-painter.ts';
 import { HeatmapRenderer } from '../../../../src/app/painting/heatmap-renderer.ts';
+import { RENDER_PALETTE } from '../../../../src/app/painting/render-palette.ts';
 import { resolveChartLayout } from '../../../../src/app/painting/chart-layout.ts';
 import type { RenderRequest } from '../../../../src/app/painting/render-types.ts';
 
@@ -236,5 +237,32 @@ describe('HeatmapRenderer and the marks a reader left', () => {
         surface.renderer.render(buildRequest({ drawings }));
 
         expect(surface.overlay.callsTo('clearRect').length).toBe(before);
+    });
+});
+
+describe('what the price gutter is allowed to paint over', () => {
+    /** The index of the last call the gutter backdrop made. */
+    function findBackdropAt(surface: Surface): number {
+        return surface.cursor.calls.findLastIndex((call) => (
+            call.method === 'fillRect' && call.fillStyle === RENDER_PALETTE.axisBackdrop
+        ));
+    }
+
+    /** The index of the first call the live price tag made. */
+    function findLiveTagAt(surface: Surface): number {
+        return surface.cursor.calls.findIndex((call) => call.fillStyle === RENDER_PALETTE.phosphor);
+    }
+
+    it('draws the live price tag after the backdrop, not under it', () => {
+        // The backdrop is translucent so a tag beneath it is not buried, but
+        // 0.82 of an opaque wash is a wash: painted first, the one figure a
+        // reader takes without moving the pointer came out at 1.4 to 1.
+        const surface = buildSurface();
+
+        surface.renderer.render(buildRequest());
+
+        const backdropAt = findBackdropAt(surface);
+        const tagAt = findLiveTagAt(surface);
+        expect([backdropAt >= 0, tagAt >= 0, tagAt > backdropAt]).toEqual([true, true, true]);
     });
 });

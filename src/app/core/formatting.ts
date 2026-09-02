@@ -151,21 +151,39 @@ const ONE_HOUR_MS = 60 * 60 * 1_000;
  * @param spanMs - Width of the visible window, which decides the granularity.
  * @returns The formatted label.
  */
-export function formatAxisTime(timestampMs: number, spanMs: number): string {
+export function formatAxisTime(
+    timestampMs: number,
+    spanMs: number,
+    previousTickMs?: number,
+): string {
     const moment = new Date(timestampMs);
     if (spanMs > THREE_DAYS_MS) {
         return formatters.day.format(moment);
     }
     // Across a window wide enough to cross midnight, a row of clock times gives
     // no way to tell which side of the wrap a wall was on.
-    if (spanMs > SIX_HOURS_MS && isStartOfDay(moment)) {
+    //
+    // The first tick of each day carries the date, rather than a tick that
+    // happens to land on midnight. A grid that steps by six hours from some
+    // other hour never lands on one, and a phone showing three ticks over three
+    // days showed the same clock reading three times and no date at all.
+    if (spanMs > SIX_HOURS_MS && opensADay(moment, previousTickMs)) {
         return formatters.day.format(moment);
     }
     return formatters.clock.format(moment).slice(0, spanMs > ONE_HOUR_MS ? 5 : 8);
 }
 
-function isStartOfDay(moment: Date): boolean {
-    return moment.getHours() === 0 && moment.getMinutes() === 0 && moment.getSeconds() === 0;
+/**
+ * Whether a tick is the first of its day among the ticks being drawn.
+ */
+function opensADay(moment: Date, previousTickMs: number | undefined): boolean {
+    if (previousTickMs === undefined) {
+        return true;
+    }
+    const previous = new Date(previousTickMs);
+    return previous.getDate() !== moment.getDate()
+        || previous.getMonth() !== moment.getMonth()
+        || previous.getFullYear() !== moment.getFullYear();
 }
 
 /**

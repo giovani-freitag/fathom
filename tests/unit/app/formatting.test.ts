@@ -21,6 +21,38 @@ function localMoment(hours: number, minutes = 0): number {
     return moment.getTime();
 }
 
+describe('formatAxisTime dating a window that crosses midnight', () => {
+    const SIX_HOURS_MS = 6 * 60 * 60 * 1_000;
+    const DAY_MS = 24 * SIX_HOURS_MS / 6;
+
+    it('dates the first tick of a day even when no tick lands on midnight', () => {
+        // A grid stepping six hours from some other hour never lands on one. A
+        // phone showing three ticks over three days showed one clock reading
+        // three times and no date at all.
+        const eightPm = localMoment(20, 0);
+        const twoAmNextDay = eightPm + SIX_HOURS_MS;
+
+        expect(formatAxisTime(twoAmNextDay, 3 * DAY_MS, eightPm)).not.toMatch(/^\d{2}:\d{2}$/);
+    });
+
+    it('leaves a tick inside the same day as a clock reading', () => {
+        const twoPm = localMoment(14, 0);
+        const eightPm = twoPm + SIX_HOURS_MS;
+
+        expect(formatAxisTime(eightPm, 3 * DAY_MS, twoPm)).toMatch(/^\d{2}:\d{2}$/);
+    });
+
+    it('dates the leftmost tick, which has nothing before it to differ from', () => {
+        expect(formatAxisTime(localMoment(14, 0), 3 * DAY_MS)).not.toMatch(/^\d{2}:\d{2}$/);
+    });
+
+    it('says nothing about the date while the whole window is inside one day', () => {
+        const nine = localMoment(9, 0);
+
+        expect(formatAxisTime(nine + 60_000, 15 * 60 * 1_000, nine)).toMatch(/^\d{2}:\d{2}:\d{2}$/);
+    });
+});
+
 describe('formatAxisTime', () => {
     it('shows seconds on a window measured in minutes', () => {
         expect(formatAxisTime(localMoment(14, 30), 15 * 60 * 1_000)).toMatch(/^\d{2}:\d{2}:\d{2}$/);
@@ -35,7 +67,10 @@ describe('formatAxisTime', () => {
     });
 
     it('keeps clock times either side of that midnight', () => {
-        expect(formatAxisTime(localMoment(1, 0), ONE_DAY_MS)).toMatch(/^\d{2}:\d{2}$/);
+        // Handed the tick before it, which opened the same day. Without one it
+        // is the leftmost tick on the axis, and that always carries its date.
+        expect(formatAxisTime(localMoment(1, 0), ONE_DAY_MS, localMoment(0, 0)))
+            .toMatch(/^\d{2}:\d{2}$/);
     });
 
     it('leaves midnight as a clock time while the window stays short', () => {

@@ -116,7 +116,12 @@ function IndicatorGroup({ titleKey, indicators, isFull, addedCounts, onAdd }: In
                     type="button"
                     disabled={isFull || (findFieldLayer(indicator.id) !== null && (addedCounts.get(indicator.id) ?? 0) > 0)}
                     onClick={() => { onAdd(indicator.id); }}
-                    className="flex w-full flex-col items-start gap-0.5 rounded px-2 py-2 text-left transition-colors hover:bg-abyss-700 disabled:opacity-40 disabled:hover:bg-transparent"
+                    // Dimmed only where nothing more can be added at all. A
+                    // layer already on the chart is said so by its own count,
+                    // and washing the row out takes the sentence explaining
+                    // what the layer *is* down to 1.6 to 1 — the same sentence
+                    // a reader reads for anything they might add.
+                    className={`flex w-full flex-col items-start gap-0.5 rounded px-2 py-2 text-left transition-colors hover:bg-abyss-700 disabled:hover:bg-transparent ${isFull ? 'disabled:opacity-40' : ''}`}
                 >
                     <span className="flex w-full items-center gap-2 text-sm font-semibold text-ink-100">
                         {translateLabel(translate, indicator.labelKey)}

@@ -64,10 +64,19 @@ export const FLOATING_SURFACE_CLASSES = 'border border-hairline bg-abyss-800/95 
  * Scrollable sideways rather than wrapping: a bar that wraps onto two lines has
  * stopped being a bar, and on a phone the tools run past the edge of the screen
  * however few of them there are.
+ *
+ * The scrollbar is hidden because a scrollbar over a chart is furniture, and
+ * the edges are faded because hiding it left nothing at all to say there was
+ * more. On a phone that was six of thirteen tools — Measure and the tool lock
+ * among them — off screen behind a row that looked complete. A control cut by a
+ * fade reads as one that continues; a control cut by the frame reads as the
+ * last one.
  */
 export const CONTROL_BAR_CLASSES =
     'flex shrink-0 items-center gap-2 px-3 py-2 max-w-full overflow-x-auto'
-    + ' [scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
+    + ' [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+    + ' [mask-image:linear-gradient(to_right,transparent_0,black_14px,'
+    + 'black_calc(100%-14px),transparent_100%)]';
 
 /** The shell every panel that opens over the chart shares. */
 export const FLOATING_CARD_CLASSES =

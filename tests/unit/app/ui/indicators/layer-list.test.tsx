@@ -25,6 +25,10 @@ const BOOK: AddedIndicator = {
 const RSI: AddedIndicator = {
     instanceId: 'rsi-1', indicatorId: 'rsi', settings: { periodBars: 14 }, tone: 'violet',
 };
+/** A reading with nothing about it to turn. */
+const DELTA: AddedIndicator = {
+    instanceId: 'delta-1', indicatorId: 'delta', settings: {}, tone: 'cyan',
+};
 
 const onOpenSettings = vi.fn<(instanceId: string) => void>();
 
@@ -134,5 +138,39 @@ describe('LayerList', () => {
 
         const shapes = new Set(screen.getAllByRole('listitem').map((row) => row.children.length));
         expect(shapes.size).toBe(1);
+    });
+});
+
+describe('LayerList and the controls it offers', () => {
+    it('offers no settings control for a layer that has nothing to set', () => {
+        // Rendered and disabled, it still reads as something that could be
+        // used, and a reader presses it to find out why it will not open.
+        renderList([DELTA]);
+
+        expect(screen.queryByRole('button', { name: /tune|settings|ajust/i })).toBeNull();
+    });
+
+    it('still offers one for a layer that does have knobs', () => {
+        renderList([RSI]);
+
+        expect(screen.queryAllByRole('button').length)
+            .toBeGreaterThan(screen.queryAllByRole('button', { name: /remove|hide/i }).length);
+    });
+
+    it('keeps the actions of every row in one column, whatever a row can do', () => {
+        // A row that gained a band action used to push its own eye button out
+        // of line with every other row's.
+        renderList([RSI, DELTA]);
+
+        const rows = screen.getAllByRole('listitem');
+        const counts = rows.map((row) => row.querySelectorAll('button, span[class*="size-10"]').length);
+        expect(new Set(counts).size).toBe(1);
+    });
+
+    it('names a layer in full for a reader whose row is too narrow to', () => {
+        renderList([RSI]);
+
+        const named = screen.getAllByTitle(/relative strength|rsi/i);
+        expect(named.length).toBeGreaterThan(0);
     });
 });

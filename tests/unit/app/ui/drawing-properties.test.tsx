@@ -7,6 +7,7 @@ import { DrawingProperties } from '../../../../src/app/ui/drawing-properties.tsx
 import { EN_DICTIONARY } from '../../../../src/app/i18n/dictionaries/en.ts';
 import { createIndicatorKernel } from '../../../mocks/indicator-kernel.tsx';
 import { INSTANCE_TONES } from '../../../../src/shared/core/draw-plan.ts';
+import { TONE_LABEL_KEYS } from '../../../../src/app/ui/indicators/tone-labels.ts';
 import { KernelProvider } from '../../../../src/app/react/kernel-provider.tsx';
 
 const LEVEL: Drawing = {
@@ -69,20 +70,26 @@ describe('DrawingProperties', () => {
     it('offers every tone a mark can be told apart by', () => {
         renderPanel(LEVEL);
 
-        const offered = INSTANCE_TONES.filter((tone) => screen.queryByRole('button', { name: tone }) !== null);
+        // Named by colour, not by token: a reader who cannot see the swatch
+        // hears what it is, and "ask" is a place a colour is used rather than
+        // a colour.
+        const offered = INSTANCE_TONES.filter((tone) => (
+            screen.queryByRole('button', { name: EN_DICTIONARY[TONE_LABEL_KEYS[tone]] }) !== null
+        ));
         expect(offered).toHaveLength(INSTANCE_TONES.length);
     });
 
     it('shows the tone the mark already carries', () => {
         renderPanel(LEVEL);
 
-        expect(screen.getByRole('button', { name: 'phosphor' }).getAttribute('aria-pressed')).toBe('true');
+        expect(screen.getByRole('button', { name: EN_DICTIONARY['colour.teal'] })
+            .getAttribute('aria-pressed')).toBe('true');
     });
 
     it('paints it in the tone that was pressed', () => {
         const pressed = renderPanel(LEVEL);
 
-        screen.getByRole('button', { name: 'amber' }).click();
+        screen.getByRole('button', { name: EN_DICTIONARY['colour.amber'] }).click();
 
         expect(pressed.restyled).toEqual([{ tone: 'amber' }]);
     });

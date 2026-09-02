@@ -248,3 +248,80 @@ describe('PlotPainter drawing a series as marks', () => {
         expect(radiusFor(12)).toBeGreaterThan(radiusFor());
     });
 });
+
+describe('PlotPainter naming what it drew', () => {
+    /** Everything written on the canvas, in the order it was written. */
+    function writtenBy(recording: ReturnType<typeof createRecordingContext>): string[] {
+        return recording.callsTo('fillText').map((call) => String(call.args[0]));
+    }
+
+    it('writes nothing over the price for a plan that did not ask', () => {
+        // A mean and its channel are told apart by where they sit. Naming every
+        // line would be three words over the price for nothing.
+        const recording = paintWith({});
+
+        expect(writtenBy(recording)).toEqual([]);
+    });
+
+    it('names every line of a plan whose lines are only meaningful named', () => {
+        const recording = paintWith({
+            namesItsSeries: true,
+            series: [
+                buildSeries({ labelKey: 'indicator.pivots.r1', value: Float64Array.from([78_600, 78_600, 78_600]) }),
+                buildSeries({ labelKey: 'indicator.pivots.s1', value: Float64Array.from([78_400, 78_400, 78_400]) }),
+            ],
+        });
+
+        expect(writtenBy(recording)).toEqual(['R1', 'S1']);
+    });
+
+    it('says nothing about a line that is off the screen', () => {
+        // A name ranged against the edge claims its line is somewhere on that
+        // edge, and a level far above the visible prices is not.
+        const recording = paintWith({
+            namesItsSeries: true,
+            series: [buildSeries({
+                labelKey: 'indicator.pivots.r3',
+                value: Float64Array.from([9_000_000, 9_000_000, 9_000_000]),
+            })],
+        });
+
+        expect(writtenBy(recording)).toEqual([]);
+    });
+
+    it('says nothing for a line that drew nothing at all', () => {
+        const recording = paintWith({
+            namesItsSeries: true,
+            series: [buildSeries({ value: Float64Array.from([NaN, NaN, NaN]) })],
+        });
+
+        expect(writtenBy(recording)).toEqual([]);
+    });
+
+    it('tells two copies of one reading apart by how each was tuned', () => {
+        // Sharing a band, two of the same reading are the same name and the
+        // same shape. What differs is the number a reader chose.
+        const recording = createRecordingContext();
+
+        new PlotPainter().paintInPanes(buildPaintContext(recording, {
+            plans: [
+                buildPlan({ instanceId: 'rsi-1', labelKey: 'indicator.rsi', parameterSummary: '14', scale: { kind: 'auto' } }),
+                buildPlan({ instanceId: 'rsi-2', labelKey: 'indicator.rsi', parameterSummary: '50', scale: { kind: 'auto' }, bandKey: 'shared' }),
+            ],
+        }));
+
+        const titles = writtenBy(recording).filter((text) => text.includes('RSI'));
+        expect(titles.some((text) => text.includes('14')) && titles.some((text) => text.includes('50')))
+            .toBe(true);
+    });
+
+    it('names the band a stack of them is otherwise only numbers beside', () => {
+        const recording = createRecordingContext();
+
+        new PlotPainter().paintInPanes(buildPaintContext(recording, {
+            plans: [buildPlan({ labelKey: 'indicator.cvd', scale: { kind: 'auto' } })],
+        }));
+
+        expect(writtenBy(recording).some((text) => text.startsWith('Cumulative delta'))).toBe(true);
+    });
+});

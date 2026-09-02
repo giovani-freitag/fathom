@@ -63,3 +63,18 @@ describe('control-shell', () => {
         expect(named).toEqual([]);
     });
 });
+
+describe('a bar of controls that does not fit', () => {
+    it('never hides its scrollbar without saying there is more', () => {
+        // The two decisions travel together or the bar lies: six of thirteen
+        // tools sat off the edge of a phone behind a row that looked complete.
+        const hidesTheScrollbar = CONTROL_BAR_CLASSES.includes('scrollbar-width:none');
+        const fadesItsEdges = CONTROL_BAR_CLASSES.includes('mask-image');
+
+        expect(hidesTheScrollbar && !fadesItsEdges).toBe(false);
+    });
+
+    it('fades only the edges, so a control in the middle is drawn in full', () => {
+        expect(CONTROL_BAR_CLASSES).toContain('to_right,transparent_0,black_');
+    });
+});

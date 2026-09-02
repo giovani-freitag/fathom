@@ -14,6 +14,7 @@ import {
     type ValueProjector,
 } from '../pane-projector.ts';
 import { RENDER_PALETTE, resolveToneColour } from '../render-palette.ts';
+import { translateLabel } from '../../i18n/translator.ts';
 import type { PaintContext, PanePlacement, PaneRect } from '../render-types.ts';
 
 /** An unconverged series is drawn dashed, so it does not read as settled. */
@@ -21,6 +22,12 @@ const UNCONVERGED_DASH = [4, 3];
 
 /** How wide a dot is drawn when its series names no width of its own. */
 const DOT_RADIUS_PX = 3;
+
+/** How far a band's name sits in from its own corner. */
+const PANE_TITLE_INSET_PX = 6;
+
+/** How far a line's name sits in from the right edge of the plot. */
+const SERIES_NAME_INSET_PX = 6;
 const LEVEL_DASH = [2, 4];
 
 /** How much of a fill's colour survives, so what is under a band stays legible. */
@@ -142,11 +149,79 @@ export class PlotPainter {
         for (const series of plan.series) {
             this.paintSeries({ paint, series, plan, projector });
         }
+        if (plan.namesItsSeries === true) {
+            this.paintSeriesNames(paint, plan, projector);
+        }
     }
 
     /**
      * Draws one band of the stack, and everything sharing it, on one scale.
      */
+    /**
+     * Writes what a band is, inside the band.
+     *
+     * A stack of them is otherwise told apart only by the figures in the
+     * gutter beside it, and those say how much without saying of what.
+     */
+    private paintPaneTitle(
+        paint: PaintContext,
+        band: readonly DrawPlan[],
+        rect: PaneRect,
+    ): void {
+        const { context } = paint;
+        // Tuning included, so two copies of one reading in the same band are
+        // told apart by what makes them different rather than by their colour.
+        const named = band
+            .map((plan) => [translateLabel(paint.translate, plan.labelKey), plan.parameterSummary]
+                .filter((part) => part !== '')
+                .join(' '))
+            .join(' · ');
+        context.save();
+        context.fillStyle = RENDER_PALETTE.inkMuted;
+        context.textAlign = 'left';
+        context.textBaseline = 'top';
+        context.fillText(named, PANE_TITLE_INSET_PX, rect.topY + PANE_TITLE_INSET_PX);
+        context.restore();
+    }
+
+    /**
+     * Writes each line's own name against the right edge of the plot.
+     *
+     * Ranged along one edge rather than trailing each line, so a set of them
+     * reads as the ladder it is. Only for a plan that asked, because a mean
+     * and its channel are told apart by where they sit and a name on each
+     * would be three words over the price for nothing.
+     */
+    private paintSeriesNames(
+        paint: PaintContext,
+        plan: DrawPlan,
+        projector: ValueProjector,
+    ): void {
+        const { context, layout } = paint;
+        context.save();
+        context.textAlign = 'right';
+        context.textBaseline = 'middle';
+        for (const series of plan.series) {
+            const value = findLastDrawn(series);
+            if (value === null) {
+                continue;
+            }
+            const y = projector.valueToY(value);
+            // Off the top or the bottom of the price pane: the line is not
+            // on screen, and a name at the edge would claim it was.
+            if (y < 0 || y > layout.pricePaneHeight) {
+                continue;
+            }
+            context.fillStyle = resolveToneColour(series.tone);
+            context.fillText(
+                translateLabel(paint.translate, series.labelKey),
+                layout.plotWidth - SERIES_NAME_INSET_PX,
+                y,
+            );
+        }
+        context.restore();
+    }
+
     private paintPane(
         paint: PaintContext,
         band: readonly DrawPlan[],
@@ -168,6 +243,7 @@ export class PlotPainter {
         context.clip();
 
         this.paintPaneFrame(paint, rect);
+        this.paintPaneTitle(paint, band, rect);
         for (const plan of band) {
             for (const level of plan.levels ?? []) {
                 this.paintLevel(paint, level, projector);
@@ -385,4 +461,20 @@ export class PlotPainter {
         const stride = paint.projector.timeToX(series.atMs[1]!) - paint.projector.timeToX(series.atMs[0]!);
         return Math.max(1, stride * 0.7);
     }
+}
+
+/**
+ * The last value a series actually drew.
+ *
+ * @param series - The vertices, in order.
+ * @returns The newest value that was not a break, or null where it drew none.
+ */
+function findLastDrawn(series: PlotSeries): number | null {
+    for (let index = series.value.length - 1; index >= 0; index -= 1) {
+        const value = series.value[index]!;
+        if (!Number.isNaN(value)) {
+            return value;
+        }
+    }
+    return null;
 }

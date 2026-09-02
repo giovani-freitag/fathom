@@ -11,6 +11,7 @@ import {
     withIndicatorVisibility,
 } from '../../../../src/shared/core/indicator-selection.ts';
 import type { AddedIndicator } from '../../../../src/shared/core/indicator-selection.ts';
+import { INSTANCE_TONES } from '../../../../src/shared/core/draw-plan.ts';
 
 const SETTINGS = { periodBars: 20 };
 
@@ -71,9 +72,12 @@ describe('indicator colours', () => {
     });
 
     it('starts reusing colours only once every one is taken', () => {
+        // Counted off the rotation rather than a figure written here twice:
+        // taking a colour out of it is a decision about what a reading may be
+        // drawn in, and it should not also be a failing test about arithmetic.
         const many = addTimes(MAXIMUM_STORED_INDICATORS);
 
-        expect(new Set(many.map((entry) => entry.tone)).size).toBeGreaterThanOrEqual(6);
+        expect(new Set(many.map((entry) => entry.tone)).size).toBe(INSTANCE_TONES.length);
     });
 
     it('recolours one copy and leaves its twin alone', () => {
@@ -125,5 +129,22 @@ describe('hiding an indicator', () => {
         const hidden = withIndicatorVisibility(added, 'ema-1', true);
 
         expect(hidden.map((entry) => entry.isHidden === true)).toEqual([true, false]);
+    });
+});
+
+describe('the colours a copy is identified by', () => {
+    it('never hands a reading the colour that means the offer side', () => {
+        // Red is the ask on the candles, the volume, the delta, the heat ramp
+        // and the resistances of a pivot set. A mean has no side, so a mean
+        // drawn in it teaches a reader something false.
+        const tones = addTimes(MAXIMUM_STORED_INDICATORS).map((entry) => entry.tone);
+
+        expect(tones).not.toContain('ask');
+    });
+
+    it('never hands a reading the colour that means the bid side either', () => {
+        const tones = addTimes(MAXIMUM_STORED_INDICATORS).map((entry) => entry.tone);
+
+        expect(tones).not.toContain('bid');
     });
 });

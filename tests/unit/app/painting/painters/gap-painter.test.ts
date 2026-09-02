@@ -93,3 +93,83 @@ describe('GapPainter put down', () => {
         expect(recording.callsTo('fillRect').length).toBeGreaterThan(0);
     });
 });
+
+describe('GapPainter and how loud a mark about missing data may be', () => {
+    /** Every fill the painter laid down, as `[x, y, width, height]`. */
+    function fillsOf(recording: ReturnType<typeof createRecordingContext>) {
+        return recording.callsTo('fillRect').map((call) => call.args.map(Number));
+    }
+
+    it('marks the price pane and not the bands below it', () => {
+        // A hole is missing depth. The executions under it were recorded and so
+        // was every bar an indicator is built from, so a mark across those
+        // bands calls readings suspect that are not.
+        //
+        // Drawn with a band on the chart, because without one the price pane
+        // *is* the stack and the two heights cannot be told apart.
+        const recording = createRecordingContext();
+        const paint = buildPaintContext(recording, {
+            dataset: { gaps: [buildGap(1_200_000, 1_400_000)] },
+            plans: [{
+                indicatorId: 'cvd',
+                labelKey: 'indicator.cvd',
+                parameterSummary: '',
+                scale: { kind: 'auto' },
+                series: [{
+                    labelKey: 'indicator.cvd',
+                    tone: 'ink',
+                    shape: 'line',
+                    atMs: Float64Array.from([1_200_000]),
+                    value: Float64Array.from([1]),
+                }],
+                hasConverged: true,
+            }],
+        });
+
+        expect(paint.layout.pricePaneHeight).toBeLessThan(paint.layout.paneStackHeight);
+
+        new GapPainter().paint(paint);
+
+        expect(fillsOf(recording).map((fill) => fill[3]))
+            .toEqual([paint.layout.pricePaneHeight]);
+    });
+
+    it('lays one mark over two gaps that touch, not two over each other', () => {
+        // Both the fill and the edges are translucent so the book shows
+        // through. Stacked, that translucency stops being translucent, and the
+        // brightest thing on the chart becomes the absence of data.
+        const recording = createRecordingContext();
+
+        new GapPainter().paint(buildPaintContext(recording, {
+            dataset: {
+                gaps: [buildGap(1_200_000, 1_400_000), buildGap(1_300_000, 1_500_000)],
+            },
+        }));
+
+        expect(fillsOf(recording).length).toBe(1);
+    });
+
+    it('joins them however they arrive, since a ledger is not sorted for it', () => {
+        const recording = createRecordingContext();
+
+        new GapPainter().paint(buildPaintContext(recording, {
+            dataset: {
+                gaps: [buildGap(1_300_000, 1_500_000), buildGap(1_200_000, 1_400_000)],
+            },
+        }));
+
+        expect(fillsOf(recording).length).toBe(1);
+    });
+
+    it('keeps two gaps apart when nothing joins them', () => {
+        const recording = createRecordingContext();
+
+        new GapPainter().paint(buildPaintContext(recording, {
+            dataset: {
+                gaps: [buildGap(1_200_000, 1_250_000), buildGap(1_400_000, 1_450_000)],
+            },
+        }));
+
+        expect(fillsOf(recording).length).toBe(2);
+    });
+});

@@ -124,6 +124,10 @@ export class PivotPoints implements Indicator {
             parameterSummary: `${readChoice(input.settings, PERIOD)} · ${readChoice(input.settings, FORMULA)}`,
             scale: this.scale,
             isSelfColoured: this.isSelfColoured,
+            // Seven lines in three colours, two of them necessarily alike.
+            // Unnamed they say "some above and some below", where the
+            // reading is that price is testing R2 rather than R3.
+            namesItsSeries: true,
             series: LINE_LABELS.map((labelKey, line): PlotSeries => ({
                 labelKey,
                 tone: LINE_TONES[line]!,

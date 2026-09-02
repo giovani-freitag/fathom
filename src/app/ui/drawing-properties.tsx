@@ -18,6 +18,7 @@ import {
     FLOATING_CARD_CLASSES,
 } from './control-shell.ts';
 import { INSTANCE_TONES, type PlotTone } from '../../shared/core/draw-plan.ts';
+import { TONE_LABEL_KEYS } from './indicators/tone-labels.ts';
 import { useTranslate } from '../react/use-appearance.ts';
 
 /** The class each tone's swatch is filled with, so the canvas and the page agree. */
@@ -92,7 +93,7 @@ export function DrawingProperties({ controls }: DrawingPropertiesProps): ReactEl
                 {INSTANCE_TONES.map((tone) => (
                     <Option
                         key={tone}
-                        label={tone}
+                        label={translate(TONE_LABEL_KEYS[tone])}
                         isChosen={selected.tone === tone}
                         onPress={() => { controls.restyleSelected({ tone }); }}
                     >

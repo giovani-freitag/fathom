@@ -21,26 +21,63 @@ export class GapPainter {
             return;
         }
 
-        for (const gap of request.dataset.gaps) {
-            const startX = projector.timeToX(gap.gapStartedAtMs);
-            const endX = projector.timeToX(gap.gapEndedAtMs);
-            if (endX < 0 || startX > layout.plotWidth) {
+        // Down the price pane alone, not the whole stack. A hole is missing
+        // depth: the executions under it were recorded, and so was everything
+        // an indicator is computed from, so a mark across their bands says
+        // those readings are suspect when they are not.
+        const height = layout.pricePaneHeight;
+        for (const span of mergeSpans(request.dataset.gaps.map((gap) => ({
+            startX: projector.timeToX(gap.gapStartedAtMs),
+            endX: projector.timeToX(gap.gapEndedAtMs),
+        })))) {
+            if (span.endX < 0 || span.startX > layout.plotWidth) {
                 continue;
             }
 
-            const width = Math.max(1, endX - startX);
+            const width = Math.max(1, span.endX - span.startX);
             context.fillStyle = RENDER_PALETTE.gapFill;
-            context.fillRect(startX, 0, width, layout.paneStackHeight);
+            context.fillRect(span.startX, 0, width, height);
 
             context.strokeStyle = RENDER_PALETTE.gapStroke;
             context.setLineDash([3, 3]);
             context.beginPath();
-            context.moveTo(startX, 0);
-            context.lineTo(startX, layout.paneStackHeight);
-            context.moveTo(startX + width, 0);
-            context.lineTo(startX + width, layout.paneStackHeight);
+            context.moveTo(span.startX, 0);
+            context.lineTo(span.startX, height);
+            context.moveTo(span.startX + width, 0);
+            context.lineTo(span.startX + width, height);
             context.stroke();
             context.setLineDash([]);
         }
     }
+}
+
+/** One stretch of the surface a mark covers. */
+interface GapSpan {
+    readonly startX: number;
+    readonly endX: number;
+}
+
+/**
+ * Overlapping stretches joined into one.
+ *
+ * Both the fill and the two edges are translucent so a mark sits over the book
+ * rather than hiding it. Drawn one per gap, a cluster of them lays that
+ * translucency over itself until it is not translucent at all — and the
+ * loudest thing on a chart about liquidity ends up being the announcement that
+ * some is missing. Zoomed out far enough, every gap of a day clusters.
+ *
+ * @param spans - Where each gap starts and ends on the surface, in any order.
+ * @returns The stretches they cover between them, left to right, none touching.
+ */
+function mergeSpans(spans: readonly GapSpan[]): GapSpan[] {
+    const merged: GapSpan[] = [];
+    for (const span of [...spans].sort((first, second) => first.startX - second.startX)) {
+        const held = merged[merged.length - 1];
+        if (held !== undefined && span.startX <= held.endX) {
+            merged[merged.length - 1] = { startX: held.startX, endX: Math.max(held.endX, span.endX) };
+            continue;
+        }
+        merged.push(span);
+    }
+    return merged;
 }

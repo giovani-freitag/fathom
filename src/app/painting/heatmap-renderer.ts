@@ -240,13 +240,20 @@ export class HeatmapRenderer {
 
     /**
      * Draws what the cursor says, and the axes that yield to it.
+     *
+     * Both tags go on after the axes, not before. The price gutter is filled
+     * with a backdrop that is translucent so a tag underneath is not buried —
+     * but 0.82 of an opaque wash is a wash, and the live price and the bar
+     * clock came out at a little over one to one against it. They are the two
+     * figures read without moving the pointer, so they are painted last,
+     * where the crosshair's tag already was.
      */
     private paintCursor(paint: PaintContext): void {
         paint.context.clearRect(0, 0, this.cssWidth, this.cssHeight);
 
-        this.touchLinePainter.paint(paint);
         this.axisPainter.paintPriceAxis(paint);
         this.axisPainter.paintTimeAxis(paint);
+        this.touchLinePainter.paint(paint);
         this.crosshairPainter.paint(paint);
     }
 

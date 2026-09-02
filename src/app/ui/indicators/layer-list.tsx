@@ -15,10 +15,20 @@ import { useTranslate } from '../../react/use-appearance.ts';
 
 const readPlans = (state: ChartState): readonly DrawPlan[] => state.plans;
 
-/** Every action row's button, sized like the dock the panel opens from. */
+/**
+ * Every action row's button, sized like the dock the panel opens from.
+ *
+ * Wider where a finger is doing the pressing. Thirty-two pixels is a
+ * comfortable target for a pointer and an uncomfortable one for a thumb, and
+ * this panel sits over a surface that owns pan and zoom — a press that misses
+ * does not do nothing, it moves the chart.
+ */
 const LAYER_BUTTON_CLASSES =
-    'grid size-8 shrink-0 place-items-center rounded-md text-ink-500 transition-colors'
-    + ' hover:bg-abyss-700 hover:text-ink-100 disabled:opacity-30';
+    'grid size-10 shrink-0 place-items-center rounded-md text-ink-500 transition-colors'
+    + ' sm:size-8 hover:bg-abyss-700 hover:text-ink-100 disabled:opacity-30';
+
+/** Holds a slot open so the actions of every row line up in one column. */
+const LAYER_SLOT_CLASSES = 'size-10 shrink-0 sm:size-8';
 
 const ICON_SIZE_PX = 15;
 
@@ -101,7 +111,13 @@ function LayerRow({ added, controls, onOpenSettings, banding }: LayerRowProps): 
                 ? <ToneSwatch tone={added.tone} className={`size-2 ${isHidden ? 'opacity-30' : ''}`} />
                 : <span className="size-2 shrink-0" />}
 
-            <span className={`min-w-0 flex-1 truncate text-xs ${isHidden ? 'text-ink-600 line-through decoration-ink-700' : 'text-ink-200'}`}>
+            {/* Titled as well as written: the box it sits in is what is left
+                after the actions, and a name that does not fit is exactly the
+                one a reader opened this list to find. */}
+            <span
+                title={translateLabel(translate, layer.labelKey)}
+                className={`min-w-0 flex-1 truncate text-xs ${isHidden ? 'text-ink-600 line-through decoration-ink-700' : 'text-ink-200'}`}
+            >
                 {translateLabel(translate, layer.labelKey)}
             </span>
 
@@ -112,31 +128,24 @@ function LayerRow({ added, controls, onOpenSettings, banding }: LayerRowProps): 
                 {isHidden ? <EyeOff size={ICON_SIZE_PX} /> : <Eye size={ICON_SIZE_PX} />}
             </LayerButton>
 
-            {banding?.isSharing === true && (
-                <LayerButton
-                    label={translate('indicators.splitBand')}
-                    onPress={() => { controls.setBand(added.instanceId, null); }}
-                >
-                    <Split size={ICON_SIZE_PX} />
-                </LayerButton>
-            )}
+            {/* One slot, held open whether or not this row has a band action.
+                Rows that gained a fourth button broke the column for every
+                other, in a list whose whole job is telling one line from
+                another. */}
+            {renderBandAction({ banding, instanceId: added.instanceId, controls, translate })}
 
-            {banding !== null && banding.joinable !== null && (
-                <LayerButton
-                    label={translate('indicators.mergeBand')}
-                    onPress={() => { controls.setBand(added.instanceId, banding.joinable); }}
-                >
-                    <Combine size={ICON_SIZE_PX} />
-                </LayerButton>
-            )}
-
-            <LayerButton
-                label={translate('indicators.tune')}
-                isDisabled={!isLayerTunable(layer)}
-                onPress={() => { onOpenSettings(added.instanceId); }}
-            >
-                <Settings2 size={ICON_SIZE_PX} />
-            </LayerButton>
+            {/* Absent rather than dead for a layer with no knobs. A control
+                that can never be used still reads as one that could be. */}
+            {isLayerTunable(layer)
+                ? (
+                    <LayerButton
+                        label={translate('indicators.tune')}
+                        onPress={() => { onOpenSettings(added.instanceId); }}
+                    >
+                        <Settings2 size={ICON_SIZE_PX} />
+                    </LayerButton>
+                )
+                : <span className={LAYER_SLOT_CLASSES} />}
 
             <LayerButton
                 label={translate('indicators.remove')}
@@ -149,6 +158,53 @@ function LayerRow({ added, controls, onOpenSettings, banding }: LayerRowProps): 
 
         </li>
     );
+}
+
+interface BandActionRequest {
+    readonly banding: Banding | null;
+    readonly instanceId: string;
+    readonly controls: IndicatorControls;
+    readonly translate: ReturnType<typeof useTranslate>;
+}
+
+/**
+ * The one thing a row can do about the band it is in, or nothing in its place.
+ *
+ * Splitting and joining are alternatives — a layer either has a band to itself
+ * or shares one — so they take one slot between them, and the slot is held open
+ * for a row that can do neither.
+ *
+ * @param request - Where the layer sits, which copy it is, and what can act.
+ * @returns The button, or an empty slot the width of one.
+ */
+function renderBandAction({
+    banding,
+    instanceId,
+    controls,
+    translate,
+}: BandActionRequest): ReactElement {
+    if (banding?.isSharing === true) {
+        return (
+            <LayerButton
+                label={translate('indicators.splitBand')}
+                onPress={() => { controls.setBand(instanceId, null); }}
+            >
+                <Split size={ICON_SIZE_PX} />
+            </LayerButton>
+        );
+    }
+    if (banding !== null && banding.joinable !== null) {
+        const joinable = banding.joinable;
+        return (
+            <LayerButton
+                label={translate('indicators.mergeBand')}
+                onPress={() => { controls.setBand(instanceId, joinable); }}
+            >
+                <Combine size={ICON_SIZE_PX} />
+            </LayerButton>
+        );
+    }
+    return <span className={LAYER_SLOT_CLASSES} />;
 }
 
 interface LayerButtonProps {

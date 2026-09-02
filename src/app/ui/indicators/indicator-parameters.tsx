@@ -1,6 +1,7 @@
 import { CONTROL_INPUT_CLASSES } from '../control-shell.ts';
 import type { ChoiceParameter, IndicatorParameter, NumericParameter, Tunable } from '../../../shared/core/draw-plan.ts';
 import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts';
+import { TONE_LABEL_KEYS } from './tone-labels.ts';
 import { INSTANCE_TONES, readChoice, readSetting, readToggle } from '../../../shared/core/draw-plan.ts';
 import type { PlotTone } from '../../../shared/core/draw-plan.ts';
 import { formatFixed } from '../../core/formatting.ts';
@@ -56,7 +57,8 @@ export function IndicatorParameters({
                             <button
                                 key={tone}
                                 type="button"
-                                aria-label={tone}
+                                aria-label={translate(TONE_LABEL_KEYS[tone])}
+                                title={translate(TONE_LABEL_KEYS[tone])}
                                 aria-pressed={tone === added.tone}
                                 onClick={() => { onRecolour(tone); }}
                                 className={`grid size-7 place-items-center rounded border ${tone === added.tone ? 'border-ink-100' : 'border-transparent hover:border-hairline-bright'}`}

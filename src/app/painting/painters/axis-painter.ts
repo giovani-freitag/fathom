@@ -14,6 +14,9 @@ import type { PaintContext } from '../render-types.ts';
 export const PANE_LABEL_INSET_PX = 6;
 const PANE_LABEL_MARGIN_PX = 10;
 
+/** How close two labels may come before one has to give way. */
+const PANE_LABEL_LINE_HEIGHT_PX = 11;
+
 /**
  * Space between a price label and the edge of the axis it sits in.
  *
@@ -74,7 +77,7 @@ export class AxisPainter {
 
         this.paintPaneScales(paint);
 
-        context.fillStyle = RENDER_PALETTE.inkMuted;
+        context.fillStyle = RENDER_PALETTE.axisLabel;
         context.textAlign = 'left';
         context.textBaseline = 'middle';
         const tickSpacing = Math.abs((paint.priceTicks[1] ?? 0) - (paint.priceTicks[0] ?? 0));
@@ -110,13 +113,13 @@ export class AxisPainter {
         context.stroke();
 
         const pinnedTag = this.resolvePinnedTimeTag(paint);
-        context.fillStyle = RENDER_PALETTE.inkMuted;
+        context.fillStyle = RENDER_PALETTE.axisLabel;
         context.textAlign = 'center';
         context.textBaseline = 'middle';
         const spanMs = request.viewport.toMs - request.viewport.fromMs;
 
-        for (const timestampMs of paint.timeTicks) {
-            const label = formatAxisTime(timestampMs, spanMs);
+        for (const [index, timestampMs] of paint.timeTicks.entries()) {
+            const label = formatAxisTime(timestampMs, spanMs, paint.timeTicks[index - 1]);
             const x = projector.timeToX(timestampMs);
 
             // Measured rather than assumed: labels are centred on their tick, so
@@ -207,7 +210,7 @@ export class AxisPainter {
 
         context.fillStyle = RENDER_PALETTE.surface;
         context.fillRect(layout.priceAxisX + 1, top, layout.priceAxisWidth - 1, AXIS_TAG_HEIGHT);
-        context.fillStyle = RENDER_PALETTE.inkMuted;
+        context.fillStyle = RENDER_PALETTE.axisLabel;
         context.textAlign = 'left';
         context.textBaseline = 'middle';
         context.fillText(label, layout.priceAxisX + readAxisPadding(layout), top + AXIS_TAG_HEIGHT / 2);
@@ -223,31 +226,43 @@ export class AxisPainter {
     private paintPaneScales(paint: PaintContext): void {
         const { context, layout } = paint;
 
-        context.fillStyle = RENDER_PALETTE.inkMuted;
+        context.fillStyle = RENDER_PALETTE.axisLabel;
         context.textAlign = 'left';
         context.textBaseline = 'middle';
 
         for (const placement of paint.panePlacements) {
             const digits = resolvePaneScaleDigits(placement.high - placement.low);
             const labelX = layout.priceAxisX + PANE_LABEL_INSET_PX;
-            context.fillText(
-                formatFixed(placement.high, digits),
-                labelX,
-                placement.rect.topY + PANE_LABEL_MARGIN_PX,
-            );
-            context.fillText(
-                formatFixed(placement.low, digits),
-                labelX,
-                placement.rect.topY + placement.rect.height - PANE_LABEL_MARGIN_PX,
-            );
+            // Abbreviated in the compact gutter, as the price ticks already
+            // are. Written out in 46 pixels, a five-figure reading loses its
+            // last digit off the edge of the phone.
+            const write = (value: number, y: number): void => {
+                const digitsHere = Number.isInteger(value) ? 0 : digits;
+                context.fillText(
+                    layout.isCompact
+                        ? formatShortPaneValue(value, digitsHere)
+                        : formatFixed(value, digitsHere),
+                    labelX,
+                    y,
+                );
+            };
+
+            const highY = placement.rect.topY + PANE_LABEL_MARGIN_PX;
+            const lowY = placement.rect.topY + placement.rect.height - PANE_LABEL_MARGIN_PX;
+            write(placement.high, highY);
+            write(placement.low, lowY);
 
             const projector = new PaneProjector(placement);
             for (const level of placement.levels) {
-                context.fillText(
-                    formatFixed(level.value, Number.isInteger(level.value) ? 0 : digits),
-                    labelX,
-                    projector.valueToY(level.value),
-                );
+                const y = projector.valueToY(level.value);
+                // A level that lands on the band's own reach is written twice,
+                // one glyph over the other, and neither can be read. The reach
+                // is the one that stays: it is what the band is scaled to.
+                if (Math.abs(y - highY) < PANE_LABEL_LINE_HEIGHT_PX
+                    || Math.abs(y - lowY) < PANE_LABEL_LINE_HEIGHT_PX) {
+                    continue;
+                }
+                write(level.value, y);
             }
         }
     }
@@ -270,4 +285,22 @@ interface PinnedTimeTag {
     readonly label: string;
     readonly left: number;
     readonly right: number;
+}
+
+/**
+ * A band's figure, short enough for a gutter a phone can spare.
+ *
+ * @param value - What the band reaches, or a level inside it.
+ * @param digits - Decimal places the band's own span calls for.
+ * @returns The figure, with a magnitude suffix once it would not otherwise fit.
+ */
+function formatShortPaneValue(value: number, digits: number): string {
+    const size = Math.abs(value);
+    if (size >= 1_000_000) {
+        return `${formatFixed(value / 1_000_000, 1)}M`;
+    }
+    if (size >= 1_000) {
+        return `${formatFixed(value / 1_000, 1)}K`;
+    }
+    return formatFixed(value, digits);
 }

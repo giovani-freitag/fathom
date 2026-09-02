@@ -12,6 +12,16 @@ export interface RenderPalette {
     readoutShadow: string;
     inkPrimary: string;
     inkMuted: string;
+    /**
+     * What a figure written along an axis is drawn in.
+     *
+     * A step brighter than the muted ink it used to share. Muted is for a
+     * decoration a reader is meant to look past — a dashed midline, an inactive
+     * edge — and an axis label is the opposite of that: it is small, it is
+     * monospaced, and it is the only thing on the screen that says what any of
+     * the rest of it is worth. At the muted step it read at 4.4 to 1.
+     */
+    axisLabel: string;
     phosphor: string;
     bid: string;
     ask: string;
@@ -36,6 +46,7 @@ const DARK_PALETTE: RenderPalette = {
     readoutShadow: 'rgba(0, 0, 0, 0.5)',
     inkPrimary: '#dce7f1',
     inkMuted: '#62778b',
+    axisLabel: '#7d92a6',
     phosphor: '#35e0c4',
     bid: '#2bd4a8',
     ask: '#ff5c72',
@@ -60,6 +71,7 @@ const LIGHT_PALETTE: RenderPalette = {
     readoutShadow: 'rgba(11, 22, 32, 0.18)',
     inkPrimary: '#0b1620',
     inkMuted: '#64788c',
+    axisLabel: '#4f6376',
     phosphor: '#0a9683',
     bid: '#0d9670',
     ask: '#d32741',

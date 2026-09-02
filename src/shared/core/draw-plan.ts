@@ -36,12 +36,24 @@ export const PLOT_TONES: readonly PlotTone[] = [
  * separate two lines crossing each other, and `muted` is what an accent is
  * drawn in, so neither can carry an identity.
  */
+/**
+ * The colours a copy is identified by, in the order they are handed out.
+ *
+ * Neither side of the book is in here. Green means buying and red means the
+ * offer everywhere else on this chart — the candles, the volume, the delta, the
+ * heat ramp, the resistances of a pivot set — so handing one of them to a mean
+ * as an identity teaches a reader something false about a line that has no side
+ * at all.
+ *
+ * Five, and a reader with more copies than that gets a colour twice. That is
+ * the point where colour has stopped being able to say which line is which, and
+ * it is why a plan can write its own names on the chart instead.
+ */
 export const INSTANCE_TONES: readonly PlotTone[] = [
     'phosphor',
     'amber',
     'violet',
     'cyan',
-    'ask',
     'ink',
 ];
 
@@ -128,6 +140,17 @@ export type PlotScale =
  * What an indicator returns for one window.
  */
 export interface DrawPlan {
+    /**
+     * Whether each series is written at the end of its own line.
+     *
+     * For a plan whose series are only meaningful named. A set of levels is
+     * the case that forced it: seven lines in three colours, two of them
+     * necessarily alike, say "some red ones above and some green ones below"
+     * and nothing else — where the reading a floor actually takes is that
+     * price is testing R2 and not R3. Almost nothing else wants it, because a
+     * mean and its channel are told apart by where they are.
+     */
+    readonly namesItsSeries?: boolean;
     readonly indicatorId: string;
     /**
      * Which added copy produced it, stamped by the host rather than the author.

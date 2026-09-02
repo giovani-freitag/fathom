@@ -144,3 +144,65 @@ describe('AxisPainter price tag', () => {
         expect(Number(recording.callsTo('fillRect')[0]?.args[0])).toBeGreaterThan(paint.layout.plotWidth);
     });
 });
+
+describe('AxisPainter labelling a band', () => {
+    /** A band, optionally carrying a level at a named value. */
+    function buildBandedContext(recording: RecordingContext, cssWidth: number, levelValue = 18_732) {
+        return buildPaintContext(recording, {
+            cssWidth,
+            plans: [{
+                indicatorId: 'delta',
+                labelKey: 'indicator.delta',
+                parameterSummary: '',
+                scale: { kind: 'symmetric' },
+                series: [{
+                    labelKey: 'indicator.delta',
+                    tone: 'bid',
+                    shape: 'histogram',
+                    baseline: 0,
+                    atMs: Float64Array.from([1_200_000, 1_400_000]),
+                    value: Float64Array.from([18_732, -18_732]),
+                }],
+                levels: [{ value: levelValue, tone: 'muted' }],
+                hasConverged: true,
+            }],
+        });
+    }
+
+    it('writes no two figures on top of each other', () => {
+        // A level landing on the band's own reach is written twice, one glyph
+        // over the other, and neither can be read.
+        const recording = createRecordingContext();
+
+        new AxisPainter().paintPriceAxis(buildBandedContext(recording, 1_600));
+
+        // Two of the same figure overprinted is the commonest form of it, so
+        // the text is not part of the test — only how close two of them land.
+        const written = recording.callsTo('fillText')
+            .map((call) => ({ text: String(call.args[0]), y: Number(call.args[2]) }));
+        const crowded = written.filter((one) => written.some((other) => (
+            other !== one && Math.abs(other.y - one.y) < 11
+        )));
+        expect(crowded).toEqual([]);
+    });
+
+    it('abbreviates a band figure in a gutter a phone can spare', () => {
+        // The price ticks already shorten here. Written out in 46 pixels, a
+        // five-figure reading loses its last digit off the edge of the frame.
+        const recording = createRecordingContext();
+
+        new AxisPainter().paintPriceAxis(buildBandedContext(recording, 390));
+
+        const written = recording.callsTo('fillText').map((call) => String(call.args[0]));
+        expect(written.some((text) => text.includes('18.7K'))).toBe(true);
+    });
+
+    it('writes a band figure out in full where there is room for it', () => {
+        const recording = createRecordingContext();
+
+        new AxisPainter().paintPriceAxis(buildBandedContext(recording, 1_600));
+
+        const written = recording.callsTo('fillText').map((call) => String(call.args[0]));
+        expect(written.some((text) => text.includes('18,732') || text.includes('18732'))).toBe(true);
+    });
+});
