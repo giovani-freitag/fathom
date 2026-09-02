@@ -326,9 +326,15 @@ export interface Indicator {
  *
  * An over-budget plan is rejected whole rather than truncated: half a series is
  * a different claim than the one the author made.
+ *
+ * The series cap was four while every reading here was a line, a pair of them,
+ * or a line with a band. A set of levels is neither: a pivot set is seven lines
+ * that only mean anything together, and drawing three of them is not a smaller
+ * version of the reading. Eight is that set with room to spare, and still few
+ * enough that the legend stays a legend.
  */
 export const PLOT_BUDGET = {
-    maximumSeriesCount: 4,
+    maximumSeriesCount: 8,
     maximumVerticesPerSeries: 8_192,
 } as const;
 

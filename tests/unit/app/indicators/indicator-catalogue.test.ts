@@ -4,6 +4,7 @@ import {
     findChartLayer,
     INDICATOR_CATALOGUE,
     readLayerDefaults,
+    resolveRequiredHigherBars,
 } from '../../../../src/app/indicators/indicator-catalogue.ts';
 import { resolveFieldSettings } from '../../../../src/app/indicators/field-layers.ts';
 import { isPlanWithinBudget, NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
@@ -218,5 +219,46 @@ describe('what a reader can put on the chart', () => {
 
         expect(Number.isFinite(settings.colourGain)).toBe(true);
         expect(Number.isFinite(settings.depthFloorPercentile)).toBe(true);
+    });
+});
+
+describe('the coarser rungs a chart between them reads', () => {
+    /** One copy on the chart, as the reader's selection carries it. */
+    function addCopy(indicatorId: string, settings: Record<string, string> = {}) {
+        return { instanceId: `${indicatorId}-1`, indicatorId, settings, tone: 'ink' as const };
+    }
+
+    it('asks for nothing when nothing on the chart reads another rung', () => {
+        expect(resolveRequiredHigherBars([addCopy('rsi'), addCopy('cvd')])).toEqual([]);
+    });
+
+    it('asks once for a rung two copies both read', () => {
+        // Two sets of pivots anchored to the same session is one fetch. Asked
+        // for per copy, adding a second would cost a round trip to draw bars
+        // the first one already has.
+        const wanted = resolveRequiredHigherBars([addCopy('pivots'), addCopy('pivots')]);
+
+        expect(wanted.map((one) => one.intervalMs)).toEqual([86_400_000]);
+    });
+
+    it('keeps two rungs apart when copies disagree about the session', () => {
+        const wanted = resolveRequiredHigherBars([
+            addCopy('pivots'),
+            addCopy('pivots', { pivotPeriod: 'weekly' }),
+        ]);
+
+        expect(wanted.map((one) => one.intervalMs)).toEqual([86_400_000, 604_800_000]);
+    });
+
+    it('carries how far back a rung has to reach, not only which rung', () => {
+        // A rung fetched over the drawn window alone opens with nothing settled
+        // behind it, and the reading is blank down the whole left edge.
+        const wanted = resolveRequiredHigherBars([addCopy('pivots')]);
+
+        expect(wanted).toEqual([{ intervalMs: 86_400_000, warmupBars: 2 }]);
+    });
+
+    it('ignores a stored selection naming an indicator this build dropped', () => {
+        expect(resolveRequiredHigherBars([addCopy('nothing-like-that')])).toEqual([]);
     });
 });

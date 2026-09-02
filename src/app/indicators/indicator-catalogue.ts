@@ -16,6 +16,7 @@ import { COMMODITY_CHANNEL } from './commodity-channel/commodity-channel.ts';
 import { DIRECTIONAL_MOVEMENT } from './directional-movement/directional-movement.ts';
 import { MONEY_FLOW } from './money-flow/money-flow.ts';
 import { PARABOLIC_STOP } from './parabolic-stop/parabolic-stop.ts';
+import { PIVOT_POINTS } from './pivot-points/pivot-points.ts';
 import { SUPERTREND } from './supertrend/supertrend.ts';
 import { DONCHIAN_CHANNELS } from './donchian-channels/donchian-channels.ts';
 import { EXPONENTIAL_AVERAGE } from './exponential-average/exponential-average.ts';
@@ -36,6 +37,7 @@ export const INDICATOR_CATALOGUE: readonly Indicator[] = [
     VOLUME,
     SIMPLE_AVERAGE,
     VOLUME_WEIGHTED_AVERAGE,
+    PIVOT_POINTS,
     EXPONENTIAL_AVERAGE,
     BOLLINGER_BANDS,
     DONCHIAN_CHANNELS,
