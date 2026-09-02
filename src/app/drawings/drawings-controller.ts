@@ -80,6 +80,8 @@ export class DrawingsController {
     private readonly history = new DrawingHistory();
     /** Where the pointer went down, for a move measured against its start. */
     private grabbedFrom: DrawingAnchor | null = null;
+    /** True while a draft has one end and is waiting for a press to place the other. */
+    private isAwaitingSecondAnchor = false;
     /** Which end the gesture has hold of, or null when it has the whole mark. */
     private grabbedAnchorIndex: number | null = null;
 
@@ -135,12 +137,62 @@ export class DrawingsController {
         this.grabbedFrom = press.anchor;
         this.grabbedAnchorIndex = press.grabbedAnchorIndex ?? null;
         this.beforeGesture = this.store.read().drawings;
-        const { armedTool } = this.store.read();
+
+        // A draft left open by a press that did not drag is waiting for its
+        // second anchor, and this press is it. Placing two ends with two
+        // clicks is the idiom every chart a reader has used works by, and
+        // before this one it did nothing at all — no first mark, no line
+        // following the pointer, no error.
+        const { armedTool, draft } = this.store.read();
+        if (draft !== null && this.isAwaitingSecondAnchor) {
+            this.isAwaitingSecondAnchor = false;
+            this.reshapeDraft(press.anchor);
+            this.commitDraft();
+            return;
+        }
         if (armedTool !== null) {
+            this.isAwaitingSecondAnchor = false;
             this.startDraft(armedTool, press.anchor);
             return;
         }
         this.select(press.hitId);
+    }
+
+    /**
+     * Follows the pointer while a draft waits for its second anchor.
+     *
+     * @param anchor - Where the pointer is now.
+     */
+    trace(anchor: DrawingAnchor): void {
+        if (this.isAwaitingSecondAnchor) {
+            this.reshapeDraft(anchor);
+        }
+    }
+
+    /**
+     * Keeps what a draft became, and puts the tool away.
+     *
+     * Kept selected, so the mark a reader just made is the one a press of
+     * Delete removes without hunting for it again.
+     */
+    private commitDraft(): void {
+        const { draft } = this.store.read();
+        if (draft === null) {
+            return;
+        }
+        if (isTransientKind(draft.kind)) {
+            // Left on screen but never stored: it is read where it was drawn
+            // and then done with, so it is neither persisted nor undoable.
+            this.store.update((state) => ({ ...state, armedTool: disarm(state) }));
+            return;
+        }
+        this.store.update((state) => ({
+            ...state,
+            armedTool: disarm(state),
+            draft: null,
+            selectedId: draft.id,
+            drawings: keepNewest([...state.drawings, draft]),
+        }));
     }
 
     /**
@@ -190,8 +242,13 @@ export class DrawingsController {
         this.beforeGesture = null;
         const { draft } = this.store.read();
         if (draft !== null && !hasExtent(draft)) {
-            // A click where a drag was needed leaves a mark of no length: kept,
-            // it is invisible, unselectable, and stored for ever.
+            // A press that did not drag, on a mark that needs two ends. Held
+            // open rather than thrown away: it follows the pointer until the
+            // next press says where its other end is.
+            this.isAwaitingSecondAnchor = ANCHORS_PER_KIND[draft.kind] > 1;
+            if (this.isAwaitingSecondAnchor) {
+                return;
+            }
             this.store.update((state) => ({ ...state, draft: null }));
             return;
         }
@@ -202,15 +259,7 @@ export class DrawingsController {
             return;
         }
         if (draft !== null) {
-            // Kept selected, so the mark a reader just made is the one a press
-            // of Delete removes without hunting for it again.
-            this.store.update((state) => ({
-                ...state,
-                armedTool: disarm(state),
-                draft: null,
-                selectedId: draft.id,
-                drawings: keepNewest([...state.drawings, draft]),
-            }));
+            this.commitDraft();
         }
 
         // Recorded only when the gesture actually changed something: a press

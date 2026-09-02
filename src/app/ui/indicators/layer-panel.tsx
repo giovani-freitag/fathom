@@ -63,7 +63,7 @@ export function LayerPanel({ controls }: LayerPanelProps): ReactElement {
     }
 
     return (
-        <div className="flex w-64 flex-col gap-2">
+        <div className="flex w-72 flex-col gap-2">
             <LayerList
                 controls={controls}
                 onOpenSettings={(instanceId) => { setView({ kind: 'tune', instanceId }); }}

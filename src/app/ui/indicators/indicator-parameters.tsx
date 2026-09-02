@@ -220,6 +220,8 @@ function ParameterField({ parameter, label, value, onChange }: ParameterFieldPro
             </span>
             <input
                 type="number"
+                name={parameter.name}
+                aria-label={label}
                 inputMode="decimal"
                 value={draft ?? String(value)}
                 min={parameter.minimum}

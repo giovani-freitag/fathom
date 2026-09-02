@@ -181,6 +181,13 @@ export function useChartSurface(): ChartSurfaceHandles {
         const renderer = new HeatmapRenderer({ depthCanvas, overlayCanvas, cursorCanvas });
         rendererRef.current = renderer;
 
+        const claimant = new DrawingSurfaceClaimant({
+            drawings: kernel.drawings,
+            readProjector: () => resolveSurfaceProjector(container, kernel),
+            readInstrumentSymbol: () => kernel.chart.store.read().instrumentSymbol,
+            readLayerAt: (point) => readLayerAt(container, kernel, point),
+            onPickLayer: (instanceId) => { kernel.chart.pickLayer(instanceId); },
+        });
         const gestures = new ChartGestureController({
             surface: container,
             readViewport: () => kernel.chart.store.read().viewport,
@@ -191,17 +198,16 @@ export function useChartSurface(): ChartSurfaceHandles {
             onPointerMove: (pointer) => {
                 pointerRef.current = pointer;
                 publishCursor(kernel.cursor, readCursorInstant(container, kernel, pointer));
+                // A mark waiting for its second click follows the pointer, so a
+                // reader sees where the other end lands before committing it.
+                if (pointer !== null) {
+                    claimant.traceUnpressed(pointer);
+                }
                 schedulePaint();
             },
             // Given first refusal on every press over the plot, so arming a tool
             // draws a line rather than panning the view under it.
-            claimant: new DrawingSurfaceClaimant({
-                drawings: kernel.drawings,
-                readProjector: () => resolveSurfaceProjector(container, kernel),
-                readInstrumentSymbol: () => kernel.chart.store.read().instrumentSymbol,
-                readLayerAt: (point) => readLayerAt(container, kernel, point),
-                onPickLayer: (instanceId) => { kernel.chart.pickLayer(instanceId); },
-            }),
+            claimant,
         });
         gestures.attach();
 

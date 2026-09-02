@@ -47,6 +47,8 @@ export function IndicatorPalette({ onAdd, isFull, addedCounts, hasAutoFocus = fa
                     <Search className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-ink-500" />
                     <input
                         type="search"
+                        name="layerSearch"
+                        aria-label={translate('indicators.search')}
                         value={query}
                         autoFocus={hasAutoFocus}
                         placeholder={translate('indicators.search')}

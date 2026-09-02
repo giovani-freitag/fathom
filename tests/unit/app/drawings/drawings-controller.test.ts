@@ -147,11 +147,63 @@ describe('DrawingsController drawing a segment', () => {
         expect(harness.drawings.store.read().drawings).toEqual([]);
     });
 
-    it('leaves nothing half drawn behind either', () => {
+    it('holds the first end while it waits for the second', () => {
+        // Two ends placed with two clicks is the idiom every chart a reader has
+        // used works by. Before this it did nothing at all: no first mark, no
+        // line following the pointer, and no error either.
         harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
         harness.drawings.settle();
 
-        expect(harness.drawings.store.read().draft).toBeNull();
+        expect(harness.drawings.store.read().draft?.anchors[0]).toEqual(at(1_000, 100));
+    });
+
+    it('follows the pointer between the two clicks', () => {
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.settle();
+
+        harness.drawings.trace(at(2_500, 180));
+
+        expect(harness.drawings.store.read().draft?.anchors[1]).toEqual(at(2_500, 180));
+    });
+
+    it('places the second end on the next press and keeps the mark', () => {
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.settle();
+
+        harness.drawings.begin({ anchor: at(3_000, 200), hitId: null });
+
+        expect(harness.drawings.store.read().drawings[0]?.anchors)
+            .toEqual([at(1_000, 100), at(3_000, 200)]);
+    });
+
+    it('puts the tool away once the second click landed', () => {
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.settle();
+        harness.drawings.begin({ anchor: at(3_000, 200), hitId: null });
+
+        expect(harness.drawings.store.read().armedTool).toBeNull();
+    });
+
+    it('still draws in one drag, for a reader who never lifts the button', () => {
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.drag(at(3_000, 200));
+        harness.drawings.settle();
+
+        expect([
+            harness.drawings.store.read().drawings.length,
+            harness.drawings.store.read().draft,
+        ]).toEqual([1, null]);
+    });
+
+    it('starts over rather than joining up when the tool is armed again', () => {
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.settle();
+
+        harness.drawings.arm('trend-line');
+        harness.drawings.begin({ anchor: at(3_000, 200), hitId: null });
+        harness.drawings.settle();
+
+        expect(harness.drawings.store.read().draft?.anchors[0]).toEqual(at(3_000, 200));
     });
 
     it('tells one mark from the next by its tone', () => {

@@ -377,3 +377,30 @@ describe('DrawingSurfaceClaimant offered a tap it declined', () => {
         expect(harness.claimant.describeCursor({ x: 500, y: yOf(50) })).toBe('move');
     });
 });
+
+describe('DrawingSurfaceClaimant carrying a pointer that is not pressing', () => {
+    it('moves the open end of a mark waiting for its second click', () => {
+        // Placed with two clicks, the mark has to be visible between them or a
+        // reader is aiming at nothing.
+        const harness = buildHarness();
+        harness.drawings.arm('trend-line');
+        harness.claimant.offerPress({ x: 200, y: yOf(20) });
+        harness.claimant.settleClaim();
+
+        harness.claimant.traceUnpressed({ x: 800, y: yOf(80) });
+
+        expect(harness.drawings.store.read().draft?.anchors[1])
+            .toMatchObject({ atMs: 80_000 });
+    });
+
+    it('does nothing at all while no mark is waiting', () => {
+        // Every pointer move over the chart comes through here, so a hover with
+        // nothing in progress must not touch the marks.
+        const harness = buildHarness([STORED_TREND]);
+        const before = harness.drawings.store.read();
+
+        harness.claimant.traceUnpressed({ x: 800, y: yOf(80) });
+
+        expect(harness.drawings.store.read()).toBe(before);
+    });
+});

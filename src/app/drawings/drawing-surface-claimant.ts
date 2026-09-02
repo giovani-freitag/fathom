@@ -106,6 +106,22 @@ export class DrawingSurfaceClaimant implements PointerClaimant {
     }
 
     /**
+     * Carries a pointer that is not pressing anything.
+     *
+     * Only a draft waiting for its second click does anything with it: the
+     * mark follows the pointer so a reader can see where the other end will
+     * land before they commit to it.
+     *
+     * @param point - Where the pointer is now.
+     */
+    traceUnpressed(point: PointerPosition): void {
+        const anchor = this.toAnchor(point);
+        if (anchor !== null) {
+            this.config.drawings.trace(anchor);
+        }
+    }
+
+    /**
      * Ends the claimed gesture, keeping whatever it drew or moved.
      */
     settleClaim(): void {

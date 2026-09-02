@@ -79,6 +79,8 @@ export function DrawingProperties({ controls }: DrawingPropertiesProps): ReactEl
             <Field title={translate('drawing.label')}>
                 <input
                     type="text"
+                    name="drawingLabel"
+                    aria-label={translate('drawing.label')}
                     value={readStoredLabel(selected)}
                     maxLength={MAXIMUM_LABEL_LENGTH}
                     placeholder={translate('drawing.label.placeholder')}
