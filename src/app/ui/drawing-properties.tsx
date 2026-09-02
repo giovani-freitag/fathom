@@ -127,14 +127,20 @@ export function DrawingProperties({ controls }: DrawingPropertiesProps): ReactEl
                 ))}
             </Field>
 
-            <button
-                type="button"
-                onClick={controls.removeSelected}
-                className="flex items-center justify-center gap-1.5 rounded-lg border border-hairline px-3 py-1.5 text-xs text-ink-400 transition-colors hover:border-ask/50 hover:text-ask"
-            >
-                <Trash2 className="size-3.5" />
-                {translate('drawing.remove')}
-            </button>
+            {/* The icon alone, aligned with the fields rather than spanning
+                them: it is one action among a card of settings, and a bar
+                across the foot reads as the thing the card is for. */}
+            <div className="flex justify-end">
+                <button
+                    type="button"
+                    onClick={controls.removeSelected}
+                    title={translate('drawing.remove')}
+                    aria-label={translate('drawing.remove')}
+                    className="grid size-7 place-items-center rounded-lg text-ink-500 transition-colors hover:bg-ask/10 hover:text-ask"
+                >
+                    <Trash2 className="size-4" />
+                </button>
+            </div>
         </div>
     );
 }
