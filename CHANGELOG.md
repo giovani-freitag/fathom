@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.12.0](https://github.com/giovani-freitag/fathom/compare/v0.11.0...v0.12.0) (2026-09-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* record and read the book from one store
+
+### Features
+
+* draw the levels the previous session settled on ([e80300c](https://github.com/giovani-freitag/fathom/commit/e80300c3b72bf8c10df2ee08948e2a68ab5ca7b4))
+* let an indicator read a coarser rung than the one drawn ([f897d5d](https://github.com/giovani-freitag/fathom/commit/f897d5dd11fd5742ce1bb883e46d03f2ea90d9e0))
+* place a two-ended mark with two clicks as well as one drag ([5fc434b](https://github.com/giovani-freitag/fathom/commit/5fc434b2e9c29544e6c90db2f8dcfd08e7b0cde1))
+* read the delta of each bar as one histogram ([37f1380](https://github.com/giovani-freitag/fathom/commit/37f138043cdada282f1751b06d5fb676a4baf867))
+* record and read the book from one store ([0202a4a](https://github.com/giovani-freitag/fathom/commit/0202a4a0f92a1cdf87850246f2012850c89ef081))
+
+
+### Bug Fixes
+
+* act on what an independent review found in the chart ([e40fe90](https://github.com/giovani-freitag/fathom/commit/e40fe901f55afdff017a44de6c50b25eb2ef7154))
+* count the colour when asking whether a layer has a card ([192571b](https://github.com/giovani-freitag/fathom/commit/192571bdd2c44c038f3f96a55c3e1d25d8803571))
+* hold a test to the timeout the config meant to give it ([ec28abb](https://github.com/giovani-freitag/fathom/commit/ec28abbb2472e32dc233d177f66bb67a880c762a))
+
 ## [0.11.0](https://github.com/giovani-freitag/fathom/compare/v0.10.1...v0.11.0) (2026-09-02)
 
 
