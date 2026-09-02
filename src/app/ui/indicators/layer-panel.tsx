@@ -3,9 +3,8 @@ import { type ReactElement, type ReactNode, useState } from 'react';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
 import { IndicatorPalette } from './indicator-palette.tsx';
 import { LayerList } from './layer-list.tsx';
-import { findChartLayer, findIndicator } from '../../indicators/indicator-catalogue.ts';
-import { findFieldLayer } from '../../indicators/field-layers.ts';
-import { findLayerContribution } from '../../indicators/layer-contributions.ts';
+import { findChartLayer } from '../../indicators/indicator-catalogue.ts';
+import { findLayerContribution, isLayerRecolourable } from '../../indicators/layer-contributions.ts';
 import { IndicatorParameters } from './indicator-parameters.tsx';
 import { translateLabel } from '../../i18n/translator.ts';
 import { useChartState } from '../../react/use-chart-state.ts';
@@ -136,10 +135,7 @@ export function LayerKnobs({ controls, instanceId, action }: LayerKnobsProps): R
     }
 
     const Panel = findLayerContribution(added.indicatorId)?.Panel;
-    // A layer the host draws, and one whose own colours are a reading, are both
-    // drawn in colours that already mean something.
-    const hasTone = findFieldLayer(added.indicatorId) === null
-        && findIndicator(added.indicatorId)?.isSelfColoured !== true;
+    const hasTone = isLayerRecolourable(added.indicatorId);
 
     return (
         <div className="flex w-72 flex-col gap-3">

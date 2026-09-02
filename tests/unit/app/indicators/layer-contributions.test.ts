@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { AddedIndicator } from '../../../../src/shared/core/indicator-selection.ts';
 import { findChartLayer } from '../../../../src/app/indicators/indicator-catalogue.ts';
-import { findLayerContribution, isLayerTunable, listDrawnOverlays } from '../../../../src/app/indicators/layer-contributions.ts';
+import {
+    findLayerContribution,
+    isLayerRecolourable,
+    isLayerTunable,
+    listDrawnOverlays,
+} from '../../../../src/app/indicators/layer-contributions.ts';
 
 const BOOK: AddedIndicator = {
     instanceId: 'depth-1', indicatorId: 'depth', settings: {}, tone: 'muted',
@@ -41,8 +46,8 @@ describe('what a layer contributes to the shell', () => {
 describe('whether a layer has anything to open onto', () => {
     it('says no for one that declares no knob and brought no panel', () => {
         // A control that opens onto an empty panel teaches a reader that opening
-        // is not worth it. No layer the build ships is like this today, which is
-        // exactly why the rule is worth holding to.
+        // is not worth it. Asked of something this build has never heard of,
+        // which is what caught the rule reading backwards.
         expect(isLayerTunable({ id: 'bare', labelKey: 'layer.bare', parameters: [] })).toBe(false);
     });
 
@@ -54,5 +59,29 @@ describe('whether a layer has anything to open onto', () => {
         // The book's own knobs are not the whole of it; the recording controls
         // it carries are reason enough to open.
         expect(isLayerTunable({ id: 'depth', labelKey: 'layer.depth', parameters: [] })).toBe(true);
+    });
+});
+
+describe('whether a reading with no knobs has a card worth opening', () => {
+    it('says no for one whose colours are the reading itself', () => {
+        // The delta: bought above nought and sold below, so a copy tinted to
+        // tell it from another would say something false. Nothing to set, and
+        // pressing it on the chart opened a card with a name and a close button.
+        expect(isLayerTunable(findChartLayer('delta')!)).toBe(false);
+    });
+
+    it('says yes for one that can still be recoloured', () => {
+        // The cumulative delta declares no knob either, but it is drawn in the
+        // colour its copy was given — so the card holds the swatches, and
+        // refusing to open it left no way to change them at all.
+        expect(isLayerTunable(findChartLayer('cvd')!)).toBe(true);
+    });
+
+    it('says no for a layer the host paints in colours that already mean something', () => {
+        expect(isLayerRecolourable('depth')).toBe(false);
+    });
+
+    it('says no for a layer this build has never heard of', () => {
+        expect(isLayerRecolourable('nothing-like-that')).toBe(false);
     });
 });

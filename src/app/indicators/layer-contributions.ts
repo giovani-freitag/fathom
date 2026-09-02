@@ -7,6 +7,7 @@ import type { ChartState } from '../core/chart-controller.ts';
 import type { ComponentType } from 'react';
 import type { FieldLayer, Indicator } from '../../shared/core/draw-plan.ts';
 import { DepthLegend } from './book/depth-legend.tsx';
+import { findIndicator } from './indicator-catalogue.ts';
 
 /** What a layer puts into the shell beyond the plan or the pixels it draws. */
 export interface LayerContribution {
@@ -83,9 +84,32 @@ export function listDrawnOverlays(added: readonly AddedIndicator[]): readonly Dr
  * A control that opens onto an empty panel teaches a reader that opening is not
  * worth it, so a layer with nothing to be told does not offer one.
  *
+ * The colour counts, and leaving it out was wrong in both directions. A reading
+ * with no knobs that can still be recoloured has a card worth opening, and its
+ * control was refused; a reading with no knobs whose colours are the reading
+ * has nothing at all, and pressing it on the chart opened an empty card anyway.
+ *
  * @param layer - The layer as the build ships it.
- * @returns True when it declares a knob or brought a panel.
+ * @returns True when it declares a knob, brought a panel, or carries a colour.
  */
 export function isLayerTunable(layer: Indicator | FieldLayer): boolean {
-    return layer.parameters.length > 0 || findLayerContribution(layer.id)?.Panel !== undefined;
+    return layer.parameters.length > 0
+        || findLayerContribution(layer.id)?.Panel !== undefined
+        || isLayerRecolourable(layer.id);
+}
+
+/**
+ * Whether a layer is drawn in a colour a reader chose.
+ *
+ * Asked of the catalogue rather than of the absence of things. A layer the host
+ * paints has colours that already mean something and so does a reading whose
+ * own colours *are* the reading — but so does anything this build has never
+ * heard of, and reading the rule as "not those two" answered yes for it.
+ *
+ * @param layerId - The id it is added under.
+ * @returns True when its colour is an identity rather than a reading.
+ */
+export function isLayerRecolourable(layerId: string): boolean {
+    const indicator = findIndicator(layerId);
+    return indicator !== null && indicator.isSelfColoured !== true;
 }

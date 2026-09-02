@@ -2,6 +2,8 @@ import { ChartGestureController } from '../core/chart-gesture-controller.ts';
 import { resolveChartLayout } from '../painting/chart-layout.ts';
 import { countPanedPlans, placePanes } from '../painting/pane-projector.ts';
 import { findPlanAt } from '../painting/plan-hit-test.ts';
+import { findChartLayer } from '../indicators/indicator-catalogue.ts';
+import { isLayerTunable } from '../indicators/layer-contributions.ts';
 import type { ChartLayout } from '../painting/render-types.ts';
 import { HeatmapRenderer, type PointerReadout } from '../painting/heatmap-renderer.ts';
 import { type RefObject, useCallback, useEffect, useRef } from 'react';
@@ -82,7 +84,7 @@ function readLayerAt(
     const state = kernel.chart.store.read();
     const layout = resolveSurfaceLayout(container, kernel);
 
-    return findPlanAt({
+    const instanceId = findPlanAt({
         plans: state.plans,
         viewport: state.viewport,
         layout,
@@ -90,6 +92,17 @@ function readLayerAt(
         panePlacements: placePanes(state.plans, layout.indicatorPanes, state.viewport),
         point,
     });
+    if (instanceId === null) {
+        return null;
+    }
+
+    // A reading with nothing to be told is not something to press. Answered
+    // here rather than where the card is drawn, because this is also what makes
+    // the pointer a hand over a reading — and a hand over something that opens
+    // nothing is the promise that opened the empty card in the first place.
+    const added = state.addedIndicators.find((entry) => entry.instanceId === instanceId);
+    const layer = added === undefined ? null : findChartLayer(added.indicatorId);
+    return layer !== null && isLayerTunable(layer) ? instanceId : null;
 }
 
 /**
