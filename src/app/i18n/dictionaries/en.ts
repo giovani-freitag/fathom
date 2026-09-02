@@ -257,6 +257,7 @@ export const EN_DICTIONARY = {
     'demo.connecting': 'Connecting to the exchange and mirroring the order book. The first columns appear within seconds.',
     'demo.stopped': 'Recording stopped. Reload to start again.',
     'demo.wasHidden': 'This tab was in the background, where recording slows down. Those seconds show as gaps rather than as made-up data.',
+    'demo.dismiss': 'Dismiss',
     'demo.refusedTitle': 'This browser will not let the demo record',
     'demo.refusedBody': 'The page saves what it records inside your browser. Private windows and some privacy settings block that, and a recording that only exists while you watch has nowhere else to go.',
 

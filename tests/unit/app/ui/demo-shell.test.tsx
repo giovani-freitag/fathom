@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
+import type { CollectorEvent } from '../../../../src/shared/core/collector-worker-contract.ts';
 import type { DemoServiceContainer } from '../../../../src/app/core/demo-service-container.ts';
 import { DemoShell } from '../../../../src/app/ui/demo-shell.tsx';
 import type { InstrumentCoverage } from '../../../../src/shared/core/api-contract.ts';
@@ -23,6 +24,8 @@ const NOTHING_YET: InstrumentCoverage = { ...RECORDED, firstFrameAtMs: null, las
 describe('DemoShell', () => {
     let openDatabase: ReturnType<typeof vi.fn>;
     let fetchInstruments: ReturnType<typeof vi.fn>;
+    /** Reports what the collector is doing, the way the worker does. */
+    let report: (event: CollectorEvent) => void;
 
     function renderShell(): void {
         const container = {
@@ -45,7 +48,10 @@ describe('DemoShell', () => {
                 factory={null}
                 storage={null}
                 appearanceHost={null}
-                build={() => container}
+                build={(config) => {
+                    report = config.onCollectorEvent;
+                    return container;
+                }}
             />,
         );
     }
@@ -87,5 +93,73 @@ describe('DemoShell', () => {
         expect(screen.getByText('This browser will not let the demo record')).toBeTruthy();
         // The driver's own sentence goes to the console, not to the reader.
         expect(screen.queryByText(/exposes no IndexedDB/)).toBeNull();
+    });
+
+    /** Brings the shell to the chart, which is where the notice can appear. */
+    async function showChart(): Promise<void> {
+        renderShell();
+        fetchInstruments.mockResolvedValue([RECORDED]);
+        await vi.advanceTimersByTimeAsync(2_000);
+        await vi.waitFor(() => { expect(screen.queryByTestId('chart')).not.toBeNull(); });
+        // Recording rather than starting: what the collector is doing is its own
+        // state and holds the strip, and this notice is about something else.
+        await act(async () => {
+            report({ kind: 'state', state: 'recording' });
+            await Promise.resolve();
+        });
+    }
+
+    /** What a browser does to a tab the reader has moved away from. */
+    async function goToAnotherTab(): Promise<void> {
+        vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+        await act(async () => {
+            document.dispatchEvent(new Event('visibilitychange'));
+            await Promise.resolve();
+        });
+    }
+
+    it('says why the gaps are there when the reader comes back', async () => {
+        await showChart();
+
+        await goToAnotherTab();
+
+        expect(screen.getByText(/was in the background/)).toBeTruthy();
+    });
+
+    it('lets go of it on its own, because it explains a moment already passed', async () => {
+        // Left up, it is a strip across the chart for the rest of the session.
+        await showChart();
+        await goToAnotherTab();
+
+        await act(async () => { await vi.advanceTimersByTimeAsync(13_000); });
+
+        expect(screen.queryByText(/was in the background/)).toBeNull();
+    });
+
+    it('closes when the reader closes it', async () => {
+        await showChart();
+        await goToAnotherTab();
+
+        await act(async () => {
+            screen.getByRole('button', { name: 'Dismiss' }).click();
+            await Promise.resolve();
+        });
+
+        expect(screen.queryByText(/was in the background/)).toBeNull();
+    });
+
+    it('does not say it again once the reader has closed it', async () => {
+        // Someone working across tabs would otherwise be told the same thing
+        // every time they came back.
+        await showChart();
+        await goToAnotherTab();
+        await act(async () => {
+            screen.getByRole('button', { name: 'Dismiss' }).click();
+            await Promise.resolve();
+        });
+
+        await goToAnotherTab();
+
+        expect(screen.queryByText(/was in the background/)).toBeNull();
     });
 });

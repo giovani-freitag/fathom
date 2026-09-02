@@ -259,6 +259,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'demo.connecting': 'Conectando à corretora e espelhando o livro de ofertas. As primeiras colunas aparecem em segundos.',
     'demo.stopped': 'Gravação interrompida. Recarregue para começar de novo.',
     'demo.wasHidden': 'Esta aba ficou em segundo plano, onde a gravação desacelera. Esses segundos aparecem como lacunas em vez de dados inventados.',
+    'demo.dismiss': 'Dispensar',
     'demo.refusedTitle': 'Este navegador não deixa a demonstração gravar',
     'demo.refusedBody': 'A página guarda o que grava dentro do seu navegador. Janelas anônimas e algumas configurações de privacidade bloqueiam isso, e uma gravação que só existe enquanto você assiste não tem outro lugar para ficar.',
 
