@@ -4,7 +4,7 @@ import type { SourceFault } from '../services/addon-editor/addon-editor-service.
 import type { SavedReading } from '../services/addon-library/addon-library-service.ts';
 import { forgetAddon, registerAddon } from '../addons/addon-registry.ts';
 import { readLayerDefaults } from '../indicators/indicator-catalogue.ts';
-import { useAppearance } from './use-appearance.ts';
+import { useAppearance, useTranslate } from './use-appearance.ts';
 import { useChartSlice } from './use-chart-state.ts';
 import { useKernel } from './kernel-context.ts';
 import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
@@ -44,9 +44,6 @@ export interface AddonEditorControls {
     readonly importFile: (file: File) => Promise<void>;
 }
 
-/** What a reading is called before the reader has said. */
-const UNTITLED = 'Untitled reading';
-
 /** How long a deleted reading can still be had back. */
 const REMOVAL_GRACE_MS = 7_000;
 
@@ -71,11 +68,16 @@ export interface SourceEditor {
 export type EditorFactory = (config: {
     onChange: () => void;
     theme: 'dark' | 'light';
+    onSave: () => void;
+    onLeave: () => void;
+    ariaLabel: string;
 }) => SourceEditor;
 
 export interface AddonEditorRequest {
     /** What a reader with an empty shelf opens on. */
     readonly starter: string;
+    /** Where the keyboard goes when the reader asks to leave the editor. */
+    readonly onLeave: () => void;
     /** A saved reading to open, where the reader picked one. */
     readonly openOn?: string | undefined;
     /**
@@ -93,15 +95,19 @@ export interface AddonEditorRequest {
  * @returns Where to mount, what to say about it, and what can be done to it.
  */
 export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls {
-    const { starter, openOn, buildEditor } = request;
+    const { starter, openOn, buildEditor, onLeave } = request;
     const kernel = useKernel();
     const library = kernel.addons;
     const { resolvedTheme } = useAppearance();
+    const translate = useTranslate();
+    const untitled = translate('editor.untitled');
+    const shelfRefusedMessage = translate('editor.shelfRefused');
+    const editorLabel = translate('editor.code');
     const [status, setStatus] = useState<EditorStatus | null>(null);
     const [isRunning, setIsRunning] = useState(false);
     const [saved, setSaved] = useState<readonly SavedReading[]>(() => library.list());
     const [openKey, setOpenKey] = useState<string | null>(() => opening(library, openOn)?.key ?? null);
-    const [name, setName] = useState<string>(() => opening(library, openOn)?.name ?? UNTITLED);
+    const [name, setName] = useState<string>(() => opening(library, openOn)?.name ?? untitled);
     const [isUnsaved, setIsUnsaved] = useState(false);
     // Until the reader types a name of their own, the reading is called what its
     // own code says it is called. Two names for one thing is one too many: the
@@ -118,6 +124,8 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
     const serviceRef = useRef<SourceEditor | null>(null);
     const compiledRef = useRef('');
     const rebuildRef = useRef<() => Promise<void>>(() => Promise.resolve());
+    const saveRef = useRef<() => Promise<void>>(() => Promise.resolve());
+    const leaveRef = useRef<() => void>(() => undefined);
     const themeRef = useRef(resolvedTheme);
 
     const publish = useCallback((key: string, build: AddonBuild): void => {
@@ -149,12 +157,17 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         ));
     }, [isNamedByHand, kernel]);
 
-    const rebuild = useCallback(async (underKey: string | null): Promise<void> => {
+    const rebuild = useCallback(async (underKey: string | null, isEdit = true): Promise<void> => {
         const service = serviceRef.current;
         if (service === null) {
             return;
         }
-        setIsUnsaved(true);
+        // Opening a reading is not editing it. Marked either way, the one signal
+        // a reader has about whether their work is safe was wrong from the first
+        // moment of every open.
+        if (isEdit) {
+            setIsUnsaved(true);
+        }
         setIsRunning(true);
         try {
             const { compiled, faults } = await service.compile();
@@ -182,21 +195,34 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         const service = buildEditor({
             onChange: () => { void rebuildRef.current(); },
             theme: themeRef.current,
+            onSave: () => { void saveRef.current(); },
+            onLeave: () => { leaveRef.current(); },
+            ariaLabel: editorLabel,
         });
         serviceRef.current = service;
         service.mount(node, opening(library, openOn)?.source ?? starter);
-        void rebuildRef.current();
-        // Opening does not count as an edit, whatever the mount did to the model.
-        setIsUnsaved(false);
+        void rebuild(opening(library, openOn)?.key ?? null, false);
     // Mounted once. Rebuilding on every change of `rebuild` would tear the
     // editor down and put it back mid-keystroke.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Held in a ref because the teardown runs once, long after the render that
+    // knew whether anything had been saved.
+    const openKeyOnTeardown = useRef<string | null>(null);
+    useEffect(() => { openKeyOnTeardown.current = openKey; }, [openKey]);
+
     useEffect(() => () => {
         serviceRef.current?.unmount();
         serviceRef.current = null;
-    }, []);
+        // A reading never saved was a preview of what the reader was typing.
+        // Left behind, opening the editor out of curiosity and closing it put a
+        // layer on the chart that outlived every trace of what drew it.
+        if (openKeyOnTeardown.current === null) {
+            forgetAddon(liveId(null));
+            discardDraft(kernel);
+        }
+    }, [kernel]);
 
     // The editor is not React's to re-render, so a change of palette has to be
     // handed to it rather than described in the markup. The ref carries it to a
@@ -211,18 +237,28 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         if (service === null) {
             return;
         }
-        // Compiled here rather than taken from the last run: the two are
-        // written together and one is derived from the other, so a save that
-        // caught them apart stored a reading that would not come back.
-        const { compiled } = await service.compile();
-        compiledRef.current = compiled === '' ? compiledRef.current : compiled;
+        // Read before the await, so a keystroke while the compiler is working
+        // cannot file a source that does not match the compiled beside it.
+        const source = service.readSource();
+        const { compiled, faults } = await service.compile();
+        if (faults.length > 0) {
+            // Refused rather than filed against the last build that worked: the
+            // pair would then disagree, and the next reload would draw
+            // arithmetic that is nowhere in the file the editor shows.
+            setStatus({ kind: 'faulted', faults });
+            return;
+        }
+        compiledRef.current = compiled;
         // The name is taken from the reading itself unless the reader has typed
         // one, and taken here rather than from state: pressing save before the
         // first compile had landed filed the reading under `Untitled`.
-        const built = buildAddon(compiledRef.current);
+        const built = buildAddon(compiled);
         const called = isNamedByHand || built.kind !== 'ready' ? name : built.indicator.label;
         const key = openKey ?? library.mintKey(called);
-        library.save({ key, name: called, source: service.readSource(), compiled: compiledRef.current });
+        if (library.save({ key, name: called, source, compiled }) === null) {
+            setStatus({ kind: 'broken', message: shelfRefusedMessage });
+            return;
+        }
         if (openKey === null && built.kind === 'ready') {
             adoptDraft(kernel, key, built.indicator);
         }
@@ -230,19 +266,23 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         setOpenKey(key);
         setSaved(library.list());
         setIsUnsaved(false);
-    }, [isNamedByHand, kernel, library, name, openKey]);
+    }, [isNamedByHand, kernel, library, name, openKey, shelfRefusedMessage]);
 
     const load = useCallback((source: string, key: string | null, called: string | null): void => {
-        serviceRef.current?.replaceSource(source);
+        const service = serviceRef.current;
+        if (service === null) {
+            return;
+        }
+        service.replaceSource(source);
         setOpenKey(key);
         setIsNamedByHand(called !== null);
-        setName(called ?? UNTITLED);
+        setName(called ?? untitled);
         setIsUnsaved(false);
         // The key is handed over rather than read back: this runs before the
         // state settles, and publishing under the key being left behind put the
         // reading back on the chart the moment it was deleted.
-        void rebuild(key);
-    }, [rebuild]);
+        void rebuild(key, false);
+    }, [rebuild, untitled]);
 
     const open = useCallback((key: string): void => {
         const found = library.find(key);
@@ -298,6 +338,9 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         load(await file.text(), null, file.name.replace(/\.[jt]s$/, ''));
     }, [load]);
 
+    useEffect(() => { saveRef.current = save; });
+    useEffect(() => { leaveRef.current = onLeave; });
+
     return {
         mountInto,
         openKey,
@@ -320,6 +363,17 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
 }
 
 /**
+ * Takes the never-saved preview off the chart.
+ *
+ * @param kernel - The services the chart runs on.
+ */
+function discardDraft(kernel: EditorKernel): void {
+    kernel.chart.updateIndicators(
+        (current) => current.filter((entry) => entry.indicatorId !== liveId(null)),
+    );
+}
+
+/**
  * Moves the copy on the chart from the unsaved id onto the saved one.
  *
  * Without it, saving leaves the draft where it was and adds a second copy
@@ -330,11 +384,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
  * @param key - What the reading has just been filed under.
  * @param indicator - The reading itself, to register under the new id.
  */
-function adoptDraft(
-    kernel: { chart: { updateIndicators: (revise: (current: readonly AddedIndicator[]) => readonly AddedIndicator[]) => void } },
-    key: string,
-    indicator: Indicator,
-): void {
+function adoptDraft(kernel: EditorKernel, key: string, indicator: Indicator): void {
     const from = liveId(null);
     const to = liveId(key);
     registerAddon(key, indicator);
@@ -342,6 +392,15 @@ function adoptDraft(
     kernel.chart.updateIndicators((current) => current.map((entry) => (
         entry.indicatorId === from ? { ...entry, indicatorId: to } : entry
     )));
+}
+
+/** As much of the kernel as the editing needs. */
+interface EditorKernel {
+    readonly chart: {
+        readonly updateIndicators: (
+            revise: (current: readonly AddedIndicator[]) => readonly AddedIndicator[],
+        ) => void;
+    };
 }
 
 /** The id a saved reading is registered under while it is on the chart. */

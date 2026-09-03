@@ -2,8 +2,10 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReactElement, ReactNode } from 'react';
 import { ADDON_ID_PREFIX, forgetAddon, listAddons } from '../../../../src/app/addons/addon-registry.ts';
+import { buildAddon } from '../../../../src/app/addons/addon-runtime.ts';
 import { createIndicatorKernel } from '../../../mocks/indicator-kernel.tsx';
 import { type EditorFactory, type SourceEditor, useAddonEditor } from '../../../../src/app/react/use-addon-editor.ts';
+import { AddonLibraryService } from '../../../../src/app/services/addon-library/addon-library-service.ts';
 import { KernelProvider } from '../../../../src/app/react/kernel-provider.tsx';
 
 /** A reading whose label says which source produced it. */
@@ -44,15 +46,28 @@ function buildFakeEditor(settleMs = 0) {
             }
             // The fake is its own compiler: the source is already the emitted
             // shape, so what a test writes is what the runtime is handed.
+            if (isFaulting) {
+                return { compiled: '', faults: [{ message: 'no', line: 1, column: 1 }] };
+            }
             return { compiled: source, faults: [] };
         },
         showRuntimeFault: () => undefined,
         applyTheme: () => undefined,
     };
-    const factory: EditorFactory = (config) => { onChange = config.onChange; return editor; };
+    let onSave = (): void => undefined;
+    let isFaulting = false;
+    const factory: EditorFactory = (config) => {
+        onChange = config.onChange;
+        onSave = config.onSave;
+        return editor;
+    };
     return {
         factory,
         type: (next: string): void => { source = next; onChange(); },
+        /** What Ctrl+S does, as the editor would fire it. */
+        pressSave: (): void => { onSave(); },
+        /** Makes every compile report a fault, as a typo would. */
+        faultFrom: (): void => { isFaulting = true; },
     };
 }
 
@@ -73,7 +88,7 @@ function renderEditor(factory: EditorFactory, openOn?: string) {
         <KernelProvider container={kernel.container}>{children}</KernelProvider>
     );
     const rendered = renderHook(
-        () => useAddonEditor({ starter: STARTER, openOn, buildEditor: factory }),
+        () => useAddonEditor({ starter: STARTER, openOn, buildEditor: factory, onLeave: () => undefined }),
         { wrapper },
     );
     act(() => { rendered.result.current.mountInto(document.createElement('div')); });
@@ -81,6 +96,40 @@ function renderEditor(factory: EditorFactory, openOn?: string) {
 }
 
 describe('opening the editor', () => {
+    it('has nothing outstanding, because opening is not editing', async () => {
+        // The only signal a reader has about whether their work is safe. Set on
+        // open, it is wrong from the first moment and they learn to ignore it.
+        const { factory } = buildFakeEditor();
+
+        const { result } = renderEditor(factory);
+
+        await waitFor(() => { expect(result.current.name).toBe('My mean'); });
+        expect(result.current.isUnsaved).toBe(false);
+    });
+
+    it('takes its preview off the chart when it closes unsaved', async () => {
+        // Opening the editor out of curiosity and closing it left a layer on
+        // the chart that outlived every trace of what drew it.
+        const { factory } = buildFakeEditor();
+        const { kernel, unmount } = renderEditor(factory);
+        await waitFor(() => { expect(kernel.readAdded()).toHaveLength(1); });
+
+        unmount();
+
+        expect(kernel.readAdded()).toEqual([]);
+    });
+
+    it('leaves a saved reading on the chart when it closes', async () => {
+        const { factory } = buildFakeEditor();
+        const { kernel, result, unmount } = renderEditor(factory);
+        await act(async () => { await result.current.save(); });
+
+        unmount();
+
+        expect(kernel.readAdded().map((entry) => entry.indicatorId))
+            .toEqual([`${ADDON_ID_PREFIX}my-mean`]);
+    });
+
     it('draws what it opened with, without being asked', () => {
         const { factory } = buildFakeEditor();
 
@@ -113,6 +162,61 @@ describe('opening the editor', () => {
 });
 
 describe('saving a reading', () => {
+    it('answers the chord every text box in the world answers to', async () => {
+        // Ctrl+S in a code editor that is not bound opens the browser's
+        // save-page dialog, which is the wrong answer to the right reflex.
+        const { factory, pressSave } = buildFakeEditor();
+        const { kernel } = renderEditor(factory);
+
+        await act(async () => { pressSave(); await Promise.resolve(); });
+
+        await waitFor(() => { expect(kernel.container.addons.list()).toHaveLength(1); });
+    });
+
+    it('never files a source and a compiled that disagree', async () => {
+        // The pair is what a reload rebuilds from. Filed apart, the chart draws
+        // arithmetic that is nowhere in the file the editor shows.
+        const { factory, type, faultFrom } = buildFakeEditor();
+        const { kernel, result } = renderEditor(factory);
+        await act(async () => { await result.current.save(); });
+        faultFrom();
+        act(() => { type(sourceNamed('Broken')); });
+
+        await act(async () => { await result.current.save(); });
+        const [filed] = kernel.container.addons.list();
+        const rebuilt = buildAddon(filed?.compiled ?? '');
+        expect(rebuilt.kind).toBe('ready');
+        expect(rebuilt.kind === 'ready' ? rebuilt.indicator.label : null).toBe(filed?.name);
+    });
+
+    it('says so when the browser refuses to keep it, and keeps saying unsaved', async () => {
+        const { factory, type } = buildFakeEditor();
+        const kernel = createIndicatorKernel([]);
+        // The real service over storage that will not take it, which is a
+        // private window or a browser with site data turned off.
+        Object.assign(kernel.container, {
+            addons: new AddonLibraryService({
+                storage: { getItem: () => null, setItem: () => { throw new Error('full'); } },
+                now: () => 1,
+            }),
+        });
+        const wrapper = ({ children }: { readonly children: ReactNode }): ReactElement => (
+            <KernelProvider container={kernel.container}>{children}</KernelProvider>
+        );
+        const { result } = renderHook(
+            () => useAddonEditor({ starter: STARTER, buildEditor: factory, onLeave: () => undefined }),
+            { wrapper },
+        );
+        act(() => { result.current.mountInto(document.createElement('div')); });
+        act(() => { type(sourceNamed('Edited')); });
+        await waitFor(() => { expect(result.current.isUnsaved).toBe(true); });
+
+        await act(async () => { await result.current.save(); });
+
+        expect(result.current.status).toMatchObject({ kind: 'broken' });
+        expect(result.current.isUnsaved).toBe(true);
+    });
+
     it('keeps the compiled form even when saved before the first compile lands', async () => {
         // Found live: pressing save the moment the panel opened filed a reading
         // with an empty body, and it did not come back on the next reload.

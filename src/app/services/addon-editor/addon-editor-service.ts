@@ -1,7 +1,12 @@
 import * as monaco from 'monaco-editor';
+import { readPaletteFor } from '../../painting/render-palette.ts';
+import type { ResolvedTheme } from '../../core/theme.ts';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import typescriptWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import { ADDON_SURFACE_TYPES } from '../../addons/addon-surface.generated.ts';
+
+/** The chart's monospace, as the stylesheet declares it. */
+const MONOSPACE = "'Azeret Mono', ui-monospace, 'SF Mono', monospace";
 
 /** Where the reader's file lives, as far as the language service is concerned. */
 const ADDON_URI = 'file:///addon.ts';
@@ -14,6 +19,12 @@ export interface AddonEditorServiceConfig {
     readonly onChange: (source: string) => void;
     /** Which of the chart's two palettes to open in. */
     readonly theme?: 'dark' | 'light';
+    /** Runs on the chord every text box in the world answers to. */
+    readonly onSave?: () => void;
+    /** Runs when the reader asks to leave the editor by keyboard. */
+    readonly onLeave?: () => void;
+    /** What a screen reader calls the editor. */
+    readonly ariaLabel?: string;
     /** How long a pause counts as having stopped typing. */
     readonly settleMs?: number;
 }
@@ -72,6 +83,10 @@ export class AddonEditorService {
             wordWrap: 'on',
             wrappingIndent: 'indent',
             fontSize: 12,
+            // The chart's own monospace. Left unset, Monaco paints two thirds
+            // of this panel in a typeface that appears nowhere else here.
+            fontFamily: MONOSPACE,
+            fontLigatures: false,
             lineNumbers: 'on',
             scrollBeyondLastLine: false,
             renderLineHighlight: 'gutter',
@@ -79,8 +94,38 @@ export class AddonEditorService {
             scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8 },
             padding: { top: 12, bottom: 12 },
             tabSize: 4,
+            ...(this.config.ariaLabel === undefined ? {} : { ariaLabel: this.config.ariaLabel }),
         });
         this.subscription = this.model.onDidChangeContent(this.handleModelChange);
+        this.bindChords();
+    }
+
+    /**
+     * Answers the two chords a reader arrives already knowing.
+     *
+     * Save, because a code editor that answers Ctrl+S with the browser's
+     * save-page dialog is answering the most ingrained reflex there is with a
+     * file picker. And escape, because Monaco eats Tab: without a way out by
+     * keyboard, everything below the editor is unreachable — including the
+     * offer to undo a deletion.
+     */
+    private bindChords(): void {
+        const editor = this.editor;
+        if (editor === null) {
+            return;
+        }
+        editor.addAction({
+            id: 'fathom.save',
+            label: 'Save this reading',
+            keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
+            run: () => { this.config.onSave?.(); },
+        });
+        editor.addAction({
+            id: 'fathom.leave',
+            label: 'Leave the editor',
+            keybindings: [monaco.KeyCode.Escape],
+            run: () => { this.config.onLeave?.(); },
+        });
     }
 
     /** Releases the editor, its model and everything watching them. */
@@ -205,59 +250,74 @@ export class AddonEditorService {
 let isLanguageConfigured = false;
 
 /**
- * The palette, taken from the chart's own tokens rather than invented.
+ * What the editor is painted with, taken from what the chart is painted with.
  *
- * Two, because the chart has two: an editor that stayed dark inside a light
- * page is the one panel that did not hear the reader change their mind.
+ * Read off the same table rather than copied: a third hand-written palette is a
+ * third thing to keep in step, and the two that already exist are the ones the
+ * reader is looking at either side of this panel.
  */
-const PALETTES = {
-    dark: {
-        base: 'vs-dark' as const,
-        ground: '#080d14',
-        highlight: '#111a26',
-        ink: '#dce7f1',
-        muted: '#62778b',
-        keyword: '#b48ef7',
-        text: '#2bd4a8',
-        figure: '#ffb454',
-        type: '#57c7ff',
-    },
-    light: {
-        base: 'vs' as const,
-        ground: '#ffffff',
-        highlight: '#f2f6fa',
-        ink: '#0b1620',
-        muted: '#64788c',
-        keyword: '#7b3fd4',
-        text: '#0a9683',
-        figure: '#a35c00',
-        type: '#0b6ea8',
-    },
-} as const;
+function buildPalette(theme: ResolvedTheme) {
+    const chart = readPaletteFor(theme);
+    return {
+        base: theme === 'dark' ? ('vs-dark' as const) : ('vs' as const),
+        ground: theme === 'dark' ? '#080d14' : '#ffffff',
+        highlight: theme === 'dark' ? '#111a26' : '#f2f6fa',
+        hairline: theme === 'dark' ? '#1b2836' : '#d2dbe5',
+        ink: chart.inkPrimary,
+        // The axis labels' step, not the muted one. Comments are a third of the
+        // starter and the muted step reads at 4.2 to 1, which this chart has
+        // already refused once for the same reason on its own axes.
+        muted: chart.axisLabel,
+        keyword: chart.violet,
+        text: chart.bid,
+        figure: chart.amber,
+        type: chart.cyan,
+        accent: chart.phosphor,
+        fault: chart.ask,
+    };
+}
 
 /** What the editor is told to look like, one theme per palette. */
 function defineThemes(): void {
-    for (const [name, palette] of Object.entries(PALETTES)) {
-        monaco.editor.defineTheme(`fathom-${name}`, {
+    for (const theme of ['dark', 'light'] as const) {
+        const palette = buildPalette(theme);
+        const bare = (colour: string): string => colour.replace('#', '');
+        monaco.editor.defineTheme(`fathom-${theme}`, {
             base: palette.base,
             inherit: true,
             rules: [
-                { token: 'comment', foreground: palette.muted.slice(1), fontStyle: 'italic' },
-                { token: 'keyword', foreground: palette.keyword.slice(1) },
-                { token: 'string', foreground: palette.text.slice(1) },
-                { token: 'number', foreground: palette.figure.slice(1) },
-                { token: 'type', foreground: palette.type.slice(1) },
-                { token: 'type.identifier', foreground: palette.type.slice(1) },
+                { token: '', foreground: bare(palette.ink) },
+                { token: 'comment', foreground: bare(palette.muted), fontStyle: 'italic' },
+                { token: 'keyword', foreground: bare(palette.keyword) },
+                { token: 'string', foreground: bare(palette.text) },
+                { token: 'number', foreground: bare(palette.figure) },
+                { token: 'type', foreground: bare(palette.type) },
+                { token: 'type.identifier', foreground: bare(palette.type) },
             ],
             colors: {
+                // Named in full rather than inherited: everything left out here
+                // is painted in Visual Studio's palette, and this chart has no
+                // blue accent to be selected in.
                 'editor.background': palette.ground,
+                'editor.foreground': palette.ink,
                 'editorGutter.background': palette.ground,
                 'editor.lineHighlightBackground': palette.highlight,
+                'editor.selectionBackground': `${palette.accent}33`,
+                'editor.inactiveSelectionBackground': `${palette.accent}1f`,
+                'editorCursor.foreground': palette.accent,
                 'editorLineNumber.foreground': palette.muted,
                 'editorLineNumber.activeForeground': palette.ink,
                 'editorIndentGuide.background1': palette.highlight,
+                'editorError.foreground': palette.fault,
+                'editorWarning.foreground': palette.figure,
                 'editorWidget.background': palette.ground,
+                'editorWidget.border': palette.hairline,
                 'editorSuggestWidget.background': palette.ground,
+                'editorSuggestWidget.border': palette.hairline,
+                'editorSuggestWidget.selectedBackground': palette.highlight,
+                'editorHoverWidget.background': palette.ground,
+                'editorHoverWidget.border': palette.hairline,
+                'list.hoverBackground': palette.highlight,
             },
         });
     }

@@ -237,7 +237,7 @@ export function HeatmapPage(): ReactElement {
                 </main>
 
                 {editing !== null && isWide && (
-                    <Suspense fallback={<aside className="w-[38rem] border-l border-abyss-700 bg-abyss-800" />}>
+                    <Suspense fallback={<aside className="w-full max-w-[45%] border-l border-hairline bg-abyss-850 md:w-[38rem]" />}>
                         <AddonEditorPanel
                             key={editing.key ?? 'new'}
                             openKey={editing.key}

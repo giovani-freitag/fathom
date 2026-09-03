@@ -60,14 +60,16 @@ export class AddonLibraryService {
      * Writes a reading, replacing whatever was under the same key.
      *
      * @param reading - What to keep, without its stamp.
-     * @returns What was kept, stamped.
+     * @returns What was kept, or null where the shelf refused it.
      */
-    save(reading: Omit<SavedReading, 'savedAtMs'>): SavedReading {
+    save(reading: Omit<SavedReading, 'savedAtMs'>): SavedReading | null {
         const saved = { ...reading, savedAtMs: this.config.now() };
         const held = this.read();
         held.set(saved.key, saved);
-        this.write(held);
-        return saved;
+        // Read back rather than trusted: storage that is full or refused throws
+        // on the write, and a reader told their work is filed when it is not
+        // loses it at the next reload with nothing having said so.
+        return this.write(held) && this.read().has(saved.key) ? saved : null;
     }
 
     /**
@@ -123,12 +125,20 @@ export class AddonLibraryService {
         }
     }
 
-    private write(held: Map<string, SavedReading>): void {
+    /**
+     * Writes the shelf.
+     *
+     * @param held - What the shelf should hold.
+     * @returns Whether it landed.
+     */
+    private write(held: Map<string, SavedReading>): boolean {
         try {
             this.config.storage.setItem(SHELF, JSON.stringify([...held.values()]));
+            return true;
         } catch {
-            // Storage full or refused. What is on the chart keeps working; the
-            // save is what is lost, and the editor says so on its own.
+            // Storage full or refused. What is on the chart keeps working; what
+            // is lost is the save, and the caller has to say so.
+            return false;
         }
     }
 }

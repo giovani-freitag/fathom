@@ -95,6 +95,20 @@ const LIGHT_PALETTE: RenderPalette = {
 export const RENDER_PALETTE: RenderPalette = { ...DARK_PALETTE };
 
 /**
+ * The palette a theme paints in, whether or not it is the one in force.
+ *
+ * For anything that has to paint in a theme rather than in the theme: the
+ * in-page editor carries its own two, and a third hand-written copy of these
+ * colours is a third thing to keep in step.
+ *
+ * @param theme - The theme to read.
+ * @returns The colours that theme paints with.
+ */
+export function readPaletteFor(theme: ResolvedTheme): RenderPalette {
+    return theme === 'light' ? LIGHT_PALETTE : DARK_PALETTE;
+}
+
+/**
  * Re-points the shared palette at a theme.
  *
  * @param theme - The theme to paint from now on.
