@@ -72,7 +72,7 @@ const LIGHT_PALETTE: RenderPalette = {
     inkPrimary: '#0b1620',
     inkMuted: '#64788c',
     axisLabel: '#4f6376',
-    phosphor: '#0a9683',
+    phosphor: '#087a6b',
     bid: '#0d9670',
     ask: '#d32741',
     amber: '#a86a00',
@@ -84,7 +84,7 @@ const LIGHT_PALETTE: RenderPalette = {
     profileSell: 'rgba(211, 39, 65, 0.42)',
     profileEdge: 'rgba(11, 22, 32, 0.3)',
     profileBackdrop: 'rgba(255, 255, 255, 0.92)',
-    crosshair: 'rgba(10, 150, 131, 0.65)',
+    crosshair: 'rgba(8, 122, 107, 0.65)',
 };
 
 /*

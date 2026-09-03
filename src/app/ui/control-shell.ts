@@ -81,3 +81,15 @@ export const CONTROL_BAR_CLASSES =
 /** The shell every panel that opens over the chart shares. */
 export const FLOATING_CARD_CLASSES =
     `pointer-events-auto rounded-xl ${FLOATING_SURFACE_CLASSES} p-3 shadow-2xl shadow-black/50`;
+
+/**
+ * The way to add one more of something, wherever the offer is made.
+ *
+ * Dashed because it is an outline waiting to be filled rather than a control
+ * that does something to what is already there. Written once because it was
+ * written three ways in one popover, at two radii and two borders.
+ */
+export const PANEL_ADD_CLASSES =
+    'flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-hairline'
+    + ' px-3 py-2 text-xs font-semibold text-ink-400 transition-colors'
+    + ' hover:border-hairline-bright hover:text-ink-100 disabled:opacity-40';

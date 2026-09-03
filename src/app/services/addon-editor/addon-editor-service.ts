@@ -269,7 +269,9 @@ function buildPalette(theme: ResolvedTheme) {
         // already refused once for the same reason on its own axes.
         muted: chart.axisLabel,
         keyword: chart.violet,
-        text: chart.bid,
+        // The accent rather than the buy colour: a string is the most common
+        // token in the starter, and the buy colour reads at 3.7 to 1 on white.
+        text: chart.phosphor,
         figure: chart.amber,
         type: chart.cyan,
         accent: chart.phosphor,

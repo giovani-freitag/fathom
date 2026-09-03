@@ -1,10 +1,17 @@
-import { CONTROL_INPUT_CLASSES } from '../control-shell.ts';
+import {
+    CONTROL_CHIP_CLASSES,
+    CONTROL_CHOSEN_CLASSES,
+    CONTROL_INPUT_CLASSES,
+    CONTROL_OFFERED_CLASSES,
+    PANEL_ADD_CLASSES,
+} from '../control-shell.ts';
 import { type ReactElement, useMemo, useState } from 'react';
 import type { FieldLayer, Indicator, Registered } from '../../../shared/core/draw-plan.ts';
 
 import { CHART_LAYERS } from '../../indicators/indicator-catalogue.ts';
 import { listAddons } from '../../addons/addon-registry.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
+import { ICON_SIZE_PX, LAYER_BUTTON_CLASSES } from './layer-list.tsx';
 import { needsOwnBand } from '../../painting/pane-projector.ts';
 import { Pencil, Plus, Search } from 'lucide-react';
 
@@ -60,7 +67,11 @@ export function IndicatorPalette({
                 of them has to find out which is theirs. The negative margins let
                 it cover the card's own padding once it is stuck there. */}
             <div className="sticky top-0 z-10 -mx-3 -mt-3 flex flex-col gap-2 bg-abyss-800 px-3 pb-1 pt-3">
-                <div role="tablist" className="flex gap-1 rounded-lg bg-abyss-900 p-0.5">
+                {/* Pressed buttons rather than a tab strip: half a tablist —
+                    roles without arrow keys or a panel to control — promises an
+                    interaction that is not there, and this chart already has one
+                    answer to "which of these". */}
+                <div className="flex gap-2">
                     <ShelfTab
                         shelf="shipped"
                         active={shelf}
@@ -148,16 +159,15 @@ function ShelfTab({ shelf, active, label, count, onSelect }: ShelfTabProps): Rea
     return (
         <button
             type="button"
-            role="tab"
-            aria-selected={isActive}
+            aria-pressed={isActive}
             onClick={() => { onSelect(shelf); }}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
-                isActive ? 'bg-abyss-700 text-ink-100' : 'text-ink-500 hover:text-ink-300'
+            className={`${CONTROL_CHIP_CLASSES} h-8 flex-1 justify-center ${
+                isActive ? CONTROL_CHOSEN_CLASSES : CONTROL_OFFERED_CLASSES
             }`}
         >
             {label}
             {count !== undefined && count > 0 && (
-                <span className="rounded-full bg-phosphor/15 px-1.5 text-[10px] text-phosphor">{count}</span>
+                <span className="rounded-full bg-current/15 px-1.5 text-[10px] font-semibold">{count}</span>
             )}
         </button>
     );
@@ -197,15 +207,8 @@ function YourShelf({ readings, isFull, addedCounts, onAdd, onEdit }: YourShelfPr
 
     return (
         <section className="mb-1">
-            {onEdit !== undefined && (
-                <button
-                    type="button"
-                    onClick={() => { onEdit(); }}
-                    className="mb-1 flex w-full items-center gap-2 rounded border border-dashed border-abyss-600 px-2 py-2 text-xs font-semibold text-ink-300 transition-colors hover:border-phosphor/40 hover:text-phosphor"
-                >
-                    <Plus className="size-4" />
-                    {translate('indicators.writeOne')}
-                </button>
+            {onEdit !== undefined && readings.length > 0 && (
+                <WriteOneButton onPress={() => { onEdit(); }} translate={translate} />
             )}
 
             {readings.map(({ id, layer }) => (
@@ -235,16 +238,31 @@ function YourShelf({ readings, isFull, addedCounts, onAdd, onEdit }: YourShelfPr
                         <button
                             type="button"
                             aria-label={`${translate('indicators.edit')} ${translateLabel(translate, layer.label)}`}
-                            title={translate('indicators.edit')}
+                            title={`${translate('indicators.edit')} ${translateLabel(translate, layer.label)}`}
                             onClick={() => { onEdit(id.replace(/^addon:/, '')); }}
-                            className="shrink-0 rounded px-2 text-ink-500 transition-colors hover:bg-abyss-700 hover:text-ink-100"
+                            className={LAYER_BUTTON_CLASSES}
                         >
-                            <Pencil className="size-3.5" />
+                            <Pencil size={ICON_SIZE_PX} />
                         </button>
                     )}
                 </div>
             ))}
         </section>
+    );
+}
+
+interface WriteOneButtonProps {
+    readonly onPress: () => void;
+    readonly translate: Translate;
+}
+
+/** The way into the editor, in the shell's own dashed shape. */
+function WriteOneButton({ onPress, translate }: WriteOneButtonProps): ReactElement {
+    return (
+        <button type="button" onClick={onPress} className={`mb-1 w-full ${PANEL_ADD_CLASSES}`}>
+            <Plus className="size-4" />
+            {translate('indicators.writeOne')}
+        </button>
     );
 }
 
@@ -264,14 +282,7 @@ function EmptyShelf({ shelf, hasQuery, translate, onWrite }: EmptyShelfProps): R
         <div className="space-y-2 px-1 py-3">
             <p className="text-xs text-ink-500">{translate('indicators.yoursEmpty')}</p>
             {onWrite !== undefined && (
-                <button
-                    type="button"
-                    onClick={() => { onWrite(); }}
-                    className="flex w-full items-center gap-2 rounded border border-dashed border-abyss-600 px-2 py-2 text-xs font-semibold text-ink-300 transition-colors hover:border-phosphor/40 hover:text-phosphor"
-                >
-                    <Plus className="size-4" />
-                    {translate('indicators.writeOne')}
-                </button>
+                <WriteOneButton onPress={() => { onWrite(); }} translate={translate} />
             )}
         </div>
     );

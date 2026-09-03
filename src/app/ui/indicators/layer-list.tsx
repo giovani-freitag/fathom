@@ -24,14 +24,14 @@ const readPlans = (state: ChartState): readonly DrawPlan[] => state.plans;
  * this panel sits over a surface that owns pan and zoom — a press that misses
  * does not do nothing, it moves the chart.
  */
-const LAYER_BUTTON_CLASSES =
+export const LAYER_BUTTON_CLASSES =
     'grid size-10 shrink-0 place-items-center rounded-md text-ink-500 transition-colors'
     + ' sm:size-8 hover:bg-abyss-700 hover:text-ink-100 disabled:opacity-30';
 
 /** Holds a slot open so the actions of every row line up in one column. */
 const LAYER_SLOT_CLASSES = 'size-10 shrink-0 sm:size-8';
 
-const ICON_SIZE_PX = 15;
+export const ICON_SIZE_PX = 15;
 
 interface LayerListProps {
     readonly controls: IndicatorControls;
@@ -103,7 +103,7 @@ function MissingLayerRow({ added, controls }: {
             <span className="size-2 shrink-0" />
             <span
                 title={added.indicatorId}
-                className="min-w-0 flex-1 truncate text-xs italic text-ink-600"
+                className="min-w-0 flex-1 truncate text-xs italic text-ink-400"
             >
                 {translate('indicators.missing')}
             </span>

@@ -1,3 +1,4 @@
+import { PANEL_ADD_CLASSES } from '../control-shell.ts';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { type ReactElement, type ReactNode, useState } from 'react';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
@@ -75,7 +76,7 @@ export function LayerPanel({ controls, onEditReading }: LayerPanelProps): ReactE
                 type="button"
                 disabled={controls.isFull}
                 onClick={() => { setView({ kind: 'add' }); }}
-                className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-hairline px-3 py-2 text-xs font-semibold text-ink-400 transition-colors hover:border-hairline-bright hover:text-ink-100 disabled:opacity-40"
+                className={PANEL_ADD_CLASSES}
             >
                 <Plus className="size-4" />
                 {translate('indicators.add')}
