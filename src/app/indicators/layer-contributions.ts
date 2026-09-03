@@ -1,13 +1,12 @@
 import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
-import { BOOK_LAYER } from './book/book.ts';
+import { BOOK_LAYER_ID } from './book/book.ts';
 import { BookPanel } from './book/book-panel.tsx';
 import { CandleReadout } from './candles/candle-readout.tsx';
-import { CANDLES_LAYER } from './candles/candles.ts';
+import { CANDLES_LAYER_ID } from './candles/candles.ts';
 import type { ChartState } from '../core/chart-controller.ts';
 import type { ComponentType } from 'react';
-import type { FieldLayer, Indicator } from '../../shared/core/draw-plan.ts';
 import { DepthLegend } from './book/depth-legend.tsx';
-import { findIndicator } from './indicator-catalogue.ts';
+import { findChartLayer, findIndicator } from './indicator-catalogue.ts';
 
 /** What a layer puts into the shell beyond the plan or the pixels it draws. */
 export interface LayerContribution {
@@ -41,8 +40,8 @@ export interface LayerViewProps {
 const CONTRIBUTIONS: Readonly<Record<string, LayerContribution>> = {
     // The book holds what is being recorded, and a control that goes away with
     // it is a collector nobody can stop. Hiding it leaves the same chart behind.
-    [BOOK_LAYER.id]: { Panel: BookPanel, Overlay: DepthLegend, isRemovable: false },
-    [CANDLES_LAYER.id]: { Readout: CandleReadout },
+    [BOOK_LAYER_ID]: { Panel: BookPanel, Overlay: DepthLegend, isRemovable: false },
+    [CANDLES_LAYER_ID]: { Readout: CandleReadout },
 };
 
 /**
@@ -90,12 +89,14 @@ export function listDrawnOverlays(added: readonly AddedIndicator[]): readonly Dr
  * has nothing at all, and pressing it on the chart opened an empty card anyway.
  *
  * @param layer - The layer as the build ships it.
+ * @param layerId - The layer being asked about.
  * @returns True when it declares a knob, brought a panel, or carries a colour.
  */
-export function isLayerTunable(layer: Indicator | FieldLayer): boolean {
-    return layer.parameters.length > 0
-        || findLayerContribution(layer.id)?.Panel !== undefined
-        || isLayerRecolourable(layer.id);
+export function isLayerTunable(layerId: string): boolean {
+    const layer = findChartLayer(layerId);
+    return layer !== null && (layer.parameters.length > 0
+        || findLayerContribution(layerId)?.Panel !== undefined
+        || isLayerRecolourable(layerId));
 }
 
 /**

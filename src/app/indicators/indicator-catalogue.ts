@@ -4,6 +4,7 @@ import type {
     Indicator,
     IndicatorSettings,
     PlotTone,
+    Registered,
 } from '../../shared/core/draw-plan.ts';
 import { type AddedIndicator, chooseInstanceTone } from '../../shared/core/indicator-selection.ts';
 import { AVERAGE_CONVERGENCE } from './average-convergence/average-convergence.ts';
@@ -24,7 +25,7 @@ import { EXPONENTIAL_AVERAGE } from './exponential-average/exponential-average.t
 import { RELATIVE_STRENGTH } from './relative-strength/relative-strength.ts';
 import { SIMPLE_AVERAGE } from './simple-average/simple-average.ts';
 import { STOCHASTIC_OSCILLATOR } from './stochastic-oscillator/stochastic-oscillator.ts';
-import { VOLUME } from './volume/volume.ts';
+import { VOLUME, VOLUME_ID } from './volume/volume.ts';
 import { VOLUME_WEIGHTED_AVERAGE } from './volume-weighted-average/volume-weighted-average.ts';
 
 /**
@@ -34,28 +35,27 @@ import { VOLUME_WEIGHTED_AVERAGE } from './volume-weighted-average/volume-weight
  * reader makes when choosing, and it is the one that decides whether adding it
  * changes the shape of the screen.
  */
-export const INDICATOR_CATALOGUE: readonly Indicator[] = [
-    VOLUME,
-    SIMPLE_AVERAGE,
-    VOLUME_WEIGHTED_AVERAGE,
-    PIVOT_POINTS,
-    EXPONENTIAL_AVERAGE,
-    BOLLINGER_BANDS,
-    DONCHIAN_CHANNELS,
-    KELTNER_CHANNELS,
-    SUPERTREND,
-    PARABOLIC_STOP,
-    RELATIVE_STRENGTH,
-    STOCHASTIC_OSCILLATOR,
-    AVERAGE_CONVERGENCE,
-    AVERAGE_TRUE_RANGE,
-    DIRECTIONAL_MOVEMENT,
-    MONEY_FLOW,
-    COMMODITY_CHANNEL,
-    VOLUME_DELTA,
-    CUMULATIVE_DELTA,
+export const INDICATOR_CATALOGUE: readonly Registered<Indicator>[] = [
+    { id: VOLUME_ID, layer: VOLUME },
+    { id: 'sma', layer: SIMPLE_AVERAGE },
+    { id: 'vwap', layer: VOLUME_WEIGHTED_AVERAGE },
+    { id: 'pivots', layer: PIVOT_POINTS },
+    { id: 'ema', layer: EXPONENTIAL_AVERAGE },
+    { id: 'bollinger', layer: BOLLINGER_BANDS },
+    { id: 'donchian', layer: DONCHIAN_CHANNELS },
+    { id: 'keltner', layer: KELTNER_CHANNELS },
+    { id: 'supertrend', layer: SUPERTREND },
+    { id: 'psar', layer: PARABOLIC_STOP },
+    { id: 'rsi', layer: RELATIVE_STRENGTH },
+    { id: 'stochastic', layer: STOCHASTIC_OSCILLATOR },
+    { id: 'macd', layer: AVERAGE_CONVERGENCE },
+    { id: 'atr', layer: AVERAGE_TRUE_RANGE },
+    { id: 'adx', layer: DIRECTIONAL_MOVEMENT },
+    { id: 'mfi', layer: MONEY_FLOW },
+    { id: 'cci', layer: COMMODITY_CHANNEL },
+    { id: 'delta', layer: VOLUME_DELTA },
+    { id: 'cvd', layer: CUMULATIVE_DELTA },
 ];
-
 /**
  * Everything a reader can put on the chart, indicators and host layers alike.
  *
@@ -63,7 +63,7 @@ export const INDICATOR_CATALOGUE: readonly Indicator[] = [
  * differ in how they are drawn, which is the host's problem rather than the
  * reader's.
  */
-export const CHART_LAYERS: readonly (Indicator | FieldLayer)[] = [
+export const CHART_LAYERS: readonly Registered<Indicator | FieldLayer>[] = [
     ...FIELD_LAYERS,
     ...INDICATOR_CATALOGUE,
 ];
@@ -75,13 +75,13 @@ export const CHART_LAYERS: readonly (Indicator | FieldLayer)[] = [
  * @returns The indicator or layer, or null when the build no longer ships it.
  */
 export function findChartLayer(layerId: string): Indicator | FieldLayer | null {
-    return CHART_LAYERS.find((layer) => layer.id === layerId) ?? null;
+    return CHART_LAYERS.find((entry) => entry.id === layerId)?.layer ?? null;
 }
 
 /**
  * The starting parameters for anything newly added.
  *
- * @param layer - What is being added.
+ * @param layerId - The id being added.
  * @returns Its declared defaults, by parameter name.
  */
 export function readLayerDefaults(layer: Indicator | FieldLayer): IndicatorSettings {
@@ -99,7 +99,7 @@ export function readLayerDefaults(layer: Indicator | FieldLayer): IndicatorSetti
  * @returns The indicator, or null when the build no longer ships it.
  */
 export function findIndicator(indicatorId: string): Indicator | null {
-    return INDICATOR_CATALOGUE.find((indicator) => indicator.id === indicatorId) ?? null;
+    return INDICATOR_CATALOGUE.find((entry) => entry.id === indicatorId)?.layer ?? null;
 }
 
 /**
@@ -154,15 +154,12 @@ export function resolveRequiredWarmupBars(added: readonly AddedIndicator[]): num
  * it reserves nothing. Reserving one would spend an identity colour on a layer
  * that never shows it, and hand the reader's first indicator whatever was left.
  *
- * @param layer - What is being added.
+ * @param layerId - The id being added.
  * @param added - What is already on the chart.
  * @returns The tone to draw it in.
  */
-export function chooseLayerTone(
-    layer: Indicator | FieldLayer,
-    added: readonly AddedIndicator[],
-): PlotTone {
-    return findFieldLayer(layer.id) === null ? chooseInstanceTone(added) : 'muted';
+export function chooseLayerTone(layerId: string, added: readonly AddedIndicator[]): PlotTone {
+    return findFieldLayer(layerId) === null ? chooseInstanceTone(added) : 'muted';
 }
 
 /**
@@ -172,4 +169,7 @@ export function chooseLayerTone(
  * than the price and its volume asks the reader to assemble the ordinary case
  * by hand before they can read anything at all.
  */
-export const OPENING_LAYERS: readonly (Indicator | FieldLayer)[] = [...FIELD_LAYERS, VOLUME];
+export const OPENING_LAYERS: readonly Registered<Indicator | FieldLayer>[] = [
+    ...FIELD_LAYERS,
+    { id: VOLUME_ID, layer: VOLUME },
+];

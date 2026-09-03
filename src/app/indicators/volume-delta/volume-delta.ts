@@ -1,5 +1,5 @@
 import {
-    type DrawPlan,
+    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
@@ -22,8 +22,8 @@ import { collectInstants, createBlankValues } from '../shared/series-math.ts';
  * reading, so the difference is what is drawn.
  */
 export class VolumeDelta implements Indicator {
-    readonly id = 'delta';
-    readonly labelKey = 'indicator.delta';
+    readonly label = 'indicator.delta';
+    readonly about = 'indicator.delta.help';
     // Symmetric so a bar bought and a bar sold of the same size are the same
     // height. Scaled to their own extents, an aggressive session would draw its
     // buying and its selling alike and the imbalance would be invisible.
@@ -48,7 +48,7 @@ export class VolumeDelta implements Indicator {
      * @param input - The bars and the parameters.
      * @returns One histogram, growing either side of nought.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const value = createBlankValues(bars.length);
 
@@ -59,13 +59,8 @@ export class VolumeDelta implements Indicator {
         }
 
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: '',
-            scale: this.scale,
-            isSelfColoured: this.isSelfColoured,
             series: [{
-                labelKey: this.labelKey,
+                label: this.label,
                 tone: 'bid',
                 negativeTone: 'ask',
                 shape: 'histogram',
@@ -74,7 +69,6 @@ export class VolumeDelta implements Indicator {
                 value,
             }],
             levels: [{ value: 0, tone: 'muted' }],
-            hasConverged: true,
         };
     }
 }

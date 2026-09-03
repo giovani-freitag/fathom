@@ -41,7 +41,7 @@ export function RemovalNotice({ controls }: RemovalNoticeProps): ReactElement | 
         <div className={`${FLOATING_SURFACE_CLASSES} pointer-events-auto flex items-center gap-3 rounded-md px-3 py-2 shadow-lg shadow-black/50`}>
             <span className="text-xs text-ink-300">
                 {translate('indicators.removed', {
-                    name: translateLabel(translate, layer.labelKey),
+                    name: translateLabel(translate, layer.label),
                 })}
             </span>
             <button

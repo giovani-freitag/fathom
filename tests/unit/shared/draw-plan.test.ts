@@ -4,7 +4,7 @@ import type { DrawPlan, PlotSeries } from '../../../src/shared/core/draw-plan.ts
 
 function buildSeries(atMs: readonly number[], value: readonly number[]): PlotSeries {
     return {
-        labelKey: 'indicator.sma',
+        label: 'indicator.sma',
         tone: 'phosphor',
         shape: 'line',
         atMs: Float64Array.from(atMs),
@@ -47,13 +47,13 @@ describe('recolourPlan on a plan that colours itself', () => {
         // is identified by, the chart would be claiming every bar rose.
         const plan: DrawPlan = {
             indicatorId: 'volume',
-            labelKey: 'indicator.volume',
+            label: 'indicator.volume',
             parameterSummary: '',
             scale: { kind: 'overlay', heightRatio: 0.2 },
             isSelfColoured: true,
             series: [
-                { labelKey: 'a', tone: 'bid', shape: 'histogram', baseline: 0, atMs: Float64Array.from([1]), value: Float64Array.from([2]) },
-                { labelKey: 'b', tone: 'ask', shape: 'histogram', baseline: 0, atMs: Float64Array.from([1]), value: Float64Array.from([3]) },
+                { label: 'a', tone: 'bid', shape: 'histogram', baseline: 0, atMs: Float64Array.from([1]), value: Float64Array.from([2]) },
+                { label: 'b', tone: 'ask', shape: 'histogram', baseline: 0, atMs: Float64Array.from([1]), value: Float64Array.from([3]) },
             ],
             hasConverged: true,
         };

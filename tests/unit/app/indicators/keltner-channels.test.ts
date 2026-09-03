@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
+import { completePlan, NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
 import { KELTNER_CHANNELS } from '../../../../src/app/indicators/keltner-channels/keltner-channels.ts';
 import { buildRun, buildWindow } from '../../../mocks/price-bars.ts';
 
@@ -55,12 +55,15 @@ describe('KeltnerChannels', () => {
     });
 
     it('says it has not converged on a window shorter than its smoothing', () => {
-        const plan = KELTNER_CHANNELS.compute({
-            bars: buildWindow(buildRun(60, (index) => 100 + index)),
-            warmupBarCount: 0,
-            higher: NO_HIGHER_BARS,
-            settings: SETTINGS,
-        });
+        const plan = completePlan(
+            { indicatorId: 'keltner', indicator: KELTNER_CHANNELS, settings: SETTINGS, warmupBarCount: 0 },
+            KELTNER_CHANNELS.compute({
+                bars: buildWindow(buildRun(60, (index) => 100 + index)),
+                warmupBarCount: 0,
+                higher: NO_HIGHER_BARS,
+                settings: SETTINGS,
+            }),
+        );
 
         expect(plan.hasConverged).toBe(false);
     });

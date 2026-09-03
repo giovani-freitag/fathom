@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
+import { CHART_LAYERS, findChartLayer } from '../../src/app/indicators/indicator-catalogue.ts';
 
 const ROOT = join(import.meta.dirname, '../..');
 const ADDONS = join('src', 'app', 'indicators');
@@ -105,5 +106,34 @@ describe('addon isolation', () => {
             .filter((entry) => entry.endsWith('.ts') || entry.endsWith('.tsx'));
 
         expect(new Set(top)).toEqual(REGISTRIES);
+    });
+});
+
+describe('who gets to claim a name', () => {
+    it('is the registry alone, because a reading carrying its own could take one', () => {
+        // Lookup is a find over the catalogue by id and stored settings are
+        // keyed on the same string, so two readings answering to `delta` would
+        // leave the second inheriting the first's settings and never being
+        // called at all. Nothing about that failure is visible: the reader adds
+        // a reading and sees another one appear.
+        const claimants = listSources(join(ROOT, ADDONS))
+            .filter((path) => /^\s*(readonly )?id\s*[=:]\s*'/m.test(readFileSync(path, 'utf8')))
+            .map((path) => relative(ROOT, path));
+
+        expect(claimants).toEqual([]);
+    });
+
+    it('hands each name out once', () => {
+        const claimed = CHART_LAYERS.map((entry) => entry.id);
+
+        expect(claimed).toEqual([...new Set(claimed)]);
+    });
+
+    it('resolves every name it handed out', () => {
+        // The other half of the same rule: an entry whose id finds nothing is a
+        // row in the palette that adds nothing to the chart.
+        const unresolved = CHART_LAYERS.filter((entry) => findChartLayer(entry.id) !== entry.layer);
+
+        expect(unresolved.map((entry) => entry.id)).toEqual([]);
     });
 });

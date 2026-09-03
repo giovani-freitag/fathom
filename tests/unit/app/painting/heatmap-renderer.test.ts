@@ -156,7 +156,7 @@ describe('HeatmapRenderer containment', () => {
         surface.renderer.render(buildRequest({
             plans: [{
                 indicatorId: 'rsi',
-                labelKey: 'indicator.rsi',
+                label: 'indicator.rsi',
                 parameterSummary: '14',
                 scale: { kind: 'fixed', low: 0, high: 100 },
                 series: [],
@@ -185,7 +185,7 @@ describe('HeatmapRenderer containment', () => {
         surface.renderer.render(buildRequest({
             plans: [{
                 indicatorId: 'ema',
-                labelKey: 'indicator.ema',
+                label: 'indicator.ema',
                 parameterSummary: '20',
                 scale: { kind: 'price' },
                 series: [],

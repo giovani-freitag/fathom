@@ -23,8 +23,8 @@ What was bought minus what was sold, as one histogram either side of nought.
 
 ```ts
 export class VolumeDelta implements Indicator {
-    readonly id = 'delta';
-    readonly labelKey = 'indicator.delta';
+    readonly label = 'indicator.delta';
+    readonly about = 'indicator.delta.help';
     readonly scale: PlotScale = { kind: 'symmetric' };
     readonly isSelfColoured = true;
     readonly parameters: readonly IndicatorParameter[] = [];
@@ -33,7 +33,7 @@ export class VolumeDelta implements Indicator {
         return 0;
     }
 
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const value = createBlankValues(bars.length);
         for (const [index, bar] of bars.entries()) {
@@ -41,13 +41,8 @@ export class VolumeDelta implements Indicator {
         }
 
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: '',
-            scale: this.scale,
-            isSelfColoured: this.isSelfColoured,
             series: [{
-                labelKey: this.labelKey,
+                label: this.label,
                 tone: 'bid',
                 negativeTone: 'ask',
                 shape: 'histogram',
@@ -56,7 +51,6 @@ export class VolumeDelta implements Indicator {
                 value,
             }],
             levels: [{ value: 0, tone: 'muted' }],
-            hasConverged: true,
         };
     }
 }

@@ -1,5 +1,5 @@
 import {
-    type DrawPlan,
+    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
@@ -33,8 +33,8 @@ const OVERBOUGHT = 80;
  * Where the close sits inside the range the price has covered recently.
  */
 export class StochasticOscillator implements Indicator {
-    readonly id = 'stochastic';
-    readonly labelKey = 'indicator.stochastic';
+    readonly label = 'indicator.stochastic';
+    readonly about = 'indicator.stochastic.help';
     readonly scale: PlotScale = { kind: 'fixed', low: 0, high: 100 };
     readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS, SMOOTHING_BARS];
 
@@ -54,7 +54,7 @@ export class StochasticOscillator implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns Two lines, with the two conventional thresholds marked.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const periodBars = readSetting(input.settings, PERIOD_BARS);
         const smoothingBars = readSetting(input.settings, SMOOTHING_BARS);
@@ -89,19 +89,14 @@ export class StochasticOscillator implements Indicator {
 
         const atMs = collectInstants(bars);
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: `${periodBars} · ${smoothingBars}`,
-            scale: this.scale,
             series: [
-                { labelKey: 'indicator.stochastic.position', tone: 'phosphor', shape: 'line', atMs, value: position },
-                { labelKey: 'indicator.stochastic.smoothed', tone: 'amber', shape: 'line', atMs, value: smoothed },
+                { label: 'indicator.stochastic.position', tone: 'phosphor', shape: 'line', atMs, value: position },
+                { label: 'indicator.stochastic.smoothed', tone: 'amber', shape: 'line', atMs, value: smoothed },
             ],
             levels: [
                 { value: OVERBOUGHT, tone: 'muted', isDashed: true },
                 { value: OVERSOLD, tone: 'muted', isDashed: true },
             ],
-            hasConverged: input.warmupBarCount >= this.resolveWarmupBars(input.settings),
         };
     }
 }

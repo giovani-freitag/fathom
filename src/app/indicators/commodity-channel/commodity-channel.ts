@@ -1,5 +1,5 @@
 import {
-    type DrawPlan,
+    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
@@ -46,8 +46,8 @@ const STRETCHED = 100;
  * would.
  */
 export class CommodityChannel implements Indicator {
-    readonly id = 'cci';
-    readonly labelKey = 'indicator.cci';
+    readonly label = 'indicator.cci';
+    readonly about = 'indicator.cci.help';
     readonly scale: PlotScale = { kind: 'symmetric' };
     readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS];
 
@@ -67,7 +67,7 @@ export class CommodityChannel implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns One line, with the two conventional thresholds marked.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const periodBars = readSetting(input.settings, PERIOD_BARS);
         const value = createBlankValues(bars.length);
@@ -77,12 +77,8 @@ export class CommodityChannel implements Indicator {
         }
 
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: String(periodBars),
-            scale: this.scale,
             series: [{
-                labelKey: this.labelKey,
+                label: this.label,
                 tone: 'violet',
                 shape: 'line',
                 atMs: collectInstants(bars),
@@ -93,7 +89,6 @@ export class CommodityChannel implements Indicator {
                 { value: 0, tone: 'muted', isDashed: true },
                 { value: -STRETCHED, tone: 'muted', isDashed: true },
             ],
-            hasConverged: input.warmupBarCount >= this.resolveWarmupBars(input.settings),
         };
     }
 }

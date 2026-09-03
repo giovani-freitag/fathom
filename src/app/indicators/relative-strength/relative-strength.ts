@@ -1,5 +1,5 @@
 import {
-    type DrawPlan,
+    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
@@ -33,8 +33,8 @@ const OVERBOUGHT = 70;
  * How much of recent movement has been upward, on a nought-to-hundred scale.
  */
 export class RelativeStrength implements Indicator {
-    readonly id = 'rsi';
-    readonly labelKey = 'indicator.rsi';
+    readonly label = 'indicator.rsi';
+    readonly about = 'indicator.rsi.help';
     readonly scale: PlotScale = { kind: 'fixed', low: 0, high: 100 };
     readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS, SOURCE];
 
@@ -54,7 +54,7 @@ export class RelativeStrength implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns One line, with the two conventional thresholds marked.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const periodBars = readSetting(input.settings, PERIOD_BARS);
         const value = createBlankValues(bars.length);
@@ -65,12 +65,8 @@ export class RelativeStrength implements Indicator {
         }
 
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: String(periodBars),
-            scale: this.scale,
             series: [{
-                labelKey: this.labelKey,
+                label: this.label,
                 tone: 'phosphor',
                 shape: 'line',
                 atMs: collectInstants(bars),
@@ -80,7 +76,6 @@ export class RelativeStrength implements Indicator {
                 { value: OVERBOUGHT, tone: 'muted', isDashed: true },
                 { value: OVERSOLD, tone: 'muted', isDashed: true },
             ],
-            hasConverged: input.warmupBarCount >= this.resolveWarmupBars(input.settings),
         };
     }
 

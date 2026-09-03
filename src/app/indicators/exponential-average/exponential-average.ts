@@ -1,5 +1,5 @@
 import {
-    type DrawPlan,
+    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
@@ -39,8 +39,8 @@ export function resolveWarmupBars(periodBars: number): number {
  * The exponential moving average of the bar close.
  */
 export class ExponentialAverage implements Indicator {
-    readonly id = 'ema';
-    readonly labelKey = 'indicator.ema';
+    readonly label = 'indicator.ema';
+    readonly about = 'indicator.ema.help';
     readonly scale: PlotScale = { kind: 'price' };
     readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS, SOURCE];
 
@@ -60,7 +60,7 @@ export class ExponentialAverage implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns One line, restarting wherever the recording was interrupted.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const periodBars = readSetting(input.settings, PERIOD_BARS);
         const source = collectSource(bars, input.settings);
@@ -71,18 +71,13 @@ export class ExponentialAverage implements Indicator {
         }
 
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: String(periodBars),
-            scale: this.scale,
             series: [{
-                labelKey: this.labelKey,
+                label: this.label,
                 tone: 'phosphor',
                 shape: 'line',
                 atMs: collectInstants(bars),
                 value,
             }],
-            hasConverged: input.warmupBarCount >= resolveWarmupBars(periodBars),
         };
     }
 }

@@ -6,7 +6,7 @@ import { PlotPainter } from '../../../../../src/app/painting/painters/plot-paint
 
 function buildSeries(overrides: Partial<PlotSeries> = {}): PlotSeries {
     return {
-        labelKey: 'indicator.ema',
+        label: 'indicator.ema',
         tone: 'phosphor',
         shape: 'line',
         atMs: Float64Array.from([1_200_000, 1_400_000, 1_600_000]),
@@ -18,7 +18,7 @@ function buildSeries(overrides: Partial<PlotSeries> = {}): PlotSeries {
 function buildPlan(overrides: Partial<DrawPlan> = {}): DrawPlan {
     return {
         indicatorId: 'ema',
-        labelKey: 'indicator.ema',
+        label: 'indicator.ema',
         parameterSummary: '20',
         scale: { kind: 'price' },
         series: [buildSeries()],
@@ -267,8 +267,8 @@ describe('PlotPainter naming what it drew', () => {
         const recording = paintWith({
             namesItsSeries: true,
             series: [
-                buildSeries({ labelKey: 'indicator.pivots.r1', value: Float64Array.from([78_600, 78_600, 78_600]) }),
-                buildSeries({ labelKey: 'indicator.pivots.s1', value: Float64Array.from([78_400, 78_400, 78_400]) }),
+                buildSeries({ label: 'indicator.pivots.r1', value: Float64Array.from([78_600, 78_600, 78_600]) }),
+                buildSeries({ label: 'indicator.pivots.s1', value: Float64Array.from([78_400, 78_400, 78_400]) }),
             ],
         });
 
@@ -281,7 +281,7 @@ describe('PlotPainter naming what it drew', () => {
         const recording = paintWith({
             namesItsSeries: true,
             series: [buildSeries({
-                labelKey: 'indicator.pivots.r3',
+                label: 'indicator.pivots.r3',
                 value: Float64Array.from([9_000_000, 9_000_000, 9_000_000]),
             })],
         });
@@ -305,8 +305,8 @@ describe('PlotPainter naming what it drew', () => {
 
         new PlotPainter().paintInPanes(buildPaintContext(recording, {
             plans: [
-                buildPlan({ instanceId: 'rsi-1', labelKey: 'indicator.rsi', parameterSummary: '14', scale: { kind: 'auto' } }),
-                buildPlan({ instanceId: 'rsi-2', labelKey: 'indicator.rsi', parameterSummary: '50', scale: { kind: 'auto' }, bandKey: 'shared' }),
+                buildPlan({ instanceId: 'rsi-1', label: 'indicator.rsi', parameterSummary: '14', scale: { kind: 'auto' } }),
+                buildPlan({ instanceId: 'rsi-2', label: 'indicator.rsi', parameterSummary: '50', scale: { kind: 'auto' }, bandKey: 'shared' }),
             ],
         }));
 
@@ -319,7 +319,7 @@ describe('PlotPainter naming what it drew', () => {
         const recording = createRecordingContext();
 
         new PlotPainter().paintInPanes(buildPaintContext(recording, {
-            plans: [buildPlan({ labelKey: 'indicator.cvd', scale: { kind: 'auto' } })],
+            plans: [buildPlan({ label: 'indicator.cvd', scale: { kind: 'auto' } })],
         }));
 
         expect(writtenBy(recording).some((text) => text.startsWith('Cumulative delta'))).toBe(true);

@@ -152,11 +152,11 @@ describe('AxisPainter labelling a band', () => {
             cssWidth,
             plans: [{
                 indicatorId: 'delta',
-                labelKey: 'indicator.delta',
+                label: 'indicator.delta',
                 parameterSummary: '',
                 scale: { kind: 'symmetric' },
                 series: [{
-                    labelKey: 'indicator.delta',
+                    label: 'indicator.delta',
                     tone: 'bid',
                     shape: 'histogram',
                     baseline: 0,

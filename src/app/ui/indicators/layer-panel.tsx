@@ -141,7 +141,7 @@ export function LayerKnobs({ controls, instanceId, action }: LayerKnobsProps): R
         <div className="flex w-72 flex-col gap-3">
             <div className="flex min-h-6 items-center justify-between gap-2">
                 <span className="text-xs font-semibold text-ink-100">
-                    {translateLabel(translate, layer.labelKey)}
+                    {translateLabel(translate, layer.label)}
                 </span>
                 {action}
             </div>

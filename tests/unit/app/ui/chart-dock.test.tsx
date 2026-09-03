@@ -88,8 +88,8 @@ function renderDock(overrides: Partial<DrawingControls> = {}): Pressed {
 }
 
 /** One control of the dock, by the words it is announced with. */
-function control(labelKey: keyof typeof EN_DICTIONARY): HTMLButtonElement {
-    return screen.getByRole<HTMLButtonElement>('button', { name: EN_DICTIONARY[labelKey] });
+function control(label: keyof typeof EN_DICTIONARY): HTMLButtonElement {
+    return screen.getByRole<HTMLButtonElement>('button', { name: EN_DICTIONARY[label] });
 }
 
 describe('ChartDock', () => {

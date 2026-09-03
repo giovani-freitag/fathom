@@ -2,7 +2,6 @@ import { ChartGestureController } from '../core/chart-gesture-controller.ts';
 import { resolveChartLayout } from '../painting/chart-layout.ts';
 import { countPanedPlans, placePanes } from '../painting/pane-projector.ts';
 import { findPlanAt } from '../painting/plan-hit-test.ts';
-import { findChartLayer } from '../indicators/indicator-catalogue.ts';
 import { isLayerTunable } from '../indicators/layer-contributions.ts';
 import type { ChartLayout } from '../painting/render-types.ts';
 import { HeatmapRenderer, type PointerReadout } from '../painting/heatmap-renderer.ts';
@@ -101,8 +100,7 @@ function readLayerAt(
     // the pointer a hand over a reading — and a hand over something that opens
     // nothing is the promise that opened the empty card in the first place.
     const added = state.addedIndicators.find((entry) => entry.instanceId === instanceId);
-    const layer = added === undefined ? null : findChartLayer(added.indicatorId);
-    return layer !== null && isLayerTunable(layer) ? instanceId : null;
+    return added !== undefined && isLayerTunable(added.indicatorId) ? instanceId : null;
 }
 
 /**

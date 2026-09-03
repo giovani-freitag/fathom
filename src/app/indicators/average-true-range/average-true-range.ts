@@ -1,5 +1,5 @@
 import {
-    type DrawPlan,
+    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
@@ -28,8 +28,8 @@ const PERIOD_BARS: NumericParameter = {
  * How far price has been travelling per bar, in the instrument's own units.
  */
 export class AverageTrueRange implements Indicator {
-    readonly id = 'atr';
-    readonly labelKey = 'indicator.atr';
+    readonly label = 'indicator.atr';
+    readonly about = 'indicator.atr.help';
     readonly scale: PlotScale = { kind: 'auto' };
     readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS];
 
@@ -49,7 +49,7 @@ export class AverageTrueRange implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns One line on a scale of its own.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const periodBars = readSetting(input.settings, PERIOD_BARS);
         const value = createBlankValues(bars.length);
@@ -69,18 +69,13 @@ export class AverageTrueRange implements Indicator {
         }
 
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: String(periodBars),
-            scale: this.scale,
             series: [{
-                labelKey: this.labelKey,
+                label: this.label,
                 tone: 'amber',
                 shape: 'line',
                 atMs: collectInstants(bars),
                 value,
             }],
-            hasConverged: input.warmupBarCount >= this.resolveWarmupBars(input.settings),
         };
     }
 }

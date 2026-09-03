@@ -1,13 +1,13 @@
 import { CONTROL_INPUT_CLASSES } from '../control-shell.ts';
 import { type ReactElement, useMemo, useState } from 'react';
-import type { FieldLayer, Indicator } from '../../../shared/core/draw-plan.ts';
+import type { FieldLayer, Indicator, Registered } from '../../../shared/core/draw-plan.ts';
 
 import { CHART_LAYERS } from '../../indicators/indicator-catalogue.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
 import { needsOwnBand } from '../../painting/pane-projector.ts';
 import { Search } from 'lucide-react';
 
-type Offered = Indicator | FieldLayer;
+type Offered = Registered<Indicator | FieldLayer>;
 import { useTranslate } from '../../react/use-appearance.ts';
 import { translateLabel } from '../../i18n/translator.ts';
 import type { Translate } from '../../i18n/translator.ts';
@@ -29,11 +29,11 @@ export function IndicatorPalette({ onAdd, isFull, addedCounts, hasAutoFocus = fa
     const [query, setQuery] = useState('');
     const matches = useMemo(() => findMatches(query, translate), [query, translate]);
 
-    const theChart = matches.filter((entry) => findFieldLayer(entry.id) !== null);
-    const overPrice = matches.filter((entry) => findFieldLayer(entry.id) === null
-        && !needsOwnBand((entry as Indicator).scale));
-    const ownPane = matches.filter((entry) => findFieldLayer(entry.id) === null
-        && needsOwnBand((entry as Indicator).scale));
+    const theChart = matches.filter((entry) => !isIndicator(entry.layer));
+    const overPrice = matches.filter((entry) => isIndicator(entry.layer)
+        && !needsOwnBand(entry.layer.scale));
+    const ownPane = matches.filter((entry) => isIndicator(entry.layer)
+        && needsOwnBand(entry.layer.scale));
 
     return (
         <div className="flex w-72 flex-col gap-2">
@@ -112,12 +112,12 @@ function IndicatorGroup({ titleKey, indicators, isFull, addedCounts, onAdd }: In
             <h3 className="px-1 py-1 field-label">
                 {translate(titleKey)}
             </h3>
-            {indicators.map((indicator) => (
+            {indicators.map(({ id, layer }) => (
                 <button
-                    key={indicator.id}
+                    key={id}
                     type="button"
-                    disabled={isFull || (findFieldLayer(indicator.id) !== null && (addedCounts.get(indicator.id) ?? 0) > 0)}
-                    onClick={() => { onAdd(indicator.id); }}
+                    disabled={isFull || (findFieldLayer(id) !== null && (addedCounts.get(id) ?? 0) > 0)}
+                    onClick={() => { onAdd(id); }}
                     // Dimmed only where nothing more can be added at all. A
                     // layer already on the chart is said so by its own count,
                     // and washing the row out takes the sentence explaining
@@ -126,16 +126,18 @@ function IndicatorGroup({ titleKey, indicators, isFull, addedCounts, onAdd }: In
                     className={`flex w-full flex-col items-start gap-0.5 rounded px-2 py-2 text-left transition-colors hover:bg-abyss-700 disabled:hover:bg-transparent ${isFull ? 'disabled:opacity-40' : ''}`}
                 >
                     <span className="flex w-full items-center gap-2 text-sm font-semibold text-ink-100">
-                        {translateLabel(translate, indicator.labelKey)}
-                        {(addedCounts.get(indicator.id) ?? 0) > 0 && (
+                        {translateLabel(translate, layer.label)}
+                        {(addedCounts.get(id) ?? 0) > 0 && (
                             <span className="rounded-full bg-phosphor/15 px-1.5 text-[10px] font-semibold text-phosphor">
-                                {addedCounts.get(indicator.id)}
+                                {addedCounts.get(id)}
                             </span>
                         )}
                     </span>
-                    <span className="text-xs leading-snug text-ink-500">
-                        {translateLabel(translate, `${indicator.labelKey}.help`)}
-                    </span>
+                    {layer.about !== undefined && (
+                        <span className="text-xs leading-snug text-ink-500">
+                            {translateLabel(translate, layer.about)}
+                        </span>
+                    )}
                 </button>
             ))}
         </section>
@@ -168,11 +170,21 @@ function findMatches(query: string, translate: Translate): readonly Offered[] {
         return CHART_LAYERS;
     }
 
-    return CHART_LAYERS.filter((indicator) => {
-        const name = translateLabel(translate, indicator.labelKey).toLowerCase();
-        const help = translateLabel(translate, `${indicator.labelKey}.help`).toLowerCase();
+    return CHART_LAYERS.filter(({ id, layer }) => {
+        const name = translateLabel(translate, layer.label).toLowerCase();
+        const about = translateLabel(translate, layer.about ?? '').toLowerCase();
         // The id as well as the rendered name, so a reader who knows the term in
         // English finds it in a language that shortens it differently.
-        return name.includes(wanted) || help.includes(wanted) || indicator.id.includes(wanted);
+        return name.includes(wanted) || about.includes(wanted) || id.includes(wanted);
     });
+}
+
+/**
+ * Whether an offered layer is one the arithmetic draws.
+ *
+ * By the scale it declared: only a reading that produces vertices has to say
+ * what axis they belong on.
+ */
+function isIndicator(layer: Indicator | FieldLayer): layer is Indicator {
+    return 'scale' in layer;
 }

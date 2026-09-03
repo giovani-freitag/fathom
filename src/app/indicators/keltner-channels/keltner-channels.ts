@@ -1,5 +1,5 @@
 import {
-    type DrawPlan,
+    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
@@ -53,8 +53,8 @@ const MULTIPLIER: NumericParameter = {
  * between a quiet market and a violent one that ends up where it started.
  */
 export class KeltnerChannels implements Indicator {
-    readonly id = 'keltner';
-    readonly labelKey = 'indicator.keltner';
+    readonly label = 'indicator.keltner';
+    readonly about = 'indicator.keltner.help';
     readonly scale: PlotScale = { kind: 'price' };
     readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS, RANGE_BARS, MULTIPLIER, SOURCE];
 
@@ -74,7 +74,7 @@ export class KeltnerChannels implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns Three lines and the band between the outer two.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const periodBars = readSetting(input.settings, PERIOD_BARS);
         const rangeBars = readSetting(input.settings, RANGE_BARS);
@@ -103,17 +103,13 @@ export class KeltnerChannels implements Indicator {
 
         const atMs = collectInstants(bars);
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
             parameterSummary: `${String(periodBars)}·${String(multiplier)}`,
-            scale: this.scale,
             series: [
-                { labelKey: 'indicator.keltner.upper', tone: 'ink', shape: 'line', atMs, value: upper, isDashed: true },
-                { labelKey: this.labelKey, tone: 'ink', shape: 'line', atMs, value: middle },
-                { labelKey: 'indicator.keltner.lower', tone: 'ink', shape: 'line', atMs, value: lower, isDashed: true },
+                { label: 'indicator.keltner.upper', tone: 'ink', shape: 'line', atMs, value: upper, isDashed: true },
+                { label: this.label, tone: 'ink', shape: 'line', atMs, value: middle },
+                { label: 'indicator.keltner.lower', tone: 'ink', shape: 'line', atMs, value: lower, isDashed: true },
             ],
             bands: [{ tone: 'ink', upperSeriesIndex: 0, lowerSeriesIndex: 2 }],
-            hasConverged: input.warmupBarCount >= this.resolveWarmupBars(input.settings),
         };
     }
 }

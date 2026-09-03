@@ -37,7 +37,7 @@ export function ChartProperties({ drawings, indicators }: ChartPropertiesProps):
         <div
             className={`${FLOATING_CARD_CLASSES} flex max-h-[70vh] flex-col overflow-y-auto`}
             role="group"
-            aria-label={translateLabel(translate, layer.labelKey)}
+            aria-label={translateLabel(translate, layer.label)}
         >
             <LayerKnobs
                 controls={indicators}

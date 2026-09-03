@@ -1,6 +1,6 @@
 import {
     type ChoiceParameter,
-    type DrawPlan,
+    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
@@ -34,8 +34,8 @@ const ANCHOR: ChoiceParameter = {
  * this does not.
  */
 export class VolumeWeightedAverage implements Indicator {
-    readonly id = 'vwap';
-    readonly labelKey = 'indicator.vwap';
+    readonly label = 'indicator.vwap';
+    readonly about = 'indicator.vwap.help';
     readonly scale: PlotScale = { kind: 'price' };
     readonly parameters: readonly IndicatorParameter[] = [ANCHOR];
 
@@ -57,7 +57,7 @@ export class VolumeWeightedAverage implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns One line, restarting at each anchor.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const isSessionAnchored = readChoice(input.settings, ANCHOR) === 'session';
         const value = createBlankValues(bars.length);
@@ -87,12 +87,8 @@ export class VolumeWeightedAverage implements Indicator {
         }
 
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: '',
-            scale: this.scale,
             series: [{
-                labelKey: this.labelKey,
+                label: this.label,
                 tone: 'ink',
                 shape: 'line',
                 atMs: collectInstants(bars),

@@ -41,7 +41,7 @@ import {
 import { type BarIntervalMs, TARGET_BAR_COUNT } from './bar-interval.ts';
 import { type LayerSettings, resolveFieldSettings } from '../indicators/field-layers.ts';
 import { type AddedIndicator, resolveBandKey } from '../../shared/core/indicator-selection.ts';
-import { isPlanWithinBudget, recolourPlan } from '../../shared/core/draw-plan.ts';
+import { completePlan, isPlanWithinBudget, recolourPlan } from '../../shared/core/draw-plan.ts';
 
 /** How often the instrument listing and its coverage are re-read. */
 /** Bars of clear space kept after the newest one. */
@@ -452,23 +452,29 @@ export class ChartController {
             if (indicator === null || entry.isHidden === true) {
                 continue;
             }
-            const plan = indicator.compute({
+            const warmupBarCount = state.dataset.bars.warmupBarsReturned;
+            const draft = indicator.compute({
                 bars: state.dataset.bars,
-                warmupBarCount: state.dataset.bars.warmupBarsReturned,
+                warmupBarCount,
                 higher: state.dataset.higher,
                 settings: entry.settings,
             });
             // Rejected whole rather than clipped. A plan over budget is a bug in
             // whoever produced it, and drawing part of one shows the reader a
             // claim its author never made.
-            if (isPlanWithinBudget(plan)) {
-                plans.push({
-                    ...recolourPlan(plan, entry.tone),
-                    instanceId: entry.instanceId,
-                    bandKey: resolveBandKey(entry),
-                    tuning: describeTuning(entry),
-                });
+            if (!isPlanWithinBudget(draft)) {
+                continue;
             }
+            const plan = completePlan(
+                { indicatorId: entry.indicatorId, indicator, settings: entry.settings, warmupBarCount },
+                draft,
+            );
+            plans.push({
+                ...recolourPlan(plan, entry.tone),
+                instanceId: entry.instanceId,
+                bandKey: resolveBandKey(entry),
+                tuning: describeTuning(entry),
+            });
         }
 
         return plans;

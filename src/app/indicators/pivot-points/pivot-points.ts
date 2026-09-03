@@ -1,6 +1,6 @@
 import {
     type ChoiceParameter,
-    type DrawPlan,
+    type PlanDraft,
     type HigherBarRequest,
     type Indicator,
     type IndicatorInput,
@@ -59,8 +59,8 @@ interface PivotSet {
  * heat map shows what they left resting there.
  */
 export class PivotPoints implements Indicator {
-    readonly id = 'pivots';
-    readonly labelKey = 'indicator.pivots';
+    readonly label = 'indicator.pivots';
+    readonly about = 'indicator.pivots.help';
     readonly scale: PlotScale = { kind: 'price' };
     // Above the centre and below it are different claims, so a copy tinted to
     // one colour would draw support and resistance alike.
@@ -92,7 +92,7 @@ export class PivotPoints implements Indicator {
      * @param input - The drawn bars, the coarser rung, and the parameters.
      * @returns Seven stepped lines, blank until a session has closed.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const higher = input.higher.at(resolvePeriodMs(input.settings));
         const held = holdLastClosed(bars, higher?.bars ?? []);
@@ -119,17 +119,13 @@ export class PivotPoints implements Indicator {
 
         const atMs = collectInstants(bars);
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
             parameterSummary: `${readChoice(input.settings, PERIOD)} · ${readChoice(input.settings, FORMULA)}`,
-            scale: this.scale,
-            isSelfColoured: this.isSelfColoured,
             // Seven lines in three colours, two of them necessarily alike.
             // Unnamed they say "some above and some below", where the
             // reading is that price is testing R2 rather than R3.
             namesItsSeries: true,
-            series: LINE_LABELS.map((labelKey, line): PlotSeries => ({
-                labelKey,
+            series: LINE_LABELS.map((label, line): PlotSeries => ({
+                label,
                 tone: LINE_TONES[line]!,
                 shape: 'line',
                 atMs,

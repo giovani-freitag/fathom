@@ -1,5 +1,5 @@
 import {
-    type DrawPlan,
+    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
@@ -44,8 +44,8 @@ const MAXIMUM_STEP: NumericParameter = {
  * other side.
  */
 export class ParabolicStop implements Indicator {
-    readonly id = 'psar';
-    readonly labelKey = 'indicator.psar';
+    readonly label = 'indicator.psar';
+    readonly about = 'indicator.psar.help';
     readonly scale: PlotScale = { kind: 'price' };
     readonly isSelfColoured = true;
     readonly parameters: readonly IndicatorParameter[] = [STEP, MAXIMUM_STEP];
@@ -68,7 +68,7 @@ export class ParabolicStop implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns Two sets of marks, one for each side the stop can be on.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const step = readSetting(input.settings, STEP);
         const maximumStep = readSetting(input.settings, MAXIMUM_STEP);
@@ -81,16 +81,10 @@ export class ParabolicStop implements Indicator {
 
         const atMs = collectInstants(bars);
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: `${String(step)}·${String(maximumStep)}`,
-            scale: this.scale,
-            isSelfColoured: this.isSelfColoured,
             series: [
-                { labelKey: 'indicator.psar.rising', tone: 'bid', shape: 'dot', atMs, value: rising },
-                { labelKey: 'indicator.psar.falling', tone: 'ask', shape: 'dot', atMs, value: falling },
+                { label: 'indicator.psar.rising', tone: 'bid', shape: 'dot', atMs, value: rising },
+                { label: 'indicator.psar.falling', tone: 'ask', shape: 'dot', atMs, value: falling },
             ],
-            hasConverged: input.warmupBarCount >= this.resolveWarmupBars(input.settings),
         };
     }
 }

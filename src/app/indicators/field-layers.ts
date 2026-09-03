@@ -1,7 +1,7 @@
 import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
-import type { FieldLayer, IndicatorSettings } from '../../shared/core/draw-plan.ts';
-import { type BookSettings, BOOK_LAYER, readBookSettings } from './book/book.ts';
-import { type CandleSettings, CANDLES_LAYER, readCandleSettings } from './candles/candles.ts';
+import type { FieldLayer, IndicatorSettings, Registered } from '../../shared/core/draw-plan.ts';
+import { type BookSettings, BOOK_LAYER, BOOK_LAYER_ID, readBookSettings } from './book/book.ts';
+import { type CandleSettings, CANDLES_LAYER, CANDLES_LAYER_ID, readCandleSettings } from './candles/candles.ts';
 
 /**
  * The layers the chart draws itself, in the order they are offered.
@@ -9,7 +9,10 @@ import { type CandleSettings, CANDLES_LAYER, readCandleSettings } from './candle
  * Each declares itself in its own folder; this only says which ones the build
  * ships and reads what the reader has chosen across them.
  */
-export const FIELD_LAYERS: readonly FieldLayer[] = [BOOK_LAYER, CANDLES_LAYER];
+export const FIELD_LAYERS: readonly Registered<FieldLayer>[] = [
+    { id: BOOK_LAYER_ID, layer: BOOK_LAYER },
+    { id: CANDLES_LAYER_ID, layer: CANDLES_LAYER },
+];
 
 /** What the layers currently on the chart amount to, for the parts that draw them. */
 /** What each drawn layer is tuned to, by the id it was added under. */
@@ -34,8 +37,8 @@ export function resolveFieldSettings(added: readonly AddedIndicator[]): FieldSet
         .map((entry) => [entry.indicatorId, entry.settings]));
 
     return {
-        ...readBookSettings(drawn.get(BOOK_LAYER.id)),
-        ...readCandleSettings(drawn.get(CANDLES_LAYER.id)),
+        ...readBookSettings(drawn.get(BOOK_LAYER_ID)),
+        ...readCandleSettings(drawn.get(CANDLES_LAYER_ID)),
         layerSettings: Object.fromEntries(drawn),
     };
 }
@@ -47,5 +50,5 @@ export function resolveFieldSettings(added: readonly AddedIndicator[]): FieldSet
  * @returns The layer, or null when it names something else.
  */
 export function findFieldLayer(layerId: string): FieldLayer | null {
-    return FIELD_LAYERS.find((layer) => layer.id === layerId) ?? null;
+    return FIELD_LAYERS.find((entry) => entry.id === layerId)?.layer ?? null;
 }

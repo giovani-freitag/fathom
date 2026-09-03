@@ -1,5 +1,5 @@
 import {
-    type DrawPlan,
+    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
@@ -46,8 +46,8 @@ const MULTIPLIER: NumericParameter = {
  * overlap rather than as one that changes colour.
  */
 export class Supertrend implements Indicator {
-    readonly id = 'supertrend';
-    readonly labelKey = 'indicator.supertrend';
+    readonly label = 'indicator.supertrend';
+    readonly about = 'indicator.supertrend.help';
     readonly scale: PlotScale = { kind: 'price' };
     readonly isSelfColoured = true;
     readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS, MULTIPLIER];
@@ -68,7 +68,7 @@ export class Supertrend implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns Two lines, one for each side the stop can be on.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const periodBars = readSetting(input.settings, PERIOD_BARS);
         const multiplier = readSetting(input.settings, MULTIPLIER);
@@ -81,16 +81,10 @@ export class Supertrend implements Indicator {
 
         const atMs = collectInstants(bars);
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: `${String(periodBars)}·${String(multiplier)}`,
-            scale: this.scale,
-            isSelfColoured: this.isSelfColoured,
             series: [
-                { labelKey: 'indicator.supertrend.rising', tone: 'bid', shape: 'line', atMs, value: rising, widthPx: 2 },
-                { labelKey: 'indicator.supertrend.falling', tone: 'ask', shape: 'line', atMs, value: falling, widthPx: 2 },
+                { label: 'indicator.supertrend.rising', tone: 'bid', shape: 'line', atMs, value: rising, widthPx: 2 },
+                { label: 'indicator.supertrend.falling', tone: 'ask', shape: 'line', atMs, value: falling, widthPx: 2 },
             ],
-            hasConverged: input.warmupBarCount >= this.resolveWarmupBars(input.settings),
         };
     }
 }

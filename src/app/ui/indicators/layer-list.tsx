@@ -115,10 +115,10 @@ function LayerRow({ added, controls, onOpenSettings, banding }: LayerRowProps): 
                 after the actions, and a name that does not fit is exactly the
                 one a reader opened this list to find. */}
             <span
-                title={translateLabel(translate, layer.labelKey)}
+                title={translateLabel(translate, layer.label)}
                 className={`min-w-0 flex-1 truncate text-xs ${isHidden ? 'text-ink-600 line-through decoration-ink-700' : 'text-ink-200'}`}
             >
-                {translateLabel(translate, layer.labelKey)}
+                {translateLabel(translate, layer.label)}
             </span>
 
             <LayerButton
@@ -136,7 +136,7 @@ function LayerRow({ added, controls, onOpenSettings, banding }: LayerRowProps): 
 
             {/* Absent rather than dead for a layer with no knobs. A control
                 that can never be used still reads as one that could be. */}
-            {isLayerTunable(layer)
+            {isLayerTunable(added.indicatorId)
                 ? (
                     <LayerButton
                         label={translate('indicators.tune')}

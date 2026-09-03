@@ -1,5 +1,5 @@
 import {
-    type DrawPlan,
+    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
@@ -23,8 +23,8 @@ const PERIOD_BARS: NumericParameter = {
  * The unweighted mean of the close over a fixed number of bars.
  */
 export class SimpleAverage implements Indicator {
-    readonly id = 'sma';
-    readonly labelKey = 'indicator.sma';
+    readonly label = 'indicator.sma';
+    readonly about = 'indicator.sma.help';
     readonly scale: PlotScale = { kind: 'price' };
     readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS, SOURCE];
 
@@ -44,7 +44,7 @@ export class SimpleAverage implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns One line, blank until the window behind it is full.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const periodBars = readSetting(input.settings, PERIOD_BARS);
         const source = collectSource(bars, input.settings);
@@ -64,18 +64,13 @@ export class SimpleAverage implements Indicator {
         }
 
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: String(periodBars),
-            scale: this.scale,
             series: [{
-                labelKey: this.labelKey,
+                label: this.label,
                 tone: 'ink',
                 shape: 'line',
                 atMs: collectInstants(bars),
                 value,
             }],
-            hasConverged: input.warmupBarCount >= periodBars,
         };
     }
 }

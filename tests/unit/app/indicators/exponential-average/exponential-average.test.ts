@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NO_HIGHER_BARS } from '../../../../../src/shared/core/draw-plan.ts';
+import { completePlan, NO_HIGHER_BARS } from '../../../../../src/shared/core/draw-plan.ts';
 import { EXPONENTIAL_AVERAGE, resolveWarmupBars } from '../../../../../src/app/indicators/exponential-average/exponential-average.ts';
 import { BAR_INTERVAL_MS, buildBar, buildRun, buildWindow } from '../../../../mocks/price-bars.ts';
 
@@ -13,12 +13,16 @@ describe('resolveWarmupBars', () => {
 
 describe('ExponentialAverage', () => {
     it('settles on a price that stops moving', () => {
-        const plan = EXPONENTIAL_AVERAGE.compute({
-            bars: buildWindow(buildRun(60, () => 100)),
-            warmupBarCount: 60,
-            higher: NO_HIGHER_BARS,
-            settings: { periodBars: 5 },
-        });
+        const settings = { periodBars: 5 };
+        const plan = completePlan(
+            { indicatorId: 'ema', indicator: EXPONENTIAL_AVERAGE, settings, warmupBarCount: 60 },
+            EXPONENTIAL_AVERAGE.compute({
+                bars: buildWindow(buildRun(60, () => 100)),
+                warmupBarCount: 60,
+                higher: NO_HIGHER_BARS,
+                settings,
+            }),
+        );
 
         expect(plan.series[0]?.value.at(-1)).toBeCloseTo(100, 6);
     });
@@ -26,12 +30,16 @@ describe('ExponentialAverage', () => {
     it('lags a rising price rather than tracking it', () => {
         const bars = buildRun(60, (index) => 100 + index);
 
-        const plan = EXPONENTIAL_AVERAGE.compute({
-            bars: buildWindow(bars),
-            warmupBarCount: 60,
-            higher: NO_HIGHER_BARS,
-            settings: { periodBars: 20 },
-        });
+        const settings = { periodBars: 20 };
+        const plan = completePlan(
+            { indicatorId: 'ema', indicator: EXPONENTIAL_AVERAGE, settings, warmupBarCount: 60 },
+            EXPONENTIAL_AVERAGE.compute({
+                bars: buildWindow(bars),
+                warmupBarCount: 60,
+                higher: NO_HIGHER_BARS,
+                settings,
+            }),
+        );
 
         const last = plan.series[0]!.value.at(-1)!;
         expect(last).toBeLessThan(bars.at(-1)!.closePrice);
@@ -68,24 +76,32 @@ describe('ExponentialAverage', () => {
         const before = buildRun(20, () => 100);
         const after = [buildBar(30 * BAR_INTERVAL_MS, 200), buildBar(31 * BAR_INTERVAL_MS, 200)];
 
-        const plan = EXPONENTIAL_AVERAGE.compute({
-            bars: buildWindow([...before, ...after]),
-            warmupBarCount: 20,
-            higher: NO_HIGHER_BARS,
-            settings: { periodBars: 5 },
-        });
+        const settings = { periodBars: 5 };
+        const plan = completePlan(
+            { indicatorId: 'ema', indicator: EXPONENTIAL_AVERAGE, settings, warmupBarCount: 20 },
+            EXPONENTIAL_AVERAGE.compute({
+                bars: buildWindow([...before, ...after]),
+                warmupBarCount: 20,
+                higher: NO_HIGHER_BARS,
+                settings,
+            }),
+        );
 
         expect(plan.series[0]?.value[20]).toBeNaN();
         expect(plan.series[0]?.value[21]).toBeNaN();
     });
 
     it('says it has not converged when the archive could not seed it', () => {
-        const plan = EXPONENTIAL_AVERAGE.compute({
-            bars: buildWindow(buildRun(30, () => 100), 3),
-            warmupBarCount: 3,
-            higher: NO_HIGHER_BARS,
-            settings: { periodBars: 20 },
-        });
+        const settings = { periodBars: 20 };
+        const plan = completePlan(
+            { indicatorId: 'ema', indicator: EXPONENTIAL_AVERAGE, settings, warmupBarCount: 3 },
+            EXPONENTIAL_AVERAGE.compute({
+                bars: buildWindow(buildRun(30, () => 100), 3),
+                warmupBarCount: 3,
+                higher: NO_HIGHER_BARS,
+                settings,
+            }),
+        );
 
         expect(plan.hasConverged).toBe(false);
     });
@@ -93,23 +109,31 @@ describe('ExponentialAverage', () => {
     it('says it has converged once the warm-up it asked for was supplied', () => {
         const warmup = resolveWarmupBars(20);
 
-        const plan = EXPONENTIAL_AVERAGE.compute({
-            bars: buildWindow(buildRun(warmup + 10, () => 100), warmup),
-            warmupBarCount: warmup,
-            higher: NO_HIGHER_BARS,
-            settings: { periodBars: 20 },
-        });
+        const settings = { periodBars: 20 };
+        const plan = completePlan(
+            { indicatorId: 'ema', indicator: EXPONENTIAL_AVERAGE, settings, warmupBarCount: warmup },
+            EXPONENTIAL_AVERAGE.compute({
+                bars: buildWindow(buildRun(warmup + 10, () => 100), warmup),
+                warmupBarCount: warmup,
+                higher: NO_HIGHER_BARS,
+                settings,
+            }),
+        );
 
         expect(plan.hasConverged).toBe(true);
     });
 
     it('plots one line and nothing else', () => {
-        const plan = EXPONENTIAL_AVERAGE.compute({
-            bars: buildWindow(buildRun(30, () => 100)),
-            warmupBarCount: 30,
-            higher: NO_HIGHER_BARS,
-            settings: { periodBars: 20 },
-        });
+        const settings = { periodBars: 20 };
+        const plan = completePlan(
+            { indicatorId: 'ema', indicator: EXPONENTIAL_AVERAGE, settings, warmupBarCount: 30 },
+            EXPONENTIAL_AVERAGE.compute({
+                bars: buildWindow(buildRun(30, () => 100)),
+                warmupBarCount: 30,
+                higher: NO_HIGHER_BARS,
+                settings,
+            }),
+        );
 
         expect(plan.series).toHaveLength(1);
         expect(plan.series[0]).toMatchObject({ shape: 'line', tone: 'phosphor' });

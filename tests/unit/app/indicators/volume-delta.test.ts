@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { VOLUME_DELTA } from '../../../../src/app/indicators/volume-delta/volume-delta.ts';
-import { recolourPlan, NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
+import { completePlan, recolourPlan, NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
 import { buildRun, buildWindow } from '../../../mocks/price-bars.ts';
 
 /** A run whose aggression is dictated bar by bar, as `[bought, sold]`. */
@@ -10,12 +10,15 @@ function computeOver(flows: readonly [number, number][]) {
         buyVolume: flows[index]![0],
         sellVolume: flows[index]![1],
     }));
-    return VOLUME_DELTA.compute({
-        bars: buildWindow(bars),
-        warmupBarCount: 0,
-        higher: NO_HIGHER_BARS,
-        settings: {},
-    });
+    return completePlan(
+        { indicatorId: 'delta', indicator: VOLUME_DELTA, settings: {}, warmupBarCount: 0 },
+        VOLUME_DELTA.compute({
+            bars: buildWindow(bars),
+            warmupBarCount: 0,
+            higher: NO_HIGHER_BARS,
+            settings: {},
+        }),
+    );
 }
 
 describe('VolumeDelta', () => {

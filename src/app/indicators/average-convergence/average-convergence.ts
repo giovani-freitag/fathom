@@ -1,5 +1,5 @@
 import {
-    type DrawPlan,
+    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
@@ -44,8 +44,8 @@ const SIGNAL_BARS: NumericParameter = {
  * The distance between a fast and a slow average, and how fast that is changing.
  */
 export class AverageConvergence implements Indicator {
-    readonly id = 'macd';
-    readonly labelKey = 'indicator.macd';
+    readonly label = 'indicator.macd';
+    readonly about = 'indicator.macd.help';
     readonly scale: PlotScale = { kind: 'symmetric' };
     readonly parameters: readonly IndicatorParameter[] = [FAST_BARS, SLOW_BARS, SIGNAL_BARS, SOURCE];
 
@@ -67,7 +67,7 @@ export class AverageConvergence implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns Two lines and a histogram that changes colour at nought.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const fastBars = readSetting(input.settings, FAST_BARS);
         const slowBars = readSetting(input.settings, SLOW_BARS);
@@ -99,13 +99,9 @@ export class AverageConvergence implements Indicator {
 
         const atMs = collectInstants(bars);
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: `${fastBars} · ${slowBars} · ${signalBars}`,
-            scale: this.scale,
             series: [
                 {
-                    labelKey: 'indicator.macd.gap',
+                    label: 'indicator.macd.gap',
                     tone: 'bid',
                     negativeTone: 'ask',
                     shape: 'histogram',
@@ -113,11 +109,10 @@ export class AverageConvergence implements Indicator {
                     atMs,
                     value: gap,
                 },
-                { labelKey: 'indicator.macd.difference', tone: 'phosphor', shape: 'line', atMs, value: difference },
-                { labelKey: 'indicator.macd.signal', tone: 'amber', shape: 'line', atMs, value: signal },
+                { label: 'indicator.macd.difference', tone: 'phosphor', shape: 'line', atMs, value: difference },
+                { label: 'indicator.macd.signal', tone: 'amber', shape: 'line', atMs, value: signal },
             ],
             levels: [{ value: 0, tone: 'muted' }],
-            hasConverged: input.warmupBarCount >= this.resolveWarmupBars(input.settings),
         };
     }
 }

@@ -1,5 +1,5 @@
 import {
-    type DrawPlan,
+    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
@@ -25,8 +25,8 @@ import { collectInstants, createBlankValues, findContinuousSegments } from '../s
  * minute of chart.
  */
 export class CumulativeDelta implements Indicator {
-    readonly id = 'cvd';
-    readonly labelKey = 'indicator.cvd';
+    readonly label = 'indicator.cvd';
+    readonly about = 'indicator.cvd.help';
     readonly scale: PlotScale = { kind: 'auto' };
     readonly parameters: readonly IndicatorParameter[] = [];
 
@@ -45,7 +45,7 @@ export class CumulativeDelta implements Indicator {
      * @param input - The bars and the parameters.
      * @returns One line, running from nought at the first bar drawn.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const value = createBlankValues(bars.length);
 
@@ -62,12 +62,8 @@ export class CumulativeDelta implements Indicator {
         }
 
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: '',
-            scale: this.scale,
             series: [{
-                labelKey: this.labelKey,
+                label: this.label,
                 tone: 'ink',
                 shape: 'line',
                 atMs: collectInstants(bars),
@@ -76,7 +72,6 @@ export class CumulativeDelta implements Indicator {
             // Where it crosses is where the aggression changed hands, which is
             // the line a reader looks for first.
             levels: [{ value: 0, tone: 'muted', isDashed: true }],
-            hasConverged: true,
         };
     }
 }

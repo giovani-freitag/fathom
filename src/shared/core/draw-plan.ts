@@ -81,7 +81,7 @@ export interface PlotSeries {
      * written when it does not, so an addon can ship a label the host has never
      * heard of without shipping a translation for it.
      */
-    readonly labelKey: string;
+    readonly label: string;
     readonly tone: PlotTone;
     readonly shape: PlotShape;
     /** Instants, ascending. Same length as `value`. */
@@ -138,8 +138,16 @@ export type PlotScale =
 
 /**
  * What an indicator returns for one window.
+ *
+ * Only what the arithmetic produced. Everything the host already knows — which
+ * copy asked, what it is called, the scale it declared, how it was tuned — the
+ * host stamps on afterwards, so an author cannot get it wrong and a rename
+ * cannot leave two answers behind.
  */
-export interface DrawPlan {
+export interface PlanDraft {
+    readonly series: readonly PlotSeries[];
+    readonly bands?: readonly PlotBand[];
+    readonly levels?: readonly PlotLevel[];
     /**
      * Whether each series is written at the end of its own line.
      *
@@ -151,6 +159,39 @@ export interface DrawPlan {
      * mean and its channel are told apart by where they are.
      */
     readonly namesItsSeries?: boolean;
+    /**
+     * Whether the output can be trusted at its left edge.
+     *
+     * Judged by the host from the warm-up that was asked for against the
+     * warm-up the archive supplied, which is the answer for almost every
+     * reading. Declared here only where a reading converges on something else
+     * — an anchor it has to find, a session it has to see turn over.
+     */
+    readonly hasConverged?: boolean;
+    /**
+     * The knobs as the legend should show them.
+     *
+     * Defaulted by the host to the figures the reader turned. Declared here
+     * only where the useful summary is not those.
+     */
+    readonly parameterSummary?: string;
+    /**
+     * The axis this window's values belong on.
+     *
+     * Defaulted by the host to the one the indicator declared. Declared here
+     * only where the axis depends on how the reading was tuned: how much
+     * traded is a size along the floor whole, and a balance about nought once
+     * it is split by side.
+     */
+    readonly scale?: PlotScale;
+}
+
+/**
+ * A draft with everything the host knows stamped on.
+ *
+ * What the painters are given, and what a reader's controls reach.
+ */
+export interface DrawPlan extends PlanDraft {
     readonly indicatorId: string;
     /**
      * Which added copy produced it, stamped by the host rather than the author.
@@ -175,7 +216,7 @@ export interface DrawPlan {
      * showing the previous one.
      */
     readonly tuning?: string;
-    readonly labelKey: string;
+    readonly label: string;
     /** The parameters that produced it, as the legend shows them. */
     readonly parameterSummary: string;
     readonly scale: PlotScale;
@@ -187,16 +228,6 @@ export interface DrawPlan {
      * copy is identified by would say something untrue about the data.
      */
     readonly isSelfColoured?: boolean;
-    readonly series: readonly PlotSeries[];
-    readonly bands?: readonly PlotBand[];
-    readonly levels?: readonly PlotLevel[];
-    /**
-     * Whether the output can be trusted at its left edge.
-     *
-     * False when the archive could not supply the warm-up the indicator asked
-     * for: the first values are then seeded rather than converged, and they look
-     * exactly like converged ones.
-     */
     readonly hasConverged: boolean;
 }
 
@@ -205,6 +236,14 @@ export interface DrawPlan {
  */
 export interface NumericParameter {
     readonly name: string;
+    /**
+     * What the control is called.
+     *
+     * A phrase, or a key naming one. Absent falls back to a key built from the
+     * name, which resolves for what the build ships and reads as the name
+     * itself for anything else.
+     */
+    readonly label?: string;
     readonly kind: 'integer' | 'decimal';
     readonly defaultValue: number;
     readonly minimum: number;
@@ -224,6 +263,14 @@ export interface NumericParameter {
  */
 export interface ChoiceParameter {
     readonly name: string;
+    /**
+     * What the control is called.
+     *
+     * A phrase, or a key naming one. Absent falls back to a key built from the
+     * name, which resolves for what the build ships and reads as the name
+     * itself for anything else.
+     */
+    readonly label?: string;
     readonly kind: 'choice';
     readonly defaultValue: string;
     readonly choices: readonly string[];
@@ -234,6 +281,14 @@ export interface ChoiceParameter {
  */
 export interface ToggleParameter {
     readonly name: string;
+    /**
+     * What the control is called.
+     *
+     * A phrase, or a key naming one. Absent falls back to a key built from the
+     * name, which resolves for what the build ships and reads as the name
+     * itself for anything else.
+     */
+    readonly label?: string;
     readonly kind: 'toggle';
     readonly defaultValue: boolean;
 }
@@ -320,14 +375,36 @@ export interface IndicatorInput {
  * added, tuned, hidden and removed the same way, from the same list.
  */
 export interface FieldLayer {
-    readonly id: string;
-    readonly labelKey: string;
+    readonly label: string;
+    /** One line for the palette. A phrase, or a key naming one. */
+    readonly about?: string;
     readonly parameters: readonly IndicatorParameter[];
 }
 
-export interface Indicator {
+/**
+ * Anything a reader can add, paired with the id it is stored and found under.
+ *
+ * The id lives on the entry rather than on the reading itself so that the
+ * catalogue is the one place a name is claimed. A reading that carried its own
+ * could claim one already taken, and the copy that lost would inherit the
+ * other's stored settings and never be called.
+ */
+export interface Registered<T> {
     readonly id: string;
-    readonly labelKey: string;
+    readonly layer: T;
+}
+
+export interface Indicator {
+    /**
+     * What the reading is called.
+     *
+     * A phrase, or a key naming one: the host resolves it against the
+     * dictionary when it matches an entry and renders it as written when it
+     * does not, so a reading can ship a name without shipping a translation.
+     */
+    readonly label: string;
+    /** One line for the palette. A phrase, or a key naming one. */
+    readonly about?: string;
     readonly scale: PlotScale;
     /** Whether what it draws is told by its colour, so a copy cannot be tinted. */
     readonly isSelfColoured?: boolean;
@@ -341,7 +418,7 @@ export interface Indicator {
      * is a function of the bars it is drawn on until it says otherwise.
      */
     resolveHigherIntervals?(settings: IndicatorSettings): readonly HigherBarRequest[];
-    compute(input: IndicatorInput): DrawPlan;
+    compute(input: IndicatorInput): PlanDraft;
 }
 
 /**
@@ -364,10 +441,10 @@ export const PLOT_BUDGET = {
 /**
  * Whether a plan is within what the host will draw.
  *
- * @param plan - The plan to check.
+ * @param plan - The draft to check.
  * @returns True when every series fits the budget and every reference resolves.
  */
-export function isPlanWithinBudget(plan: DrawPlan): boolean {
+export function isPlanWithinBudget(plan: PlanDraft): boolean {
     if (plan.series.length > PLOT_BUDGET.maximumSeriesCount) {
         return false;
     }
@@ -422,6 +499,69 @@ export function readChoice(settings: IndicatorSettings, parameter: ChoiceParamet
     return typeof chosen === 'string' && parameter.choices.includes(chosen)
         ? chosen
         : parameter.defaultValue;
+}
+
+/** What the host completes a draft with. */
+export interface PlanStamp {
+    /** The id the copy was added under. */
+    readonly indicatorId: string;
+    readonly indicator: Indicator;
+    readonly settings: IndicatorSettings;
+    /** Bars of warm-up the archive actually supplied. */
+    readonly warmupBarCount: number;
+}
+
+/**
+ * Completes a draft with everything the host already knew.
+ *
+ * Here rather than at the call site because it is also what a test has to do to
+ * see what a reader sees: two copies of this rule would let the drawn plan and
+ * the asserted one drift apart without either being wrong on its own.
+ *
+ * @param stamp - Who asked, how it was tuned, and what warm-up arrived.
+ * @param draft - What the arithmetic produced.
+ * @returns The plan the painters are given.
+ */
+export function completePlan(stamp: PlanStamp, draft: PlanDraft): DrawPlan {
+    const { indicator, settings } = stamp;
+
+    return {
+        ...draft,
+        indicatorId: stamp.indicatorId,
+        label: indicator.label,
+        parameterSummary: draft.parameterSummary
+            ?? summariseParameters(indicator.parameters, settings),
+        scale: draft.scale ?? indicator.scale,
+        ...(indicator.isSelfColoured === true ? { isSelfColoured: true } : {}),
+        hasConverged: draft.hasConverged
+            ?? stamp.warmupBarCount >= indicator.resolveWarmupBars(settings),
+    };
+}
+
+/**
+ * The knobs a legend shows, for a plan that did not say.
+ *
+ * The figures only. A choice and a switch are usually what a reading *is*
+ * rather than how it was tuned — the source a mean is taken over, the side a
+ * volume is split by — and spelling those out in the legend repeats what the
+ * name already said.
+ *
+ * @param parameters - The knobs the indicator declared.
+ * @param settings - Values the reader chose.
+ * @returns The figures, in declaration order, or an empty string where none.
+ */
+export function summariseParameters(
+    parameters: readonly IndicatorParameter[],
+    settings: IndicatorSettings,
+): string {
+    const figures: string[] = [];
+    for (const parameter of parameters) {
+        if (parameter.kind === 'integer' || parameter.kind === 'decimal') {
+            figures.push(String(readSetting(settings, parameter)));
+        }
+    }
+
+    return figures.join(' \u00b7 ');
 }
 
 /**

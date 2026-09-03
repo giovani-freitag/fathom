@@ -1,4 +1,4 @@
-import { type CandleStyle, CANDLES_LAYER, readCandleSettings } from './candles.ts';
+import { type CandleStyle, CANDLES_LAYER_ID, readCandleSettings } from './candles.ts';
 import { classifyBar, type PriceBar } from '../../../shared/core/price-bar.ts';
 import { RENDER_PALETTE } from '../../painting/render-palette.ts';
 import type { FieldLayerPainter, PaintContext, RenderRequest } from '../../painting/render-types.ts';
@@ -64,7 +64,7 @@ export class CandlePainter implements FieldLayerPainter {
             return;
         }
 
-        const style = readCandleSettings(request.layerSettings[CANDLES_LAYER.id]).candleStyle;
+        const style = readCandleSettings(request.layerSettings[CANDLES_LAYER_ID]).candleStyle;
         if (style === 'line' || style === 'area') {
             this.paintTrack(paint, drawn, style);
             return;

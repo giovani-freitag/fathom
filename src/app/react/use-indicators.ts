@@ -68,7 +68,7 @@ export function useIndicators(): IndicatorControls {
                     added: current,
                     indicatorId,
                     settings,
-                    tone: chooseLayerTone(layer, current),
+                    tone: chooseLayerTone(indicatorId, current),
                     isRepeatable: findFieldLayer(indicatorId) === null,
                 }),
             );

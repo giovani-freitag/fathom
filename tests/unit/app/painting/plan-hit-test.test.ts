@@ -12,7 +12,7 @@ const CSS_HEIGHT = 600;
 /** A flat line at one value, sampled across the whole window. */
 function buildSeries(value: number, overrides: Partial<PlotSeries> = {}): PlotSeries {
     return {
-        labelKey: 'indicator.sma',
+        label: 'indicator.sma',
         tone: 'amber',
         shape: 'line',
         atMs: Float64Array.from([0, 25_000, 50_000, 75_000, 100_000]),
@@ -25,7 +25,7 @@ function buildPlan(instanceId: string, series: PlotSeries, scale: DrawPlan['scal
     return {
         indicatorId: 'sma',
         instanceId,
-        labelKey: 'indicator.sma',
+        label: 'indicator.sma',
         parameterSummary: '20',
         hasConverged: true,
         scale,
