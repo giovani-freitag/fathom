@@ -48,6 +48,14 @@ export interface AddonEditorControls {
 const REMOVAL_GRACE_MS = 7_000;
 
 /**
+ * The most an imported file may weigh.
+ *
+ * Generous for a reading and small enough that a file picked by mistake cannot
+ * hang the tab tokenising it.
+ */
+const LARGEST_IMPORT_BYTES = 256 * 1024;
+
+/**
  * The editor itself, as this hook needs it.
  *
  * An interface rather than the class because the class carries a compiler and a
@@ -102,6 +110,8 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
     const translate = useTranslate();
     const untitled = translate('editor.untitled');
     const shelfRefusedMessage = translate('editor.shelfRefused');
+    const importTooLargeMessage = translate('editor.tooLarge');
+    const importNotTextMessage = translate('editor.notText');
     const editorLabel = translate('editor.code');
     const [status, setStatus] = useState<EditorStatus | null>(null);
     const [isRunning, setIsRunning] = useState(false);
@@ -340,8 +350,20 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
     }, [name]);
 
     const importFile = useCallback(async (file: File): Promise<void> => {
-        load(await file.text(), null, file.name.replace(/\.[jt]s$/, ''));
-    }, [load]);
+        // Capped and checked before it reaches the editor. The picker's accept
+        // list is a hint a reader can step past, and a file chosen by mistake
+        // lands on top of whatever they had not saved.
+        if (file.size > LARGEST_IMPORT_BYTES) {
+            setStatus({ kind: 'broken', message: importTooLargeMessage });
+            return;
+        }
+        const text = await file.text();
+        if (!isText(text)) {
+            setStatus({ kind: 'broken', message: importNotTextMessage });
+            return;
+        }
+        load(text, null, file.name.replace(/\.[jt]s$/, ''));
+    }, [importNotTextMessage, importTooLargeMessage, load]);
 
     useEffect(() => { saveRef.current = save; });
     useEffect(() => { leaveRef.current = onLeave; });
@@ -429,6 +451,28 @@ function opening(
     wanted: string | undefined,
 ): SavedReading | null {
     return wanted === undefined ? null : library.find(wanted);
+}
+
+/**
+ * Whether a file the reader chose is something they could have written.
+ *
+ * By the control characters no source carries. A picture dropped in by mistake
+ * is otherwise pasted into the editor as several megabytes of mojibake, over
+ * whatever had not been saved.
+ *
+ * @param text - The head of the file is enough to tell.
+ * @returns True where it reads as text.
+ */
+function isText(text: string): boolean {
+    for (const character of text.slice(0, 4_096)) {
+        const code = character.codePointAt(0) ?? 0;
+        const isPrintable = code >= 32 || code === 9 || code === 10 || code === 13;
+        if (!isPrintable) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 /**

@@ -68,6 +68,8 @@ function buildFakeEditor(settleMs = 0) {
         pressSave: (): void => { onSave(); },
         /** Makes every compile report a fault, as a typo would. */
         faultFrom: (): void => { isFaulting = true; },
+        /** What is actually in the editor, which a refusal must not disturb. */
+        buffer: (): string => source,
     };
 }
 
@@ -273,6 +275,55 @@ describe('saving a reading', () => {
         await act(async () => { await result.current.save(); });
 
         expect(result.current.isUnsaved).toBe(false);
+    });
+});
+
+describe('opening a file', () => {
+    it('refuses one too large to be a reading, without touching the editor', async () => {
+        // Refused before it is read in, not after: what it would land on top of
+        // is whatever the reader had not saved.
+        const { factory, buffer } = buildFakeEditor();
+        const { result } = renderEditor(factory);
+        // Settled first: the opening compile is in flight, and its result would
+        // otherwise land on top of the refusal this is about.
+        await waitFor(() => { expect(result.current.status?.kind).toBe('ready'); });
+        const before = buffer();
+
+        await act(async () => {
+            await result.current.importFile(new File(['x'.repeat(300_000)], 'huge.ts'));
+        });
+
+        expect(buffer()).toBe(before);
+        expect(result.current.status?.kind).toBe('broken');
+    });
+
+    it('refuses one that is not text, without touching the editor', async () => {
+        const { factory, buffer } = buildFakeEditor();
+        const { result } = renderEditor(factory);
+        // Settled first: the opening compile is in flight, and its result would
+        // otherwise land on top of the refusal this is about.
+        await waitFor(() => { expect(result.current.status?.kind).toBe('ready'); });
+        const before = buffer();
+
+        await act(async () => {
+            await result.current.importFile(new File(['\u0000\u0001binary'], 'shot.png'));
+        });
+
+        expect(buffer()).toBe(before);
+        expect(result.current.status?.kind).toBe('broken');
+    });
+
+    it('opens one that is a reading', async () => {
+        const { factory } = buildFakeEditor();
+        const { kernel, result } = renderEditor(factory);
+
+        await act(async () => {
+            await result.current.importFile(new File([sourceNamed('From a file')], 'mine.ts'));
+        });
+
+        await waitFor(() => {
+            expect(kernel.readPlans().map((plan) => plan.label)).toEqual(['From a file']);
+        });
     });
 });
 

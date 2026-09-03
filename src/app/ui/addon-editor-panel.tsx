@@ -1,5 +1,17 @@
 import { type ChangeEvent, type ReactElement, type RefObject, useCallback, useEffect, useRef } from 'react';
-import { CircleCheck, Download, Loader, Plus, Save, TriangleAlert, Trash2, Undo2, Upload, X } from 'lucide-react';
+import {
+    CircleCheck,
+    CircleQuestionMark,
+    Download,
+    Loader,
+    Plus,
+    Save,
+    TriangleAlert,
+    Trash2,
+    Undo2,
+    Upload,
+    X,
+} from 'lucide-react';
 import { CONTROL_BUTTON_CLASSES, CONTROL_RESTING_CLASSES } from './control-shell.ts';
 import { type AddonEditorControls, useAddonEditor } from '../react/use-addon-editor.ts';
 import { AddonEditorService } from '../services/addon-editor/addon-editor-service.ts';
@@ -58,6 +70,9 @@ export default class MyMean implements Indicator {
 
 /** What the menu shows while the open reading has never been saved. */
 const UNSAVED_CHOICE = '';
+
+/** Where the worked examples live, since a reader cannot go and find them. */
+const COOKBOOK_URL = 'https://github.com/giovani-freitag/fathom/blob/main/docs/indicator-cookbook.md';
 
 /**
  * The editor this panel runs on.
@@ -238,6 +253,17 @@ function EditorToolbar({ editor, translate, onClose, closeRef }: EditorToolbarPr
                     className="hidden"
                     onChange={handleFileChosen}
                 />
+                <a
+                    href={COOKBOOK_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={translate('editor.help')}
+                    title={translate('editor.help')}
+                    className={`${CONTROL_BUTTON_CLASSES} ${CONTROL_RESTING_CLASSES} outline-none focus-visible:ring-2 focus-visible:ring-phosphor/50`}
+                >
+                    <CircleQuestionMark className="size-4" />
+                </a>
+
                 <Divider />
                 <PanelAction label={translate('editor.delete')} onPress={editor.remove} isDangerous>
                     <Trash2 className="size-4" />

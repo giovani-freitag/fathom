@@ -179,5 +179,6 @@ they fold needs afterwards.
 - [Architecture](docs/architecture.md) — the two registrations, and how a frame reaches the screen
 - [Data model](docs/data-model.md) — schema, grids, and what each column means
 - [Operations](docs/operations.md) — running it as a service, reading its log, disk, sharing it
+- [Writing an indicator](docs/indicator-cookbook.md) — the surface a reading is written against, both ways
 - [Decisions](docs/adr/) — why the design is what it is, with the measurements behind it
 - [Demo](demo/) — the browser-only build, published to GitHub Pages on every release

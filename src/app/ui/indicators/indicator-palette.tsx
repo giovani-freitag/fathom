@@ -126,7 +126,9 @@ export function IndicatorPalette({
                         onClick={() => { setShelf(shelf === 'shipped' ? 'yours' : 'shipped'); }}
                         className="w-full rounded px-2 py-2 text-left text-xs text-phosphor transition-colors hover:bg-abyss-700"
                     >
-                        {translate('indicators.matchesElsewhere', { count: String(elsewhere) })}
+                        {translate(shelf === 'shipped' ? 'indicators.matchesYours' : 'indicators.matchesOurs', {
+                            count: String(elsewhere),
+                        })}
                     </button>
                 )}
 
