@@ -166,6 +166,7 @@ export const EN_DICTIONARY = {
     'editor.delete': 'Delete this reading',
     'editor.threw': 'It drew nothing and stopped with: {message}',
     'indicators.shipped': 'Ours',
+    'indicators.failed': 'It drew nothing: {message}',
     'indicators.missing': 'A reading this build no longer has',
     'indicators.yours': 'Yours',
     'indicators.yoursEmpty': 'Nothing written yet.',

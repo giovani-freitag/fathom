@@ -69,6 +69,7 @@ export function LayerPanel({ controls, onEditReading }: LayerPanelProps): ReactE
         <div className="flex w-72 flex-col gap-2">
             <LayerList
                 controls={controls}
+                {...onEditReading === undefined ? {} : { onEditReading }}
                 onOpenSettings={(instanceId) => { setView({ kind: 'tune', instanceId }); }}
             />
 

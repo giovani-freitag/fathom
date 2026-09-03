@@ -168,6 +168,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'editor.delete': 'Excluir esta leitura',
     'editor.threw': 'Não desenhou nada e parou com: {message}',
     'indicators.shipped': 'Da casa',
+    'indicators.failed': 'Não desenhou nada: {message}',
     'indicators.missing': 'Uma leitura que esta versão não tem mais',
     'indicators.yours': 'Suas',
     'indicators.yoursEmpty': 'Nada escrito ainda.',

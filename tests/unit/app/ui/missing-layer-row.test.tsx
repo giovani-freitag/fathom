@@ -20,7 +20,11 @@ const SHIPPED = {
     tone: 'phosphor',
 } as const;
 
-function renderList(removed: string[], alongside: readonly (typeof SHIPPED)[] = []) {
+function renderList(
+    removed: string[],
+    alongside: readonly (typeof SHIPPED)[] = [],
+    onEditReading?: (key?: string) => void,
+) {
     const kernel = createIndicatorKernel([...alongside]);
     const controls = {
         added: [GONE, ...alongside],
@@ -33,7 +37,14 @@ function renderList(removed: string[], alongside: readonly (typeof SHIPPED)[] = 
         pick: () => undefined,
     } as unknown as IndicatorControls;
 
-    renderWithKernel(kernel, <LayerList controls={controls} onOpenSettings={() => undefined} />);
+    renderWithKernel(
+        kernel,
+        <LayerList
+            controls={controls}
+            onOpenSettings={() => undefined}
+            {...onEditReading === undefined ? {} : { onEditReading }}
+        />,
+    );
 }
 
 describe('a layer this build no longer has', () => {
@@ -64,5 +75,50 @@ describe('a layer this build no longer has', () => {
         renderList([], [SHIPPED]);
 
         expect(screen.getByText('SMA')).toBeTruthy();
+    });
+});
+
+describe('a reading whose build is gone but whose source is not', () => {
+    it('offers to open it in the editor, which is the repair that keeps the work', () => {
+        // Removing the selection is the wrong fix when the script is still on
+        // the shelf: opening it and saving again puts the reading back.
+        const opened: (string | undefined)[] = [];
+
+        renderList([], [], (key) => { opened.push(key); });
+        fireEvent.click(screen.getByLabelText('Edit addon:deleted-last-week'));
+
+        expect(opened).toEqual(['deleted-last-week']);
+    });
+
+    it('offers only removal where nothing can open it', () => {
+        renderList([]);
+
+        expect(screen.queryByLabelText(/^Edit /)).toBeNull();
+        expect(screen.getAllByLabelText('Remove')).toHaveLength(1);
+    });
+});
+
+describe('a reading that threw while the chart drew it', () => {
+    it('is marked in the one list a reader looks at to find out why', () => {
+        // Without it the only sign is a line quietly gone from the chart.
+        const kernel = createIndicatorKernel([SHIPPED]);
+        kernel.setState((state) => ({ ...state, layerFailures: { 'sma-1': 'it broke drawing' } }));
+        const controls = {
+            added: [SHIPPED],
+            addedCounts: new Map(),
+            isFull: false,
+            remove: () => undefined,
+            setVisibility: () => undefined,
+        } as unknown as IndicatorControls;
+
+        renderWithKernel(kernel, <LayerList controls={controls} onOpenSettings={() => undefined} />);
+
+        expect(screen.getByLabelText('It drew nothing: it broke drawing')).toBeTruthy();
+    });
+
+    it('marks nothing where every reading drew', () => {
+        renderList([], [SHIPPED]);
+
+        expect(screen.queryByLabelText(/It drew nothing/)).toBeNull();
     });
 });
