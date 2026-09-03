@@ -30,6 +30,8 @@ const BARS = buildWindow(buildRun(300, (index) => 100 + Math.sin(index / 8) * 12
 export interface IndicatorKernel {
     readonly container: ServiceContainer;
     readonly readAdded: () => readonly AddedIndicator[];
+    /** The plans the chart currently holds, as the painters would be given them. */
+    readonly readPlans: () => readonly DrawPlan[];
     readonly moveCursorTo: (atMs: number | null) => void;
     /** Puts the chart in a state a test wants the interface to react to. */
     readonly setState: (revise: (state: ChartState) => ChartState) => void;
@@ -85,6 +87,7 @@ export function createIndicatorKernel(added: readonly AddedIndicator[] = []): In
     return {
         container,
         readAdded: () => store.read().addedIndicators,
+        readPlans: () => store.read().plans,
         moveCursorTo: (atMs) => { cursor.update(() => ({ atMs })); },
         setState: (revise) => { store.update(revise); },
     };
