@@ -32,9 +32,29 @@ const SHELF = 'fathom.addons';
  */
 export class AddonLibraryService {
     private readonly config: AddonLibraryServiceConfig;
+    private draft: string | null = null;
 
     constructor(config: AddonLibraryServiceConfig) {
         this.config = config;
+    }
+
+    /**
+     * Holds what is being written, for as long as the page is open.
+     *
+     * In memory rather than on the shelf: it is not a saved reading and must
+     * not read as one. What it survives is the editor being taken down and put
+     * back — by a narrowed window, a rotated tablet, or a zoom — none of which
+     * is a decision to discard work.
+     *
+     * @param source - What is in the editor, or null once it is filed.
+     */
+    rememberDraft(source: string | null): void {
+        this.draft = source;
+    }
+
+    /** What was being written when the editor last went away. */
+    readDraft(): string | null {
+        return this.draft;
     }
 
     /**

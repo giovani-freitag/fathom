@@ -236,7 +236,10 @@ export function HeatmapPage(): ReactElement {
                     )}
                 </main>
 
-                {editing !== null && isWide && (
+                {/* Not gated on the width. Unmounted when the window narrowed,
+                    the editor took every unsaved keystroke with it — and a drag
+                    of the window edge is not a decision to discard work. */}
+                {editing !== null && (
                     <Suspense fallback={<aside className="w-full max-w-[45%] border-l border-hairline bg-abyss-850 md:w-[38rem]" />}>
                         <AddonEditorPanel
                             key={editing.key ?? 'new'}

@@ -168,6 +168,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         if (isEdit) {
             setIsUnsaved(true);
         }
+        library.rememberDraft(service.readSource());
         setIsRunning(true);
         try {
             const { compiled, faults } = await service.compile();
@@ -180,7 +181,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         } finally {
             setIsRunning(false);
         }
-    }, [publish]);
+    }, [library, publish]);
 
     // The editor is mounted once and lives on; what it calls back into must be
     // the current one, not the one that existed when it was created.
@@ -200,7 +201,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
             ariaLabel: editorLabel,
         });
         serviceRef.current = service;
-        service.mount(node, opening(library, openOn)?.source ?? starter);
+        service.mount(node, library.readDraft() ?? opening(library, openOn)?.source ?? starter);
         void rebuild(opening(library, openOn)?.key ?? null, false);
     // Mounted once. Rebuilding on every change of `rebuild` would tear the
     // editor down and put it back mid-keystroke.
@@ -266,6 +267,9 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         setOpenKey(key);
         setSaved(library.list());
         setIsUnsaved(false);
+        // Filed, so it is no longer a draft: reopening should give the reader
+        // what is on the shelf rather than a copy of it.
+        library.rememberDraft(null);
     }, [isNamedByHand, kernel, library, name, openKey, shelfRefusedMessage]);
 
     const load = useCallback((source: string, key: string | null, called: string | null): void => {
@@ -274,6 +278,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
             return;
         }
         service.replaceSource(source);
+        library.rememberDraft(source);
         setOpenKey(key);
         setIsNamedByHand(called !== null);
         setName(called ?? untitled);
@@ -282,7 +287,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         // state settles, and publishing under the key being left behind put the
         // reading back on the chart the moment it was deleted.
         void rebuild(key, false);
-    }, [rebuild, untitled]);
+    }, [library, rebuild, untitled]);
 
     const open = useCallback((key: string): void => {
         const found = library.find(key);
@@ -409,17 +414,21 @@ function liveId(key: string | null): string {
 }
 
 /**
- * The reading to open on: the one asked for, else the last one saved.
+ * The reading to open on, where one was asked for.
+ *
+ * Nothing when none was named. Falling back to the last one saved meant a
+ * button that says *write a reading* opened a reading the reader already had,
+ * with its key bound — and the next save quietly replaced it.
  *
  * @param library - Where the readings are kept.
  * @param wanted - A key the reader picked, where they picked one.
  * @returns What to show, or null for an empty shelf.
  */
 function opening(
-    library: { find: (key: string) => SavedReading | null; list: () => readonly SavedReading[] },
+    library: { find: (key: string) => SavedReading | null },
     wanted: string | undefined,
 ): SavedReading | null {
-    return (wanted === undefined ? null : library.find(wanted)) ?? library.list()[0] ?? null;
+    return wanted === undefined ? null : library.find(wanted);
 }
 
 /**

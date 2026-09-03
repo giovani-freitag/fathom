@@ -82,8 +82,8 @@ afterEach(() => {
     vi.restoreAllMocks();
 });
 
-function renderEditor(factory: EditorFactory, openOn?: string) {
-    const kernel = createIndicatorKernel([]);
+function renderEditor(factory: EditorFactory, openOn?: string, existing?: ReturnType<typeof createIndicatorKernel>) {
+    const kernel = existing ?? createIndicatorKernel([]);
     const wrapper = ({ children }: { readonly children: ReactNode }): ReactElement => (
         <KernelProvider container={kernel.container}>{children}</KernelProvider>
     );
@@ -276,7 +276,57 @@ describe('saving a reading', () => {
     });
 });
 
+describe('surviving a remount', () => {
+    it('keeps what was typed when the editor is put back', async () => {
+        // Anything that narrows the window takes the panel down with it, and a
+        // drag of the window edge is not a decision to discard work.
+        const { factory, type } = buildFakeEditor();
+        const { kernel, result, unmount } = renderEditor(factory);
+        act(() => { type(sourceNamed('Half written')); });
+        await waitFor(() => { expect(result.current.isUnsaved).toBe(true); });
+        unmount();
+
+        const again = renderEditor(factory, undefined, kernel);
+
+        await waitFor(() => {
+            expect(again.kernel.readPlans().map((plan) => plan.label)).toEqual(['Half written']);
+        });
+    });
+});
+
 describe('putting a saved reading back', () => {
+    it('stops calling it a draft once it is filed', async () => {
+        // The draft is what has not been saved. Kept after filing, opening a
+        // different reading later would land on top of work already on the
+        // shelf.
+        const { factory, type } = buildFakeEditor();
+        const { kernel, result } = renderEditor(factory);
+        act(() => { type(sourceNamed('Filed')); });
+        await waitFor(() => { expect(kernel.container.addons.readDraft()).not.toBeNull(); });
+
+        await act(async () => { await result.current.save(); });
+
+        expect(kernel.container.addons.readDraft()).toBeNull();
+    });
+
+
+    it('opens blank when nothing was named, rather than on the last one saved', async () => {
+        // A button that says "write a reading" opened one the reader already
+        // had, with its key bound, and the next save replaced it.
+        const { factory } = buildFakeEditor();
+        const { kernel, result, unmount } = renderEditor(factory);
+        await act(async () => { await result.current.save(); });
+        expect(kernel.container.addons.list()).toHaveLength(1);
+        unmount();
+
+        // Reopened on the same shelf, naming nothing.
+        const second = renderEditor(factory, undefined, kernel);
+
+        await waitFor(() => { expect(second.result.current.openKey).toBeNull(); });
+        expect(second.result.current.saved).toHaveLength(1);
+    });
+
+
     it('opens one off the shelf', async () => {
         const { factory, type } = buildFakeEditor();
         const { kernel, result } = renderEditor(factory);
