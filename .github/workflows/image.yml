@@ -40,6 +40,13 @@ jobs:
       - id: version
         run: echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
+      # No layer cache. It was kept on the reasoning that a runner is thrown
+      # away and the dependency install is most of the build, and the second
+      # half of that turned out to be false: measured on a release, the two
+      # `npm ci` steps are 21.7s of a 99s job and writing the cache back costs
+      # 15.8s of that every time — six seconds of net saving, and none at all
+      # on the builds that change a lockfile. What it did cost was a third
+      # package in the registry that reads like an image and is not one.
       - uses: docker/build-push-action@v6
         with:
           context: .
@@ -47,13 +54,6 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }}
-          # The layer cache lives in the registry, because a runner is thrown
-          # away and the dependency install is most of the build.
-          # Its own package rather than a tag beside the releases: the layers
-          # are not an image anybody runs, and listed next to `latest` they
-          # read as one.
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/buildcache:image
-          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/buildcache:image,mode=max
 
       # The compose file goes to the registry too, as an OCI artifact, so that
       # running this is one docker command and nothing to download by hand:
