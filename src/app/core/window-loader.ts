@@ -7,7 +7,7 @@ import type { ChartViewport } from './chart-viewport.ts';
 import type { FrameRegion } from '../../shared/core/frame-merge.ts';
 import { assembleWindow, WindowCache } from './window-cache.ts';
 import type { PriceBarWindow } from '../../shared/core/price-bar.ts';
-import { type HigherBarRequest, HigherBars } from '../../shared/core/draw-plan.ts';
+import type { SessionRequest } from '../../shared/core/draw-plan.ts';
 import type {
     FrameWindowQuery,
     HeatmapSource,
@@ -93,7 +93,7 @@ export interface LoadedWindow {
     readonly priceBand: PriceBandQuery | null;
     readonly bars: PriceBarWindow;
     /** Coarser rungs, for whatever on the chart declared it reads one. */
-    readonly higher: HigherBars;
+    readonly higher: ReadonlyMap<number, PriceBarWindow>;
     readonly clusters: readonly TradeCluster[];
     readonly clusterPriceBucketSize: number;
     readonly clusterIntervalMs: number;
@@ -113,7 +113,7 @@ export interface WindowLoadRequest {
     /** The rung the reader named, or null to let the window decide. */
     readonly barIntervalMs: BarIntervalMs | null;
     /** Coarser rungs to fetch alongside, for whatever reads one. */
-    readonly higherBars: readonly HigherBarRequest[];
+    readonly sessions: readonly SessionRequest[];
     /**
      * What something on the chart is going to read.
      *
@@ -569,7 +569,7 @@ export class WindowLoader {
                 // anchored to a session, added over a window already held,
                 // changes nothing about the range: without this its fetch is
                 // deduplicated against the one that had no rung to fetch.
-                describeRungs(request.higherBars),
+                describeRungs(request.sessions),
                 // Turning the book on has to fetch what it draws, and the range
                 // it is drawn over has not moved. Reading the same range out of
                 // another store is the same kind of change: without this the
@@ -690,17 +690,19 @@ export class WindowLoader {
         request: WindowLoadRequest,
         range: ResolvedRange,
         signal: AbortSignal,
-    ): Promise<HigherBars> {
+    ): Promise<ReadonlyMap<number, PriceBarWindow>> {
         const over = { symbol: request.symbol, fromMs: range.fromMs, toMs: range.toMs };
-        const settled = await Promise.all(request.higherBars.map(
+        const settled = await Promise.all(request.sessions.map(
             (one) => this.readOneRung(one, over, signal),
         ));
 
-        return new HigherBars(settled.filter((window) => window !== null));
+        return new Map(settled
+            .filter((window) => window !== null)
+            .map((window) => [window.intervalMs, window]));
     }
 
     private async readOneRung(
-        rung: HigherBarRequest,
+        rung: SessionRequest,
         over: { readonly symbol: string; readonly fromMs: number; readonly toMs: number },
         signal: AbortSignal,
     ): Promise<PriceBarWindow | null> {
@@ -708,7 +710,7 @@ export class WindowLoader {
             return await this.config.api.fetchPriceBars({
                 ...over,
                 intervalMs: rung.intervalMs,
-                warmupBars: rung.warmupBars,
+                warmupBars: rung.reachingBack,
             }, signal);
         } catch (error) {
             if (error instanceof DOMException && error.name === 'AbortError') {
@@ -726,9 +728,9 @@ export class WindowLoader {
  * @param rungs - What the readings on the chart between them asked for.
  * @returns The rungs and their depths, in an order two equal requests share.
  */
-function describeRungs(rungs: readonly HigherBarRequest[]): string {
+function describeRungs(rungs: readonly SessionRequest[]): string {
     return [...rungs]
-        .map((one) => `${one.intervalMs}:${one.warmupBars}`)
+        .map((one) => `${one.intervalMs}:${one.reachingBack}`)
         .sort()
         .join(',');
 }

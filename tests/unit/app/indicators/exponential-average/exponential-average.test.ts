@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { completePlan, NO_HIGHER_BARS } from '../../../../../src/shared/core/draw-plan.ts';
+import { completePlan } from '../../../../../src/shared/core/draw-plan.ts';
 import { EXPONENTIAL_AVERAGE, resolveWarmupBars } from '../../../../../src/app/indicators/exponential-average/exponential-average.ts';
 import { BAR_INTERVAL_MS, buildBar, buildRun, buildWindow } from '../../../../mocks/price-bars.ts';
 
@@ -18,8 +18,7 @@ describe('ExponentialAverage', () => {
             { indicatorId: 'ema', indicator: EXPONENTIAL_AVERAGE, settings, warmupBarCount: 60 },
             EXPONENTIAL_AVERAGE.compute({
                 bars: buildWindow(buildRun(60, () => 100)),
-                warmupBarCount: 60,
-                higher: NO_HIGHER_BARS,
+                sessions: {},
                 settings,
             }),
         );
@@ -35,8 +34,7 @@ describe('ExponentialAverage', () => {
             { indicatorId: 'ema', indicator: EXPONENTIAL_AVERAGE, settings, warmupBarCount: 60 },
             EXPONENTIAL_AVERAGE.compute({
                 bars: buildWindow(bars),
-                warmupBarCount: 60,
-                higher: NO_HIGHER_BARS,
+                sessions: {},
                 settings,
             }),
         );
@@ -56,15 +54,13 @@ describe('ExponentialAverage', () => {
 
         const across = EXPONENTIAL_AVERAGE.compute({
             bars: buildWindow([...before, ...after]),
-            warmupBarCount: 20,
-            higher: NO_HIGHER_BARS,
+            sessions: {},
             settings,
         });
 
         const alone = EXPONENTIAL_AVERAGE.compute({
             bars: buildWindow(after),
-            warmupBarCount: 0,
-            higher: NO_HIGHER_BARS,
+            sessions: {},
             settings,
         });
         expect([...across.series[0]!.value.slice(20)]).toEqual([...alone.series[0]!.value]);
@@ -81,8 +77,7 @@ describe('ExponentialAverage', () => {
             { indicatorId: 'ema', indicator: EXPONENTIAL_AVERAGE, settings, warmupBarCount: 20 },
             EXPONENTIAL_AVERAGE.compute({
                 bars: buildWindow([...before, ...after]),
-                warmupBarCount: 20,
-                higher: NO_HIGHER_BARS,
+                sessions: {},
                 settings,
             }),
         );
@@ -97,8 +92,7 @@ describe('ExponentialAverage', () => {
             { indicatorId: 'ema', indicator: EXPONENTIAL_AVERAGE, settings, warmupBarCount: 3 },
             EXPONENTIAL_AVERAGE.compute({
                 bars: buildWindow(buildRun(30, () => 100), 3),
-                warmupBarCount: 3,
-                higher: NO_HIGHER_BARS,
+                sessions: {},
                 settings,
             }),
         );
@@ -114,8 +108,7 @@ describe('ExponentialAverage', () => {
             { indicatorId: 'ema', indicator: EXPONENTIAL_AVERAGE, settings, warmupBarCount: warmup },
             EXPONENTIAL_AVERAGE.compute({
                 bars: buildWindow(buildRun(warmup + 10, () => 100), warmup),
-                warmupBarCount: warmup,
-                higher: NO_HIGHER_BARS,
+                sessions: {},
                 settings,
             }),
         );
@@ -129,8 +122,7 @@ describe('ExponentialAverage', () => {
             { indicatorId: 'ema', indicator: EXPONENTIAL_AVERAGE, settings, warmupBarCount: 30 },
             EXPONENTIAL_AVERAGE.compute({
                 bars: buildWindow(buildRun(30, () => 100)),
-                warmupBarCount: 30,
-                higher: NO_HIGHER_BARS,
+                sessions: {},
                 settings,
             }),
         );

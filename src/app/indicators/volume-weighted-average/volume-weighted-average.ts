@@ -1,11 +1,12 @@
 import {
     type ChoiceParameter,
-    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
+    type PlanDraft,
     type PlotScale,
     readChoice,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
 import { collectInstants, createBlankValues } from '../shared/series-math.ts';
 import type { PriceBar } from '../../../shared/core/price-bar.ts';
@@ -47,8 +48,8 @@ export class VolumeWeightedAverage implements Indicator {
      *
      * @returns One, the smallest a window can be asked for.
      */
-    resolveWarmupBars(): number {
-        return 1;
+    resolveSources(): SourceRequest {
+        return { warmupBars: 1 };
     }
 
     /**

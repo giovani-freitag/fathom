@@ -1,8 +1,8 @@
 import {
-    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
+    type PlanDraft,
     type PlotScale,
 } from '../../../shared/core/draw-plan.ts';
 import { collectInstants, createBlankValues, findContinuousSegments } from '../shared/series-math.ts';
@@ -29,15 +29,6 @@ export class CumulativeDelta implements Indicator {
     readonly about = 'indicator.cvd.help';
     readonly scale: PlotScale = { kind: 'auto' };
     readonly parameters: readonly IndicatorParameter[] = [];
-
-    /**
-     * Bars needed before the window for the first drawn value to be true.
-     *
-     * @returns None: the total starts where the window does, by design.
-     */
-    resolveWarmupBars(): number {
-        return 0;
-    }
 
     /**
      * Adds up the difference between what was bought and what was sold.

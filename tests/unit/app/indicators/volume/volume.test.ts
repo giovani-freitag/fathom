@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NO_HIGHER_BARS, completePlan} from '../../../../../src/shared/core/draw-plan.ts';
+import { completePlan} from '../../../../../src/shared/core/draw-plan.ts';
 import { resolvePlanRange } from '../../../../../src/app/painting/pane-projector.ts';
 import { buildBar, buildWindow } from '../../../../mocks/price-bars.ts';
 import { VOLUME } from '../../../../../src/app/indicators/volume/volume.ts';
@@ -13,7 +13,7 @@ function compute(volumeMode: string) {
     const settings = { volumeMode };
     return completePlan(
         { indicatorId: 'volume', indicator: VOLUME, settings, warmupBarCount: 0 },
-        VOLUME.compute({ bars: BARS, warmupBarCount: 0, higher: NO_HIGHER_BARS, settings }),
+        VOLUME.compute({ bars: BARS, sessions: {}, settings }),
     );
 }
 
@@ -64,10 +64,9 @@ describe('Volume', () => {
     });
 
     it('needs no history behind the window, because it carries nothing between bars', () => {
-        // None rather than one: the fetch floors at one on its own, and asking
-        // for a bar it does not read made it report itself unconverged the
-        // moment the archive began inside the drawn window.
-        expect(VOLUME.resolveWarmupBars()).toBe(0);
+        // None rather than one: the fetch floors at one on its own, and a bar it
+        // does not read must not decide whether it converged.
+        expect((VOLUME as { resolveSources?: unknown }).resolveSources).toBeUndefined();
         expect(compute('total').hasConverged).toBe(true);
     });
 });

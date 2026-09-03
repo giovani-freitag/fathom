@@ -111,11 +111,9 @@ describe('addon isolation', () => {
 
 describe('who gets to claim a name', () => {
     it('is the registry alone, because a reading carrying its own could take one', () => {
-        // Lookup is a find over the catalogue by id and stored settings are
-        // keyed on the same string, so two readings answering to `delta` would
-        // leave the second inheriting the first's settings and never being
-        // called at all. Nothing about that failure is visible: the reader adds
-        // a reading and sees another one appear.
+        // Lookup is a find by id and stored settings are keyed on the same
+        // string, so a second reading answering to `delta` would inherit the
+        // first's settings, never be called, and say nothing about it.
         const claimants = listSources(join(ROOT, ADDONS))
             .filter((path) => /^\s*(readonly )?id\s*[=:]\s*'/m.test(readFileSync(path, 'utf8')))
             .map((path) => relative(ROOT, path));
@@ -130,8 +128,7 @@ describe('who gets to claim a name', () => {
     });
 
     it('resolves every name it handed out', () => {
-        // The other half of the same rule: an entry whose id finds nothing is a
-        // row in the palette that adds nothing to the chart.
+        // An entry whose id finds nothing is a palette row that adds nothing.
         const unresolved = CHART_LAYERS.filter((entry) => findChartLayer(entry.id) !== entry.layer);
 
         expect(unresolved.map((entry) => entry.id)).toEqual([]);

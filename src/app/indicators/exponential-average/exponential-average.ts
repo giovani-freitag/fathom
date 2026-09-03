@@ -1,12 +1,13 @@
 import {
-    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
-    type NumericParameter,
     type IndicatorSettings,
+    type NumericParameter,
+    type PlanDraft,
     type PlotScale,
     readSetting,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
 import { collectSource, SOURCE } from '../shared/bar-source.ts';
 import {
@@ -48,10 +49,10 @@ export class ExponentialAverage implements Indicator {
      * Bars needed before the window for the seed to have washed out.
      *
      * @param settings - The reader's parameter values.
-     * @returns The bar count.
+     * @returns The bar count, as the only source it declares.
      */
-    resolveWarmupBars(settings: IndicatorSettings): number {
-        return resolveWarmupBars(readSetting(settings, PERIOD_BARS));
+    resolveSources(settings: IndicatorSettings): SourceRequest {
+        return { warmupBars: resolveWarmupBars(readSetting(settings, PERIOD_BARS)) };
     }
 
     /**

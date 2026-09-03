@@ -88,18 +88,28 @@ the multi-timeframe question in one reading.
 ### 2 — today
 
 ```ts
-resolveHigherIntervals(settings: IndicatorSettings)
-    : readonly HigherBarRequest[] {
-    return [{ intervalMs: resolvePeriodMs(settings), warmupBars: 2 }];
+resolveSources(settings: IndicatorSettings): SourceRequest {
+    return {
+        sessions: {
+            [SESSION]: { intervalMs: resolvePeriodMs(settings), reachingBack: 2 },
+        },
+    };
 }
 
-compute(input: IndicatorInput): DrawPlan {
-    const bars = input.bars.bars;
-    const higher = input.higher.at(resolvePeriodMs(input.settings));
-    const held = holdLastClosed(bars, higher?.bars ?? []);
-    // ... one PivotSet per settled session, spread across the bars that followed
+compute(input: IndicatorInput): PlanDraft {
+    const session = readSessions(input, SESSION);
+    for (const [index, settled] of session.perBar.entries()) {
+        if (settled === undefined || session.turnsOver[index] === 1) {
+            continue;
+        }
+        // ... one PivotSet per settled session, spread across the bars that followed
+    }
 }
 ```
+
+The host runs `holdLastClosed` before `compute` is entered, so `perBar` is
+already one entry per drawn bar holding the newest session that had *closed*.
+There is no raw coarse window to reach into and no index that reaches forward.
 
 ### 2 — proposed
 
@@ -126,8 +136,8 @@ export default class Pivots extends Indicator {
 }
 ```
 
-`settledFor` is `holdLastClosed` under a name that says what it guarantees: one
-entry per drawn bar, holding the newest session that had *closed* by then.
+`settledFor` is what `perBar` already is: one entry per drawn bar, holding the
+newest session that had *closed* by then. The proposal only renames it.
 Getting this wrong is the one mistake that makes an indicator look brilliant on
 history and lose money live, so it is not something an author should be able to
 write by hand.

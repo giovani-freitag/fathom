@@ -30,7 +30,7 @@ function buildIndicator(overrides: Partial<Indicator> = {}): Indicator {
         label: 'A phrase, not a key',
         scale: { kind: 'price' } satisfies PlotScale,
         parameters: [PERIOD_BARS, SOURCE],
-        resolveWarmupBars: (settings: IndicatorSettings) => Number(settings['periodBars'] ?? 20),
+        resolveSources: (settings: IndicatorSettings) => ({ warmupBars: Number(settings['periodBars'] ?? 20) }),
         compute: (): PlanDraft => ({ series: [] }),
         ...overrides,
     };
@@ -50,9 +50,7 @@ function stamp(draft: PlanDraft, overrides: Partial<Indicator> = {}, warmupBarCo
 
 describe('what the host stamps onto a draft', () => {
     it('takes the name from the reading rather than from anything it returned', () => {
-        // The reason identity left the draft: a name written twice can disagree
-        // with itself, and the copy the reader points at is the one the host
-        // knows about.
+        // A name written twice can disagree with itself.
         const plan = stamp({ series: [] });
 
         expect(plan.label).toBe('A phrase, not a key');
@@ -66,8 +64,7 @@ describe('what the host stamps onto a draft', () => {
     });
 
     it('lets a draft name an axis of its own, for a reading whose axis is tuned', () => {
-        // How much traded is a size along the floor whole and a balance about
-        // nought once it is split by side, so the axis cannot be a constant.
+        // How much traded is a size whole and a balance split by side.
         const plan = stamp({ series: [], scale: { kind: 'symmetric' } });
 
         expect(plan.scale).toEqual({ kind: 'symmetric' });
@@ -79,8 +76,7 @@ describe('what the host stamps onto a draft', () => {
     });
 
     it('lets a draft say it converged on something other than a bar count', () => {
-        // An anchored mean converges when it finds its anchor, and a pivot set
-        // when a session it can read has closed. Neither is a warm-up.
+        // An anchored mean converges when it finds its anchor, not on a count.
         const plan = stamp({ series: [], hasConverged: true }, {}, 0);
 
         expect(plan.hasConverged).toBe(true);
@@ -101,8 +97,7 @@ describe('the legend summary a draft did not write', () => {
     });
 
     it('leaves a choice out, since it is what the reading is rather than how it is tuned', () => {
-        // The source a mean is taken over is already in its name; spelling it
-        // out beside the name says the same thing twice.
+        // The source is already in the name.
         expect(summariseParameters([SOURCE], { source: 'open' })).toBe('');
     });
 
@@ -134,8 +129,7 @@ describe('the legend summary a draft did not write', () => {
 
 describe('what a reading is handed', () => {
     it('is given no way to learn which copy of itself is running', () => {
-        // The draft has no instance and no id on it, so arithmetic cannot come
-        // out differently for the second copy than for the first.
+        // Nothing here can make the second copy compute differently from the first.
         const seen: IndicatorInput[] = [];
         const indicator = buildIndicator({
             compute: (input: IndicatorInput): PlanDraft => {
@@ -146,11 +140,10 @@ describe('what a reading is handed', () => {
 
         indicator.compute({
             bars: { instrumentSymbol: 'X', intervalMs: 1, warmupBarsRequested: 0, warmupBarsReturned: 0, bars: [] },
-            warmupBarCount: 0,
-            higher: { at: () => null } as never,
             settings: {},
+            sessions: {},
         });
 
-        expect(Object.keys(seen[0]!).sort()).toEqual(['bars', 'higher', 'settings', 'warmupBarCount']);
+        expect(Object.keys(seen[0]!).sort()).toEqual(['bars', 'sessions', 'settings']);
     });
 });

@@ -1,12 +1,13 @@
 import {
-    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
     type IndicatorSettings,
     type NumericParameter,
+    type PlanDraft,
     type PlotScale,
     readSetting,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
 import {
     type BarSegment,
@@ -48,8 +49,8 @@ export class MoneyFlow implements Indicator {
      * @param settings - The reader's parameter values.
      * @returns One period plus the bar its first comparison needs.
      */
-    resolveWarmupBars(settings: IndicatorSettings): number {
-        return readSetting(settings, PERIOD_BARS) + 1;
+    resolveSources(settings: IndicatorSettings): SourceRequest {
+        return { warmupBars: readSetting(settings, PERIOD_BARS) + 1 };
     }
 
     /**

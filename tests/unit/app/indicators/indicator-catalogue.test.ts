@@ -4,10 +4,11 @@ import {
     findChartLayer,
     INDICATOR_CATALOGUE,
     readLayerDefaults,
-    resolveRequiredHigherBars,
+    resolveRequiredSessions,
 } from '../../../../src/app/indicators/indicator-catalogue.ts';
 import { resolveFieldSettings } from '../../../../src/app/indicators/field-layers.ts';
-import { isPlanWithinBudget, NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
+import { isPlanWithinBudget } from '../../../../src/shared/core/draw-plan.ts';
+import { collectSessions } from '../../../../src/shared/core/settled-sessions.ts';
 import type { Indicator } from '../../../../src/shared/core/draw-plan.ts';
 import { BAR_INTERVAL_MS, buildRun, buildWindow } from '../../../mocks/price-bars.ts';
 
@@ -15,11 +16,15 @@ import { BAR_INTERVAL_MS, buildRun, buildWindow } from '../../../mocks/price-bar
 const RUN_LENGTH = 200;
 
 function computeOver(indicator: Indicator, bars: ReturnType<typeof buildRun>) {
+    const settings = readLayerDefaults(indicator);
+    const window = buildWindow(bars);
+
+    // Declared but never supplied, which is what a chart on an instrument the
+    // venue publishes no daily candle for hands over.
     return indicator.compute({
-        bars: buildWindow(bars),
-        warmupBarCount: 0,
-        higher: NO_HIGHER_BARS,
-        settings: readLayerDefaults(indicator),
+        bars: window,
+        settings,
+        sessions: collectSessions(window.bars, new Map(), indicator.resolveSources?.(settings).sessions),
     });
 }
 
@@ -81,11 +86,11 @@ describe('every shipped indicator', () => {
                 indicator.parameters.map((parameter) => [parameter.name, -1_000]),
             );
 
+            const window = buildWindow(buildRun(RUN_LENGTH, wander));
             const plan = indicator.compute({
-                bars: buildWindow(buildRun(RUN_LENGTH, wander)),
-                warmupBarCount: 0,
-                higher: NO_HIGHER_BARS,
+                bars: window,
                 settings: wild,
+                sessions: collectSessions(window.bars, new Map(), indicator.resolveSources?.(wild).sessions),
             });
 
             const values = plan.series.flatMap((series) => [...series.value]);
@@ -229,20 +234,20 @@ describe('the coarser rungs a chart between them reads', () => {
     }
 
     it('asks for nothing when nothing on the chart reads another rung', () => {
-        expect(resolveRequiredHigherBars([addCopy('rsi'), addCopy('cvd')])).toEqual([]);
+        expect(resolveRequiredSessions([addCopy('rsi'), addCopy('cvd')])).toEqual([]);
     });
 
     it('asks once for a rung two copies both read', () => {
         // Two sets of pivots anchored to the same session is one fetch. Asked
         // for per copy, adding a second would cost a round trip to draw bars
         // the first one already has.
-        const wanted = resolveRequiredHigherBars([addCopy('pivots'), addCopy('pivots')]);
+        const wanted = resolveRequiredSessions([addCopy('pivots'), addCopy('pivots')]);
 
         expect(wanted.map((one) => one.intervalMs)).toEqual([86_400_000]);
     });
 
     it('keeps two rungs apart when copies disagree about the session', () => {
-        const wanted = resolveRequiredHigherBars([
+        const wanted = resolveRequiredSessions([
             addCopy('pivots'),
             addCopy('pivots', { pivotPeriod: 'weekly' }),
         ]);
@@ -253,12 +258,12 @@ describe('the coarser rungs a chart between them reads', () => {
     it('carries how far back a rung has to reach, not only which rung', () => {
         // A rung fetched over the drawn window alone opens with nothing settled
         // behind it, and the reading is blank down the whole left edge.
-        const wanted = resolveRequiredHigherBars([addCopy('pivots')]);
+        const wanted = resolveRequiredSessions([addCopy('pivots')]);
 
-        expect(wanted).toEqual([{ intervalMs: 86_400_000, warmupBars: 2 }]);
+        expect(wanted).toEqual([{ intervalMs: 86_400_000, reachingBack: 2 }]);
     });
 
     it('ignores a stored selection naming an indicator this build dropped', () => {
-        expect(resolveRequiredHigherBars([addCopy('nothing-like-that')])).toEqual([]);
+        expect(resolveRequiredSessions([addCopy('nothing-like-that')])).toEqual([]);
     });
 });

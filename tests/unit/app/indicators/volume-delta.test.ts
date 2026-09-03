@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { VOLUME_DELTA } from '../../../../src/app/indicators/volume-delta/volume-delta.ts';
-import { completePlan, recolourPlan, NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
+import { completePlan, recolourPlan } from '../../../../src/shared/core/draw-plan.ts';
 import { buildRun, buildWindow } from '../../../mocks/price-bars.ts';
 
 /** A run whose aggression is dictated bar by bar, as `[bought, sold]`. */
@@ -14,8 +14,7 @@ function computeOver(flows: readonly [number, number][]) {
         { indicatorId: 'delta', indicator: VOLUME_DELTA, settings: {}, warmupBarCount: 0 },
         VOLUME_DELTA.compute({
             bars: buildWindow(bars),
-            warmupBarCount: 0,
-            higher: NO_HIGHER_BARS,
+            sessions: {},
             settings: {},
         }),
     );
@@ -55,8 +54,7 @@ describe('VolumeDelta', () => {
 
         const plan = VOLUME_DELTA.compute({
             bars: buildWindow(bars),
-            warmupBarCount: 0,
-            higher: NO_HIGHER_BARS,
+            sessions: {},
             settings: {},
         });
 
@@ -90,7 +88,7 @@ describe('VolumeDelta', () => {
     });
 
     it('needs nothing before the window, each bar being answered from itself', () => {
-        expect(VOLUME_DELTA.resolveWarmupBars()).toBe(0);
+        expect((VOLUME_DELTA as { resolveSources?: unknown }).resolveSources).toBeUndefined();
     });
 
     it('marks the line the aggression changes hands on', () => {

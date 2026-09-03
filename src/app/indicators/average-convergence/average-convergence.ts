@@ -1,12 +1,13 @@
 import {
-    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
-    type NumericParameter,
     type IndicatorSettings,
+    type NumericParameter,
+    type PlanDraft,
     type PlotScale,
     readSetting,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
 import { collectSource, SOURCE } from '../shared/bar-source.ts';
 import {
@@ -53,12 +54,12 @@ export class AverageConvergence implements Indicator {
      * Bars needed before the window for both averages and the signal to settle.
      *
      * @param settings - The reader's parameter values.
-     * @returns The bar count.
+     * @returns The bar count, as the only source it declares.
      */
-    resolveWarmupBars(settings: IndicatorSettings): number {
+    resolveSources(settings: IndicatorSettings): SourceRequest {
         const slowBars = readSetting(settings, SLOW_BARS);
         const signalBars = readSetting(settings, SIGNAL_BARS);
-        return Math.ceil((slowBars + signalBars) * 2.3);
+        return { warmupBars: Math.ceil((slowBars + signalBars) * 2.3) };
     }
 
     /**

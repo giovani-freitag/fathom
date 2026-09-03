@@ -1,8 +1,8 @@
 import {
-    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
+    type PlanDraft,
     type PlotScale,
 } from '../../../shared/core/draw-plan.ts';
 import { collectInstants, createBlankValues } from '../shared/series-math.ts';
@@ -32,15 +32,6 @@ export class VolumeDelta implements Indicator {
     // a copy tinted to tell it from another copy would say something false.
     readonly isSelfColoured = true;
     readonly parameters: readonly IndicatorParameter[] = [];
-
-    /**
-     * Bars needed before the window for the first drawn value to be true.
-     *
-     * @returns None: each bar is answered from itself.
-     */
-    resolveWarmupBars(): number {
-        return 0;
-    }
 
     /**
      * Takes what was sold off what was bought, bar by bar.

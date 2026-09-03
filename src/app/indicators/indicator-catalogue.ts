@@ -1,11 +1,12 @@
 import type {
     FieldLayer,
-    HigherBarRequest,
+    SessionRequest,
     Indicator,
     IndicatorSettings,
     PlotTone,
     Registered,
 } from '../../shared/core/draw-plan.ts';
+import { resolveWarmupBars } from '../../shared/core/draw-plan.ts';
 import { type AddedIndicator, chooseInstanceTone } from '../../shared/core/indicator-selection.ts';
 import { AVERAGE_CONVERGENCE } from './average-convergence/average-convergence.ts';
 import { FIELD_LAYERS, findFieldLayer } from './field-layers.ts';
@@ -112,7 +113,7 @@ export function findIndicator(indicatorId: string): Indicator | null {
  * @returns Bars to read before the window, and never fewer than one.
  */
 /**
- * The coarser rungs everything on the chart between them reads.
+ * The coarser sessions everything on the chart between them reads.
  *
  * Merged rather than listed per indicator: two copies of a reading anchored to
  * the same session are one fetch, and the deeper warm-up covers the shallower.
@@ -120,19 +121,19 @@ export function findIndicator(indicatorId: string): Indicator | null {
  * @param added - What the reader has put on the chart.
  * @returns One request per rung, or none where nothing reads another.
  */
-export function resolveRequiredHigherBars(
+export function resolveRequiredSessions(
     added: readonly AddedIndicator[],
-): readonly HigherBarRequest[] {
+): readonly SessionRequest[] {
     const deepest = new Map<number, number>();
     for (const entry of added) {
-        const indicator = findIndicator(entry.indicatorId);
-        for (const request of indicator?.resolveHigherIntervals?.(entry.settings) ?? []) {
+        const sources = findIndicator(entry.indicatorId)?.resolveSources?.(entry.settings);
+        for (const request of Object.values(sources?.sessions ?? {})) {
             const held = deepest.get(request.intervalMs) ?? 0;
-            deepest.set(request.intervalMs, Math.max(held, request.warmupBars));
+            deepest.set(request.intervalMs, Math.max(held, request.reachingBack));
         }
     }
 
-    return [...deepest].map(([intervalMs, warmupBars]) => ({ intervalMs, warmupBars }));
+    return [...deepest].map(([intervalMs, reachingBack]) => ({ intervalMs, reachingBack }));
 }
 
 export function resolveRequiredWarmupBars(added: readonly AddedIndicator[]): number {
@@ -140,7 +141,7 @@ export function resolveRequiredWarmupBars(added: readonly AddedIndicator[]): num
     for (const entry of added) {
         const indicator = findIndicator(entry.indicatorId);
         if (indicator !== null) {
-            deepest = Math.max(deepest, indicator.resolveWarmupBars(entry.settings));
+            deepest = Math.max(deepest, resolveWarmupBars(indicator, entry.settings));
         }
     }
     return deepest;

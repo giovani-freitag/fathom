@@ -1,12 +1,13 @@
 import {
-    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
     type IndicatorSettings,
     type NumericParameter,
+    type PlanDraft,
     type PlotScale,
     readSetting,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
 import {
     type BarSegment,
@@ -52,8 +53,8 @@ export class DirectionalMovement implements Indicator {
      * @param settings - The reader's parameter values.
      * @returns The bar count, counting the strength line's second smoothing.
      */
-    resolveWarmupBars(settings: IndicatorSettings): number {
-        return readSetting(settings, PERIOD_BARS) * 5;
+    resolveSources(settings: IndicatorSettings): SourceRequest {
+        return { warmupBars: readSetting(settings, PERIOD_BARS) * 5 };
     }
 
     /**

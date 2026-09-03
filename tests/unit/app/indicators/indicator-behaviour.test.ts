@@ -6,13 +6,13 @@ import { DONCHIAN_CHANNELS } from '../../../../src/app/indicators/donchian-chann
 import { RELATIVE_STRENGTH } from '../../../../src/app/indicators/relative-strength/relative-strength.ts';
 import { SIMPLE_AVERAGE } from '../../../../src/app/indicators/simple-average/simple-average.ts';
 import { STOCHASTIC_OSCILLATOR } from '../../../../src/app/indicators/stochastic-oscillator/stochastic-oscillator.ts';
-import { completePlan, recolourPlan, NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
+import { completePlan, recolourPlan } from '../../../../src/shared/core/draw-plan.ts';
 import type { Indicator, IndicatorSettings } from '../../../../src/shared/core/draw-plan.ts';
 import { buildBar, buildRun, buildWindow } from '../../../mocks/price-bars.ts';
 import type { PriceBar } from '../../../../src/shared/core/price-bar.ts';
 
 function lastOf(indicator: Indicator, bars: readonly PriceBar[], settings: IndicatorSettings, seriesIndex = 0): number {
-    const plan = indicator.compute({ bars: buildWindow(bars), warmupBarCount: 500, higher: NO_HIGHER_BARS, settings });
+    const plan = indicator.compute({ bars: buildWindow(bars), sessions: {}, settings });
     return plan.series[seriesIndex]!.value.at(-1)!;
 }
 
@@ -140,8 +140,7 @@ describe('recolourPlan', () => {
             indicatorId: 'macd', indicator: AVERAGE_CONVERGENCE, settings, warmupBarCount: 500,
         }, AVERAGE_CONVERGENCE.compute({
             bars: buildWindow(buildRun(200, (index) => 100 + index)),
-            warmupBarCount: 500,
-            higher: NO_HIGHER_BARS,
+            sessions: {},
             settings,
         }));
 
@@ -159,8 +158,7 @@ describe('recolourPlan', () => {
             indicatorId: 'bollinger', indicator: BOLLINGER_BANDS, settings: bollingerSettings, warmupBarCount: 500,
         }, BOLLINGER_BANDS.compute({
             bars: buildWindow(buildRun(60, (index) => 100 + Math.sin(index) * 5)),
-            warmupBarCount: 500,
-            higher: NO_HIGHER_BARS,
+            sessions: {},
             settings: bollingerSettings,
         }));
 

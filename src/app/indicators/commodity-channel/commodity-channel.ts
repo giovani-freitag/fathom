@@ -1,12 +1,13 @@
 import {
-    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
     type IndicatorSettings,
     type NumericParameter,
+    type PlanDraft,
     type PlotScale,
     readSetting,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
 import {
     type BarSegment,
@@ -57,8 +58,8 @@ export class CommodityChannel implements Indicator {
      * @param settings - The reader's parameter values.
      * @returns The window it averages over.
      */
-    resolveWarmupBars(settings: IndicatorSettings): number {
-        return readSetting(settings, PERIOD_BARS);
+    resolveSources(settings: IndicatorSettings): SourceRequest {
+        return { warmupBars: readSetting(settings, PERIOD_BARS) };
     }
 
     /**

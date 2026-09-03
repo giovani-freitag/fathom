@@ -1,12 +1,13 @@
 import {
-    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
-    type NumericParameter,
     type IndicatorSettings,
+    type NumericParameter,
+    type PlanDraft,
     type PlotScale,
     readSetting,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
 import { collectSource, SOURCE } from '../shared/bar-source.ts';
 import {
@@ -42,10 +43,10 @@ export class RelativeStrength implements Indicator {
      * Bars needed before the window for the smoothed averages to have settled.
      *
      * @param settings - The reader's parameter values.
-     * @returns The bar count.
+     * @returns The bar count, as the only source it declares.
      */
-    resolveWarmupBars(settings: IndicatorSettings): number {
-        return readSetting(settings, PERIOD_BARS) * 3;
+    resolveSources(settings: IndicatorSettings): SourceRequest {
+        return { warmupBars: readSetting(settings, PERIOD_BARS) * 3 };
     }
 
     /**

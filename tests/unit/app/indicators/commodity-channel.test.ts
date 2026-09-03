@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
 import { BAR_INTERVAL_MS, buildRun, buildWindow } from '../../../mocks/price-bars.ts';
 import { COMMODITY_CHANNEL } from '../../../../src/app/indicators/commodity-channel/commodity-channel.ts';
 import type { PriceBar } from '../../../../src/shared/core/price-bar.ts';
@@ -7,7 +6,7 @@ import type { PriceBar } from '../../../../src/shared/core/price-bar.ts';
 const SETTINGS = { periodBars: 20 };
 
 function computeOver(bars: readonly PriceBar[]) {
-    return COMMODITY_CHANNEL.compute({ bars: buildWindow(bars), warmupBarCount: 60, higher: NO_HIGHER_BARS, settings: SETTINGS });
+    return COMMODITY_CHANNEL.compute({ bars: buildWindow(bars), sessions: {}, settings: SETTINGS });
 }
 
 /** The last value of the one series that is not blank. */

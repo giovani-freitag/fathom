@@ -1,12 +1,13 @@
 import {
-    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
     type IndicatorSettings,
     type NumericParameter,
+    type PlanDraft,
     type PlotScale,
     readSetting,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
 import {
     type BarSegment,
@@ -56,10 +57,10 @@ export class ParabolicStop implements Indicator {
      * @param settings - The reader's parameter values.
      * @returns How many bars it takes to reach the fastest step twice over.
      */
-    resolveWarmupBars(settings: IndicatorSettings): number {
+    resolveSources(settings: IndicatorSettings): SourceRequest {
         const step = readSetting(settings, STEP);
         const maximumStep = readSetting(settings, MAXIMUM_STEP);
-        return Math.ceil(maximumStep / step) * 2;
+        return { warmupBars: Math.ceil(maximumStep / step) * 2 };
     }
 
     /**

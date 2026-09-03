@@ -35,13 +35,14 @@ import {
 import { describeBand, type LoadedWindow, type WindowLoadRequest, type WindowSource, WindowLoader } from './window-loader.ts';
 import {
     findIndicator,
-    resolveRequiredHigherBars,
+    resolveRequiredSessions,
     resolveRequiredWarmupBars,
 } from '../indicators/indicator-catalogue.ts';
 import { type BarIntervalMs, TARGET_BAR_COUNT } from './bar-interval.ts';
 import { type LayerSettings, resolveFieldSettings } from '../indicators/field-layers.ts';
 import { type AddedIndicator, resolveBandKey } from '../../shared/core/indicator-selection.ts';
 import { completePlan, isPlanWithinBudget, recolourPlan } from '../../shared/core/draw-plan.ts';
+import { collectSessions } from '../../shared/core/settled-sessions.ts';
 
 /** How often the instrument listing and its coverage are re-read. */
 /** Bars of clear space kept after the newest one. */
@@ -455,9 +456,12 @@ export class ChartController {
             const warmupBarCount = state.dataset.bars.warmupBarsReturned;
             const draft = indicator.compute({
                 bars: state.dataset.bars,
-                warmupBarCount,
-                higher: state.dataset.higher,
                 settings: entry.settings,
+                sessions: collectSessions(
+                    state.dataset.bars.bars,
+                    state.dataset.higher,
+                    indicator.resolveSources?.(entry.settings).sessions,
+                ),
             });
             // Rejected whole rather than clipped. A plan over budget is a bug in
             // whoever produced it, and drawing part of one shows the reader a
@@ -553,7 +557,7 @@ export class ChartController {
             frameIntervalMs: instrument?.frameIntervalMs ?? state.dataset.sampleIntervalMs,
             priceGroupSize: resolveTradePriceGroupSize(state.viewport, state.dataset.priceBucketSize),
             warmupBars: resolveRequiredWarmupBars(state.addedIndicators),
-            higherBars: resolveRequiredHigherBars(state.addedIndicators),
+            sessions: resolveRequiredSessions(state.addedIndicators),
             barIntervalMs: state.barIntervalMs,
             sources: resolveWindowSources(state),
             // Held back until the axis has been framed on the book: before

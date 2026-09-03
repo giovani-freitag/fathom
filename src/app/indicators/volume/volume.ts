@@ -1,9 +1,9 @@
 import {
     type ChoiceParameter,
-    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
+    type PlanDraft,
     type PlotScale,
     type PlotSeries,
     readChoice,
@@ -52,20 +52,6 @@ export class Volume implements Indicator {
      */
     readonly isSelfColoured = true;
     readonly parameters: readonly IndicatorParameter[] = [MODE];
-
-    /**
-     * Bars needed before the window, which is none.
-     *
-     * Each bar carries its own count; nothing is smoothed and nothing is
-     * seeded, so what is drawn at the left edge is as true as anything after
-     * it. Asking for one would say the opposite the moment the archive began
-     * mid-window, and the fetch floors at one anyway.
-     *
-     * @returns None.
-     */
-    resolveWarmupBars(): number {
-        return 0;
-    }
 
     /**
      * Draws what traded in each bar, whole or split by side.

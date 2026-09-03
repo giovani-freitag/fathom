@@ -43,7 +43,7 @@ function buildRequest(overrides: Partial<Parameters<WindowLoader['load']>[0]> = 
         priceGroupSize: 1,
         warmupBars: 1,
         barIntervalMs: null,
-        higherBars: [],
+        sessions: [],
         sources: ['frames', 'trades'] as readonly WindowSource[],
         priceBand: null,
         ...overrides,
@@ -673,7 +673,7 @@ describe('WindowLoader and the coarser rungs a reading asked for', () => {
         const harness = buildHarness();
 
         await harness.loader.load(buildRequest({
-            higherBars: [{ intervalMs: DAY_MS, warmupBars: 2 }],
+            sessions: [{ intervalMs: DAY_MS, reachingBack: 2 }],
         }));
 
         expect(askedRungs(harness)).toEqual([DAY_MS]);
@@ -686,7 +686,7 @@ describe('WindowLoader and the coarser rungs a reading asked for', () => {
 
         await harness.loader.load(buildRequest({
             warmupBars: 200,
-            higherBars: [{ intervalMs: DAY_MS, warmupBars: 2 }],
+            sessions: [{ intervalMs: DAY_MS, reachingBack: 2 }],
         }));
 
         const asked = harness.mocks.fetchPriceBars.mock.calls
@@ -703,7 +703,7 @@ describe('WindowLoader and the coarser rungs a reading asked for', () => {
         refuseTheDailyRung(harness);
 
         await harness.loader.load(buildRequest({
-            higherBars: [{ intervalMs: DAY_MS, warmupBars: 2 }],
+            sessions: [{ intervalMs: DAY_MS, reachingBack: 2 }],
         }));
 
         expect([harness.failures.length, harness.loaded.length]).toEqual([0, 1]);
@@ -714,20 +714,20 @@ describe('WindowLoader and the coarser rungs a reading asked for', () => {
         refuseTheDailyRung(harness);
 
         await harness.loader.load(buildRequest({
-            higherBars: [{ intervalMs: DAY_MS, warmupBars: 2 }],
+            sessions: [{ intervalMs: DAY_MS, reachingBack: 2 }],
         }));
 
-        expect((harness.loaded[0] as LoadedWindow).higher.at(DAY_MS)).toBeNull();
+        expect((harness.loaded[0] as LoadedWindow).higher.has(DAY_MS)).toBe(false);
     });
 
     it('fetches again when a reading is added that reads a rung nobody was reading', async () => {
         // Nothing already loaded can be folded into a daily bar, so the window
         // that was enough a moment ago is not enough now.
         const harness = buildHarness();
-        await harness.loader.load(buildRequest({ higherBars: [] }));
+        await harness.loader.load(buildRequest({ sessions: [] }));
 
         await harness.loader.load(buildRequest({
-            higherBars: [{ intervalMs: DAY_MS, warmupBars: 2 }],
+            sessions: [{ intervalMs: DAY_MS, reachingBack: 2 }],
         }));
 
         expect(askedRungs(harness)).toEqual([DAY_MS]);
@@ -735,10 +735,10 @@ describe('WindowLoader and the coarser rungs a reading asked for', () => {
 
     it('does not fetch again for a rung the last window already covered', async () => {
         const harness = buildHarness();
-        const rungs = [{ intervalMs: DAY_MS, warmupBars: 2 }];
-        await harness.loader.load(buildRequest({ higherBars: rungs }));
+        const rungs = [{ intervalMs: DAY_MS, reachingBack: 2 }];
+        await harness.loader.load(buildRequest({ sessions: rungs }));
 
-        await harness.loader.load(buildRequest({ higherBars: rungs }));
+        await harness.loader.load(buildRequest({ sessions: rungs }));
 
         expect(askedRungs(harness)).toEqual([DAY_MS]);
     });

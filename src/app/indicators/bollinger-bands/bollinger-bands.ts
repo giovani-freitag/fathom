@@ -1,12 +1,13 @@
 import {
-    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
-    type NumericParameter,
     type IndicatorSettings,
+    type NumericParameter,
+    type PlanDraft,
     type PlotScale,
     readSetting,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
 import { collectSource, SOURCE } from '../shared/bar-source.ts';
 import { collectInstants, createBlankValues, findContinuousSegments } from '../shared/series-math.ts';
@@ -41,10 +42,10 @@ export class BollingerBands implements Indicator {
      * Bars needed before the window for the first channel to be a full one.
      *
      * @param settings - The reader's parameter values.
-     * @returns The bar count.
+     * @returns The bar count, as the only source it declares.
      */
-    resolveWarmupBars(settings: IndicatorSettings): number {
-        return readSetting(settings, PERIOD_BARS);
+    resolveSources(settings: IndicatorSettings): SourceRequest {
+        return { warmupBars: readSetting(settings, PERIOD_BARS) };
     }
 
     /**

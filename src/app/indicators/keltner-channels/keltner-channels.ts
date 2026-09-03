@@ -1,12 +1,13 @@
 import {
-    type PlanDraft,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
     type IndicatorSettings,
     type NumericParameter,
+    type PlanDraft,
     type PlotScale,
     readSetting,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
 import {
     collectInstants,
@@ -64,8 +65,8 @@ export class KeltnerChannels implements Indicator {
      * @param settings - The reader's parameter values.
      * @returns The longer of the two smoothings, which is what has to settle.
      */
-    resolveWarmupBars(settings: IndicatorSettings): number {
-        return Math.max(readSetting(settings, PERIOD_BARS), readSetting(settings, RANGE_BARS)) * 3;
+    resolveSources(settings: IndicatorSettings): SourceRequest {
+        return { warmupBars: Math.max(readSetting(settings, PERIOD_BARS), readSetting(settings, RANGE_BARS)) * 3 };
     }
 
     /**
