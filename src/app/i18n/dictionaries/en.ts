@@ -156,6 +156,7 @@ export const EN_DICTIONARY = {
     'editor.notText': 'That file is not text. Nothing was opened.',
     'editor.unsaved': 'unsaved',
     'editor.replaced': '{name} closed without being saved',
+    'editor.resize': 'Resize the editor. Drag, or use the arrow keys; double-press to reset',
     'editor.save': 'Save',
     'editor.new': 'Start a new one',
     'editor.openSaved': 'Open saved',

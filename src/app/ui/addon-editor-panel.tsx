@@ -29,6 +29,8 @@ import { Divider } from './chart-dock.tsx';
 import { Select } from './select.tsx';
 import { ADDON_EDITOR_ID } from './panel-ids.ts';
 import type { Translate } from '../i18n/translator.ts';
+import { useIsViewportAtLeast } from '../react/use-viewport-width.ts';
+import { usePanelSize } from '../react/use-panel-size.ts';
 import { useTranslate } from '../react/use-appearance.ts';
 
 /** What a reader with an empty shelf opens on: a whole, working reading. */
@@ -112,6 +114,13 @@ interface AddonEditorPanelProps {
  */
 export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): ReactElement {
     const translate = useTranslate();
+    const isWide = useIsViewportAtLeast('lg');
+    // Two sizes, one per shape. A width dragged on a desk means nothing to a
+    // sheet on a phone, and remembering one as the other would open every
+    // phone at the width of somebody's monitor.
+    const size = usePanelSize(isWide
+        ? { slot: 'fathom.addons.railWidth', growsAlong: 'width', openingRatio: 0.32, smallest: 0.2, largest: 0.6 }
+        : { slot: 'fathom.addons.sheetHeight', growsAlong: 'height', openingRatio: 0.6, smallest: 0.25, largest: 0.85 });
     const closeRef = useRef<HTMLButtonElement>(null);
     const undoRef = useRef<HTMLButtonElement>(null);
     const returnFocusTo = useRef<Element | null>(null);
@@ -143,11 +152,18 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
     }, [discardedName]);
 
     return (
+        // A sheet from the bottom on a phone, a rail beside the chart on a
+        // desk. A phone is held by its lower half and a rail on the right is a
+        // regrip away, which is the reasoning the drawing controls already
+        // follow — and half a narrow screen is not a chart worth checking
+        // against anyway.
         <aside
             id={ADDON_EDITOR_ID}
             aria-label={translate('editor.title')}
-            className="flex w-full min-w-0 max-w-[45%] flex-col border-l border-hairline bg-abyss-850 shadow-2xl shadow-black/80 md:w-[38rem]"
+            style={{ [isWide ? 'width' : 'height']: `${size.sizePx}px` }}
+            className="fixed inset-x-0 bottom-0 z-40 flex min-w-0 flex-col rounded-t-xl border-t border-hairline bg-abyss-850 shadow-2xl shadow-black/80 lg:relative lg:inset-auto lg:h-auto lg:rounded-none lg:border-l lg:border-t-0"
         >
+            <PanelGrip size={size} isWide={isWide} translate={translate} />
             <EditorToolbar editor={editor} translate={translate} onClose={onClose} closeRef={closeRef} />
             <div ref={mountInto} className="min-h-0 flex-1" />
 
@@ -178,6 +194,51 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
                     )}
             </div>
         </aside>
+    );
+}
+
+interface PanelGripProps {
+    readonly size: ReturnType<typeof usePanelSize>;
+    readonly isWide: boolean;
+    readonly translate: Translate;
+}
+
+/**
+ * The edge a reader drags to make the panel bigger.
+ *
+ * On the side the panel is not anchored to, which is the left of a rail and the
+ * top of a sheet. Double-pressing it puts the size back, because a panel
+ * dragged somewhere silly is otherwise a panel to be dragged back by hand.
+ */
+function PanelGrip({ size, isWide, translate }: PanelGripProps): ReactElement {
+    return (
+        <div
+            role="separator"
+            tabIndex={0}
+            aria-label={translate('editor.resize')}
+            aria-orientation={isWide ? 'vertical' : 'horizontal'}
+            aria-valuenow={Math.round(size.sizePx)}
+            aria-valuemin={Math.round(size.smallestPx)}
+            aria-valuemax={Math.round(size.largestPx)}
+            onPointerDown={size.onGripDown}
+            onKeyDown={size.onGripKey}
+            onDoubleClick={size.reset}
+            className={`group absolute z-10 flex touch-none items-center justify-center outline-none focus-visible:ring-1 focus-visible:ring-phosphor ${
+                isWide
+                    ? 'inset-y-0 -left-1 w-2 cursor-col-resize'
+                    : 'inset-x-0 -top-1 h-4 cursor-row-resize'
+            }`}
+        >
+            {/* Visible only on a sheet, where a reader has to be told it can be
+                dragged. A rail's edge is where a pointer already goes. */}
+            <span
+                className={`rounded-full transition-colors ${
+                    isWide
+                        ? `h-10 w-0.5 ${size.isDragging ? 'bg-phosphor/60' : 'bg-transparent group-hover:bg-hairline-bright group-focus-visible:bg-hairline-bright'}`
+                        : `h-1 w-10 ${size.isDragging ? 'bg-phosphor/60' : 'bg-hairline-bright'}`
+                }`}
+            />
+        </div>
     );
 }
 

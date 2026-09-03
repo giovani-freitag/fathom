@@ -158,6 +158,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'editor.notText': 'Esse arquivo não é texto. Nada foi aberto.',
     'editor.unsaved': 'não salvo',
     'editor.replaced': '{name} saiu sem ser salva',
+    'editor.resize': 'Redimensionar o editor. Arraste, ou use as setas; dois toques para voltar',
     'editor.save': 'Salvar',
     'editor.new': 'Começar uma nova',
     'editor.openSaved': 'Abrir salva',

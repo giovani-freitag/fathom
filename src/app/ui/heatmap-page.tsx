@@ -141,6 +141,9 @@ export function HeatmapPage(): ReactElement {
         },
     };
     const [editing, setEditing] = useState<{ readonly key: string | undefined } | null>(null);
+    const handleWriteAReading = useCallback((key?: string): void => {
+        setEditing((open) => (open !== null && key === undefined ? null : { key }));
+    }, []);
     const settings = (
         <SettingsDrawer
             isFloating={!isWide}
@@ -158,9 +161,7 @@ export function HeatmapPage(): ReactElement {
                     settings={settings}
                     hasRoomForPresets={hasRoomForPresets}
                     isWritingAReading={editing !== null}
-                    onWriteAReading={(key) => {
-                        setEditing((open) => (open !== null && key === undefined ? null : { key }));
-                    }}
+                    onWriteAReading={handleWriteAReading}
                 />
             )}
             <div className="flex min-h-0 flex-1">
@@ -259,6 +260,8 @@ export function HeatmapPage(): ReactElement {
                     <ChartDock
                         {...chartControls}
                         drawings={drawings}
+                        isWritingAReading={editing !== null}
+                        onWriteAReading={handleWriteAReading}
                     />
                 )}
             </div>
