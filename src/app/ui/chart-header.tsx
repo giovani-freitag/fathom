@@ -22,8 +22,8 @@ export interface ChartHeaderProps extends ChartDockProps {
      * about itself is one that cannot be drawn twice at two widths.
      */
     readonly hasRoomForPresets: boolean;
-    /** Opens the editor beside the chart. */
-    readonly onWriteAReading: () => void;
+    /** Opens the editor beside the chart, on a saved reading where named. */
+    readonly onWriteAReading: (key?: string) => void;
     readonly isWritingAReading: boolean;
 }
 
@@ -81,13 +81,13 @@ export function ChartHeader(props: ChartHeaderProps): ReactElement {
                 label={translate('indicators.onTheChart')}
                 trigger={<Layers size={ICON_SIZE_PX} />}
             >
-                <LayerPanel controls={props.indicators} />
+                <LayerPanel controls={props.indicators} onEditReading={props.onWriteAReading} />
             </DockPopover>
 
             <ControlButton
                 aria-label={translate('editor.open')}
                 title={translate('editor.open')}
-                onClick={props.onWriteAReading}
+                onClick={() => { props.onWriteAReading(); }}
                 isActive={props.isWritingAReading}
             >
                 <Code2 size={ICON_SIZE_PX} />

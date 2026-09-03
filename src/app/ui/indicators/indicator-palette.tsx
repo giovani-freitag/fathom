@@ -2,15 +2,19 @@ import { CONTROL_INPUT_CLASSES } from '../control-shell.ts';
 import { type ReactElement, useMemo, useState } from 'react';
 import type { FieldLayer, Indicator, Registered } from '../../../shared/core/draw-plan.ts';
 
-import { listOfferedLayers } from '../../indicators/indicator-catalogue.ts';
+import { CHART_LAYERS } from '../../indicators/indicator-catalogue.ts';
+import { listAddons } from '../../addons/addon-registry.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
 import { needsOwnBand } from '../../painting/pane-projector.ts';
-import { Search } from 'lucide-react';
+import { Pencil, Plus, Search } from 'lucide-react';
 
 type Offered = Registered<Indicator | FieldLayer>;
 import { useTranslate } from '../../react/use-appearance.ts';
 import { translateLabel } from '../../i18n/translator.ts';
 import type { Translate } from '../../i18n/translator.ts';
+
+/** Which half of the catalogue is being looked at. */
+type Shelf = 'shipped' | 'yours';
 
 interface IndicatorPaletteProps {
     readonly onAdd: (indicatorId: string) => void;
@@ -19,21 +23,34 @@ interface IndicatorPaletteProps {
     readonly addedCounts: ReadonlyMap<string, number>;
     /** True where the palette owns the keyboard on open. */
     readonly hasAutoFocus?: boolean;
+    /** Opens the editor, on a saved reading where one is named. */
+    readonly onEdit?: (key?: string) => void;
 }
 
 /**
- * The catalogue, searchable, grouped by whether adding one reshapes the chart.
+ * The catalogue, searchable, in two shelves.
+ *
+ * Split because the two ask different questions of a reader. Choosing one of
+ * ours is "does adding this reshape my screen?", which is why they are grouped
+ * by where they draw. Finding one you wrote is looking for a name you already
+ * know, and grouping those by scale hides them among twenty others.
  */
-export function IndicatorPalette({ onAdd, isFull, addedCounts, hasAutoFocus = false }: IndicatorPaletteProps): ReactElement {
+export function IndicatorPalette({
+    onAdd,
+    isFull,
+    addedCounts,
+    hasAutoFocus = false,
+    onEdit,
+}: IndicatorPaletteProps): ReactElement {
     const translate = useTranslate();
     const [query, setQuery] = useState('');
-    const matches = useMemo(() => findMatches(query, translate), [query, translate]);
+    const [shelf, setShelf] = useState<Shelf>('shipped');
 
-    const theChart = matches.filter((entry) => !isIndicator(entry.layer));
-    const overPrice = matches.filter((entry) => isIndicator(entry.layer)
-        && !needsOwnBand(entry.layer.scale));
-    const ownPane = matches.filter((entry) => isIndicator(entry.layer)
-        && needsOwnBand(entry.layer.scale));
+    const shipped = useMemo(() => findMatches(query, translate, CHART_LAYERS), [query, translate]);
+    const yours = useMemo(() => findMatches(query, translate, listAddons()), [query, translate]);
+
+    const shown = shelf === 'shipped' ? shipped : yours;
+    const elsewhere = shelf === 'shipped' ? yours.length : shipped.length;
 
     return (
         <div className="flex w-72 flex-col gap-2">
@@ -43,6 +60,22 @@ export function IndicatorPalette({ onAdd, isFull, addedCounts, hasAutoFocus = fa
                 of them has to find out which is theirs. The negative margins let
                 it cover the card's own padding once it is stuck there. */}
             <div className="sticky top-0 z-10 -mx-3 -mt-3 flex flex-col gap-2 bg-abyss-800 px-3 pb-1 pt-3">
+                <div role="tablist" className="flex gap-1 rounded-lg bg-abyss-900 p-0.5">
+                    <ShelfTab
+                        shelf="shipped"
+                        active={shelf}
+                        label={translate('indicators.shipped')}
+                        onSelect={setShelf}
+                    />
+                    <ShelfTab
+                        shelf="yours"
+                        active={shelf}
+                        label={translate('indicators.yours')}
+                        count={yours.length}
+                        onSelect={setShelf}
+                    />
+                </div>
+
                 <div className="relative">
                     <Search className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-ink-500" />
                     <input
@@ -53,7 +86,7 @@ export function IndicatorPalette({ onAdd, isFull, addedCounts, hasAutoFocus = fa
                         autoFocus={hasAutoFocus}
                         placeholder={translate('indicators.search')}
                         onChange={(event) => { setQuery(event.target.value); }}
-                        onKeyDown={(event) => { addFirstMatch(event, matches, isFull, onAdd); }}
+                        onKeyDown={(event) => { addFirstMatch(event, shown, isFull, onAdd); }}
                         className={`${CONTROL_INPUT_CLASSES} pl-8 pr-2`}
                     />
                 </div>
@@ -64,31 +97,182 @@ export function IndicatorPalette({ onAdd, isFull, addedCounts, hasAutoFocus = fa
             </div>
 
             <div>
-                {matches.length === 0 && (
-                    <p className="px-1 py-3 text-xs text-ink-500">{translate('indicators.noMatch')}</p>
+                {shown.length === 0 && (
+                    <EmptyShelf
+                        shelf={shelf}
+                        hasQuery={query.trim() !== ''}
+                        translate={translate}
+                        onWrite={onEdit}
+                    />
                 )}
-                <IndicatorGroup
-                    titleKey="indicators.theChart"
-                    indicators={theChart}
-                    isFull={isFull}
-                    addedCounts={addedCounts}
-                    onAdd={onAdd}
-                />
-                <IndicatorGroup
-                    titleKey="indicators.overPrice"
-                    indicators={overPrice}
-                    isFull={isFull}
-                    addedCounts={addedCounts}
-                    onAdd={onAdd}
-                />
-                <IndicatorGroup
-                    titleKey="indicators.ownPane"
-                    indicators={ownPane}
-                    isFull={isFull}
-                    addedCounts={addedCounts}
-                    onAdd={onAdd}
-                />
+
+                {/* Said rather than left to be discovered: the other shelf is a
+                    tab away, and a reader who searched and saw nothing has no
+                    way of knowing their own reading is the one that matched. */}
+                {shown.length === 0 && elsewhere > 0 && query.trim() !== '' && (
+                    <button
+                        type="button"
+                        onClick={() => { setShelf(shelf === 'shipped' ? 'yours' : 'shipped'); }}
+                        className="w-full rounded px-2 py-2 text-left text-xs text-phosphor transition-colors hover:bg-abyss-700"
+                    >
+                        {translate('indicators.matchesElsewhere').replace('{count}', String(elsewhere))}
+                    </button>
+                )}
+
+                {shelf === 'yours'
+                    ? (
+                        <YourShelf
+                            readings={shown}
+                            isFull={isFull}
+                            addedCounts={addedCounts}
+                            onAdd={onAdd}
+                            {...onEdit === undefined ? {} : { onEdit }}
+                        />
+                    )
+                    : <ShippedShelf shown={shown} isFull={isFull} addedCounts={addedCounts} onAdd={onAdd} />}
             </div>
+        </div>
+    );
+}
+
+interface ShelfTabProps {
+    readonly shelf: Shelf;
+    readonly active: Shelf;
+    readonly label: string;
+    readonly count?: number;
+    readonly onSelect: (shelf: Shelf) => void;
+}
+
+function ShelfTab({ shelf, active, label, count, onSelect }: ShelfTabProps): ReactElement {
+    const isActive = shelf === active;
+    return (
+        <button
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => { onSelect(shelf); }}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
+                isActive ? 'bg-abyss-700 text-ink-100' : 'text-ink-500 hover:text-ink-300'
+            }`}
+        >
+            {label}
+            {count !== undefined && count > 0 && (
+                <span className="rounded-full bg-phosphor/15 px-1.5 text-[10px] text-phosphor">{count}</span>
+            )}
+        </button>
+    );
+}
+
+interface ShippedShelfProps {
+    readonly shown: readonly Offered[];
+    readonly isFull: boolean;
+    readonly addedCounts: ReadonlyMap<string, number>;
+    readonly onAdd: (indicatorId: string) => void;
+}
+
+function ShippedShelf({ shown, isFull, addedCounts, onAdd }: ShippedShelfProps): ReactElement {
+    const theChart = shown.filter((entry) => !isIndicator(entry.layer));
+    const overPrice = shown.filter((entry) => isIndicator(entry.layer) && !needsOwnBand(entry.layer.scale));
+    const ownPane = shown.filter((entry) => isIndicator(entry.layer) && needsOwnBand(entry.layer.scale));
+
+    return (
+        <>
+            <IndicatorGroup titleKey="indicators.theChart" indicators={theChart} isFull={isFull} addedCounts={addedCounts} onAdd={onAdd} />
+            <IndicatorGroup titleKey="indicators.overPrice" indicators={overPrice} isFull={isFull} addedCounts={addedCounts} onAdd={onAdd} />
+            <IndicatorGroup titleKey="indicators.ownPane" indicators={ownPane} isFull={isFull} addedCounts={addedCounts} onAdd={onAdd} />
+        </>
+    );
+}
+
+interface YourShelfProps {
+    readonly readings: readonly Offered[];
+    readonly isFull: boolean;
+    readonly addedCounts: ReadonlyMap<string, number>;
+    readonly onAdd: (indicatorId: string) => void;
+    readonly onEdit?: ((key?: string) => void) | undefined;
+}
+
+function YourShelf({ readings, isFull, addedCounts, onAdd, onEdit }: YourShelfProps): ReactElement {
+    const translate = useTranslate();
+
+    return (
+        <section className="mb-1">
+            {onEdit !== undefined && (
+                <button
+                    type="button"
+                    onClick={() => { onEdit(); }}
+                    className="mb-1 flex w-full items-center gap-2 rounded border border-dashed border-abyss-600 px-2 py-2 text-xs font-semibold text-ink-300 transition-colors hover:border-phosphor/40 hover:text-phosphor"
+                >
+                    <Plus className="size-4" />
+                    {translate('indicators.writeOne')}
+                </button>
+            )}
+
+            {readings.map(({ id, layer }) => (
+                <div key={id} className="flex items-stretch gap-1">
+                    <button
+                        type="button"
+                        disabled={isFull}
+                        onClick={() => { onAdd(id); }}
+                        className={`flex min-w-0 flex-1 flex-col items-start gap-0.5 rounded px-2 py-2 text-left transition-colors hover:bg-abyss-700 ${isFull ? 'disabled:opacity-40' : ''}`}
+                    >
+                        <span className="flex w-full items-center gap-2 text-sm font-semibold text-ink-100">
+                            <span className="truncate">{translateLabel(translate, layer.label)}</span>
+                            {(addedCounts.get(id) ?? 0) > 0 && (
+                                <span className="rounded-full bg-phosphor/15 px-1.5 text-[10px] font-semibold text-phosphor">
+                                    {addedCounts.get(id)}
+                                </span>
+                            )}
+                        </span>
+                        {layer.about !== undefined && (
+                            <span className="w-full truncate text-xs leading-snug text-ink-500">
+                                {translateLabel(translate, layer.about)}
+                            </span>
+                        )}
+                    </button>
+
+                    {onEdit !== undefined && (
+                        <button
+                            type="button"
+                            aria-label={`${translate('indicators.edit')} ${translateLabel(translate, layer.label)}`}
+                            title={translate('indicators.edit')}
+                            onClick={() => { onEdit(id.replace(/^addon:/, '')); }}
+                            className="shrink-0 rounded px-2 text-ink-500 transition-colors hover:bg-abyss-700 hover:text-ink-100"
+                        >
+                            <Pencil className="size-3.5" />
+                        </button>
+                    )}
+                </div>
+            ))}
+        </section>
+    );
+}
+
+interface EmptyShelfProps {
+    readonly shelf: Shelf;
+    readonly hasQuery: boolean;
+    readonly translate: Translate;
+    readonly onWrite?: ((key?: string) => void) | undefined;
+}
+
+function EmptyShelf({ shelf, hasQuery, translate, onWrite }: EmptyShelfProps): ReactElement {
+    if (hasQuery || shelf === 'shipped') {
+        return <p className="px-1 py-3 text-xs text-ink-500">{translate('indicators.noMatch')}</p>;
+    }
+
+    return (
+        <div className="space-y-2 px-1 py-3">
+            <p className="text-xs text-ink-500">{translate('indicators.yoursEmpty')}</p>
+            {onWrite !== undefined && (
+                <button
+                    type="button"
+                    onClick={() => { onWrite(); }}
+                    className="flex w-full items-center gap-2 rounded border border-dashed border-abyss-600 px-2 py-2 text-xs font-semibold text-ink-300 transition-colors hover:border-phosphor/40 hover:text-phosphor"
+                >
+                    <Plus className="size-4" />
+                    {translate('indicators.writeOne')}
+                </button>
+            )}
         </div>
     );
 }
@@ -162,11 +346,14 @@ function addFirstMatch(
 }
 
 /**
- * The indicators whose name or description answers what was typed.
+ * The layers whose name or description answers what was typed.
  */
-function findMatches(query: string, translate: Translate): readonly Offered[] {
+function findMatches(
+    query: string,
+    translate: Translate,
+    offered: readonly Offered[],
+): readonly Offered[] {
     const wanted = query.trim().toLowerCase();
-    const offered = listOfferedLayers();
     if (wanted === '') {
         return offered;
     }

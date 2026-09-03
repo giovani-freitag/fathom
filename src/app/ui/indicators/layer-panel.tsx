@@ -12,6 +12,8 @@ import { useTranslate } from '../../react/use-appearance.ts';
 
 interface LayerPanelProps {
     readonly controls: IndicatorControls;
+    /** Opens the editor, on a saved reading where one is named. */
+    readonly onEditReading?: ((key?: string) => void) | undefined;
 }
 
 /** What the panel is showing: the list, the catalogue, or one layer's knobs. */
@@ -32,7 +34,7 @@ type PanelView = { readonly kind: 'list' } | { readonly kind: 'add' } | {
  * panel over rather than opening a second thing on top of it, because it
  * answers the same question the panel was already about.
  */
-export function LayerPanel({ controls }: LayerPanelProps): ReactElement {
+export function LayerPanel({ controls, onEditReading }: LayerPanelProps): ReactElement {
     const translate = useTranslate();
     const [view, setView] = useState<PanelView>({ kind: 'list' });
     const showList = (): void => { setView({ kind: 'list' }); };
@@ -48,6 +50,7 @@ export function LayerPanel({ controls }: LayerPanelProps): ReactElement {
                     }}
                     isFull={controls.isFull}
                     addedCounts={controls.addedCounts}
+                    {...onEditReading === undefined ? {} : { onEdit: onEditReading }}
                 />
             </PanelStep>
         );

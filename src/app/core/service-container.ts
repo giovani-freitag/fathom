@@ -8,7 +8,10 @@ import { wrapWithVenueCandles } from './venue-candles.ts';
 import type { HeatmapSource } from '../../shared/core/heatmap-source.ts';
 import type { LiveFeed } from '../services/live-feed.ts';
 import { LiveFeedService } from '../services/live-feed-service.ts';
+import { AddonLibraryService } from '../services/addon-library/addon-library-service.ts';
+import { buildAddon } from '../addons/addon-runtime.ts';
 import { PreferencesService } from '../services/preferences-service.ts';
+import { registerAddon } from '../addons/addon-registry.ts';
 import { RecordingApiService } from '../services/recording-api-service.ts';
 import type { RecordingControl } from '../../shared/core/recording-control.ts';
 
@@ -24,6 +27,8 @@ export interface ServiceContainer {
     readonly cursor: ObservableStore<CursorReadout>;
     /** Absent when the page is its own collector and there is no supervisor. */
     readonly recording: RecordingControl | null;
+    /** The readings the reader wrote themselves. */
+    readonly addons: AddonLibraryService;
 }
 
 export interface ServiceContainerConfig {
@@ -48,6 +53,13 @@ export function createServiceContainer(config: ServiceContainerConfig): ServiceC
     const cursor = createCursorStore();
     const liveFeed = new LiveFeedService({ baseUrl: config.baseUrl });
     const preferences = new PreferencesService({ storage: config.storage });
+    const addons = new AddonLibraryService({
+        storage: config.storage ?? { getItem: () => null, setItem: () => undefined },
+        now: () => Date.now(),
+    });
+    // Before the chart, because a stored selection names a reading by its id
+    // and the chart resolves those the moment its preferences are read.
+    restoreSavedReadings(addons);
     const chart = new ChartController({ api, liveFeed, preferences });
 
     return {
@@ -63,5 +75,23 @@ export function createServiceContainer(config: ServiceContainerConfig): ServiceC
         }),
         appearance: new AppearanceController({ preferences, host: config.appearanceHost }),
         cursor,
+        addons,
     };
+}
+
+/**
+ * Puts every saved reading back where the chart can find it.
+ *
+ * From the compiled form rather than the source, so opening the page costs
+ * nothing until somebody actually writes something. One that no longer builds
+ * is left off rather than allowed to fail later: what it names on the chart
+ * then resolves to nothing, which is what a removed reading already does.
+ */
+function restoreSavedReadings(library: AddonLibraryService): void {
+    for (const saved of library.list()) {
+        const built = buildAddon(saved.compiled);
+        if (built.kind === 'ready') {
+            registerAddon(saved.key, built.indicator);
+        }
+    }
 }

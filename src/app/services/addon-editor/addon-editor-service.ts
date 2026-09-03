@@ -12,6 +12,8 @@ const SURFACE_URI = 'file:///node_modules/@types/fathom/index.d.ts';
 export interface AddonEditorServiceConfig {
     /** Runs on every edit, after the pause. */
     readonly onChange: (source: string) => void;
+    /** Which of the chart's two palettes to open in. */
+    readonly theme?: 'dark' | 'light';
     /** How long a pause counts as having stopped typing. */
     readonly settleMs?: number;
 }
@@ -61,7 +63,7 @@ export class AddonEditorService {
         this.model.setValue(source);
         this.editor = monaco.editor.create(host, {
             model: this.model,
-            theme: 'fathom-abyss',
+            theme: `fathom-${this.config.theme ?? 'dark'}`,
             automaticLayout: true,
             minimap: { enabled: false },
             fontSize: 12,
@@ -84,9 +86,27 @@ export class AddonEditorService {
         this.model = null;
     }
 
+    /**
+     * Puts the editor in one of the chart's two palettes.
+     *
+     * @param theme - Which one is in force.
+     */
+    applyTheme(theme: 'dark' | 'light'): void {
+        this.editor?.updateOptions({ theme: `fathom-${theme}` });
+    }
+
     /** What the reader has typed. */
     readSource(): string {
         return this.model?.getValue() ?? '';
+    }
+
+    /**
+     * Puts a different script in the editor, as opening one does.
+     *
+     * @param source - What to show instead.
+     */
+    replaceSource(source: string): void {
+        this.model?.setValue(source);
     }
 
     /**
@@ -173,6 +193,65 @@ export class AddonEditorService {
 let isLanguageConfigured = false;
 
 /**
+ * The palette, taken from the chart's own tokens rather than invented.
+ *
+ * Two, because the chart has two: an editor that stayed dark inside a light
+ * page is the one panel that did not hear the reader change their mind.
+ */
+const PALETTES = {
+    dark: {
+        base: 'vs-dark' as const,
+        ground: '#080d14',
+        highlight: '#111a26',
+        ink: '#dce7f1',
+        muted: '#62778b',
+        keyword: '#b48ef7',
+        text: '#2bd4a8',
+        figure: '#ffb454',
+        type: '#57c7ff',
+    },
+    light: {
+        base: 'vs' as const,
+        ground: '#ffffff',
+        highlight: '#f2f6fa',
+        ink: '#0b1620',
+        muted: '#64788c',
+        keyword: '#7b3fd4',
+        text: '#0a9683',
+        figure: '#a35c00',
+        type: '#0b6ea8',
+    },
+} as const;
+
+/** What the editor is told to look like, one theme per palette. */
+function defineThemes(): void {
+    for (const [name, palette] of Object.entries(PALETTES)) {
+        monaco.editor.defineTheme(`fathom-${name}`, {
+            base: palette.base,
+            inherit: true,
+            rules: [
+                { token: 'comment', foreground: palette.muted.slice(1), fontStyle: 'italic' },
+                { token: 'keyword', foreground: palette.keyword.slice(1) },
+                { token: 'string', foreground: palette.text.slice(1) },
+                { token: 'number', foreground: palette.figure.slice(1) },
+                { token: 'type', foreground: palette.type.slice(1) },
+                { token: 'type.identifier', foreground: palette.type.slice(1) },
+            ],
+            colors: {
+                'editor.background': palette.ground,
+                'editorGutter.background': palette.ground,
+                'editor.lineHighlightBackground': palette.highlight,
+                'editorLineNumber.foreground': palette.muted,
+                'editorLineNumber.activeForeground': palette.ink,
+                'editorIndentGuide.background1': palette.highlight,
+                'editorWidget.background': palette.ground,
+                'editorSuggestWidget.background': palette.ground,
+            },
+        });
+    }
+}
+
+/**
  * Points the editor at its own workers, which the bundler names for us.
  *
  * The language service runs off the main thread, which is also what keeps a
@@ -213,14 +292,5 @@ function configureLanguage(): void {
         lib: ['es2020', 'dom'],
     });
     typescript.typescriptDefaults.addExtraLib(ADDON_SURFACE_TYPES, SURFACE_URI);
-    monaco.editor.defineTheme('fathom-abyss', {
-        base: 'vs-dark',
-        inherit: true,
-        rules: [],
-        colors: {
-            'editor.background': '#0b1016',
-            'editorGutter.background': '#0b1016',
-            'editor.lineHighlightBackground': '#131b24',
-        },
-    });
+    defineThemes();
 }

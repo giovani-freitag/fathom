@@ -1,10 +1,12 @@
-import type { ReactElement } from 'react';
-import { CircleCheck, CircleX, Loader, X } from 'lucide-react';
-import { useAddonEditor } from '../react/use-addon-editor.ts';
-import { useTranslate } from '../react/use-appearance.ts';
+import { type ChangeEvent, type ReactElement, useRef } from 'react';
+import { CircleCheck, CircleX, Download, Loader, Plus, Save, Trash2, Upload, X } from 'lucide-react';
+import { type AddonEditorControls, useAddonEditor } from '../react/use-addon-editor.ts';
+import type { Choice } from './choice.ts';
+import { Select } from './select.tsx';
 import type { Translate } from '../i18n/translator.ts';
+import { useTranslate } from '../react/use-appearance.ts';
 
-/** What a reader with nothing stored opens on: a whole, working reading. */
+/** What a reader with an empty shelf opens on: a whole, working reading. */
 export const STARTER_SOURCE = `import { Params, Plot, readSetting } from 'fathom';
 import type { Indicator, IndicatorInput, IndicatorSettings, PlanDraft, SourceRequest } from 'fathom';
 
@@ -48,6 +50,8 @@ export default class MyMean implements Indicator {
 
 interface AddonEditorPanelProps {
     readonly onClose: () => void;
+    /** Which saved reading to open on, when the reader picked one. */
+    readonly openKey?: string | undefined;
 }
 
 /**
@@ -56,43 +60,149 @@ interface AddonEditorPanelProps {
  * Beside rather than over: what a reader is checking is what their arithmetic
  * does to the chart, and a panel that covers it hides the answer.
  */
-export function AddonEditorPanel({ onClose }: AddonEditorPanelProps): ReactElement {
+export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): ReactElement {
     const translate = useTranslate();
-    const { hostRef, status, isRunning } = useAddonEditor(STARTER_SOURCE);
+    const { mountInto, status, drawFailure, ...editor } = useAddonEditor(STARTER_SOURCE, openKey);
 
     return (
-        <aside className="flex w-full min-w-0 flex-col border-l border-abyss-700 bg-abyss-800 md:w-[38rem]">
-            <header className="flex items-center gap-2 border-b border-abyss-700 px-3 py-2">
-                <h2 className="flex-1 text-xs font-semibold uppercase tracking-wide text-ink-300">
-                    {translate('editor.title')}
-                </h2>
-                {isRunning && <Loader className="size-3.5 animate-spin text-ink-500" />}
-                <button
-                    type="button"
-                    aria-label={translate('editor.close')}
-                    onClick={onClose}
-                    className="rounded p-1 text-ink-500 transition-colors hover:bg-abyss-700 hover:text-ink-100"
-                >
-                    <X className="size-4" />
-                </button>
-            </header>
-
-            <div ref={hostRef} className="min-h-0 flex-1" />
-
-            <EditorStatusLine status={status} translate={translate} />
+        <aside className="flex w-full min-w-0 flex-col border-l border-hairline bg-abyss-850 shadow-2xl shadow-black/80 md:w-[38rem]">
+            <EditorToolbar editor={editor} translate={translate} onClose={onClose} />
+            <div ref={mountInto} className="min-h-0 flex-1" />
+            <EditorStatusLine status={status} drawFailure={drawFailure} translate={translate} />
         </aside>
     );
 }
 
+interface EditorToolbarProps {
+    readonly editor: Omit<AddonEditorControls, 'mountInto' | 'status' | 'drawFailure'>;
+    readonly translate: Translate;
+    readonly onClose: () => void;
+}
+
+function EditorToolbar({ editor, translate, onClose }: EditorToolbarProps): ReactElement {
+    const fileRef = useRef<HTMLInputElement>(null);
+
+    const handleFileChosen = (event: ChangeEvent<HTMLInputElement>): void => {
+        const file = event.target.files?.[0];
+        if (file !== undefined) {
+            void editor.importFile(file);
+        }
+        event.target.value = '';
+    };
+
+    const saved: readonly Choice[] = editor.saved.map((one) => ({ value: one.key, label: one.name }));
+
+    return (
+        <header className="shrink-0 border-b border-hairline">
+            {/* The panel's own title row, laid out as every other panel's is:
+                what this is on the left, what closes it on the right. */}
+            <div className="flex items-center gap-2 px-4 py-3">
+                <input
+                    type="text"
+                    name="readingName"
+                    aria-label={translate('editor.name')}
+                    value={editor.name}
+                    onChange={(event) => { editor.rename(event.target.value); }}
+                    className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-semibold tracking-wide text-ink-100 outline-none transition-colors hover:border-hairline focus:border-phosphor/60 focus:bg-abyss-900"
+                />
+                {editor.isUnsaved && (
+                    <span className="shrink-0 text-[10px] uppercase tracking-wide text-amber">
+                        {translate('editor.unsaved')}
+                    </span>
+                )}
+                {editor.isRunning && <Loader className="size-3.5 shrink-0 animate-spin text-ink-500" />}
+                <PanelAction label={translate('editor.close')} onPress={onClose}>
+                    <X className="size-4" />
+                </PanelAction>
+            </div>
+
+            <div className="flex items-center gap-1 px-3 pb-2">
+                <PanelAction label={translate('editor.save')} onPress={editor.save}>
+                    <Save className="size-4" />
+                </PanelAction>
+                <PanelAction label={translate('editor.new')} onPress={editor.startAnew}>
+                    <Plus className="size-4" />
+                </PanelAction>
+
+                {saved.length > 0 && (
+                    <div className="ml-1 min-w-0 flex-1">
+                        <Select
+                            value={editor.openKey ?? ''}
+                            choices={saved}
+                            onSelect={editor.open}
+                            label={translate('editor.openSaved')}
+                        />
+                    </div>
+                )}
+                {saved.length === 0 && <span className="flex-1" />}
+
+                <PanelAction label={translate('editor.export')} onPress={editor.exportFile}>
+                    <Download className="size-4" />
+                </PanelAction>
+                <PanelAction label={translate('editor.import')} onPress={() => { fileRef.current?.click(); }}>
+                    <Upload className="size-4" />
+                </PanelAction>
+                <input
+                    ref={fileRef}
+                    type="file"
+                    accept=".ts,.js,text/plain"
+                    className="hidden"
+                    onChange={handleFileChosen}
+                />
+                <PanelAction label={translate('editor.delete')} onPress={editor.remove} isDangerous>
+                    <Trash2 className="size-4" />
+                </PanelAction>
+            </div>
+        </header>
+    );
+}
+
+interface PanelActionProps {
+    readonly label: string;
+    readonly onPress: () => void;
+    readonly isDangerous?: boolean;
+    readonly children: ReactElement;
+}
+
+/**
+ * A glyph a reader presses inside a panel.
+ *
+ * The panel's own shape rather than the chart's: a bordered chip forty pixels
+ * tall is what sits in the bar over the chart, and a row of them inside a card
+ * reads as a second toolbar that wandered in.
+ */
+function PanelAction({ label, onPress, isDangerous = false, children }: PanelActionProps): ReactElement {
+    return (
+        <button
+            type="button"
+            aria-label={label}
+            title={label}
+            onClick={onPress}
+            className={`inline-flex size-9 shrink-0 items-center justify-center rounded-md text-ink-500 transition-colors hover:bg-abyss-700 ${
+                isDangerous ? 'hover:text-ask' : 'hover:text-ink-100'
+            }`}
+        >
+            {children}
+        </button>
+    );
+}
+
 interface EditorStatusLineProps {
-    readonly status: ReturnType<typeof useAddonEditor>['status'];
+    readonly status: AddonEditorControls['status'];
+    readonly drawFailure: string | null;
     readonly translate: Translate;
 }
 
-function EditorStatusLine({ status, translate }: EditorStatusLineProps): ReactElement {
+function EditorStatusLine({ status, drawFailure, translate }: EditorStatusLineProps): ReactElement {
+    // A reading that built and then threw while the chart drew it: the compiler
+    // saw nothing wrong, so this is the only place it can be said.
+    if (drawFailure !== null) {
+        return <FaultList lines={[`${translate('editor.threw')} ${drawFailure}`]} />;
+    }
+
     if (status === null) {
         return (
-            <footer className="border-t border-abyss-700 px-3 py-2 text-xs text-ink-500">
+            <footer className="shrink-0 border-t border-hairline px-4 py-2.5 text-xs text-ink-500">
                 {translate('editor.starting')}
             </footer>
         );
@@ -100,7 +210,7 @@ function EditorStatusLine({ status, translate }: EditorStatusLineProps): ReactEl
 
     if (status.kind === 'ready') {
         return (
-            <footer className="flex items-center gap-2 border-t border-abyss-700 px-3 py-2 text-xs text-phosphor">
+            <footer className="flex shrink-0 items-center gap-2 border-t border-hairline px-4 py-2.5 text-xs text-phosphor">
                 <CircleCheck className="size-3.5 shrink-0" />
                 <span className="truncate">
                     {translate('editor.drawing').replace('{name}', status.label)}
@@ -109,12 +219,19 @@ function EditorStatusLine({ status, translate }: EditorStatusLineProps): ReactEl
         );
     }
 
-    const lines = status.kind === 'broken'
-        ? [status.message]
-        : status.faults.map((one) => `Line ${one.line}: ${one.message}`);
-
     return (
-        <footer className="max-h-32 overflow-y-auto border-t border-abyss-700 px-3 py-2 text-xs text-ask">
+        <FaultList
+            lines={status.kind === 'broken'
+                ? [status.message]
+                : status.faults.map((one) => `${translate('editor.line')} ${one.line}: ${one.message}`)}
+        />
+    );
+}
+
+/** Everything wrong with the open reading, in the panel's own foot. */
+function FaultList({ lines }: { readonly lines: readonly string[] }): ReactElement {
+    return (
+        <footer className="max-h-32 shrink-0 overflow-y-auto border-t border-hairline px-4 py-2.5 text-xs text-ask">
             <div className="flex items-start gap-2">
                 <CircleX className="mt-0.5 size-3.5 shrink-0" />
                 <ul className="min-w-0 space-y-1">

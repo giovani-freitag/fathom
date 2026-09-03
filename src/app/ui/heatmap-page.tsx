@@ -140,7 +140,7 @@ export function HeatmapPage(): ReactElement {
             ...columnSummary === null ? {} : { columnSummary },
         },
     };
-    const [isEditorOpen, setIsEditorOpen] = useState(false);
+    const [editing, setEditing] = useState<{ readonly key: string | undefined } | null>(null);
     const settings = (
         <SettingsDrawer
             isFloating={!isWide}
@@ -157,8 +157,10 @@ export function HeatmapPage(): ReactElement {
                     drawings={drawings}
                     settings={settings}
                     hasRoomForPresets={hasRoomForPresets}
-                    isWritingAReading={isEditorOpen}
-                    onWriteAReading={() => { setIsEditorOpen((open) => !open); }}
+                    isWritingAReading={editing !== null}
+                    onWriteAReading={(key) => {
+                        setEditing((open) => (open !== null && key === undefined ? null : { key }));
+                    }}
                 />
             )}
             <div className="flex min-h-0 flex-1">
@@ -234,9 +236,13 @@ export function HeatmapPage(): ReactElement {
                     )}
                 </main>
 
-                {isEditorOpen && isWide && (
+                {editing !== null && isWide && (
                     <Suspense fallback={<aside className="w-[38rem] border-l border-abyss-700 bg-abyss-800" />}>
-                        <AddonEditorPanel onClose={() => { setIsEditorOpen(false); }} />
+                        <AddonEditorPanel
+                            key={editing.key ?? 'new'}
+                            openKey={editing.key}
+                            onClose={() => { setEditing(null); }}
+                        />
                     </Suspense>
                 )}
             </div>

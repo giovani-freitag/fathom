@@ -1,5 +1,5 @@
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
-import type { DrawPlan } from '../../shared/core/draw-plan.ts';
+import type { DrawPlan, Indicator } from '../../shared/core/draw-plan.ts';
 import type { LiveMessage } from '../../shared/core/live-message.ts';
 import type { TranslationKey } from '../i18n/dictionaries/en.ts';
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
@@ -101,6 +101,13 @@ export interface ChartState {
     readonly addedIndicators: readonly AddedIndicator[];
     /** What the indicators produced for the window on screen. */
     readonly plans: readonly DrawPlan[];
+    /**
+     * Why a reading drew nothing, by the copy it belongs to.
+     *
+     * Only ever the message the engine gave, never a sentence: a reader's own
+     * script throws in their own words, and whoever shows this frames it.
+     */
+    readonly layerFailures: Readonly<Record<string, string>>;
     /**
      * The added layer whose settings are open, or null while none are.
      *
@@ -444,46 +451,9 @@ export class ChartController {
      * indicator to a worker costs more in copying the bars across than the
      * arithmetic it was meant to move off the thread.
      */
-    private computePlans(state: ChartState): readonly DrawPlan[] {
-        const plans: DrawPlan[] = [];
-        for (const entry of state.addedIndicators) {
-            const indicator = findIndicator(entry.indicatorId);
-            // A hidden indicator produces nothing, so it takes no band and costs
-            // no arithmetic. What it keeps is how it was tuned.
-            if (indicator === null || entry.isHidden === true) {
-                continue;
-            }
-            const warmupBarCount = state.dataset.bars.warmupBarsReturned;
-            const draft = indicator.compute({
-                bars: state.dataset.bars,
-                settings: entry.settings,
-                sessions: collectSessions(
-                    state.dataset.bars.bars,
-                    state.dataset.higher,
-                    indicator.resolveSources?.(entry.settings).sessions,
-                ),
-            });
-            // Rejected whole rather than clipped. A plan over budget is a bug in
-            // whoever produced it, and drawing part of one shows the reader a
-            // claim its author never made.
-            if (!isPlanWithinBudget(draft)) {
-                continue;
-            }
-            const plan = completePlan(
-                { indicatorId: entry.indicatorId, indicator, settings: entry.settings, warmupBarCount },
-                draft,
-            );
-            plans.push({
-                ...recolourPlan(plan, entry.tone),
-                instanceId: entry.instanceId,
-                bandKey: resolveBandKey(entry),
-                tuning: describeTuning(entry),
-            });
-        }
-
-        return plans;
+    private computePlans(state: ChartState): Pick<ChartState, 'plans' | 'layerFailures'> {
+        return computePlanSet(state);
     }
-
 
     /**
      * Revises the set of indicators on the chart.
@@ -504,7 +474,7 @@ export class ChartController {
             // The cuts decide what the depth map is built from, so moving one is
             // a reason to rebuild it rather than only to repaint.
             const recutState = hasMovedACut(state, next) ? { ...next, dataset: recut(next) } : next;
-            return { ...recutState, plans: this.computePlans(recutState) };
+            return { ...recutState, ...this.computePlans(recutState) };
         });
         this.persistPreferences();
 
@@ -621,7 +591,7 @@ export class ChartController {
                 dataset,
                 viewport: this.framePriceRange(current.viewport, dataset),
             };
-            return { ...next, plans: this.computePlans(next) };
+            return { ...next, ...this.computePlans(next) };
         });
 
         if (wasFramingPrice && !this.needsPriceFraming) {
@@ -694,7 +664,7 @@ export class ChartController {
                 return state;
             }
             const next = { ...state, dataset, viewport: this.advanceViewport(state, dataset) };
-            return { ...next, plans: this.computePlans(next) };
+            return { ...next, ...this.computePlans(next) };
         });
     }
 
@@ -900,6 +870,7 @@ function buildInitialState(preferences: ViewerPreferences): ChartState {
         ...resolveFieldSettings(preferences.addedIndicators),
         addedIndicators: preferences.addedIndicators,
         plans: [],
+        layerFailures: {},
         pickedInstanceId: null,
     };
 }
@@ -932,4 +903,100 @@ function recut(state: ChartState): ChartDataset {
         saturationPercentile: state.depthSaturationPercentile,
         viewport: state.viewport,
     });
+}
+
+/**
+ * Runs every reading on the chart over the window on screen.
+ *
+ * Exported so a harness runs the same arithmetic the chart does: held in two
+ * places, the drawn plans and the asserted ones drift apart without either
+ * being wrong on its own.
+ *
+ * @param state - The chart as it stands.
+ * @returns What was drawn, and why anything was not.
+ */
+export function computePlanSet(state: ChartState): Pick<ChartState, 'plans' | 'layerFailures'> {
+    const plans: DrawPlan[] = [];
+    const layerFailures: Record<string, string> = {};
+    for (const entry of state.addedIndicators) {
+        const indicator = findIndicator(entry.indicatorId);
+        // A hidden indicator produces nothing, so it takes no band and costs no
+        // arithmetic. What it keeps is how it was tuned.
+        if (indicator === null || entry.isHidden === true) {
+            continue;
+        }
+        const outcome = runOne(state, entry, indicator);
+        if (typeof outcome === 'string') {
+            layerFailures[entry.instanceId] = outcome;
+            continue;
+        }
+        if (outcome !== null) {
+            plans.push(outcome);
+        }
+    }
+
+    return { plans, layerFailures };
+}
+
+/**
+ * Runs one reading, and lets it fail without taking the chart with it.
+ *
+ * Caught because a reader's own script runs through here: a reading that throws
+ * is one drawing gone, and the alternative is a blank chart with every other
+ * layer on it lost to somebody else's arithmetic.
+ *
+ * @param state - The chart as it stands.
+ * @param entry - The copy being drawn.
+ * @param indicator - What draws it.
+ * @returns The plan, null where it produced none, or why it threw.
+ */
+function runOne(
+    state: ChartState,
+    entry: AddedIndicator,
+    indicator: Indicator,
+): DrawPlan | string | null {
+    const warmupBarCount = state.dataset.bars.warmupBarsReturned;
+    try {
+        const draft = indicator.compute({
+            bars: state.dataset.bars,
+            settings: entry.settings,
+            sessions: collectSessions(
+                state.dataset.bars.bars,
+                state.dataset.higher,
+                indicator.resolveSources?.(entry.settings).sessions,
+            ),
+        });
+        // Rejected whole rather than clipped. A plan over budget is a bug in
+        // whoever produced it, and drawing part of one shows the reader a claim
+        // its author never made.
+        if (!isPlanWithinBudget(draft)) {
+            return null;
+        }
+        const plan = completePlan(
+            { indicatorId: entry.indicatorId, indicator, settings: entry.settings, warmupBarCount },
+            draft,
+        );
+
+        return {
+            ...recolourPlan(plan, entry.tone),
+            instanceId: entry.instanceId,
+            bandKey: resolveBandKey(entry),
+            tuning: describeTuning(entry),
+        };
+    } catch (error) {
+        return describeThrown(error);
+    }
+}
+
+/**
+ * What a reading threw, as the engine put it.
+ *
+ * Not framed in a sentence: whoever shows this to a reader has a dictionary,
+ * and this file does not.
+ *
+ * @param error - Whatever came out of it.
+ * @returns The message, or the thrown value as text.
+ */
+function describeThrown(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
 }
