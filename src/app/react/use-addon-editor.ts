@@ -122,7 +122,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
     const { starter, openOn, buildEditor, onLeave } = request;
     const kernel = useKernel();
     const library = kernel.addons;
-    const { resolvedTheme } = useAppearance();
+    const { locale, resolvedTheme } = useAppearance();
     const translate = useTranslate();
     const untitled = translate('editor.untitled');
     const shelfRefusedMessage = translate('editor.shelfRefused');
@@ -214,6 +214,17 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
             setIsRunning(false);
         }
     }, [compilerLostMessage, library, publish]);
+
+    // A reading may name itself in the reader's language, and the name it
+    // picked was picked when it was built. The draft is not in the shelf the
+    // host rebuilds from, so it is built again here.
+    const builtSpeaking = useRef(locale);
+    useEffect(() => {
+        if (builtSpeaking.current !== locale) {
+            builtSpeaking.current = locale;
+            void rebuild(openKey, false);
+        }
+    }, [locale, openKey, rebuild]);
 
     // The editor is mounted once and lives on; what it calls back into must be
     // the current one, not the one that existed when it was created.

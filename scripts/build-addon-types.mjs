@@ -43,32 +43,114 @@ function emitDeclarations() {
     return { staging, emitted: join(staging, 'shared', 'core') };
 }
 
+/** Where one top-level declaration begins in an emitted `.d.ts`. */
+const DECLARATION_START = /^(\/\*\*|export|import|declare|type|interface|class)\b|^\/\*\*/;
+
 /**
- * Strips the cross-file plumbing, leaving the declarations themselves.
+ * Every declaration in the graph, in the order it will be written out.
  *
- * Every file in the graph becomes part of one module, so an import between two
- * of them has nothing left to point at, and an `export` on each declaration is
- * what the module needs anyway.
+ * @returns Each as its own block, so one can be dropped without disturbing
+ *     the ones around it.
  */
-function readDeclarations(directory) {
+function readBlocks(directory) {
     return readdirSync(directory)
         .filter((name) => name.endsWith('.d.ts'))
         .sort()
-        .map((name) => {
-            const body = readFileSync(join(directory, name), 'utf8')
-                .split('\n')
-                .filter((line) => !/^\s*(import|export)\s.*\sfrom\s/.test(line))
-                .filter((line) => !/^\s*export\s*\{[^}]*\}\s*;?\s*$/.test(line))
-                .join('\n')
-                .replace(/\n{3,}/g, '\n\n')
-                .trim();
-            return `    // ${name}\n${body.split('\n').map((line) => (line === '' ? '' : `    ${line}`)).join('\n')}`;
+        .map((name) => ({ file: name, blocks: cutIntoBlocks(readFileSync(join(directory, name), 'utf8')) }));
+}
+
+function cutIntoBlocks(source) {
+    const lines = source.split('\n')
+        .filter((line) => !/^\s*(import|export)\s.*\sfrom\s/.test(line))
+        .filter((line) => !/^\s*export\s*\{[^}]*\}\s*;?\s*$/.test(line));
+    const blocks = [];
+    let held = [];
+
+    for (const line of lines) {
+        if (held.length > 0 && DECLARATION_START.test(line)) {
+            blocks.push(held);
+            held = [];
+        }
+        held.push(line);
+    }
+    blocks.push(held);
+
+    return blocks
+        .map((block) => block.join('\n').replace(/\n{3,}/g, '\n\n').trim())
+        .filter((block) => block !== '')
+        .map((text) => ({ text, declares: nameDeclaredBy(text) }));
+}
+
+function nameDeclaredBy(text) {
+    const found = /^export declare (?:function|const|class)\s+(\w+)/m.exec(text);
+    return found === null ? null : found[1];
+}
+
+/**
+ * The names the barrel hands over at run time.
+ *
+ * Read out of the barrel's own declarations rather than the whole graph's:
+ * `require` answers with the barrel and nothing else, so a function declared
+ * anywhere else is one the editor would offer and the page would refuse.
+ */
+function readOfferedValues(directory) {
+    const barrel = readFileSync(join(directory, 'addon-api.d.ts'), 'utf8');
+    const declared = [...barrel.matchAll(/^export declare (?:function|const|class)\s+(\w+)/gm)]
+        .map((found) => found[1]);
+    const passedOn = [...barrel.matchAll(/^export \{([^}]*)\}/gm)]
+        .flatMap((found) => found[1].split(','))
+        .filter((name) => !name.trim().startsWith('type '))
+        .map((name) => name.split(/\s+as\s+/).pop().trim())
+        .filter((name) => name !== '');
+    return new Set([...declared, ...passedOn]);
+}
+
+/**
+ * Drops every value the barrel does not pass on.
+ *
+ * A type left in costs nothing — it is erased before anything runs — but a
+ * function is a call the editor would allow and the page would not answer. One
+ * still named by a declaration that stays has to stay too, or what refers to it
+ * no longer resolves; dropping is repeated until that settles.
+ */
+function dropUnoffered(files, offered) {
+    let kept = files.map((file) => ({ ...file, blocks: [...file.blocks] }));
+
+    for (;;) {
+        const whole = kept.flatMap((file) => file.blocks);
+        const doomed = whole.find((block) => (
+            block.declares !== null
+            && !offered.has(block.declares)
+            && !isNamedBy(whole.filter((other) => other !== block), block.declares)
+        ));
+        if (doomed === undefined) {
+            return kept;
+        }
+        kept = kept.map((file) => ({
+            ...file,
+            blocks: file.blocks.filter((block) => block !== doomed),
+        }));
+    }
+}
+
+function isNamedBy(blocks, name) {
+    const named = new RegExp(`\\b${name}\\b`);
+    return blocks.some((block) => named.test(block.text));
+}
+
+/** Puts the blocks back together as one module body. */
+function joinDeclarations(files) {
+    return files
+        .filter((file) => file.blocks.length > 0)
+        .map((file) => {
+            const body = file.blocks.map((block) => block.text).join('\n');
+            return `    // ${file.file}\n${body.split('\n').map((line) => (line === '' ? '' : `    ${line}`)).join('\n')}`;
         })
         .join('\n\n');
 }
 
 const { staging, emitted } = emitDeclarations();
-const declarations = readDeclarations(emitted);
+const declarations = joinDeclarations(dropUnoffered(readBlocks(emitted), readOfferedValues(emitted)));
 rmSync(staging, { recursive: true, force: true });
 
 writeFileSync(OUT, `// Generated by scripts/build-addon-types.mjs. Do not edit.

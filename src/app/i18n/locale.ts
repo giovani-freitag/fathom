@@ -1,9 +1,9 @@
-/** The languages the interface is written in. */
-export type Locale = 'en' | 'pt-BR';
+// Held in the shared core rather than here: a reading a reader wrote names
+// itself in these languages, and the surface it is written against may not
+// reach into the app.
+export { DEFAULT_LOCALE, type Locale, SUPPORTED_LOCALES } from '../../shared/core/reading-words.ts';
 
-export const SUPPORTED_LOCALES: readonly Locale[] = ['en', 'pt-BR'];
-
-export const DEFAULT_LOCALE: Locale = 'en';
+import { DEFAULT_LOCALE, type Locale, SUPPORTED_LOCALES } from '../../shared/core/reading-words.ts';
 
 /**
  * The supported language closest to what the reader asked for.

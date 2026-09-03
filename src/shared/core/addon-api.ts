@@ -27,6 +27,10 @@ export type {
     Tunable,
 } from './draw-plan.ts';
 
+export type { Locale, Words } from './reading-words.ts';
+
+export { inWords } from './reading-words.ts';
+
 export {
     isPlanWithinBudget,
     NO_SESSIONS,

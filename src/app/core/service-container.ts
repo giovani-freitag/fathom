@@ -12,6 +12,7 @@ import { AddonLibraryService } from '../services/addon-library/addon-library-ser
 import { buildAddon } from '../addons/addon-runtime.ts';
 import { PreferencesService } from '../services/preferences-service.ts';
 import { registerAddon } from '../addons/addon-registry.ts';
+import { speakIn } from '../../shared/core/reading-words.ts';
 import { RecordingApiService } from '../services/recording-api-service.ts';
 import type { RecordingControl } from '../../shared/core/recording-control.ts';
 
@@ -64,10 +65,15 @@ export function createServiceContainer(config: ServiceContainerConfig): ServiceC
         storage: config.storage ?? NO_STORAGE,
         now: () => Date.now(),
     });
+    const appearance = new AppearanceController({ preferences, host: config.appearanceHost });
+    // Before the readings are built, because one may name itself in the
+    // reader's language and the name it picks is picked as it is built.
+    speakIn(appearance.store.read().locale);
     // Before the chart, because a stored selection names a reading by its id
     // and the chart resolves those the moment its preferences are read.
     restoreSavedReadings(addons);
     const chart = new ChartController({ api, liveFeed, preferences });
+    rebuildReadingsOnLanguageChange({ appearance, addons, chart });
 
     return {
         api,
@@ -80,10 +86,38 @@ export function createServiceContainer(config: ServiceContainerConfig): ServiceC
             readInstrumentSymbol: () => chart.store.read().instrumentSymbol,
             newId: () => crypto.randomUUID(),
         }),
-        appearance: new AppearanceController({ preferences, host: config.appearanceHost }),
+        appearance,
         cursor,
         addons,
     };
+}
+
+export interface LanguageWatchConfig {
+    /** Narrowed to what is actually watched and poked, so a test can stand in. */
+    readonly appearance: Pick<AppearanceController, 'store'>;
+    readonly addons: Pick<AddonLibraryService, 'list'>;
+    readonly chart: Pick<ChartController, 'updateIndicators'>;
+}
+
+/**
+ * Builds every saved reading again when the reader changes language.
+ *
+ * A reading names itself, and it may name itself differently in each language.
+ * The name it settled on was settled when it was built, so the only way it
+ * follows the interface is to be built again.
+ */
+export function rebuildReadingsOnLanguageChange(config: LanguageWatchConfig): void {
+    let spoken = config.appearance.store.read().locale;
+    config.appearance.store.subscribe((state) => {
+        if (state.locale === spoken) {
+            return;
+        }
+        spoken = state.locale;
+        restoreSavedReadings(config.addons);
+        // A fresh array is what makes the chart run its readings again, which
+        // is where the new names are read off.
+        config.chart.updateIndicators((current) => [...current]);
+    });
 }
 
 /**
@@ -94,7 +128,7 @@ export function createServiceContainer(config: ServiceContainerConfig): ServiceC
  * is left off rather than allowed to fail later: what it names on the chart
  * then resolves to nothing, which is what a removed reading already does.
  */
-function restoreSavedReadings(library: AddonLibraryService): void {
+function restoreSavedReadings(library: Pick<AddonLibraryService, 'list'>): void {
     for (const saved of library.list()) {
         const built = buildAddon(saved.compiled);
         if (built.kind === 'ready') {

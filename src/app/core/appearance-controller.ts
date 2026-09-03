@@ -1,6 +1,7 @@
 import { type Locale, resolveLocale } from '../i18n/locale.ts';
 import { type GridChoice, type ResolvedTheme, resolveTheme, type ThemeChoice } from './theme.ts';
 import { applyFormattingLocale } from './formatting.ts';
+import { speakIn } from '../../shared/core/reading-words.ts';
 import { applyRenderTheme } from '../painting/render-theme.ts';
 import { ObservableStore } from './observable-store.ts';
 import type { PreferencesService } from '../services/preferences-service.ts';
@@ -61,6 +62,7 @@ export class AppearanceController {
     start(): void {
         const { locale, resolvedTheme } = this.store.read();
         applyFormattingLocale(locale);
+        speakIn(locale);
         this.paintTheme(resolvedTheme);
         if (this.isListening) {
             return;
@@ -86,6 +88,7 @@ export class AppearanceController {
         // Prices and clocks are read beside the words they sit next to: a
         // thousands separator from another language reads as a decimal point.
         applyFormattingLocale(locale);
+        speakIn(locale);
         this.store.update((state) => ({ ...state, locale }));
         this.config.preferences.write({ locale });
     }

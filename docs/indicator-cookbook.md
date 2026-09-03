@@ -271,6 +271,42 @@ Reaching for a session that was never declared throws by name, listing what
 
 ---
 
+## Naming a reading in more than one language
+
+The interface has two languages, and a reading names itself — in the legend,
+in the layer list and in the palette. `inWords` picks the one the page is
+being read in.
+
+```ts
+import { inWords } from 'fathom';
+
+const PERIOD = Params.integer('periodBars')
+    .called(inWords({ en: 'Period', 'pt-BR': 'Período' }))
+    .between(2, 400)
+    .startingAt(20);
+
+export default class MyMean implements Indicator {
+    readonly label = inWords({ en: 'My mean', 'pt-BR': 'Minha média' });
+    readonly about = inWords({
+        en: 'The mean of the close',
+        'pt-BR': 'A média do fechamento',
+    });
+    // ...
+}
+```
+
+`en` is required and is what a language the author did not write in falls back
+to. It works anywhere in the script — a field, a parameter label, a series
+name — because changing the language builds every reading again from the
+JavaScript it was saved as, so the whole file runs afresh with the new language
+in force.
+
+**Not built:** a reading cannot add a language of its own, or read the page's
+own phrases. `inWords` answers in whatever the interface is set to and nothing
+more.
+
+---
+
 ## Seeing what actually reached you
 
 One column only: this is an affordance of the page, not a translation of

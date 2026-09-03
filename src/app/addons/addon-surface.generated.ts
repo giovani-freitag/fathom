@@ -91,7 +91,6 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
      * the point where colour has stopped being able to say which line is which, and
      * it is why a plan can write its own names on the chart instead.
      */
-    export declare const INSTANCE_TONES: readonly PlotTone[];
     /**
      * How a series is drawn.
      *
@@ -490,7 +489,6 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
      * @param settings - Values the reader chose.
      * @returns The count, or none where it declared no sources at all.
      */
-    export declare function resolveWarmupBars(indicator: Indicator, settings: IndicatorSettings): number;
     /** What the host completes a draft with. */
     export interface PlanStamp {
         /** The id the copy was added under. */
@@ -507,7 +505,6 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
      * @param draft - What the arithmetic produced.
      * @returns The plan the painters are given.
      */
-    export declare function completePlan(stamp: PlanStamp, draft: PlanDraft): DrawPlan;
     /**
      * The knobs a legend shows, for a plan that did not say.
      *
@@ -532,7 +529,6 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
      * @param tone - The colour this copy is identified by.
      * @returns The plan, with its own colour replaced.
      */
-    export declare function recolourPlan(plan: DrawPlan, tone: PlotTone): DrawPlan;
     /**
      * The value a series carried at an instant.
      *
@@ -544,7 +540,6 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
      * @param atMs - The instant asked about.
      * @returns The value, or NaN where the series says nothing there.
      */
-    export declare function readValueAt(series: PlotSeries, atMs: number): number;
 
     // parameter-builder.d.ts
     /**
@@ -825,7 +820,6 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
         readonly warmupBars: number;
     }
     /** A window that holds nothing, for a chart that has not loaded one yet. */
-    export declare const EMPTY_BAR_WINDOW: PriceBarWindow;
     /** How much of a bar's own width was recorded, and whether that is settled yet. */
     export type BarCompleteness = 'forming' | 'partial' | 'whole';
     /**
@@ -851,7 +845,35 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
      * @param bars - Bars for the whole range, oldest first.
      * @returns At most the budgeted count, still oldest first.
      */
-    export declare function keepNewestBars(bars: readonly PriceBar[]): PriceBar[];
+
+    // reading-words.d.ts
+    /** The languages the interface is written in. */
+    export type Locale = 'en' | 'pt-BR';
+    /**
+     * The same phrase in as many languages as its author wrote it in.
+     *
+     * English is required rather than optional: a phrase has to have something to
+     * fall back to, and a fallback picked at random from whatever was supplied is
+     * a phrase nobody chose.
+     */
+    export type Words = {
+        readonly en: string;
+    } & Partial<Record<Locale, string>>;
+    /**
+     * Sets the language readings answer in.
+     *
+     * The host's, not a reading's: a reading says what it is called, and the page
+     * says which language it is being read in.
+     *
+     * @param locale - The language the interface is now in.
+     */
+    /**
+     * One phrase in the language the page is being read in.
+     *
+     * @param words - The phrase, in every language its author wrote it in.
+     * @returns The reader's language where the author supplied it, English otherwise.
+     */
+    export declare function inWords(words: Words): string;
 
     // series-math.d.ts
     /** A stretch of bars with no unrecorded time inside it. Half-open. */
@@ -981,7 +1003,6 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
      * @param higher - The coarser bars the archive supplied, or null where it had none.
      * @returns The sessions aligned to the drawn bars, with their turnovers marked.
      */
-    export declare function alignSessions(bars: readonly PriceBar[], higher: readonly PriceBar[] | null): SettledSessions;
     /**
      * The sessions one reading declared, under the names it declared them with.
      *
@@ -990,6 +1011,5 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
      * @param declared - What this reading asked for.
      * @returns One entry per declared name, blank where the archive had no rung.
      */
-    export declare function collectSessions(bars: readonly PriceBar[], supplied: ReadonlyMap<number, PriceBarWindow>, declared: Readonly<Record<string, SessionRequest>> | undefined): Readonly<Record<string, SettledSessions>>;
 }
 `;
