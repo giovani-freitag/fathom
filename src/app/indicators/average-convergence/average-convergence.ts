@@ -9,13 +9,13 @@ import {
     readSetting,
     type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
-import { collectSource, SOURCE } from '../shared/bar-source.ts';
+import { collectSource, SOURCE } from '../../../shared/core/bar-source.ts';
 import {
     collectInstants,
     createBlankValues,
     fillExponential,
     findContinuousSegments,
-} from '../shared/series-math.ts';
+} from '../../../shared/core/series-math.ts';
 
 const FAST_BARS: NumericParameter = {
     name: 'fastBars',

@@ -414,7 +414,8 @@ export interface Indicator {
     readonly label: string;
     /** One line for the palette. A phrase, or a key naming one. */
     readonly about?: string;
-    readonly scale: PlotScale;
+    /** Where it is drawn. Absent gives it a band of its own. */
+    readonly scale?: PlotScale;
     /** Whether what it draws is told by its colour, so a copy cannot be tinted. */
     readonly isSelfColoured?: boolean;
     readonly parameters: readonly IndicatorParameter[];
@@ -540,7 +541,7 @@ export function completePlan(stamp: PlanStamp, draft: PlanDraft): DrawPlan {
         label: indicator.label,
         parameterSummary: draft.parameterSummary
             ?? summariseParameters(indicator.parameters, settings),
-        scale: draft.scale ?? indicator.scale,
+        scale: draft.scale ?? indicator.scale ?? { kind: 'auto' },
         ...(indicator.isSelfColoured === true ? { isSelfColoured: true } : {}),
         hasConverged: draft.hasConverged
             ?? stamp.warmupBarCount >= resolveWarmupBars(indicator, settings),

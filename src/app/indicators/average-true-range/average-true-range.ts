@@ -15,7 +15,7 @@ import {
     fillWilder,
     findContinuousSegments,
     resolveTrueRange,
-} from '../shared/series-math.ts';
+} from '../../../shared/core/series-math.ts';
 
 const PERIOD_BARS: NumericParameter = {
     name: 'periodBars',

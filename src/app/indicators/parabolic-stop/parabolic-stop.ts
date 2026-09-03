@@ -14,7 +14,7 @@ import {
     collectInstants,
     createBlankValues,
     findContinuousSegments,
-} from '../shared/series-math.ts';
+} from '../../../shared/core/series-math.ts';
 import type { PriceBar } from '../../../shared/core/price-bar.ts';
 
 const STEP: NumericParameter = {

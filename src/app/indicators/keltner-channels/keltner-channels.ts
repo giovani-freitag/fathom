@@ -16,8 +16,8 @@ import {
     fillExponential,
     fillWilder,
     findContinuousSegments,
-} from '../shared/series-math.ts';
-import { collectSource, SOURCE } from '../shared/bar-source.ts';
+} from '../../../shared/core/series-math.ts';
+import { collectSource, SOURCE } from '../../../shared/core/bar-source.ts';
 
 const PERIOD_BARS: NumericParameter = {
     name: 'periodBars',

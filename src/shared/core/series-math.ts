@@ -1,4 +1,4 @@
-import type { PriceBar } from '../../../shared/core/price-bar.ts';
+import type { PriceBar } from './price-bar.ts';
 
 /** A stretch of bars with no unrecorded time inside it. Half-open. */
 export interface BarSegment {

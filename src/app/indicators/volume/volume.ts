@@ -8,7 +8,7 @@ import {
     type PlotSeries,
     readChoice,
 } from '../../../shared/core/draw-plan.ts';
-import { collectInstants, createBlankValues } from '../shared/series-math.ts';
+import { collectInstants, createBlankValues } from '../../../shared/core/series-math.ts';
 import type { PriceBar } from '../../../shared/core/price-bar.ts';
 
 /**

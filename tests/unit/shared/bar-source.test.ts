@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { collectSource, readBarSource } from '../../../../../src/app/indicators/shared/bar-source.ts';
-import { buildBar, buildRun, buildWindow } from '../../../../mocks/price-bars.ts';
-import { EXPONENTIAL_AVERAGE } from '../../../../../src/app/indicators/exponential-average/exponential-average.ts';
+import { collectSource, readBarSource } from '../../../src/shared/core/bar-source.ts';
+import { buildBar, buildRun, buildWindow } from '../../mocks/price-bars.ts';
+import { EXPONENTIAL_AVERAGE } from '../../../src/app/indicators/exponential-average/exponential-average.ts';
 
 const BAR = buildBar(0, 40, { openPrice: 10, highPrice: 60, lowPrice: 20 });
 

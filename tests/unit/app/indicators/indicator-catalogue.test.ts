@@ -65,7 +65,7 @@ describe('every shipped indicator', () => {
 
     it.each(
         INDICATOR_CATALOGUE
-            .filter((entry) => entry.layer.scale.kind === 'fixed')
+            .filter((entry) => entry.layer.scale?.kind === 'fixed')
             .map((entry) => [entry.id, entry.layer] as const),
     )('%s stays inside the bounds it declared', (_id, indicator) => {
         const scale = indicator.scale as { low: number; high: number };

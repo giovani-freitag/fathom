@@ -5,7 +5,7 @@ import {
     type PlanDraft,
     type PlotScale,
 } from '../../../shared/core/draw-plan.ts';
-import { collectInstants, createBlankValues } from '../shared/series-math.ts';
+import { collectInstants, createBlankValues } from '../../../shared/core/series-math.ts';
 
 /**
  * What the aggressors did in each bar, as one figure.
