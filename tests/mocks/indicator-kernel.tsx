@@ -2,6 +2,7 @@ import { render, type RenderResult } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import type { AddedIndicator } from '../../src/shared/core/indicator-selection.ts';
 import type { AppearanceState } from '../../src/app/core/appearance-controller.ts';
+import { AddonLibraryService } from '../../src/app/services/addon-library/addon-library-service.ts';
 import { type ChartState, computePlanSet } from '../../src/app/core/chart-controller.ts';
 import { createCursorStore } from '../../src/app/core/cursor-store.ts';
 import type { DrawPlan } from '../../src/shared/core/draw-plan.ts';
@@ -21,6 +22,17 @@ const APPEARANCE: AppearanceState = {
     isLegendCollapsed: false,
     gridChoice: 'price',
 };
+
+let shelfClock = 0;
+
+/** Storage each kernel owns, so one test's readings never reach another. */
+function buildShelf(): Pick<Storage, 'getItem' | 'setItem'> {
+    let held: string | null = null;
+    return {
+        getItem: () => held,
+        setItem: (_key, value) => { held = value; },
+    };
+}
 
 /** Enough bars that every shipped indicator has something to say. */
 const BARS = buildWindow(buildRun(300, (index) => 100 + Math.sin(index / 8) * 12));
@@ -72,6 +84,9 @@ export function createIndicatorKernel(added: readonly AddedIndicator[] = []): In
                 appearance.update((state) => ({ ...state, isLegendCollapsed }));
             },
         },
+        // The real service over storage a test owns, so what a reading is filed
+        // under is decided by the code the application runs.
+        addons: new AddonLibraryService({ storage: buildShelf(), now: () => (shelfClock += 1) }),
         chart: {
             store,
             refreshInstruments: () => Promise.resolve(),

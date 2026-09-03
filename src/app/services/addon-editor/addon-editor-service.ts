@@ -66,9 +66,17 @@ export class AddonEditorService {
             theme: `fathom-${this.config.theme ?? 'dark'}`,
             automaticLayout: true,
             minimap: { enabled: false },
+            // Wrapped rather than scrolled sideways: the panel is narrow beside
+            // the chart it is about, and a line that runs off the edge is read
+            // by dragging a bar back and forth instead of by reading.
+            wordWrap: 'on',
+            wrappingIndent: 'indent',
             fontSize: 12,
             lineNumbers: 'on',
             scrollBeyondLastLine: false,
+            renderLineHighlight: 'gutter',
+            overviewRulerLanes: 0,
+            scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8 },
             padding: { top: 12, bottom: 12 },
             tabSize: 4,
         });

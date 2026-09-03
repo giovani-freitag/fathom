@@ -1,8 +1,9 @@
-import { Combine, Eye, EyeOff, Settings2, Split, X } from 'lucide-react';
+import { Code2, Combine, Eye, EyeOff, Settings2, Split, X } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { findChartLayer } from '../../indicators/indicator-catalogue.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
 import { findLayerContribution, isLayerTunable } from '../../indicators/layer-contributions.ts';
+import { isAddonId } from '../../addons/addon-registry.ts';
 import { groupPanedPlans, needsOwnBand } from '../../painting/pane-projector.ts';
 import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts';
 import type { DrawPlan } from '../../../shared/core/draw-plan.ts';
@@ -120,6 +121,18 @@ function LayerRow({ added, controls, onOpenSettings, banding }: LayerRowProps): 
             >
                 {translateLabel(translate, layer.label)}
             </span>
+
+            {/* Which of these a reader wrote themselves, on the one list where
+                theirs and ours sit in the same column. Without it, a reading
+                that draws something surprising gives no clue whose arithmetic
+                to go and look at. */}
+            {isAddonId(added.indicatorId) && (
+                <Code2
+                    size={11}
+                    aria-label={translate('indicators.yours')}
+                    className="shrink-0 text-ink-600"
+                />
+            )}
 
             <LayerButton
                 label={translate(isHidden ? 'indicators.show' : 'indicators.hide')}

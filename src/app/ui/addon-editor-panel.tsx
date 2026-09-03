@@ -1,7 +1,9 @@
 import { type ChangeEvent, type ReactElement, useRef } from 'react';
 import { CircleCheck, CircleX, Download, Loader, Plus, Save, Trash2, Upload, X } from 'lucide-react';
-import { type AddonEditorControls, useAddonEditor } from '../react/use-addon-editor.ts';
+import { type AddonEditorControls, type SourceEditor, useAddonEditor } from '../react/use-addon-editor.ts';
+import { AddonEditorService } from '../services/addon-editor/addon-editor-service.ts';
 import type { Choice } from './choice.ts';
+import { Divider } from './chart-dock.tsx';
 import { Select } from './select.tsx';
 import type { Translate } from '../i18n/translator.ts';
 import { useTranslate } from '../react/use-appearance.ts';
@@ -48,6 +50,16 @@ export default class MyMean implements Indicator {
 }
 `;
 
+/**
+ * The editor this panel runs on.
+ *
+ * Named here rather than inside the hook, so what orchestrates the editing can
+ * be exercised without a compiler and without a browser.
+ */
+function buildEditor(config: { onChange: () => void; theme: 'dark' | 'light' }): SourceEditor {
+    return new AddonEditorService(config);
+}
+
 interface AddonEditorPanelProps {
     readonly onClose: () => void;
     /** Which saved reading to open on, when the reader picked one. */
@@ -62,7 +74,7 @@ interface AddonEditorPanelProps {
  */
 export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): ReactElement {
     const translate = useTranslate();
-    const { mountInto, status, drawFailure, ...editor } = useAddonEditor(STARTER_SOURCE, openKey);
+    const { mountInto, status, drawFailure, ...editor } = useAddonEditor({ starter: STARTER_SOURCE, openOn: openKey, buildEditor });
 
     return (
         <aside className="flex w-full min-w-0 flex-col border-l border-hairline bg-abyss-850 shadow-2xl shadow-black/80 md:w-[38rem]">
@@ -116,8 +128,10 @@ function EditorToolbar({ editor, translate, onClose }: EditorToolbarProps): Reac
                 </PanelAction>
             </div>
 
+            {/* Grouped rather than spread: what changes the shelf, what moves a
+                reading in or out of the page, and the one that destroys work. */}
             <div className="flex items-center gap-1 px-3 pb-2">
-                <PanelAction label={translate('editor.save')} onPress={editor.save}>
+                <PanelAction label={translate('editor.save')} onPress={() => { void editor.save(); }}>
                     <Save className="size-4" />
                 </PanelAction>
                 <PanelAction label={translate('editor.new')} onPress={editor.startAnew}>
@@ -125,17 +139,21 @@ function EditorToolbar({ editor, translate, onClose }: EditorToolbarProps): Reac
                 </PanelAction>
 
                 {saved.length > 0 && (
-                    <div className="ml-1 min-w-0 flex-1">
-                        <Select
-                            value={editor.openKey ?? ''}
-                            choices={saved}
-                            onSelect={editor.open}
-                            label={translate('editor.openSaved')}
-                        />
-                    </div>
+                    <>
+                        <Divider />
+                        <div className="min-w-0 flex-1">
+                            <Select
+                                value={editor.openKey ?? ''}
+                                choices={saved}
+                                onSelect={editor.open}
+                                label={translate('editor.openSaved')}
+                            />
+                        </div>
+                    </>
                 )}
                 {saved.length === 0 && <span className="flex-1" />}
 
+                <Divider />
                 <PanelAction label={translate('editor.export')} onPress={editor.exportFile}>
                     <Download className="size-4" />
                 </PanelAction>
@@ -149,6 +167,7 @@ function EditorToolbar({ editor, translate, onClose }: EditorToolbarProps): Reac
                     className="hidden"
                     onChange={handleFileChosen}
                 />
+                <Divider />
                 <PanelAction label={translate('editor.delete')} onPress={editor.remove} isDangerous>
                     <Trash2 className="size-4" />
                 </PanelAction>

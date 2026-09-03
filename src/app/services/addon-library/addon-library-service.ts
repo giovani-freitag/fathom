@@ -91,7 +91,14 @@ export class AddonLibraryService {
      * @returns A key free on the shelf as it stands.
      */
     mintKey(name: string): string {
-        const stem = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'reading';
+        // Accents folded rather than dropped: a name written in a language that
+        // uses them turned into a key with holes where its letters had been.
+        const stem = name
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '') || 'reading';
         const held = this.read();
         if (!held.has(stem)) {
             return stem;

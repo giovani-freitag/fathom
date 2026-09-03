@@ -89,6 +89,12 @@ describe('naming what is saved', () => {
         expect(library.mintKey('My mean')).toBe('my-mean-3');
     });
 
+    it('folds an accent rather than dropping the letter under it', () => {
+        // A name written in a language that uses accents turned into a key with
+        // holes where its letters had been.
+        expect(library.mintKey('Minha média')).toBe('minha-media');
+    });
+
     it('falls back to a word for a name with nothing usable in it', () => {
         expect(library.mintKey('!!!')).toBe('reading');
     });
