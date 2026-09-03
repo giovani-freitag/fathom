@@ -1,4 +1,5 @@
 import { ChartController } from '../../../src/app/core/chart-controller.ts';
+import { UNSAVED_ADDON_ID } from '../../../src/app/addons/addon-registry.ts';
 import { act } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { EMPTY_BAR_WINDOW } from '../../../src/shared/core/price-bar.ts';
@@ -936,5 +937,44 @@ describe('ChartController keeping the listing current', () => {
         setVisibility('visible');
 
         expect(mocks.fetchInstruments.mock.calls.length).toBe(asked);
+    });
+});
+
+describe('what the chart remembers about the layers on it', () => {
+    it('leaves out the preview a reader is typing', async () => {
+        // Closing the tab unmounts nothing, so the preview is still on the
+        // chart when its selection is written. Remembered, the next visit
+        // opened holding a layer naming a reading that had never existed.
+        const mocks = createChartServiceMocks({ instrumentSymbol: 'BTCUSDT' });
+        const controller = buildController(mocks);
+        await controller.initialize();
+
+        act(() => {
+            controller.updateIndicators(() => [
+                { instanceId: 'draft-1', indicatorId: UNSAVED_ADDON_ID, settings: {}, tone: 'phosphor' },
+                { instanceId: 'sma-1', indicatorId: 'sma', settings: {}, tone: 'phosphor' },
+            ]);
+        });
+
+        const written = mocks.writePreferences.mock.calls.at(-1)?.[0] as
+            { addedIndicators: readonly { indicatorId: string }[] };
+        expect(written.addedIndicators.map((entry) => entry.indicatorId)).toEqual(['sma']);
+    });
+
+    it('keeps every layer the reader actually chose', async () => {
+        const mocks = createChartServiceMocks({ instrumentSymbol: 'BTCUSDT' });
+        const controller = buildController(mocks);
+        await controller.initialize();
+
+        act(() => {
+            controller.updateIndicators(() => [
+                { instanceId: 'sma-1', indicatorId: 'sma', settings: {}, tone: 'phosphor' },
+                { instanceId: 'ema-1', indicatorId: 'ema', settings: {}, tone: 'amber' },
+            ]);
+        });
+
+        const written = mocks.writePreferences.mock.calls.at(-1)?.[0] as
+            { addedIndicators: readonly { indicatorId: string }[] };
+        expect(written.addedIndicators.map((entry) => entry.indicatorId)).toEqual(['sma', 'ema']);
     });
 });

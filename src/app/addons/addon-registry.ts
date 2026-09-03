@@ -8,6 +8,14 @@ import type { Indicator, Registered } from '../../shared/core/draw-plan.ts';
  */
 export const ADDON_ID_PREFIX = 'addon:';
 
+/**
+ * The id a reading is drawn under before it has ever been saved.
+ *
+ * Reserved rather than incidental: the chart has to be able to tell a preview
+ * from a layer a reader chose, and only one of the two is worth remembering.
+ */
+export const UNSAVED_ADDON_ID = `${ADDON_ID_PREFIX}draft`;
+
 const REGISTERED = new Map<string, Indicator>();
 
 /**

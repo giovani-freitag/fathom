@@ -1,3 +1,4 @@
+import { UNSAVED_ADDON_ID } from '../addons/addon-registry.ts';
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
 import type { DrawPlan, Indicator } from '../../shared/core/draw-plan.ts';
 import type { LiveMessage } from '../../shared/core/live-message.ts';
@@ -768,7 +769,13 @@ export class ChartController {
         this.config.preferences.write({
             instrumentSymbol: state.instrumentSymbol ?? 'BTCUSDT',
             visibleSpanMs: state.viewport.toMs - state.viewport.fromMs,
-            addedIndicators: state.addedIndicators,
+            // The preview a reader is typing is not a layer they chose. Written
+            // out, closing the tab with the editor open left a selection naming
+            // a reading that never existed, and nothing on the next chart could
+            // say what it had been.
+            addedIndicators: state.addedIndicators.filter(
+                (entry) => entry.indicatorId !== UNSAVED_ADDON_ID,
+            ),
             barIntervalMs: state.barIntervalMs,
         });
     }

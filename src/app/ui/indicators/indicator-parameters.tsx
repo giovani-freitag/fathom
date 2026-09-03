@@ -88,7 +88,10 @@ interface ParameterControlProps {
  */
 function ParameterControl({ parameter, added, onRetune }: ParameterControlProps): ReactElement {
     const translate = useTranslate();
-    const label = translateLabel(translate, `parameter.${parameter.name}`);
+    // What the knob declared, falling back to a key built from its name. Read
+    // the other way round, a reading that named its own control was labelled
+    // with whatever the build happened to call a knob of that name.
+    const label = translateLabel(translate, parameter.label ?? `parameter.${parameter.name}`);
 
     if (parameter.kind === 'choice') {
         return (

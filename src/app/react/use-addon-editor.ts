@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { type AddonBuild, buildAddon } from '../addons/addon-runtime.ts';
 import type { SourceFault } from '../services/addon-editor/addon-editor-service.ts';
 import type { SavedReading } from '../services/addon-library/addon-library-service.ts';
-import { forgetAddon, registerAddon } from '../addons/addon-registry.ts';
+import { ADDON_ID_PREFIX, forgetAddon, registerAddon, UNSAVED_ADDON_ID } from '../addons/addon-registry.ts';
 import { readLayerDefaults } from '../indicators/indicator-catalogue.ts';
 import { useAppearance, useTranslate } from './use-appearance.ts';
 import { useChartSlice } from './use-chart-state.ts';
@@ -430,9 +430,9 @@ interface EditorKernel {
     };
 }
 
-/** The id a saved reading is registered under while it is on the chart. */
+/** The id a reading is registered under while it is on the chart. */
 function liveId(key: string | null): string {
-    return `addon:${key ?? 'draft'}`;
+    return key === null ? UNSAVED_ADDON_ID : `${ADDON_ID_PREFIX}${key}`;
 }
 
 /**
