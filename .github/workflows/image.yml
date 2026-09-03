@@ -47,9 +47,25 @@ jobs:
       # 15.8s of that every time — six seconds of net saving, and none at all
       # on the builds that change a lockfile. What it did cost was a third
       # package in the registry that reads like an image and is not one.
+      # The part: the two processes and nothing else, for a compose file that
+      # brings its own database. Tagged `slim` so the plain tag is free for the
+      # one below.
       - uses: docker/build-push-action@v6
         with:
           context: .
+          target: runtime
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:slim
+            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }}-slim
+
+      # The whole thing in one container, and the tag somebody types without
+      # reading. `docker run` on it is a chart, which is the only way a reader
+      # who has not decided to like this yet will ever see one.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: standalone
           push: true
           tags: |
             ghcr.io/${{ github.repository }}:latest

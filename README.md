@@ -58,17 +58,44 @@ be running before you need the data.
 ## 🚀 Run it
 
 ```bash
-docker compose -f oci://ghcr.io/giovani-freitag/fathom/compose:latest up -d
+docker run -p 8787:8787 ghcr.io/giovani-freitag/fathom
 ```
-
-Compose reads the file straight out of the registry, so there is nothing to
-clone and nothing to download by hand.
 
 Open **http://localhost:8787**. The first columns appear within seconds.
 
-Four containers: TimescaleDB, a migration step that runs once and stops, the
-collector that mirrors the book, and the gateway that draws it. Nothing to
-configure and nothing to clone — the migrations travel in the image.
+One container: the database, the collector that mirrors the book, and the
+gateway that draws it. Nothing to configure, nothing to clone, no file to write
+first.
+
+The recording lives inside the container, so it goes when the container does.
+That is the right default for looking at this and the wrong one for keeping
+what it saw — an order book cannot be recorded again after the fact, so give it
+somewhere to write the moment you care:
+
+```bash
+docker run -p 8787:8787 -v fathom:/var/lib/postgresql/data ghcr.io/giovani-freitag/fathom
+```
+
+It takes the same settings as everything below, one `-e` at a time:
+
+```bash
+docker run -p 8787:8787 -e INSTRUMENT_SYMBOL=ETHUSDT -e PRICE_BUCKET_SIZE=0.5 \
+  ghcr.io/giovani-freitag/fathom
+```
+
+### Or as four containers
+
+The database in its own container is what anything that has to be backed up,
+upgraded or watched wants. Compose reads the file straight out of the registry,
+so there is still nothing to clone:
+
+```bash
+docker compose -f oci://ghcr.io/giovani-freitag/fathom/compose:latest up -d
+```
+
+TimescaleDB, a migration step that runs once and stops, the collector, and the
+gateway. It uses the `slim` tag — the same two processes, without the database
+the single container carries.
 
 **The chart only ever covers time the collector was running.** An order book
 cannot be fetched after the fact, so there is no history to load and nothing to

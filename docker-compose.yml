@@ -37,8 +37,10 @@ services:
   # needs nothing on the host beside this file, and each of them is safe to
   # re-run — so it is also what brings an existing database up to date.
   migrate:
-    image: ${FATHOM_IMAGE:-ghcr.io/giovani-freitag/fathom:latest}
-    build: .
+    image: ${FATHOM_IMAGE:-ghcr.io/giovani-freitag/fathom:slim}
+    build:
+      context: .
+      target: runtime
     container_name: fathom-migrate
     restart: "no"
     command: ["node", "scripts/migrate.mjs"]
@@ -51,8 +53,10 @@ services:
   # `docker compose up -d` brings up all four. Somebody working on the source
   # wants only the database, and names it: `docker compose up -d timescaledb`.
   collector:
-    image: ${FATHOM_IMAGE:-ghcr.io/giovani-freitag/fathom:latest}
-    build: .
+    image: ${FATHOM_IMAGE:-ghcr.io/giovani-freitag/fathom:slim}
+    build:
+      context: .
+      target: runtime
     container_name: fathom-collector
     restart: unless-stopped
     command: ["node", "dist/workers/collector.js"]
@@ -71,8 +75,10 @@ services:
       DEEP_REPAIR_INTERVAL_MS: ${DEEP_REPAIR_INTERVAL_MS:-300000}
 
   gateway:
-    image: ${FATHOM_IMAGE:-ghcr.io/giovani-freitag/fathom:latest}
-    build: .
+    image: ${FATHOM_IMAGE:-ghcr.io/giovani-freitag/fathom:slim}
+    build:
+      context: .
+      target: runtime
     container_name: fathom-gateway
     restart: unless-stopped
     depends_on:

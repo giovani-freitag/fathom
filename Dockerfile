@@ -44,3 +44,46 @@ USER node
 # The gateway, because it is the half that answers a browser. The collector is
 # the same image told to run the other file, which is what compose does.
 CMD ["node", "dist/server/main.js"]
+
+# One container that is the whole of Fathom: the database, the recording and
+# the chart.
+#
+# The image above is a part — it needs a database beside it, which is what the
+# compose file arranges. That is the right shape for anything that has to be
+# backed up, upgraded and watched. It is the wrong shape for somebody who wants
+# to see what this is: they should type one command and get a chart, the way
+# `docker run` on a mail catcher gets a mailbox.
+#
+# Both go on shipping. This one is `latest`, because it is the tag somebody
+# types without reading; the part is tagged `slim`, and the compose file names
+# that one.
+FROM timescale/timescaledb:latest-pg17 AS standalone
+
+# The runtime the two processes need. The base is Alpine, and its own package
+# is newer than the floor this project sets.
+RUN apk add --no-cache nodejs
+
+WORKDIR /app
+COPY --from=runtime /app/node_modules ./node_modules
+COPY --from=runtime /app/package.json ./package.json
+COPY --from=runtime /app/dist ./dist
+COPY --from=runtime /app/database/migrations ./database/migrations
+COPY --from=runtime /app/scripts/migrate.mjs ./scripts/migrate.mjs
+COPY docker-standalone-entrypoint.sh /usr/local/bin/fathom-standalone
+
+# The collector writes its log beside itself.
+RUN mkdir -p /app/logs && chown postgres:postgres /app/logs
+
+# The chart. The database is deliberately not published: inside one container
+# nothing else needs to reach it, and a Postgres on a laptop's network is not
+# something this image should decide to open.
+EXPOSE 8787
+
+# The recording is the one thing here that cannot be made again, so the volume
+# is declared rather than left to be remembered. Without `-v` it still runs,
+# and what it recorded goes when the container does — which is the right
+# default for looking, and the wrong one for keeping.
+VOLUME ["/var/lib/postgresql/data"]
+
+ENV PORT=8787
+ENTRYPOINT ["/usr/local/bin/fathom-standalone"]
