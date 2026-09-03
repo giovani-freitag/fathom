@@ -1,4 +1,4 @@
-import { FLOATING_SURFACE_CLASSES } from './control-shell.ts';
+import { FLOATING_SURFACE_CLASSES, PANEL_TITLE_CLASSES } from './control-shell.ts';
 import { CONTROL_BUTTON_CLASSES, CONTROL_RESTING_CLASSES } from './control-shell.ts';
 import { PanelSection } from './panel-section.tsx';
 import { Menu, X } from 'lucide-react';
@@ -63,7 +63,7 @@ function SettingsDrawerShell({
                 */}
                 <Dialog.Content className="fixed inset-y-0 right-0 z-50 flex w-[26rem] max-w-[calc(100%-2.5rem)] flex-col border-l border-hairline bg-abyss-850 shadow-2xl shadow-black/80 duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right">
                     <div className="flex shrink-0 items-center justify-between border-b border-hairline px-4 py-3">
-                        <Dialog.Title className="text-sm font-semibold tracking-wide text-ink-100">
+                        <Dialog.Title className={PANEL_TITLE_CLASSES}>
                             {translate('settings.title')}
                         </Dialog.Title>
                         <Dialog.Close asChild>

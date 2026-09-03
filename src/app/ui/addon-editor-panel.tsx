@@ -1,4 +1,12 @@
-import { type ChangeEvent, type ReactElement, type RefObject, useCallback, useEffect, useRef } from 'react';
+import {
+    type ChangeEvent,
+    type ReactElement,
+    type RefObject,
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+} from 'react';
 import {
     CircleCheck,
     CircleQuestionMark,
@@ -12,10 +20,11 @@ import {
     Upload,
     X,
 } from 'lucide-react';
-import { CONTROL_BUTTON_CLASSES, CONTROL_RESTING_CLASSES } from './control-shell.ts';
+import { CONTROL_BUTTON_CLASSES, CONTROL_RESTING_CLASSES, PANEL_TITLE_CLASSES } from './control-shell.ts';
 import { type AddonEditorControls, useAddonEditor } from '../react/use-addon-editor.ts';
 import { AddonEditorService } from '../services/addon-editor/addon-editor-service.ts';
 import type { Choice } from './choice.ts';
+import { ConfirmDialog } from './confirm-dialog.tsx';
 import { Divider } from './chart-dock.tsx';
 import { Select } from './select.tsx';
 import { ADDON_EDITOR_ID } from './panel-ids.ts';
@@ -181,6 +190,7 @@ interface EditorToolbarProps {
 
 function EditorToolbar({ editor, translate, onClose, closeRef }: EditorToolbarProps): ReactElement {
     const fileRef = useRef<HTMLInputElement>(null);
+    const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const { importFile } = editor;
 
     const handleFileChosen = useCallback((event: ChangeEvent<HTMLInputElement>): void => {
@@ -210,7 +220,7 @@ function EditorToolbar({ editor, translate, onClose, closeRef }: EditorToolbarPr
                     aria-label={translate('editor.name')}
                     value={editor.name}
                     onChange={(event) => { editor.rename(event.target.value); }}
-                    className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-semibold tracking-wide text-ink-100 outline-none transition-colors hover:border-hairline focus-visible:ring-2 focus-visible:ring-phosphor/50"
+                    className={`min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 outline-none transition-colors hover:border-hairline focus-visible:ring-2 focus-visible:ring-phosphor/50 ${PANEL_TITLE_CLASSES}`}
                 />
                 {editor.isUnsaved && (
                     <span className="shrink-0 text-[11px] text-ink-500">
@@ -273,9 +283,21 @@ function EditorToolbar({ editor, translate, onClose, closeRef }: EditorToolbarPr
                 </a>
 
                 <Divider />
-                <PanelAction label={translate('editor.delete')} onPress={editor.remove} isDangerous>
+                <PanelAction
+                    label={translate('editor.delete')}
+                    onPress={() => { setIsConfirmingDelete(true); }}
+                    isDangerous
+                >
                     <Trash2 className="size-4" />
                 </PanelAction>
+                <ConfirmDialog
+                    isOpen={isConfirmingDelete}
+                    onOpenChange={setIsConfirmingDelete}
+                    title={translate('editor.deleteTitle')}
+                    body={translate('editor.deleteBody', { name: editor.name })}
+                    confirmLabel={translate('editor.deleteConfirm')}
+                    onConfirm={editor.remove}
+                />
             </div>
         </header>
     );

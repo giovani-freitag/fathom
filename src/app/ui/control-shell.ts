@@ -93,3 +93,11 @@ export const PANEL_ADD_CLASSES =
     'flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-hairline'
     + ' px-3 py-2 text-xs font-semibold text-ink-400 transition-colors'
     + ' hover:border-hairline-bright hover:text-ink-100 disabled:opacity-40';
+
+/**
+ * What a panel calls itself, wherever one opens.
+ *
+ * Written once because it is the first thing read in every panel, and three
+ * spellings of it is three panels that look like they came from three places.
+ */
+export const PANEL_TITLE_CLASSES = 'text-sm font-semibold tracking-wide text-ink-100';
