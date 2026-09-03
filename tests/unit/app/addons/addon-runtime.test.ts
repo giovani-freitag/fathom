@@ -23,6 +23,17 @@ class Mine {
 exports.default = Mine;
 `;
 
+/**
+ * The message a build failed with.
+ *
+ * Read out rather than matched against the whole object: `toMatchObject` does
+ * not test a regular expression against a string, so every assertion written
+ * that way passes whatever the message actually says.
+ */
+function failureOf(built: ReturnType<typeof buildAddon>): string {
+    return built.kind === 'failed' ? built.message : 'it succeeded instead';
+}
+
 describe('taking a reading out of compiled source', () => {
     it('constructs the class it exported', () => {
         const built = buildAddon(COMPILED);
@@ -59,25 +70,25 @@ describe('what an addon is told when it is wrong', () => {
     it('says so when nothing was exported', () => {
         const built = buildAddon('const unused = 1;');
 
-        expect(built).toMatchObject({ kind: 'failed', message: /Nothing was exported/ });
+        expect(failureOf(built)).toMatch(/Nothing was exported/);
     });
 
     it('names the fields the export is missing', () => {
         const built = buildAddon("exports.default = { label: 'A' };");
 
-        expect(built).toMatchObject({ kind: 'failed', message: /missing: parameters, compute/ });
+        expect(failureOf(built)).toMatch(/missing: parameters, compute/);
     });
 
     it('says so when compute is not a method', () => {
         const built = buildAddon("exports.default = { label: 'A', parameters: [], compute: 3 };");
 
-        expect(built).toMatchObject({ kind: 'failed', message: /has to be a method/ });
+        expect(failureOf(built)).toMatch(/has to be a method/);
     });
 
     it('carries a failure thrown while the script was loading', () => {
         const built = buildAddon("throw new Error('I broke on purpose');");
 
-        expect(built).toMatchObject({ kind: 'failed', message: 'I broke on purpose' });
+        expect(failureOf(built)).toBe('I broke on purpose');
     });
 
     it('carries a failure thrown by the constructor', () => {
@@ -85,7 +96,7 @@ describe('what an addon is told when it is wrong', () => {
             'exports.default = class { constructor() { throw new Error("no"); } };',
         );
 
-        expect(built).toMatchObject({ kind: 'failed', message: /Could not construct/ });
+        expect(failureOf(built)).toMatch(/Could not construct/);
     });
 
     it('refuses to import anything but the surface', () => {
@@ -93,13 +104,13 @@ describe('what an addon is told when it is wrong', () => {
         // services, the archive, the socket — is on the other side of this.
         const built = buildAddon("require('node:fs');");
 
-        expect(built).toMatchObject({ kind: 'failed', message: /can import only 'fathom'/ });
+        expect(failureOf(built)).toMatch(/can import only 'fathom'/);
     });
 
     it('points at the line of the addon rather than of the wrapper', () => {
         const built = buildAddon('\n\nthrow new Error("here");');
 
-        expect(built).toMatchObject({ kind: 'failed', line: 3 });
+        expect(built.kind === 'failed' ? built.line : null).toBe(3);
     });
 });
 
@@ -110,6 +121,6 @@ describe('what a reading built this way cannot reach', () => {
         // it has to be deliberate rather than accidental.
         const built = buildAddon("exports.default = { label: typeof require('fathom').fetch };");
 
-        expect(built).toMatchObject({ kind: 'failed', message: /missing: parameters, compute/ });
+        expect(failureOf(built)).toMatch(/missing: parameters, compute/);
     });
 });

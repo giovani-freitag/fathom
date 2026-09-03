@@ -150,6 +150,11 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'source.ohlc4': 'Média da barra',
 
     'indicators.open': 'Indicadores',
+    'editor.open': 'Escrever uma leitura',
+    'editor.title': 'Escrever uma leitura',
+    'editor.close': 'Fechar o editor',
+    'editor.starting': 'Iniciando…',
+    'editor.drawing': 'Desenhando “{name}” no gráfico.',
     'indicators.onTheChart': 'No gráfico',
     'indicators.add': 'Adicionar camada',
     'indicators.close': 'Fechar',

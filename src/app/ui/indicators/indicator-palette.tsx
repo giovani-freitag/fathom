@@ -2,7 +2,7 @@ import { CONTROL_INPUT_CLASSES } from '../control-shell.ts';
 import { type ReactElement, useMemo, useState } from 'react';
 import type { FieldLayer, Indicator, Registered } from '../../../shared/core/draw-plan.ts';
 
-import { CHART_LAYERS } from '../../indicators/indicator-catalogue.ts';
+import { listOfferedLayers } from '../../indicators/indicator-catalogue.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
 import { needsOwnBand } from '../../painting/pane-projector.ts';
 import { Search } from 'lucide-react';
@@ -166,11 +166,12 @@ function addFirstMatch(
  */
 function findMatches(query: string, translate: Translate): readonly Offered[] {
     const wanted = query.trim().toLowerCase();
+    const offered = listOfferedLayers();
     if (wanted === '') {
-        return CHART_LAYERS;
+        return offered;
     }
 
-    return CHART_LAYERS.filter(({ id, layer }) => {
+    return offered.filter(({ id, layer }) => {
         const name = translateLabel(translate, layer.label).toLowerCase();
         const about = translateLabel(translate, layer.about ?? '').toLowerCase();
         // The id as well as the rendered name, so a reader who knows the term in

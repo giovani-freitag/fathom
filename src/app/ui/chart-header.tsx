@@ -1,9 +1,10 @@
 import { BarIntervalControl, SpanControl } from './time-controls.tsx';
 import { type ChartDockProps, Divider, DrawingTools } from './chart-dock.tsx';
-import { Layers } from 'lucide-react';
+import { Code2, Layers } from 'lucide-react';
 import type { ReactElement, ReactNode } from 'react';
 import { CONTROL_BAR_CLASSES } from './control-shell.ts';
 import { DockPopover } from './dock-popover.tsx';
+import { ControlButton } from './control-button.tsx';
 import { LayerPanel } from './indicators/layer-panel.tsx';
 import { Select } from './select.tsx';
 import { useTranslate } from '../react/use-appearance.ts';
@@ -21,6 +22,9 @@ export interface ChartHeaderProps extends ChartDockProps {
      * about itself is one that cannot be drawn twice at two widths.
      */
     readonly hasRoomForPresets: boolean;
+    /** Opens the editor beside the chart. */
+    readonly onWriteAReading: () => void;
+    readonly isWritingAReading: boolean;
 }
 
 /**
@@ -79,6 +83,15 @@ export function ChartHeader(props: ChartHeaderProps): ReactElement {
             >
                 <LayerPanel controls={props.indicators} />
             </DockPopover>
+
+            <ControlButton
+                aria-label={translate('editor.open')}
+                title={translate('editor.open')}
+                onClick={props.onWriteAReading}
+                isActive={props.isWritingAReading}
+            >
+                <Code2 size={ICON_SIZE_PX} />
+            </ControlButton>
 
             {props.settings}
         </header>

@@ -8,6 +8,7 @@ import type {
 } from '../../shared/core/draw-plan.ts';
 import { resolveWarmupBars } from '../../shared/core/draw-plan.ts';
 import { type AddedIndicator, chooseInstanceTone } from '../../shared/core/indicator-selection.ts';
+import { findAddon, listAddons } from '../addons/addon-registry.ts';
 import { AVERAGE_CONVERGENCE } from './average-convergence/average-convergence.ts';
 import { FIELD_LAYERS, findFieldLayer } from './field-layers.ts';
 import { AVERAGE_TRUE_RANGE } from './average-true-range/average-true-range.ts';
@@ -70,13 +71,25 @@ export const CHART_LAYERS: readonly Registered<Indicator | FieldLayer>[] = [
 ];
 
 /**
+ * Everything on offer right now, ours and whatever the reader has loaded.
+ *
+ * A function rather than a list because what a reader has written changes while
+ * the page is open, and the palette has to see it appear.
+ *
+ * @returns The shipped layers, then the reader's own.
+ */
+export function listOfferedLayers(): readonly Registered<Indicator | FieldLayer>[] {
+    return [...CHART_LAYERS, ...listAddons()];
+}
+
+/**
  * Looks up anything the reader may have added, by id.
  *
  * @param layerId - The id to find.
  * @returns The indicator or layer, or null when the build no longer ships it.
  */
 export function findChartLayer(layerId: string): Indicator | FieldLayer | null {
-    return CHART_LAYERS.find((entry) => entry.id === layerId)?.layer ?? null;
+    return CHART_LAYERS.find((entry) => entry.id === layerId)?.layer ?? findAddon(layerId);
 }
 
 /**
@@ -97,10 +110,11 @@ export function readLayerDefaults(layer: Indicator | FieldLayer): IndicatorSetti
  * Looks an indicator up by the id a stored selection refers to.
  *
  * @param indicatorId - The id to find.
- * @returns The indicator, or null when the build no longer ships it.
+ * @returns The reading, ours or the reader's own, or null where neither has it.
  */
 export function findIndicator(indicatorId: string): Indicator | null {
-    return INDICATOR_CATALOGUE.find((entry) => entry.id === indicatorId)?.layer ?? null;
+    return INDICATOR_CATALOGUE.find((entry) => entry.id === indicatorId)?.layer
+        ?? findAddon(indicatorId);
 }
 
 /**

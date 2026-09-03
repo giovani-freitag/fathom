@@ -148,6 +148,11 @@ export const EN_DICTIONARY = {
     'source.ohlc4': 'Bar average',
 
     'indicators.open': 'Indicators',
+    'editor.open': 'Write a reading',
+    'editor.title': 'Write a reading',
+    'editor.close': 'Close the editor',
+    'editor.starting': 'Starting…',
+    'editor.drawing': 'Drawing “{name}” on the chart.',
     'indicators.onTheChart': 'On the chart',
     'indicators.add': 'Add a layer',
     'indicators.close': 'Close',

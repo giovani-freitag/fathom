@@ -1,5 +1,5 @@
 import { RefreshCw, TriangleAlert } from 'lucide-react';
-import { type ReactElement, useCallback, useEffect, useRef, useState } from 'react';
+import { type ReactElement, lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useKernel } from '../react/kernel-context.ts';
 import { useChartSlice } from '../react/use-chart-state.ts';
 import { useTranslate } from '../react/use-appearance.ts';
@@ -17,6 +17,7 @@ import { useIsViewportAtLeast } from '../react/use-viewport-width.ts';
 import { formatDuration } from '../core/formatting.ts';
 import { listDrawnOverlays } from '../indicators/layer-contributions.ts';
 import { SettingsDrawer } from './settings-drawer.tsx';
+
 import type { BarIntervalMs } from '../core/bar-interval.ts';
 import { IndicatorOverlay } from './indicators/indicator-controls.tsx';
 import { useIndicators } from '../react/use-indicators.ts';
@@ -46,6 +47,17 @@ const readSampleIntervalMs = (state: ChartState): number => state.dataset.sample
 /**
  * The whole product: one chart, and just enough chrome to explain it.
  */
+/**
+ * Fetched only once a reader opens it.
+ *
+ * The editor carries a compiler, which is several times the weight of the chart
+ * itself and of no use to anybody who never writes a reading.
+ */
+const AddonEditorPanel = lazy(async () => {
+    const loaded = await import('./addon-editor-panel.tsx');
+    return { default: loaded.AddonEditorPanel };
+});
+
 export function HeatmapPage(): ReactElement {
     const kernel = useKernel();
     // Sliced rather than read whole: a drag rewrites the viewport many times a
@@ -128,6 +140,7 @@ export function HeatmapPage(): ReactElement {
             ...columnSummary === null ? {} : { columnSummary },
         },
     };
+    const [isEditorOpen, setIsEditorOpen] = useState(false);
     const settings = (
         <SettingsDrawer
             isFloating={!isWide}
@@ -144,79 +157,89 @@ export function HeatmapPage(): ReactElement {
                     drawings={drawings}
                     settings={settings}
                     hasRoomForPresets={hasRoomForPresets}
+                    isWritingAReading={isEditorOpen}
+                    onWriteAReading={() => { setIsEditorOpen((open) => !open); }}
                 />
             )}
-            <main ref={surfaceRef} className="relative min-h-0 flex-1">
-                <ChartSurface />
+            <div className="flex min-h-0 flex-1">
+                <main ref={surfaceRef} className="relative min-h-0 flex-1">
+                    <ChartSurface />
 
-                {/* The one thing the chart has to say for itself, and only when
+                    {/* The one thing the chart has to say for itself, and only when
                     it has one. Everything the strip up here used to report is
                     either drawn on the chart or answered by a control. */}
-                <ChartAlert />
+                    <ChartAlert />
 
-                {/* The way into everything a reader can change, and whatever
+                    {/* The way into everything a reader can change, and whatever
                     the layers on the chart put over it. The page mounts those
                     without knowing which layer any of them is. */}
-                <div className="pointer-events-none absolute left-3 top-3 flex items-start gap-2">
-                    {!isWide && settings}
+                    <div className="pointer-events-none absolute left-3 top-3 flex items-start gap-2">
+                        {!isWide && settings}
 
-                    {listDrawnOverlays(addedIndicators).map(({ instanceId, Overlay }) => (
-                        <Overlay key={instanceId} />
-                    ))}
-                </div>
+                        {listDrawnOverlays(addedIndicators).map(({ instanceId, Overlay }) => (
+                            <Overlay key={instanceId} />
+                        ))}
+                    </div>
 
 
-                <IndicatorOverlay controls={indicators} />
+                    <IndicatorOverlay controls={indicators} />
 
-                {/* What opens over the chart, clear of the time axis: its
+                    {/* What opens over the chart, clear of the time axis: its
                     labels are read while a mark is being placed and would
                     otherwise sit under whatever opened. */}
-                <div
-                    className="pointer-events-none absolute inset-x-0 flex flex-col items-center gap-2 px-2"
-                    style={{ bottom: TIME_AXIS_CLEARANCE_PX }}
-                >
-                    {/* Right-aligned above whatever else is here, which on a
+                    <div
+                        className="pointer-events-none absolute inset-x-0 flex flex-col items-center gap-2 px-2"
+                        style={{ bottom: TIME_AXIS_CLEARANCE_PX }}
+                    >
+                        {/* Right-aligned above whatever else is here, which on a
                         phone is as wide as the screen: beside it collides. */}
-                    {!isFollowingLive && (
-                        <div className="flex w-full justify-end">
-                            <ReturnToLive onReturn={handleReturnToLive} />
+                        {!isFollowingLive && (
+                            <div className="flex w-full justify-end">
+                                <ReturnToLive onReturn={handleReturnToLive} />
+                            </div>
+                        )}
+
+                        {/* Along the bottom rather than down the edge, where on a
+                        phone a panel would be most of the chart. */}
+                        {!isWide && <ChartProperties drawings={drawings} indicators={indicators} />}
+                    </div>
+
+                    {/* Opened by the selection itself, on the side a reader's eye is
+                    already on once they have pressed a mark. */}
+                    {isWide && (
+                        <div
+                            className="pointer-events-none absolute left-3 flex"
+                            style={{ top: WIDE_PROPERTIES_TOP_PX }}
+                        >
+                            <ChartProperties drawings={drawings} indicators={indicators} />
                         </div>
                     )}
 
-                    {/* Along the bottom rather than down the edge, where on a
-                        phone a panel would be most of the chart. */}
-                    {!isWide && <ChartProperties drawings={drawings} indicators={indicators} />}
-                </div>
 
-                {/* Opened by the selection itself, on the side a reader's eye is
-                    already on once they have pressed a mark. */}
-                {isWide && (
-                    <div
-                        className="pointer-events-none absolute left-3 flex"
-                        style={{ top: WIDE_PROPERTIES_TOP_PX }}
-                    >
-                        <ChartProperties drawings={drawings} indicators={indicators} />
-                    </div>
-                )}
+                    {phase === 'initialising' && <SurfaceNotice message={translate('page.probing')} translate={translate} />}
+                    {phase === 'empty' && (
+                        <SurfaceNotice
+                            message={translate('page.empty')}
+                            tone="warning"
+                            translate={translate}
+                        />
+                    )}
+                    {phase === 'failed' && (
+                        <SurfaceNotice
+                            message={translate(failureKey ?? 'failure.silent')}
+                            tone="warning"
+                            translate={translate}
+                            onRetry={() => { void kernel.chart.initialize(); }}
+                        />
+                    )}
+                </main>
 
-
-                {phase === 'initialising' && <SurfaceNotice message={translate('page.probing')} translate={translate} />}
-                {phase === 'empty' && (
-                    <SurfaceNotice
-                        message={translate('page.empty')}
-                        tone="warning"
-                        translate={translate}
-                    />
+                {isEditorOpen && isWide && (
+                    <Suspense fallback={<aside className="w-[38rem] border-l border-abyss-700 bg-abyss-800" />}>
+                        <AddonEditorPanel onClose={() => { setIsEditorOpen(false); }} />
+                    </Suspense>
                 )}
-                {phase === 'failed' && (
-                    <SurfaceNotice
-                        message={translate(failureKey ?? 'failure.silent')}
-                        tone="warning"
-                        translate={translate}
-                        onRetry={() => { void kernel.chart.initialize(); }}
-                    />
-                )}
-            </main>
+            </div>
 
             {/* Below the chart rather than over it. It floated once, to spend no
                 height on chrome — but what it floated over was the volume the

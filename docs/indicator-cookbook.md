@@ -1,17 +1,19 @@
 # Writing an indicator
 
-Worked examples, in two columns: **today**, which is the shape the twenty-odd
-shipped readings are written in and which runs right now, and **proposed**,
-which is the surface a reader's own script would be written against.
+Worked examples, in two columns: **today**, which is the shape the nineteen
+shipped readings are written in, and **in the page**, which is what a reader's
+own script is written against.
 
-The proposed column is not built. It is here to be approved, changed or thrown
-out before anything is written, which is the point of the document. See
+Both run. The second column is the barrel at `src/shared/core/addon-api.ts`,
+which the in-page editor compiles against and the palette offers alongside
+what the build ships. What is *not* built is marked as such where it appears. See
 [ADR 23](adr/0023-a-reader-writes-an-indicator-in-the-page.md) for why the
 platform is shaped the way it is, and [ADR 22](adr/0022-an-indicator-declares-the-rungs-it-reads.md)
 for the rung declaration the second recipe depends on.
 
-Both columns produce the same picture. Every "today" snippet below is a
-condensed version of code in `src/app/indicators/` that is under test.
+Both columns produce the same picture — literally, and there is a test that
+says so: `tests/unit/shared/plot-builder.test.ts` builds the first recipe both
+ways and asserts the two drafts are the same object.
 
 ---
 
@@ -56,27 +58,34 @@ export class VolumeDelta implements Indicator {
 }
 ```
 
-### 1 — proposed
+### 1 — in the page
 
 ```ts
-import { Indicator, Plot } from 'fathom';
+import { Plot } from 'fathom';
+import type { Indicator, IndicatorInput, PlanDraft } from 'fathom';
 
-export default class Delta extends Indicator {
-    name = 'Delta';
-    about = 'Net size that crossed the spread in each bar';
+export default class Delta implements Indicator {
+    readonly label = 'Delta';
+    readonly about = 'Net size that crossed the spread in each bar';
+    readonly parameters = [];
 
-    draw(bars) {
-        return Plot.histogram(bars.map((bar) => bar.bought - bar.sold))
-            .named('Delta')
+    compute(input: IndicatorInput): PlanDraft {
+        const bars = input.bars.bars;
+
+        return Plot.over(input.bars)
+            .histogram(bars.map((bar) => bar.buyVolume - bar.sellVolume), 'Delta')
             .risingAndFalling()
-            .inItsOwnBand({ centredOnZero: true });
+            .at(0)
+            .aboutZero();
     }
 }
 ```
 
-`risingAndFalling()` is the bid-above / ask-below pair, the zero baseline, the
-marked midline and the refusal to be tinted — four decisions that always travel
-together and have no reason to be spelled out four times.
+`risingAndFalling()` is the bid-above / ask-below pair and the zero baseline in
+one call — decisions that always travel together and have no reason to be
+spelled out twice. `Plot.over` binds the instants once, so no series can be
+misaligned with the bars; one that does not line up throws by name rather than
+being dropped in silence.
 
 ---
 
@@ -111,36 +120,50 @@ The host runs `holdLastClosed` before `compute` is entered, so `perBar` is
 already one entry per drawn bar holding the newest session that had *closed*.
 There is no raw coarse window to reach into and no index that reaches forward.
 
-### 2 — proposed
+### 2 — in the page
 
 ```ts
-import { Indicator, Plot, Session } from 'fathom';
+import { Plot, readSessions } from 'fathom';
+import type { Indicator, IndicatorInput, PlanDraft, SourceRequest } from 'fathom';
 
-export default class Pivots extends Indicator {
-    name = 'My pivots';
+const DAY_MS = 86_400_000;
+
+export default class Pivots implements Indicator {
+    readonly label = 'My pivots';
+    readonly parameters = [];
 
     // Fetched by the host and handed back settled, never still forming.
-    reads = [Session.daily.reachingBack(2)];
+    resolveSources(): SourceRequest {
+        return { sessions: { daily: { intervalMs: DAY_MS, reachingBack: 2 } } };
+    }
 
-    draw(bars, sessions) {
-        const yesterday = sessions.daily.settledFor(bars);
+    compute(input: IndicatorInput): PlanDraft {
+        const daily = readSessions(input, 'daily');
+        const centre = daily.perBar.map((one) => (
+            one === undefined ? Number.NaN : (one.highPrice + one.lowPrice + one.closePrice) / 3
+        ));
 
-        return Plot.lines({
-            Pivot: yesterday.map((one) => one.centre),
-            R1: yesterday.map((one) => 2 * one.centre - one.low),
-            S1: yesterday.map((one) => 2 * one.centre - one.high),
-        })
-            .brokenBetweenSessions()
+        return Plot.over(input.bars)
+            .lines({
+                Pivot: centre,
+                R1: centre.map((value, index) => 2 * value - (daily.perBar[index]?.lowPrice ?? Number.NaN)),
+                S1: centre.map((value, index) => 2 * value - (daily.perBar[index]?.highPrice ?? Number.NaN)),
+            })
+            .namingEachLine()
             .overThePrice();
     }
 }
 ```
 
-`settledFor` is what `perBar` already is: one entry per drawn bar, holding the
-newest session that had *closed* by then. The proposal only renames it.
-Getting this wrong is the one mistake that makes an indicator look brilliant on
-history and lose money live, so it is not something an author should be able to
-write by hand.
+`perBar` is one entry per drawn bar, holding the newest session that had
+*closed* by then. The host applies `holdLastClosed` before `compute` is
+entered, so there is no raw coarse window to reach into and no index that
+reaches a session a drawn bar could not have seen. Getting this wrong is the one
+mistake that makes an indicator look brilliant on history and lose money live,
+so it is not something an author can write by hand.
+
+`daily.turnsOver[index] === 1` marks the first bar after a session changed, for
+breaking the lines between sessions rather than ramping from one to the next.
 
 ---
 
@@ -161,21 +184,29 @@ const PERIOD: NumericParameter = {
 const bars = readSetting(input.settings, PERIOD);
 ```
 
-### 3 — proposed
+### 3 — in the page
 
 ```ts
-params = {
-    period: Params.whole('Period').between(2, 400).default(20),
-    source: Params.oneOf('Source', ['close', 'open', 'hl2']).default('close'),
-    filled: Params.toggle('Fill the band').default(true),
-};
+import { Params, readChoice, readSetting, readToggle } from 'fathom';
 
-draw(bars, sessions, { period, source }) { ... }
+const PERIOD = Params.integer('periodBars').called('Period').between(2, 400).startingAt(20);
+const SOURCE = Params.choice('source', ['close', 'open', 'hl2']).called('Source');
+const FILLED = Params.toggle('filled').called('Fill the band').startingAt(true);
+
+readonly parameters = [PERIOD, SOURCE, FILLED];
+
+compute(input: IndicatorInput): PlanDraft {
+    const period = readSetting(input.settings, PERIOD);
+    const source = readChoice(input.settings, SOURCE);
+    const filled = readToggle(input.settings, FILLED);
+    // ...
+}
 ```
 
-Values arrive clamped to the declared range, as they do today: a setting outlives
-the control that produced it, so a figure no current control could produce still
-has to arrive safely.
+Each step returns a whole, valid parameter, so there is no closing call to
+forget. Values arrive clamped to the declared range: a setting outlives the
+control that produced it, so a figure no current control could produce still has
+to arrive safely.
 
 ---
 
@@ -191,18 +222,21 @@ for (const [index, bar] of bars.entries()) {
 }
 ```
 
-### 4 — proposed
+### 4 — in the page
 
 ```ts
-bars.map((bar) => bar.mid)          // one number per bar
-bars.closes                          // the common ones without a callback
-bars.sma(20)                         // the arithmetic already in series-math
-bars.segments                        // runs unbroken by a recording gap
+import { collectSource, findContinuousSegments, SOURCE } from 'fathom';
+
+const bars = input.bars.bars;               // ordered oldest-first, the drawn rung
+const values = collectSource(bars, input.settings);   // the source the reader chose
+const runs = findContinuousSegments(bars);  // stretches unbroken by a recording gap
 ```
 
-`bars` stays ordered oldest-first and stays the drawn rung. Warm-up bars are at
-the front and are counted, not hidden — a reading that cannot say where it has
-converged draws a line that looks settled and is not.
+The arithmetic the shipped readings use is on the surface as it stands rather
+than repackaged: `collectSource`, `findContinuousSegments`, `fillExponential`,
+`fillWilder`, `collectTrueRanges`, `smoothWilder`. **Not built:** the sugar
+(`bars.closes`, `bars.sma(20)`, `bars.segments`) — every reading restarts at a
+gap boundary today by calling `findContinuousSegments` itself.
 
 ---
 
@@ -217,38 +251,60 @@ must draw blank and say so rather than draw something.
 return { /* ... */ hasConverged: didDrawAny };
 ```
 
-### 5 — proposed
+### 5 — in the page
 
 ```ts
-if (!yesterday.any()) {
-    return Plot.nothing('No session has closed inside this window');
-}
+const daily = readSessions(input, 'daily');
+
+return Plot.over(input.bars)
+    .lines({ /* ... */ })
+    .converged(daily.hasAny)
+    .overThePrice();
 ```
+
+`hasAny` is false when no session had closed by any drawn bar, and `converged`
+is what puts the warning on the legend. **Not built:** a message of the
+author's own — the host says the reading has not converged, not why.
+
+Reaching for a session that was never declared throws by name, listing what
+*was* declared. That is the one failure this design refuses to make silent.
 
 ---
 
-## The decisions this is asking about
+## What was decided, and what it cost
 
-1. **A class extending `Indicator`**, rather than a plain object with the right
-   keys. Recommended: it gives the editor something to complete against from the
-   first keystroke, and `extends` is the one word that tells an author where to
-   look for what else is available.
+1. **A class implementing `Indicator`** — rather than `extends`. `implements`
+   needs no base class to import, so an addon and a shipped reading are the same
+   shape rather than one being a subclass of the other's machinery. The editor
+   completes from the first keystroke either way, off the `.d.ts` the barrel is
+   generated into.
 
-2. **A fluent plot builder**, rather than returning the plan object literally.
-   Recommended: the literal has eleven keys of which an author cares about two,
-   and every one of the other nine is a way to be quietly wrong.
+2. **A fluent plot builder that returns the plan object.** Not a translation:
+   `tests/unit/shared/plot-builder.test.ts` asserts the built draft equals the
+   hand-written one. Anything the builder does not cover is reachable by writing
+   the object, in the same file, with no round trip.
 
-3. **Bars as a collection with the common arithmetic on it**, rather than a plain
-   array. Recommended, with a caution: it is the surface most likely to grow
-   without limit, and the line to hold is that it carries what the shipped
-   readings needed and nothing speculative.
+3. **The arithmetic as functions, not as methods on `bars`.** Reversed from the
+   recommendation. A collection type would have to be constructed on both sides
+   of a worker boundary, and it is the surface most likely to grow without limit;
+   plain functions over a plain array cost an import and nothing else.
 
-4. **`reads = [Session.daily...]` for a coarser rung**, resolved by the host and
-   handed back already settled. Recommended, and the piece that matters most —
-   it is where a hand-written version goes wrong invisibly.
+4. **One `resolveSources`, returning what it reads by name.** Warm-up and coarser
+   sessions were the same question — what must be in hand before this can run —
+   and merging them cost nothing. Sessions arrive already held back to what each
+   drawn bar could know, which is the piece that matters most.
 
-5. **One barrel, `fathom`.** Nothing outside it is public, and nothing inside it
+5. **One barrel, `fathom`.** Nothing outside it is public and nothing inside it
    is promised across versions. A script that stops running after an upgrade
    reports the engine's own error and is reprocessed.
 
-Approve, amend or reject each. Nothing here is written yet.
+### Still open
+
+- **The book, the executions and the gaps.** An addon still reaches only the
+  bars and the sessions — the one dataset this project alone has is not on the
+  surface. `COOKBOOK-RASCUNHO.md` has the design; nothing is built.
+- **Where it runs.** Inline, on the main thread, like the shipped readings. A
+  runaway loop in a reader's script takes the tab with it; a worker would not,
+  and would cost a two-phase `computePlans`.
+- **More than one at a time.** The editor holds one draft. The registry takes
+  any number.
