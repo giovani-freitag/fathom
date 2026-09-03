@@ -100,7 +100,11 @@ export class AddonEditorService {
      * @param theme - Which one is in force.
      */
     applyTheme(theme: 'dark' | 'light'): void {
-        this.editor?.updateOptions({ theme: `fathom-${theme}` });
+        // Set on the editor rather than on this instance: a theme in Monaco is
+        // global, and `updateOptions` quietly accepts one and changes nothing.
+        if (this.editor !== null) {
+            monaco.editor.setTheme(`fathom-${theme}`);
+        }
     }
 
     /** What the reader has typed. */

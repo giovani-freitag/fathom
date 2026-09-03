@@ -151,6 +151,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
 
     'indicators.open': 'Indicadores',
     'editor.name': 'Como esta leitura se chama',
+    'editor.unsavedChoice': 'Ainda não salva',
     'editor.unsaved': 'não salvo',
     'editor.save': 'Salvar',
     'editor.new': 'Escrever uma nova',

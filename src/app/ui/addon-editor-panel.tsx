@@ -1,5 +1,5 @@
 import { type ChangeEvent, type ReactElement, useRef } from 'react';
-import { CircleCheck, CircleX, Download, Loader, Plus, Save, Trash2, Upload, X } from 'lucide-react';
+import { CircleCheck, CircleX, Download, Loader, Plus, Save, Trash2, Undo2, Upload, X } from 'lucide-react';
 import { type AddonEditorControls, type SourceEditor, useAddonEditor } from '../react/use-addon-editor.ts';
 import { AddonEditorService } from '../services/addon-editor/addon-editor-service.ts';
 import type { Choice } from './choice.ts';
@@ -60,6 +60,9 @@ function buildEditor(config: { onChange: () => void; theme: 'dark' | 'light' }):
     return new AddonEditorService(config);
 }
 
+/** What the menu shows while the open reading has never been saved. */
+const UNSAVED_CHOICE = '';
+
 interface AddonEditorPanelProps {
     readonly onClose: () => void;
     /** Which saved reading to open on, when the reader picked one. */
@@ -74,13 +77,36 @@ interface AddonEditorPanelProps {
  */
 export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): ReactElement {
     const translate = useTranslate();
-    const { mountInto, status, drawFailure, ...editor } = useAddonEditor({ starter: STARTER_SOURCE, openOn: openKey, buildEditor });
+    const { mountInto, status, drawFailure, ...editor } = useAddonEditor({
+        starter: STARTER_SOURCE,
+        openOn: openKey,
+        buildEditor,
+    });
 
+    // Capped as a share of the row rather than only in rems: what a reader is
+    // checking is what their arithmetic does to the chart, and on a laptop a
+    // fixed 38rem left the chart too narrow to read.
     return (
-        <aside className="flex w-full min-w-0 flex-col border-l border-hairline bg-abyss-850 shadow-2xl shadow-black/80 md:w-[38rem]">
+        <aside className="flex w-full min-w-0 max-w-[45%] flex-col border-l border-hairline bg-abyss-850 shadow-2xl shadow-black/80 md:w-[38rem]">
             <EditorToolbar editor={editor} translate={translate} onClose={onClose} />
             <div ref={mountInto} className="min-h-0 flex-1" />
-            <EditorStatusLine status={status} drawFailure={drawFailure} translate={translate} />
+            {editor.lastRemoved === null
+                ? <EditorStatusLine status={status} drawFailure={drawFailure} translate={translate} />
+                : (
+                    <footer className="flex shrink-0 items-center gap-3 border-t border-hairline px-4 py-2.5 text-xs text-ink-300">
+                        <span className="min-w-0 flex-1 truncate">
+                            {translate('indicators.removed', { name: editor.lastRemoved.name })}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={editor.undoRemoval}
+                            className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs font-semibold text-phosphor hover:bg-phosphor/12"
+                        >
+                            <Undo2 className="size-3.5" />
+                            {translate('indicators.undo')}
+                        </button>
+                    </footer>
+                )}
         </aside>
     );
 }
@@ -102,7 +128,13 @@ function EditorToolbar({ editor, translate, onClose }: EditorToolbarProps): Reac
         event.target.value = '';
     };
 
-    const saved: readonly Choice[] = editor.saved.map((one) => ({ value: one.key, label: one.name }));
+    // A reading never saved is a choice of its own rather than an absent value:
+    // bound to the open key alone, the menu showed a dash the moment a reader
+    // started a new one, which says nothing about anything.
+    const saved: readonly Choice[] = [
+        { value: UNSAVED_CHOICE, label: translate('editor.unsavedChoice') },
+        ...editor.saved.map((one) => ({ value: one.key, label: one.name })),
+    ];
 
     return (
         <header className="shrink-0 border-b border-hairline">
@@ -143,9 +175,13 @@ function EditorToolbar({ editor, translate, onClose }: EditorToolbarProps): Reac
                         <Divider />
                         <div className="min-w-0 flex-1">
                             <Select
-                                value={editor.openKey ?? ''}
+                                value={editor.openKey ?? UNSAVED_CHOICE}
                                 choices={saved}
-                                onSelect={editor.open}
+                                onSelect={(key) => {
+                                    if (key !== UNSAVED_CHOICE) {
+                                        editor.open(key);
+                                    }
+                                }}
                                 label={translate('editor.openSaved')}
                             />
                         </div>
@@ -232,7 +268,7 @@ function EditorStatusLine({ status, drawFailure, translate }: EditorStatusLinePr
             <footer className="flex shrink-0 items-center gap-2 border-t border-hairline px-4 py-2.5 text-xs text-phosphor">
                 <CircleCheck className="size-3.5 shrink-0" />
                 <span className="truncate">
-                    {translate('editor.drawing').replace('{name}', status.label)}
+                    {translate('editor.drawing', { name: status.label })}
                 </span>
             </footer>
         );

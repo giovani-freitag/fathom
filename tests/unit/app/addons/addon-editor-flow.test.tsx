@@ -37,7 +37,11 @@ function buildFakeEditor(settleMs = 0) {
         readSource: () => source,
         replaceSource: (next) => { source = next; },
         compile: async () => {
-            await new Promise((resolve) => { setTimeout(resolve, settleMs); });
+            // Only ever a timer when a test asked for one, so a test that
+            // freezes the clock does not also freeze the compiler.
+            if (settleMs > 0) {
+                await new Promise((resolve) => { setTimeout(resolve, settleMs); });
+            }
             // The fake is its own compiler: the source is already the emitted
             // shape, so what a test writes is what the runtime is handed.
             return { compiled: source, faults: [] };
@@ -196,6 +200,48 @@ describe('putting a saved reading back', () => {
 });
 
 describe('deleting a reading', () => {
+    it('offers it straight back, rather than asking before it goes', async () => {
+        // How this chart treats every other removal: a confirmation asks about
+        // work the reader has not lost yet, an undo answers about work they have.
+        const { factory } = buildFakeEditor();
+        const { kernel, result } = renderEditor(factory);
+        await act(async () => { await result.current.save(); });
+
+        act(() => { result.current.remove(); });
+
+        expect(result.current.lastRemoved?.name).toBe('My mean');
+        expect(kernel.container.addons.list()).toEqual([]);
+    });
+
+    it('puts it back on the shelf and on the chart when undone', async () => {
+        const { factory } = buildFakeEditor();
+        const { kernel, result } = renderEditor(factory);
+        await act(async () => { await result.current.save(); });
+        act(() => { result.current.remove(); });
+
+        act(() => { result.current.undoRemoval(); });
+
+        await waitFor(() => { expect(kernel.container.addons.list()).toHaveLength(1); });
+        expect(result.current.name).toBe('My mean');
+        expect(result.current.lastRemoved).toBeNull();
+    });
+
+    it('stops offering it once the moment has passed', async () => {
+        vi.useFakeTimers();
+        try {
+            const { factory } = buildFakeEditor();
+            const { result } = renderEditor(factory);
+            await act(async () => { await result.current.save(); });
+            act(() => { result.current.remove(); });
+
+            act(() => { vi.advanceTimersByTime(8_000); });
+
+            expect(result.current.lastRemoved).toBeNull();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('takes it off the shelf, off the chart, and out of the catalogue', async () => {
         const { factory } = buildFakeEditor();
         const { kernel, result } = renderEditor(factory);

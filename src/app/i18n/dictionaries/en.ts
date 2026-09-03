@@ -149,6 +149,7 @@ export const EN_DICTIONARY = {
 
     'indicators.open': 'Indicators',
     'editor.name': 'What this reading is called',
+    'editor.unsavedChoice': 'Not saved yet',
     'editor.unsaved': 'unsaved',
     'editor.save': 'Save',
     'editor.new': 'Write a new one',

@@ -36,6 +36,9 @@ export interface AddonEditorControls {
     readonly open: (key: string) => void;
     readonly startAnew: () => void;
     readonly remove: () => void;
+    /** The reading just deleted, for as long as it can be had back. */
+    readonly lastRemoved: SavedReading | null;
+    readonly undoRemoval: () => void;
     /** Hands the reader the open script as a file. */
     readonly exportFile: () => void;
     readonly importFile: (file: File) => Promise<void>;
@@ -43,6 +46,9 @@ export interface AddonEditorControls {
 
 /** What a reading is called before the reader has said. */
 const UNTITLED = 'Untitled reading';
+
+/** How long a deleted reading can still be had back. */
+const REMOVAL_GRACE_MS = 7_000;
 
 /**
  * The editor itself, as this hook needs it.
@@ -102,6 +108,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
     // chart draws the label, and a file called something else is a second name
     // nobody asked for.
     const [isNamedByHand, setIsNamedByHand] = useState(false);
+    const [lastRemoved, setLastRemoved] = useState<SavedReading | null>(null);
     // The reading may throw while the chart draws it rather than while it is
     // built, and that is the failure a compiler cannot warn about.
     const drawFailure = useChartSlice((state) => {
@@ -247,6 +254,10 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
     const startAnew = useCallback((): void => { load(starter, null, null); }, [load, starter]);
 
     const remove = useCallback((): void => {
+        // Deleted at once and offered back, which is how this chart treats every
+        // other removal: a confirmation asks about work the reader has not lost
+        // yet, and an undo answers about work they have.
+        const held = openKey === null ? null : library.find(openKey);
         if (openKey !== null) {
             library.remove(openKey);
             forgetAddon(liveId(openKey));
@@ -255,8 +266,28 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
             );
             setSaved(library.list());
         }
+        setLastRemoved(held);
         load(starter, null, null);
     }, [kernel, library, load, openKey, starter]);
+
+    const undoRemoval = useCallback((): void => {
+        if (lastRemoved === null) {
+            return;
+        }
+        library.save(lastRemoved);
+        setSaved(library.list());
+        setLastRemoved(null);
+        load(lastRemoved.source, lastRemoved.key, lastRemoved.name);
+    }, [lastRemoved, library, load]);
+
+    // Long enough to notice the mistake, short enough not to sit there.
+    useEffect(() => {
+        if (lastRemoved === null) {
+            return;
+        }
+        const timer = setTimeout(() => { setLastRemoved(null); }, REMOVAL_GRACE_MS);
+        return () => { clearTimeout(timer); };
+    }, [lastRemoved]);
 
     const exportFile = useCallback((): void => {
         const source = serviceRef.current?.readSource() ?? '';
@@ -281,6 +312,8 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         open,
         startAnew,
         remove,
+        lastRemoved,
+        undoRemoval,
         exportFile,
         importFile,
     };
