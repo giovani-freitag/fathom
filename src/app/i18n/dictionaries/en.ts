@@ -159,6 +159,7 @@ export const EN_DICTIONARY = {
     'editor.threw': 'It drew nothing and stopped with:',
     'editor.line': 'Line',
     'indicators.shipped': 'Built in',
+    'indicators.missing': 'A reading this build no longer has',
     'indicators.yours': 'Yours',
     'indicators.yoursEmpty': 'Nothing written yet.',
     'indicators.writeOne': 'Write a reading',

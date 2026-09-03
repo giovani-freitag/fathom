@@ -85,6 +85,40 @@ interface LayerRowProps {
 }
 
 /**
+ * A row for a layer the build can no longer find.
+ *
+ * Shown rather than skipped: a reading a reader wrote and then deleted leaves
+ * its selection behind, and a row that renders nothing is one they cannot see
+ * to remove. It drew nothing either way; the difference is whether they can
+ * tidy it up.
+ */
+function MissingLayerRow({ added, controls }: {
+    readonly added: AddedIndicator;
+    readonly controls: IndicatorControls;
+}): ReactElement {
+    const translate = useTranslate();
+
+    return (
+        <li className="flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-abyss-700/50">
+            <span className="size-2 shrink-0" />
+            <span
+                title={added.indicatorId}
+                className="min-w-0 flex-1 truncate text-xs italic text-ink-600"
+            >
+                {translate('indicators.missing')}
+            </span>
+            <LayerButton
+                label={translate('indicators.remove')}
+                onPress={() => { controls.remove(added.instanceId); }}
+            >
+                <X size={ICON_SIZE_PX} />
+            </LayerButton>
+        </li>
+    );
+}
+
+
+/**
  * One layer, named, with the four things a reader does to it.
  *
  * What it reads is not here. A panel is where a reader acts on layers, and a
@@ -96,7 +130,7 @@ function LayerRow({ added, controls, onOpenSettings, banding }: LayerRowProps): 
     const translate = useTranslate();
     const layer = findChartLayer(added.indicatorId);
     if (layer === null) {
-        return null;
+        return <MissingLayerRow added={added} controls={controls} />;
     }
 
 
