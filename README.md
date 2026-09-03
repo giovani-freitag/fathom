@@ -86,16 +86,19 @@ docker run -p 8787:8787 -e INSTRUMENT_SYMBOL=ETHUSDT -e PRICE_BUCKET_SIZE=0.5 \
 ### Or as four containers
 
 The database in its own container is what anything that has to be backed up,
-upgraded or watched wants. Compose reads the file straight out of the registry,
-so there is still nothing to clone:
+upgraded or watched wants. Take the file and run it:
 
 ```bash
-docker compose -f oci://ghcr.io/giovani-freitag/fathom/compose:latest up -d
+curl -O https://raw.githubusercontent.com/giovani-freitag/fathom/main/docker-compose.yml
+docker compose up -d
 ```
 
 TimescaleDB, a migration step that runs once and stops, the collector, and the
 gateway. It uses the `slim` tag — the same two processes, without the database
 the single container carries.
+
+The file rather than a one-liner, because anyone choosing this over the single
+container is going to edit it.
 
 **The chart only ever covers time the collector was running.** An order book
 cannot be fetched after the fact, so there is no history to load and nothing to
@@ -112,15 +115,8 @@ docker compose down -v                # stop and delete it, permanently
 
 ### What to change
 
-The command above runs on the defaults. To change any of them, take the file
-down and edit it:
-
-```bash
-docker compose -f oci://ghcr.io/giovani-freitag/fathom/compose:latest config > docker-compose.yml
-docker compose up -d
-```
-
-From then on a `.env` beside it is read as usual. `.env.example` documents every
+The commands above run on the defaults. A `.env` beside the compose file is
+read as usual. `.env.example` documents every
 variable; these four decide what you get:
 
 | | |

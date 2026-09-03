@@ -12,8 +12,8 @@ services:
       # anything that is not one person's laptop.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fathom}
     ports:
-      # The long form throughout: it is what `docker compose publish` will
-      # accept, and publishing this file is how somebody runs it without one.
+      # The long form throughout: naming the host it binds to is the whole
+      # point, and the short form hides it in the middle of a string.
       - host_ip: 127.0.0.1
         published: "${POSTGRES_PORT:-5433}"
         target: 5432
