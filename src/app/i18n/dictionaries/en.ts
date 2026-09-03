@@ -155,6 +155,7 @@ export const EN_DICTIONARY = {
     'editor.tooLarge': 'That file is too large to be a reading. Nothing was opened.',
     'editor.notText': 'That file is not text. Nothing was opened.',
     'editor.unsaved': 'unsaved',
+    'editor.replaced': '{name} closed without being saved',
     'editor.save': 'Save',
     'editor.new': 'Start a new one',
     'editor.openSaved': 'Open saved',

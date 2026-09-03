@@ -126,12 +126,12 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
 
     // The offer to undo is the only route back from a deletion, so it takes the
     // keyboard rather than waiting below the editor for somebody to find it.
-    const removedName = editor.lastRemoved?.name ?? null;
+    const discardedName = editor.lastDiscarded?.name ?? null;
     useEffect(() => {
-        if (removedName !== null) {
+        if (discardedName !== null) {
             undoRef.current?.focus();
         }
-    }, [removedName]);
+    }, [discardedName]);
 
     return (
         <aside
@@ -146,17 +146,20 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
                 live region that is itself added to the tree is not reliably
                 read out when it appears. */}
             <div role="status" className="shrink-0">
-                {editor.lastRemoved === null
+                {editor.lastDiscarded === null
                     ? <EditorStatusLine status={status} drawFailure={drawFailure} translate={translate} />
                     : (
                         <footer className="flex items-center gap-3 border-t border-hairline px-4 py-2.5 text-xs text-ink-300">
                             <span className="min-w-0 flex-1 truncate">
-                                {translate('indicators.removed', { name: editor.lastRemoved.name })}
+                                {translate(
+                                    editor.lastDiscarded.wasDeleted ? 'indicators.removed' : 'editor.replaced',
+                                    { name: editor.lastDiscarded.name },
+                                )}
                             </span>
                             <button
                                 ref={undoRef}
                                 type="button"
-                                onClick={editor.undoRemoval}
+                                onClick={editor.undoDiscard}
                                 className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs font-semibold text-phosphor outline-none hover:bg-phosphor/12 focus-visible:ring-2 focus-visible:ring-phosphor/50"
                             >
                                 <Undo2 className="size-3.5" />

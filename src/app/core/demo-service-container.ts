@@ -42,6 +42,13 @@ export interface DemoServiceContainer extends ServiceContainer {
  * @param config - The browser's storage and where collector events go.
  * @returns Every service the tree needs, plus the collector's handle.
  */
+/** What a container with nowhere to keep things writes into. */
+const NO_STORAGE = {
+    getItem: (): string | null => null,
+    setItem: (): void => undefined,
+    removeItem: (): void => undefined,
+};
+
 export function createDemoServiceContainer(
     config: DemoServiceContainerConfig,
 ): DemoServiceContainer {
@@ -53,7 +60,7 @@ export function createDemoServiceContainer(
         openingSpanMs: DEMO_VISIBLE_SPAN_MS,
     });
     const addons = new AddonLibraryService({
-        storage: config.storage ?? { getItem: () => null, setItem: () => undefined },
+        storage: config.storage ?? NO_STORAGE,
         now: () => Date.now(),
     });
 

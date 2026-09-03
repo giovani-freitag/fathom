@@ -16,12 +16,15 @@ export interface SavedReading {
 
 export interface AddonLibraryServiceConfig {
     /** Where the readings are kept. Injected so a test can hold them in memory. */
-    readonly storage: Pick<Storage, 'getItem' | 'setItem'>;
+    readonly storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
     /** Stamps a save, so a list can be ordered by when it was last touched. */
     readonly now: () => number;
 }
 
 const SHELF = 'fathom.addons';
+
+/** Where what is being written waits, which is not the shelf. */
+const DRAFT = 'fathom.addons.draft';
 
 /**
  * The readings a reader has written, kept between sessions.
@@ -39,22 +42,39 @@ export class AddonLibraryService {
     }
 
     /**
-     * Holds what is being written, for as long as the page is open.
+     * Holds what is being written, until it is filed or thrown away.
      *
-     * In memory rather than on the shelf: it is not a saved reading and must
+     * Beside the shelf rather than on it: it is not a saved reading and must
      * not read as one. What it survives is the editor being taken down and put
-     * back — by a narrowed window, a rotated tablet, or a zoom — none of which
-     * is a decision to discard work.
+     * back — a narrowed window, a rotated tablet, a zoom, a closed tab — none
+     * of which is a decision to discard work.
      *
      * @param source - What is in the editor, or null once it is filed.
      */
     rememberDraft(source: string | null): void {
         this.draft = source;
+        try {
+            if (source === null) {
+                this.config.storage.removeItem(DRAFT);
+                return;
+            }
+            this.config.storage.setItem(DRAFT, source);
+        } catch {
+            // Storage refused. The draft still survives a remount in memory;
+            // what is lost is only its surviving the tab being closed.
+        }
     }
 
     /** What was being written when the editor last went away. */
     readDraft(): string | null {
-        return this.draft;
+        if (this.draft !== null) {
+            return this.draft;
+        }
+        try {
+            return this.config.storage.getItem(DRAFT);
+        } catch {
+            return null;
+        }
     }
 
     /**

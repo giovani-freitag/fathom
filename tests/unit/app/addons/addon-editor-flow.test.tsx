@@ -198,7 +198,7 @@ describe('saving a reading', () => {
         // private window or a browser with site data turned off.
         Object.assign(kernel.container, {
             addons: new AddonLibraryService({
-                storage: { getItem: () => null, setItem: () => { throw new Error('full'); } },
+                storage: { getItem: () => null, setItem: () => { throw new Error('full'); }, removeItem: () => undefined },
                 now: () => 1,
             }),
         });
@@ -404,6 +404,59 @@ describe('putting a saved reading back', () => {
     });
 });
 
+describe('replacing what is in the editor', () => {
+    it('offers back what a new one replaced', async () => {
+        // Starting a new one is not a decision to throw away what was there.
+        const { factory, type } = buildFakeEditor();
+        const { result } = renderEditor(factory);
+        act(() => { type(sourceNamed('Half written')); });
+        await waitFor(() => { expect(result.current.name).toBe('Half written'); });
+
+        act(() => { result.current.startAnew(); });
+
+        expect(result.current.lastDiscarded?.name).toBe('Half written');
+        expect(result.current.lastDiscarded?.wasDeleted).toBe(false);
+    });
+
+    it('offers back what opening another replaced', async () => {
+        const { factory, type } = buildFakeEditor();
+        const { result } = renderEditor(factory);
+        await act(async () => { await result.current.save(); });
+        act(() => { result.current.startAnew(); });
+        act(() => { type(sourceNamed('Second')); });
+        await waitFor(() => { expect(result.current.name).toBe('Second'); });
+
+        act(() => { result.current.open('my-mean'); });
+
+        expect(result.current.lastDiscarded?.name).toBe('Second');
+    });
+
+    it('puts it back where it was when undone', async () => {
+        const { factory, type } = buildFakeEditor();
+        const { kernel, result } = renderEditor(factory);
+        act(() => { type(sourceNamed('Half written')); });
+        await waitFor(() => { expect(result.current.name).toBe('Half written'); });
+        act(() => { result.current.startAnew(); });
+
+        act(() => { result.current.undoDiscard(); });
+
+        await waitFor(() => {
+            expect(kernel.readPlans().map((plan) => plan.label)).toEqual(['Half written']);
+        });
+        expect(result.current.lastDiscarded).toBeNull();
+    });
+
+    it('says nothing when what was open is what is being opened', async () => {
+        const { factory } = buildFakeEditor();
+        const { result } = renderEditor(factory);
+        await waitFor(() => { expect(result.current.name).toBe('My mean'); });
+
+        act(() => { result.current.startAnew(); });
+
+        expect(result.current.lastDiscarded).toBeNull();
+    });
+});
+
 describe('deleting a reading', () => {
     it('offers it straight back, rather than asking before it goes', async () => {
         // How this chart treats every other removal: a confirmation asks about
@@ -414,7 +467,7 @@ describe('deleting a reading', () => {
 
         act(() => { result.current.remove(); });
 
-        expect(result.current.lastRemoved?.name).toBe('My mean');
+        expect(result.current.lastDiscarded?.name).toBe('My mean');
         expect(kernel.container.addons.list()).toEqual([]);
     });
 
@@ -424,11 +477,11 @@ describe('deleting a reading', () => {
         await act(async () => { await result.current.save(); });
         act(() => { result.current.remove(); });
 
-        act(() => { result.current.undoRemoval(); });
+        act(() => { result.current.undoDiscard(); });
 
         await waitFor(() => { expect(kernel.container.addons.list()).toHaveLength(1); });
         expect(result.current.name).toBe('My mean');
-        expect(result.current.lastRemoved).toBeNull();
+        expect(result.current.lastDiscarded).toBeNull();
     });
 
     it('stops offering it once the moment has passed', async () => {
@@ -441,7 +494,7 @@ describe('deleting a reading', () => {
 
             act(() => { vi.advanceTimersByTime(8_000); });
 
-            expect(result.current.lastRemoved).toBeNull();
+            expect(result.current.lastDiscarded).toBeNull();
         } finally {
             vi.useRealTimers();
         }

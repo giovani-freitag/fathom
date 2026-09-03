@@ -42,6 +42,13 @@ export interface ServiceContainerConfig {
     readonly appearanceHost: AppearanceHost | null;
 }
 
+/** What a container with nowhere to keep things writes into. */
+const NO_STORAGE = {
+    getItem: (): string | null => null,
+    setItem: (): void => undefined,
+    removeItem: (): void => undefined,
+};
+
 /**
  * Builds the object graph, by hand and in one place.
  *
@@ -54,7 +61,7 @@ export function createServiceContainer(config: ServiceContainerConfig): ServiceC
     const liveFeed = new LiveFeedService({ baseUrl: config.baseUrl });
     const preferences = new PreferencesService({ storage: config.storage });
     const addons = new AddonLibraryService({
-        storage: config.storage ?? { getItem: () => null, setItem: () => undefined },
+        storage: config.storage ?? NO_STORAGE,
         now: () => Date.now(),
     });
     // Before the chart, because a stored selection names a reading by its id

@@ -3,11 +3,14 @@ import { AddonLibraryService } from '../../../../src/app/services/addon-library/
 
 /** Storage a test owns, so nothing leaks between them. */
 function buildStorage(seeded: string | null = null) {
-    let held = seeded;
+    const held = new Map<string, string>();
+    if (seeded !== null) {
+        held.set('fathom.addons', seeded);
+    }
     return {
-        getItem: (): string | null => held,
-        setItem: (_key: string, value: string): void => { held = value; },
-        readRaw: (): string | null => held,
+        getItem: (key: string): string | null => held.get(key) ?? null,
+        setItem: (key: string, value: string): void => { held.set(key, value); },
+        removeItem: (key: string): void => { held.delete(key); },
     };
 }
 
@@ -109,10 +112,43 @@ describe('naming what is saved', () => {
     });
 });
 
+describe('what is being written', () => {
+    it('waits beside the shelf, not on it', () => {
+        library.rememberDraft('half a reading');
+
+        expect(library.list()).toEqual([]);
+        expect(library.readDraft()).toBe('half a reading');
+    });
+
+    it('outlives the page it was written in', () => {
+        library.rememberDraft('half a reading');
+
+        // A second service over the same storage is what a reload amounts to.
+        const afterReload = new AddonLibraryService({ storage, now: () => 1 });
+
+        expect(afterReload.readDraft()).toBe('half a reading');
+    });
+
+    it('is gone once there is nothing being written', () => {
+        library.rememberDraft('half a reading');
+
+        library.rememberDraft(null);
+
+        expect(new AddonLibraryService({ storage, now: () => 1 }).readDraft()).toBeNull();
+    });
+
+    it('is never mistaken for a saved reading', () => {
+        library.rememberDraft('half a reading');
+        saveOne('filed');
+
+        expect(library.list().map((one) => one.key)).toEqual(['filed']);
+    });
+});
+
 describe('storage that will not cooperate', () => {
     it('reads as an empty shelf rather than failing', () => {
         const broken = new AddonLibraryService({
-            storage: { getItem: () => { throw new Error('blocked'); }, setItem: () => undefined },
+            storage: { getItem: () => { throw new Error('blocked'); }, setItem: () => undefined, removeItem: () => undefined },
             now: () => 1,
         });
 
@@ -121,7 +157,7 @@ describe('storage that will not cooperate', () => {
 
     it('leaves the chart working when a save cannot be written', () => {
         const broken = new AddonLibraryService({
-            storage: { getItem: () => null, setItem: () => { throw new Error('full'); } },
+            storage: { getItem: () => null, setItem: () => { throw new Error('full'); }, removeItem: () => undefined },
             now: () => 1,
         });
 

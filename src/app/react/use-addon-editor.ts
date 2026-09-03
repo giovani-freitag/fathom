@@ -11,6 +11,22 @@ import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
 import type { Indicator } from '../../shared/core/draw-plan.ts';
 import { withIndicatorAdded } from '../../shared/core/indicator-selection.ts';
 
+/**
+ * Work that has just left the editor, and can still be had back.
+ *
+ * Deleting is not the only way to lose a script: starting a new one, opening
+ * another and importing a file all replace what was there, and none of them
+ * asks. What they share is that a reader can want it back within seconds.
+ */
+export interface DiscardedWork {
+    readonly name: string;
+    readonly source: string;
+    /** The shelf entry it came from, where it had one. */
+    readonly key: string | null;
+    /** True where it also left the shelf, and undoing has to put it back. */
+    readonly wasDeleted: boolean;
+}
+
 /** What the panel shows about the script as it stands. */
 export type EditorStatus =
     | { readonly kind: 'ready'; readonly label: string }
@@ -36,9 +52,9 @@ export interface AddonEditorControls {
     readonly open: (key: string) => void;
     readonly startAnew: () => void;
     readonly remove: () => void;
-    /** The reading just deleted, for as long as it can be had back. */
-    readonly lastRemoved: SavedReading | null;
-    readonly undoRemoval: () => void;
+    /** What just left the editor, for as long as it can be had back. */
+    readonly lastDiscarded: DiscardedWork | null;
+    readonly undoDiscard: () => void;
     /** Hands the reader the open script as a file. */
     readonly exportFile: () => void;
     readonly importFile: (file: File) => Promise<void>;
@@ -124,7 +140,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
     // chart draws the label, and a file called something else is a second name
     // nobody asked for.
     const [isNamedByHand, setIsNamedByHand] = useState(false);
-    const [lastRemoved, setLastRemoved] = useState<SavedReading | null>(null);
+    const [lastDiscarded, setLastDiscarded] = useState<DiscardedWork | null>(null);
     // The reading may throw while the chart draws it rather than while it is
     // built, and that is the failure a compiler cannot warn about.
     const drawFailure = useChartSlice((state) => {
@@ -221,7 +237,10 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
     // Held in a ref because the teardown runs once, long after the render that
     // knew whether anything had been saved.
     const openKeyOnTeardown = useRef<string | null>(null);
-    useEffect(() => { openKeyOnTeardown.current = openKey; }, [openKey]);
+    const openKeyRef = useRef<string | null>(null);
+    const nameRef = useRef(untitled);
+    useEffect(() => { openKeyOnTeardown.current = openKey; openKeyRef.current = openKey; }, [openKey]);
+    useEffect(() => { nameRef.current = name; }, [name]);
 
     useEffect(() => () => {
         serviceRef.current?.unmount();
@@ -282,10 +301,24 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         library.rememberDraft(null);
     }, [isNamedByHand, kernel, library, name, openKey, shelfRefusedMessage]);
 
-    const load = useCallback((source: string, key: string | null, called: string | null): void => {
+    const load = useCallback((
+        source: string,
+        key: string | null,
+        called: string | null,
+        // Putting work back is not replacing it: recorded, undoing would offer
+        // to undo itself and the offer would never go away.
+        isUndo = false,
+    ): void => {
         const service = serviceRef.current;
         if (service === null) {
             return;
+        }
+        // What is being replaced is offered back. Starting a new one, opening
+        // another and importing a file all overwrite the buffer, and none of
+        // them was a decision to throw away what was in it.
+        const leaving = service.readSource();
+        if (!isUndo && leaving !== '' && leaving !== source) {
+            setLastDiscarded({ name: nameRef.current, source: leaving, key: openKeyRef.current, wasDeleted: false });
         }
         service.replaceSource(source);
         library.rememberDraft(source);
@@ -312,7 +345,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         // Deleted at once and offered back, which is how this chart treats every
         // other removal: a confirmation asks about work the reader has not lost
         // yet, and an undo answers about work they have.
-        const held = openKey === null ? null : library.find(openKey);
+        const held = serviceRef.current?.readSource() ?? '';
         if (openKey !== null) {
             library.remove(openKey);
             forgetAddon(liveId(openKey));
@@ -321,28 +354,31 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
             );
             setSaved(library.list());
         }
-        setLastRemoved(held);
+        setLastDiscarded({ name, source: held, key: openKey, wasDeleted: true });
         load(starter, null, null);
-    }, [kernel, library, load, openKey, starter]);
+    }, [kernel, library, load, name, openKey, starter]);
 
-    const undoRemoval = useCallback((): void => {
-        if (lastRemoved === null) {
+    const undoDiscard = useCallback((): void => {
+        if (lastDiscarded === null) {
             return;
         }
-        library.save(lastRemoved);
-        setSaved(library.list());
-        setLastRemoved(null);
-        load(lastRemoved.source, lastRemoved.key, lastRemoved.name);
-    }, [lastRemoved, library, load]);
+        const { key, name: called, source, wasDeleted } = lastDiscarded;
+        if (wasDeleted && key !== null) {
+            library.save({ key, name: called, source, compiled: compiledRef.current });
+            setSaved(library.list());
+        }
+        setLastDiscarded(null);
+        load(source, key, called, true);
+    }, [lastDiscarded, library, load]);
 
     // Long enough to notice the mistake, short enough not to sit there.
     useEffect(() => {
-        if (lastRemoved === null) {
+        if (lastDiscarded === null) {
             return;
         }
-        const timer = setTimeout(() => { setLastRemoved(null); }, REMOVAL_GRACE_MS);
+        const timer = setTimeout(() => { setLastDiscarded(null); }, REMOVAL_GRACE_MS);
         return () => { clearTimeout(timer); };
-    }, [lastRemoved]);
+    }, [lastDiscarded]);
 
     const exportFile = useCallback((): void => {
         const source = serviceRef.current?.readSource() ?? '';
@@ -382,8 +418,8 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         open,
         startAnew,
         remove,
-        lastRemoved,
-        undoRemoval,
+        lastDiscarded,
+        undoDiscard,
         exportFile,
         importFile,
     };
@@ -487,5 +523,8 @@ function downloadAsFile(filename: string, text: string): void {
     link.href = url;
     link.download = filename;
     link.click();
-    URL.revokeObjectURL(url);
+    // Released on the next turn rather than on the next line: revoked at once,
+    // some browsers have not started reading it yet and the save quietly does
+    // not happen, which a reader only discovers when they need the backup.
+    setTimeout(() => { URL.revokeObjectURL(url); }, 0);
 }

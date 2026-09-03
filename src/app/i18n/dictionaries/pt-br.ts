@@ -157,6 +157,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'editor.tooLarge': 'Esse arquivo é grande demais para ser uma leitura. Nada foi aberto.',
     'editor.notText': 'Esse arquivo não é texto. Nada foi aberto.',
     'editor.unsaved': 'não salvo',
+    'editor.replaced': '{name} saiu sem ser salva',
     'editor.save': 'Salvar',
     'editor.new': 'Começar uma nova',
     'editor.openSaved': 'Abrir salva',

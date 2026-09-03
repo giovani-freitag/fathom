@@ -26,11 +26,14 @@ const APPEARANCE: AppearanceState = {
 let shelfClock = 0;
 
 /** Storage each kernel owns, so one test's readings never reach another. */
-function buildShelf(): Pick<Storage, 'getItem' | 'setItem'> {
-    let held: string | null = null;
+function buildShelf(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
+    // Keyed, because the shelf and the draft are two of them: one slot handed
+    // the draft back whenever the shelf was read.
+    const held = new Map<string, string>();
     return {
-        getItem: () => held,
-        setItem: (_key, value) => { held = value; },
+        getItem: (key) => held.get(key) ?? null,
+        setItem: (key, value) => { held.set(key, value); },
+        removeItem: (key) => { held.delete(key); },
     };
 }
 
