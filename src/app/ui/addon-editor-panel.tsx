@@ -68,8 +68,13 @@ export default class MyMean implements Indicator {
 }
 `;
 
-/** What the menu shows while the open reading has never been saved. */
-const UNSAVED_CHOICE = '';
+/**
+ * What the menu shows while the open reading has never been saved.
+ *
+ * A word rather than an empty string: the select treats empty as "no value" and
+ * falls back to its placeholder, which is a dash that says nothing.
+ */
+const UNSAVED_CHOICE = 'unsaved';
 
 /** Where the worked examples live, since a reader cannot go and find them. */
 const COOKBOOK_URL = 'https://github.com/giovani-freitag/fathom/blob/main/docs/indicator-cookbook.md';
