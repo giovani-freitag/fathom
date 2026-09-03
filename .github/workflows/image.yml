@@ -82,8 +82,24 @@ jobs:
       # send them unasked. What it sends is what this runner resolves, and a
       # runner has no `.env`: the defaults written in the file, which is what
       # the command in the README is meant to bring up.
+      #
+      # `--yes` because publishing the declared variables is a question it asks
+      # out loud, and a runner has no one to ask: unanswered it reads as no,
+      # publishes nothing, and does not fail — so the artifact the first command
+      # in the README depends on quietly never existed.
       - run: |
-          docker compose publish --with-env \
+          docker compose publish --yes --with-env \
             ghcr.io/${{ github.repository }}/compose:latest
-          docker compose publish --with-env \
+          docker compose publish --yes --with-env \
             ghcr.io/${{ github.repository }}/compose:${{ steps.version.outputs.value }}
+
+      # Asked for back, because the publish above answers a question rather
+      # than failing when it cannot: a step that quietly does nothing is how
+      # the artifact went missing in the first place, and the command at the
+      # top of the README is the only thing that notices.
+      - name: Check the compose artifact is really there
+        run: |
+          for tag in latest ${{ steps.version.outputs.value }}; do
+            docker compose -f "oci://ghcr.io/${{ github.repository }}/compose:$tag" config >/dev/null
+            printf 'compose:%s reads back\n' "$tag"
+          done
