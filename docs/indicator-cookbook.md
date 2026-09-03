@@ -271,6 +271,35 @@ Reaching for a session that was never declared throws by name, listing what
 
 ---
 
+## Seeing what actually reached you
+
+One column only: this is an affordance of the page, not a translation of
+something a shipped reading does.
+
+`console.log` works inside a reading, and its output goes to the **Console**
+below the editor rather than to the browser's own.
+
+```ts
+compute(input: IndicatorInput): PlanDraft {
+    console.log('bars', input.bars.bars.length, 'first', input.bars.bars[0]);
+    console.log('closes', Float64Array.from(closes));
+    // ...
+}
+```
+
+Series print with their length (`Float64Array(43) [81176.4, …31 more]`), lists
+show their first twelve and count the rest, and objects are opened two levels
+deep — which is where a reading's own arithmetic usually is.
+
+`compute` runs again on every bar, pan and zoom, so a line printed inside it
+arrives constantly: a line printed twice running is shown once with a count
+beside it, only the last 200 lines are kept, and when more than one reading is
+printing each line is named with the reading it came from. `console.warn` and
+`console.error` are coloured; `info` and `debug` read as `log`. Nothing else on
+the real console — `table`, `time`, `group` — is offered.
+
+---
+
 ## What was decided, and what it cost
 
 1. **A class implementing `Indicator`** — rather than `extends`. `implements`

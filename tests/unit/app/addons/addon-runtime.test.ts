@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { addonLog, clearAddonLog } from '../../../../src/app/addons/addon-console.ts';
 import { buildAddon } from '../../../../src/app/addons/addon-runtime.ts';
 import { completePlan } from '../../../../src/shared/core/draw-plan.ts';
 import { buildRun, buildWindow } from '../../../mocks/price-bars.ts';
@@ -122,5 +123,27 @@ describe('what a reading built this way cannot reach', () => {
         const built = buildAddon("exports.default = { label: typeof require('fathom').fetch };");
 
         expect(failureOf(built)).toMatch(/missing: parameters, compute/);
+    });
+});
+
+describe('what a reading prints while it runs', () => {
+    beforeEach(() => { clearAddonLog(); });
+
+    it('goes to the panel beside it rather than into the page', async () => {
+        const built = buildAddon("console.log('from the reading'); exports.default = { label: 'x', parameters: [], compute: () => ({ series: [] }) };");
+        await Promise.resolve();
+
+        expect(built.kind).toBe('ready');
+        expect(addonLog.read().map((line) => line.text)).toEqual(['from the reading']);
+    });
+
+    it('reaches it from inside the drawing too, not only while it is built', async () => {
+        const built = buildAddon("exports.default = { label: 'x', parameters: [], compute: () => { console.warn('drawing now'); return { series: [] }; } };");
+        if (built.kind === 'ready') {
+            built.indicator.compute({} as never);
+        }
+        await Promise.resolve();
+
+        expect(addonLog.read()).toEqual([{ level: 'warn', text: 'drawing now', from: 'x', repeats: 1 }]);
     });
 });

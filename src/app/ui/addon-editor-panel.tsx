@@ -24,6 +24,7 @@ import { CONTROL_BUTTON_CLASSES, CONTROL_RESTING_CLASSES, PANEL_TITLE_CLASSES } 
 import { type AddonEditorControls, useAddonEditor } from '../react/use-addon-editor.ts';
 import { AddonEditorService } from '../services/addon-editor/addon-editor-service.ts';
 import type { Choice } from './choice.ts';
+import { AddonConsolePanel } from './addon-console-panel.tsx';
 import { ConfirmDialog } from './confirm-dialog.tsx';
 import { Divider } from './chart-dock.tsx';
 import { Select } from './select.tsx';
@@ -166,6 +167,7 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
             <PanelGrip size={size} isWide={isWide} translate={translate} />
             <EditorToolbar editor={editor} translate={translate} onClose={onClose} closeRef={closeRef} />
             <div ref={mountInto} className="min-h-0 flex-1" />
+            <AddonConsolePanel translate={translate} />
 
             {/* One region present in every state rather than one per state: a
                 live region that is itself added to the tree is not reliably

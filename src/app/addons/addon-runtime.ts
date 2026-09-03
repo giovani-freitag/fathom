@@ -1,5 +1,6 @@
 import type { Indicator } from '../../shared/core/draw-plan.ts';
 import * as ADDON_API from '../../shared/core/addon-api.ts';
+import { buildAddonConsole } from './addon-console.ts';
 
 /** What an addon's source is turned into, or why it could not be. */
 export type AddonBuild =
@@ -21,18 +22,26 @@ export const ADDON_MODULE = 'fathom';
  */
 export function buildAddon(compiled: string): AddonBuild {
     const exported: Record<string, unknown> = {};
+    let label = '';
     try {
         // Running a reader's own code is the whole feature. What contains it is
         // the surface `require` will hand over and nothing else in scope.
         // eslint-disable-next-line @typescript-eslint/no-implied-eval
-        const run = new Function('exports', 'module', 'require', compiled) as (
+        const run = new Function('exports', 'module', 'require', 'console', compiled) as (
             exports: Record<string, unknown>,
             module: { exports: Record<string, unknown> },
             require: (specifier: string) => unknown,
+            printer: ReturnType<typeof buildAddonConsole>,
         ) => void;
         const holder = { exports: exported };
-        run(exported, holder, requireSurface);
-        return takeIndicator(holder.exports['default'] ?? exported['default']);
+        // Named as a parameter so it shadows the page's own inside the script:
+        // what a reading prints belongs in the panel beside it.
+        run(exported, holder, requireSurface, buildAddonConsole(() => label));
+        const built = takeIndicator(holder.exports['default'] ?? exported['default']);
+        if (built.kind === 'ready') {
+            label = built.indicator.label;
+        }
+        return built;
     } catch (error) {
         return { kind: 'failed', message: describeFailure(error), ...findLine(error) };
     }
