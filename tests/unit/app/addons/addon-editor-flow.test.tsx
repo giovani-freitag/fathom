@@ -46,6 +46,9 @@ function buildFakeEditor(settleMs = 0) {
             }
             // The fake is its own compiler: the source is already the emitted
             // shape, so what a test writes is what the runtime is handed.
+            if (isRefusing) {
+                throw new Error('the compiler never answered');
+            }
             if (isFaulting) {
                 return { compiled: '', faults: [{ message: 'no', line: 1, column: 1 }] };
             }
@@ -56,6 +59,7 @@ function buildFakeEditor(settleMs = 0) {
     };
     let onSave = (): void => undefined;
     let isFaulting = false;
+    let isRefusing = false;
     const factory: EditorFactory = (config) => {
         onChange = config.onChange;
         onSave = config.onSave;
@@ -68,6 +72,8 @@ function buildFakeEditor(settleMs = 0) {
         pressSave: (): void => { onSave(); },
         /** Makes every compile report a fault, as a typo would. */
         faultFrom: (): void => { isFaulting = true; },
+        /** Makes the compiler itself refuse, as one not yet started does. */
+        refuseFrom: (): void => { isRefusing = true; },
         /** What is actually in the editor, which a refusal must not disturb. */
         buffer: (): string => source,
     };
@@ -107,6 +113,19 @@ describe('opening the editor', () => {
 
         await waitFor(() => { expect(result.current.name).toBe('My mean'); });
         expect(result.current.isUnsaved).toBe(false);
+    });
+
+    it('says so when the compiler itself never answers', async () => {
+        // Left uncaught, the panel sat on "Starting…" for the rest of the
+        // session and the only trace was a rejection in the console.
+        const { factory, refuseFrom, type } = buildFakeEditor();
+        const { result } = renderEditor(factory);
+        await waitFor(() => { expect(result.current.status?.kind).toBe('ready'); });
+
+        refuseFrom();
+        act(() => { type(STARTER); });
+
+        await waitFor(() => { expect(result.current.status?.kind).toBe('broken'); });
     });
 
     it('takes its preview off the chart when it closes unsaved', async () => {

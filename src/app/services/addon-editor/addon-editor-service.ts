@@ -4,6 +4,7 @@ import type { ResolvedTheme } from '../../core/theme.ts';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import typescriptWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import { ADDON_SURFACE_TYPES } from '../../addons/addon-surface.generated.ts';
+import { delay } from '../../../shared/core/timers.ts';
 
 /** The chart's monospace, as the stylesheet declares it. */
 const MONOSPACE = "'Azeret Mono', ui-monospace, 'SF Mono', monospace";
@@ -13,6 +14,10 @@ const ADDON_URI = 'file:///addon.ts';
 
 /** Where the surface lives, so a bare import of it resolves. */
 const SURFACE_URI = 'file:///node_modules/@types/fathom/index.d.ts';
+
+/** How long to keep asking for the language service before giving up on it. */
+const REGISTRATION_TRIES = 40;
+const REGISTRATION_WAIT_MS = 50;
 
 export interface AddonEditorServiceConfig {
     /** Runs on every edit, after the pause. */
@@ -177,8 +182,7 @@ export class AddonEditorService {
             return { compiled: '', faults: [] };
         }
 
-        const getWorker = await monaco.languages.typescript.getTypeScriptWorker();
-        const worker = await getWorker(model.uri);
+        const worker = await this.reachWorker(model.uri);
         const faults = await this.readFaults(worker, model);
         if (faults.length > 0) {
             return { compiled: '', faults };
@@ -186,6 +190,28 @@ export class AddonEditorService {
 
         const emitted = await worker.getEmitOutput(model.uri.toString());
         return { compiled: emitted.outputFiles[0]?.text ?? '', faults: [] };
+    }
+
+    /**
+     * Monaco registers its TypeScript service when a file of that language
+     * first appears, and the registration lands turns after the model that
+     * triggered it. Asked before then, it refuses rather than waiting, which is
+     * every first compile of a freshly opened editor.
+     */
+    private async reachWorker(
+        uri: monaco.Uri,
+    ): Promise<monaco.languages.typescript.TypeScriptWorker> {
+        for (let attempt = 1; attempt < REGISTRATION_TRIES; attempt += 1) {
+            try {
+                const getWorker = await monaco.languages.typescript.getTypeScriptWorker();
+                return await getWorker(uri);
+            } catch {
+                await delay(REGISTRATION_WAIT_MS);
+            }
+        }
+
+        const getWorker = await monaco.languages.typescript.getTypeScriptWorker();
+        return getWorker(uri);
     }
 
     /**

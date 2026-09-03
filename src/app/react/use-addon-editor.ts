@@ -127,6 +127,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
     const untitled = translate('editor.untitled');
     const shelfRefusedMessage = translate('editor.shelfRefused');
     const importTooLargeMessage = translate('editor.tooLarge');
+    const compilerLostMessage = translate('editor.compilerLost');
     const importNotTextMessage = translate('editor.notText');
     const editorLabel = translate('editor.code');
     const [status, setStatus] = useState<EditorStatus | null>(null);
@@ -204,10 +205,15 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
             }
             compiledRef.current = compiled;
             publish(underKey ?? 'draft', buildAddon(compiled));
+        } catch {
+            // Only the compiler itself can land here — a fault in the reader's
+            // own script is a fault, not a refusal. Left uncaught it says
+            // nothing at all, and the panel waits on a build that will not come.
+            setStatus({ kind: 'broken', message: compilerLostMessage });
         } finally {
             setIsRunning(false);
         }
-    }, [library, publish]);
+    }, [compilerLostMessage, library, publish]);
 
     // The editor is mounted once and lives on; what it calls back into must be
     // the current one, not the one that existed when it was created.

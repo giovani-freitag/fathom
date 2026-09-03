@@ -186,6 +186,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'editor.code': 'O código desta leitura',
     'editor.close': 'Fechar o editor',
     'editor.starting': 'Iniciando…',
+    'editor.compilerLost': 'O compilador desta página parou de responder. Reabrir o editor costuma resolver.',
     'editor.drawing': 'Desenhando “{name}” no gráfico.',
     'indicators.onTheChart': 'No gráfico',
     'indicators.add': 'Adicionar camada',

@@ -184,6 +184,7 @@ export const EN_DICTIONARY = {
     'editor.code': 'The code for this reading',
     'editor.close': 'Close the editor',
     'editor.starting': 'Starting…',
+    'editor.compilerLost': 'The compiler in this page stopped answering. Reopening the editor usually brings it back.',
     'editor.drawing': 'Drawing “{name}” on the chart.',
     'indicators.onTheChart': 'On the chart',
     'indicators.add': 'Add a layer',
