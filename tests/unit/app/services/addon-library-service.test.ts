@@ -121,23 +121,23 @@ describe('naming what is saved', () => {
 
 describe('what is being written', () => {
     it('waits beside the shelf, not on it', () => {
-        library.rememberDraft({ 'main.ts': 'half a reading' });
+        library.rememberDraft({ key: null, files: { 'main.ts': 'half a reading' } });
 
         expect(library.list()).toEqual([]);
-        expect(library.readDraft()).toEqual({ 'main.ts': 'half a reading' });
+        expect(library.readDraft()).toEqual({ key: null, files: { 'main.ts': 'half a reading' } });
     });
 
     it('outlives the page it was written in', () => {
-        library.rememberDraft({ 'main.ts': 'half a reading' });
+        library.rememberDraft({ key: null, files: { 'main.ts': 'half a reading' } });
 
         // A second service over the same storage is what a reload amounts to.
         const afterReload = new AddonLibraryService({ storage, now: () => 1 });
 
-        expect(afterReload.readDraft()).toEqual({ 'main.ts': 'half a reading' });
+        expect(afterReload.readDraft()).toEqual({ key: null, files: { 'main.ts': 'half a reading' } });
     });
 
     it('is gone once there is nothing being written', () => {
-        library.rememberDraft({ 'main.ts': 'half a reading' });
+        library.rememberDraft({ key: null, files: { 'main.ts': 'half a reading' } });
 
         library.rememberDraft(null);
 
@@ -145,7 +145,7 @@ describe('what is being written', () => {
     });
 
     it('is never mistaken for a saved reading', () => {
-        library.rememberDraft({ 'main.ts': 'half a reading' });
+        library.rememberDraft({ key: null, files: { 'main.ts': 'half a reading' } });
         saveOne('filed');
 
         expect(library.list().map((one) => one.key)).toEqual(['filed']);
@@ -194,7 +194,28 @@ describe('storage that will not cooperate', () => {
             now: () => 1,
         });
 
-        expect(older.readDraft()).toEqual({ 'main.ts': 'half a reading' });
+        expect(older.readDraft()).toEqual({ key: null, files: { 'main.ts': 'half a reading' } });
+    });
+
+    it('offers a draft to the reading it belongs to, and to no other', () => {
+        // Offered to whichever reading was being opened, a draft left over from
+        // one showed its code under another's name — and saving filed it there.
+        const library = new AddonLibraryService({ storage: buildStorage(), now: () => 1 });
+
+        library.rememberDraft({ key: 'mine', files: { 'main.ts': 'half a reading' } });
+
+        expect(library.readDraft()?.key).toBe('mine');
+    });
+
+    it('refuses a stored path the editor would not have let anybody make', () => {
+        // Storage outlives the code that wrote it, and a path goes straight
+        // into the address of an editor model.
+        const polluted = new AddonLibraryService({
+            storage: buildStorage('[{"key":"a","name":"A","files":{"../escape.ts":"x"},"compiled":{}}]'),
+            now: () => 1,
+        });
+
+        expect(polluted.list()).toEqual([]);
     });
 
     it('ignores a row that is not a reading rather than crashing on it', () => {

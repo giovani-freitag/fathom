@@ -1,4 +1,4 @@
-import { ENTRY_FILE, type ReadingFiles } from '../../../shared/core/reading-files.ts';
+import { ENTRY_FILE, isLegalPath, type ReadingFiles } from '../../../shared/core/reading-files.ts';
 
 /** One reading a reader wrote, as it is kept between sessions. */
 export interface SavedReading {
@@ -15,6 +15,13 @@ export interface SavedReading {
      */
     readonly compiled: ReadingFiles;
     readonly savedAtMs: number;
+}
+
+/** What is in the editor but not yet on the shelf, and which reading it belongs to. */
+export interface HeldDraft {
+    /** The shelf key it was opened from, or null for one never saved. */
+    readonly key: string | null;
+    readonly files: ReadingFiles;
 }
 
 /** A reading as it was stored before one could be written across several files. */
@@ -46,7 +53,7 @@ const DRAFT = 'fathom.addons.draft';
  */
 export class AddonLibraryService {
     private readonly config: AddonLibraryServiceConfig;
-    private draft: ReadingFiles | null = null;
+    private draft: HeldDraft | null = null;
 
     constructor(config: AddonLibraryServiceConfig) {
         this.config = config;
@@ -60,16 +67,17 @@ export class AddonLibraryService {
      * back — a narrowed window, a rotated tablet, a zoom, a closed tab — none
      * of which is a decision to discard work.
      *
-     * @param files - What is in the editor, or null once it is filed.
+     * @param draft - What is in the editor and which reading it is, or null
+     *     once it is filed.
      */
-    rememberDraft(files: ReadingFiles | null): void {
-        this.draft = files;
+    rememberDraft(draft: HeldDraft | null): void {
+        this.draft = draft;
         try {
-            if (files === null) {
+            if (draft === null) {
                 this.config.storage.removeItem(DRAFT);
                 return;
             }
-            this.config.storage.setItem(DRAFT, JSON.stringify(files));
+            this.config.storage.setItem(DRAFT, JSON.stringify(draft));
         } catch {
             // Storage refused. The draft still survives a remount in memory;
             // what is lost is only its surviving the tab being closed.
@@ -77,7 +85,7 @@ export class AddonLibraryService {
     }
 
     /** What was being written when the editor last went away. */
-    readDraft(): ReadingFiles | null {
+    readDraft(): HeldDraft | null {
         if (this.draft !== null) {
             return this.draft;
         }
@@ -225,19 +233,36 @@ function asReading(candidate: unknown): SavedReading | null {
     return null;
 }
 
-/** A draft written before a reading could have more than one file. */
-function readDraftShape(held: string): ReadingFiles | null {
+/**
+ * A draft in whichever shape it was written in.
+ *
+ * Two older shapes: a bare string from before a reading could have more than
+ * one file, and a file map from before a draft said which reading it was. Both
+ * read as a draft belonging to no reading, which is the safe answer — it is
+ * offered to a reader opening nothing rather than filed over something.
+ */
+function readDraftShape(held: string): HeldDraft | null {
     try {
-        const parsed = JSON.parse(held) as unknown;
-        return isFileMap(parsed) ? parsed : { [ENTRY_FILE]: held };
+        const parsed = JSON.parse(held) as { key?: unknown; files?: unknown };
+        if (isFileMap(parsed.files)) {
+            return { key: typeof parsed.key === 'string' ? parsed.key : null, files: parsed.files };
+        }
+        return isFileMap(parsed) ? { key: null, files: parsed } : { key: null, files: { [ENTRY_FILE]: held } };
     } catch {
-        return { [ENTRY_FILE]: held };
+        return { key: null, files: { [ENTRY_FILE]: held } };
     }
 }
 
+/**
+ * Whether something read out of storage is a reading's files.
+ *
+ * The paths are checked as the editor checks them. Storage outlives the code
+ * that wrote it, and a path the editor would refuse to create is one it should
+ * refuse to open — it goes straight into a model's address.
+ */
 function isFileMap(candidate: unknown): candidate is ReadingFiles {
     return typeof candidate === 'object'
         && candidate !== null
         && !Array.isArray(candidate)
-        && Object.values(candidate).every((value) => typeof value === 'string');
+        && Object.entries(candidate).every(([path, value]) => typeof value === 'string' && isLegalPath(path));
 }

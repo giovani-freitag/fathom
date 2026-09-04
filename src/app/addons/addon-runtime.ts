@@ -31,7 +31,7 @@ export function buildAddon(compiled: ReadingFiles): AddonBuild {
     const linker = new Linker(compiled);
     try {
         const entry = linker.load(ENTRY_FILE);
-        const built = takeIndicator(entry['default']);
+        const built = takeIndicator(readDefault(entry));
         if (built.kind === 'ready') {
             linker.answerTo(built.indicator.label);
         }
@@ -53,11 +53,22 @@ export function buildAddon(compiled: ReadingFiles): AddonBuild {
  * file it happened in, and that is state the run carries as it goes.
  */
 class Linker {
-    /** Where it went wrong, which is the innermost file that threw. */
+    /** Where it went wrong: the innermost file the escaping failure came from. */
     blamed: string | null = null;
 
+    /**
+     * Which failure that blame is about.
+     *
+     * Held because every file on the way up catches the same one to say so, and
+     * the innermost is the one that knows where it started. Without it the
+     * blame is either the outermost file — the entry, always — or the first
+     * throw of the run, which a `require` in a try/catch makes a file that was
+     * never the problem.
+     */
+    private blamedFor: unknown = null;
+
     private readonly files: ReadingFiles;
-    private readonly loaded = new Map<string, Record<string, unknown>>();
+    private readonly loaded = new Map<string, { exports: unknown }>();
     private label = '';
 
     constructor(files: ReadingFiles) {
@@ -76,10 +87,13 @@ class Linker {
      * @returns Its exports, run only the first time it is asked for.
      * @throws Error when the reading has no such file.
      */
-    load(path: string): Record<string, unknown> {
+    load(path: string): unknown {
+        // Held in a box rather than as the exports themselves, because a file
+        // may legitimately export `undefined` — and a bare map cannot tell that
+        // from a file nobody has run yet, so it ran again on every ask.
         const held = this.loaded.get(path);
         if (held !== undefined) {
-            return held;
+            return held.exports;
         }
 
         const source = this.files[path];
@@ -88,10 +102,10 @@ class Linker {
         }
 
         const exported: Record<string, unknown> = {};
-        const holder = { exports: exported };
+        const holder: { exports: unknown } = { exports: exported };
         // Filed before it runs, so two files that import each other get each
         // other's exports as far as they are filled rather than for ever.
-        this.loaded.set(path, exported);
+        this.loaded.set(path, { exports: exported });
 
         try {
             // Running a reader's own code is the whole feature. What contains
@@ -105,17 +119,27 @@ class Linker {
             ) => void;
             // Named as a parameter so it shadows the page's own inside the
             // script: what a reading prints belongs in the panel beside it.
-            run(exported, holder, (specifier) => this.reach(specifier, path), buildAddonConsole(() => this.label));
+            run(
+                exported,
+                holder as { exports: Record<string, unknown> },
+                (specifier) => this.reach(specifier, path),
+                buildAddonConsole(() => this.label),
+            );
         } catch (error) {
-            // The innermost file wins, because the one that threw is nearer to
-            // what is wrong than every file waiting on it up the chain.
-            this.blamed ??= path;
+            // Unfiled, so the next ask runs it again and throws again. Left
+            // filed, a second `require` handed back whatever the file managed
+            // to assign before it died and the reading built on the wreckage.
+            this.loaded.delete(path);
+            if (this.blamedFor !== error) {
+                this.blamed = path;
+                this.blamedFor = error;
+            }
             throw error;
         }
 
         // Read after the run rather than before: a file that replaces
         // `module.exports` wholesale exports something other than what was filed.
-        this.loaded.set(path, holder.exports);
+        this.loaded.set(path, { exports: holder.exports });
         return holder.exports;
     }
 
@@ -165,6 +189,13 @@ function takeIndicator(exported: unknown): AddonBuild {
     }
 
     return { kind: 'ready', indicator: candidate as Indicator };
+}
+
+/** The default export of a file, where it exported anything at all. */
+function readDefault(exported: unknown): unknown {
+    return typeof exported === 'object' && exported !== null
+        ? (exported as Record<string, unknown>)['default']
+        : undefined;
 }
 
 function tryConstruct(Constructor: new () => unknown): unknown {

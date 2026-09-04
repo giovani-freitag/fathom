@@ -226,6 +226,49 @@ describe('a reading written across several files', () => {
         expect(built.kind === 'failed' && built.file).toBe('broken.ts');
     });
 
+    it('blames the failure that stopped it, not one the reading caught itself', () => {
+        // A `require` inside a try/catch is ordinary code. Blamed for the first
+        // throw of the run, the marker landed on a file that was never the
+        // problem, at a line taken from a different one's stack.
+        const built = buildAddon({
+            'main.ts': "try { require('./optional'); } catch { /* fine */ } require('./broken'); exports.default = {};",
+            'optional.ts': "throw new Error('this one is caught');",
+            'broken.ts': "throw new Error('this one is not');",
+        });
+
+        expect(built.kind === 'failed' && built.file).toBe('broken.ts');
+        expect(failureOf(built)).toBe('this one is not');
+    });
+
+    it('runs a file again after it threw, rather than handing back its wreckage', () => {
+        // Left in the cache, a second `require` answered with whatever the file
+        // assigned before it died, and the reading built on top of it.
+        const built = buildAddon({
+            'main.ts': "try { require('./broken'); } catch { /* fine */ } exports.default = { label: String(require('./broken').half), parameters: [], compute: () => ({ series: [] }) };",
+            'broken.ts': "exports.half = 'assigned'; throw new Error('and then it broke');",
+        });
+
+        expect(failureOf(built)).toBe('and then it broke');
+    });
+
+    it('runs a file that exports nothing at all only once', () => {
+        // `undefined` is a legitimate export and was also the sentinel for a
+        // file nobody had run, so such a file ran again on every ask.
+        const built = buildAddon({
+            'main.ts': "require('./quiet'); require('./quiet'); exports.default = { label: String(require('./counter').count), parameters: [], compute: () => ({ series: [] }) };",
+            'counter.ts': 'exports.count = 0; exports.bump = () => { exports.count += 1; };',
+            'quiet.ts': "require('./counter').bump(); module.exports = undefined;",
+        });
+
+        expect(built.kind === 'ready' && built.indicator.label).toBe('1');
+    });
+
+    it('says nothing was exported when a file exports nothing', () => {
+        const built = buildOne('module.exports = undefined;');
+
+        expect(failureOf(built)).toMatch(/Nothing was exported/);
+    });
+
     it('survives two files that ask for each other', () => {
         // Filed before it runs, a half-built module is what the other one gets;
         // filed after, the two call each other until the stack gives out.

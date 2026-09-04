@@ -20,12 +20,22 @@ export interface FoundFile {
     /** Where to fetch it from, which differs where an entry was renamed. */
     readonly readAt: string;
     readonly bytes: number;
+    /** What the listing says its content hashes to, where it says. */
+    readonly hash: string | null;
 }
 
 /** What is at a spec, as much as can be told without fetching any of it. */
 export interface FoundReading {
     /** What to call it, taken from the repository or package. */
     readonly name: string;
+    /**
+     * Exactly what was listed, version resolved.
+     *
+     * Carried rather than read again from what the reader typed: the field is
+     * still theirs to edit after a look, and fetching from a spec nobody was
+     * shown is the one thing this two-step flow exists to prevent.
+     */
+    readonly at: ReadingSpec;
     /** Where it came from, to show the reader before they run it. */
     readonly from: string;
     readonly files: readonly FoundFile[];
@@ -35,6 +45,8 @@ export interface FoundReading {
 export interface ReadingImportServiceConfig {
     /** Injected so a test needs no network. */
     readonly fetch: typeof globalThis.fetch;
+    /** Absent where the page is not a secure context, and then only size is checked. */
+    readonly digest?: ((data: ArrayBuffer) => Promise<ArrayBuffer>) | undefined;
 }
 
 /** How many files a reading may be brought in as. */
@@ -54,6 +66,17 @@ const CONTENT = 'https://cdn.jsdelivr.net';
  */
 const AT_ONCE = 6;
 const BEFORE_ASKING_AGAIN_MS = 400;
+
+/**
+ * What a name and a version may be made of.
+ *
+ * Everything else, a backslash above all: a browser reads one as a separator
+ * and resolves the `..` around it, so a name nobody would blink at fetched a
+ * different package entirely while the panel showed what was typed.
+ */
+const REPOSITORY_NAME = /^[\w.-]+\/[\w.-]+$/;
+const PACKAGE_NAME = /^(?:@[\w.-]+\/)?[\w.-]+$/;
+const PLAIN_VERSION = /^[\w.-]+$/;
 
 /**
  * Brings a reading in from a repository or a package.
@@ -76,20 +99,19 @@ export class ReadingImportService {
      * before any of it arrives.
      *
      * @param typed - A spec or a pasted address.
-     * @returns What was found there.
+     * @returns What was found there, at the version it was found at.
      * @throws Error naming what is wrong, in words a reader can act on.
      */
     async look(typed: string): Promise<FoundReading> {
-        const spec = readSpec(typed);
-        const listing = await this.readListing(spec);
-        const found = withEntry(withinFolder(listing, spec.folder));
+        const at = await this.settleVersion(readSpec(typed));
+        const found = withEntry(withinFolder(await this.readListing(at), at.folder));
 
         if (found.length === 0) {
-            throw new Error(`Nothing at ${describe(spec)} is a TypeScript file this could open.`);
+            throw new Error(`Nothing at ${describe(at)} is a TypeScript file this could open.`);
         }
         if (!found.some((one) => one.path === ENTRY_FILE)) {
             throw new Error(
-                `A reading needs a ${ENTRY_FILE} or an index.ts, and there is neither at ${describe(spec)}.`,
+                `A reading needs a ${ENTRY_FILE} or an index.ts, and there is neither at ${describe(at)}.`,
             );
         }
         if (found.length > MOST_FILES) {
@@ -98,24 +120,24 @@ export class ReadingImportService {
 
         const bytes = found.reduce((total, one) => total + one.bytes, 0);
         if (bytes > MOST_BYTES) {
-            throw new Error(`That weighs ${Math.round(bytes / 1024)} kB. A reading may be up to ${MOST_BYTES / 1024} kB.`);
+            throw new Error(
+                `That weighs ${Math.round(bytes / 1024)} kB. A reading may be up to ${MOST_BYTES / 1024} kB.`,
+            );
         }
 
-        return { name: nameOf(spec), from: describe(spec), files: found, bytes };
+        return { name: nameOf(at), at, from: describe(at), files: found, bytes };
     }
 
     /**
-     * Fetches what a look found.
+     * Fetches what a look found, and checks that it is what was listed.
      *
-     * @param typed - The same spec the look was made with.
-     * @param found - What that look answered.
+     * @param found - What that look answered, which says where to fetch from.
      * @returns The files, ready to open in the editor.
-     * @throws Error when one of them could not be fetched.
+     * @throws Error when a file could not be fetched, or is not what was shown.
      */
-    async take(typed: string, found: FoundReading): Promise<ReadingFiles> {
-        const spec = readSpec(typed);
-        const at = `${CONTENT}/${spec.host}/${nameAndVersion(spec)}`;
-        const prefix = spec.folder === '' ? '' : `/${spec.folder}`;
+    async take(found: FoundReading): Promise<ReadingFiles> {
+        const at = `${CONTENT}/${found.at.host}/${nameAndVersion(found.at)}`;
+        const prefix = found.at.folder === '' ? '' : `/${found.at.folder}`;
 
         const fetched: (readonly [string, string])[] = [];
         for (let from = 0; from < found.files.length; from += AT_ONCE) {
@@ -126,38 +148,104 @@ export class ReadingImportService {
         return Object.fromEntries(fetched);
     }
 
-    private async readFile(at: string, one: FoundFile): Promise<readonly [string, string]> {
-        const answer = await this.config.fetch(`${at}/${one.readAt}`);
-        if (answer.ok) {
-            return [one.path, await answer.text()];
+    /**
+     * A version, where the reader named none.
+     *
+     * The listing needs one — asked without, jsDelivr answers with an index of
+     * versions and no files at all, which read as a repository with nothing in
+     * it. Settling it here also pins the look and the fetch to one ref, so a
+     * branch that moves between them cannot.
+     */
+    private async settleVersion(spec: ReadingSpec): Promise<ReadingSpec> {
+        if (spec.version !== null) {
+            return spec;
         }
 
-        await delay(BEFORE_ASKING_AGAIN_MS);
-        const again = await this.config.fetch(`${at}/${one.readAt}`);
-        if (!again.ok) {
-            throw new Error(`${one.path} could not be fetched (${again.status}).`);
+        const held = await this.readJson(`${LISTING}/${spec.host}/${spec.name}`, spec) as {
+            tags?: Record<string, string>;
+            versions?: readonly { version?: unknown }[];
+        };
+        const newest = held.tags?.['latest'] ?? held.versions?.[0]?.version;
+        if (typeof newest !== 'string') {
+            throw new Error(`${describe(spec)} has no released version to open.`);
         }
-        return [one.path, await again.text()];
+        return { ...spec, version: newest };
     }
 
     private async readListing(spec: ReadingSpec): Promise<readonly FoundFile[]> {
-        const answer = await this.config.fetch(
+        const held = await this.readJson(
             `${LISTING}/${spec.host}/${nameAndVersion(spec)}?structure=flat`,
-        );
+            spec,
+        ) as { files?: readonly { name?: unknown; size?: unknown; hash?: unknown }[] };
+
+        return (held.files ?? [])
+            .filter((one) => typeof one.name === 'string' && typeof one.size === 'number')
+            .map((one) => {
+                const path = (one.name as string).replace(/^\//, '');
+                return {
+                    path,
+                    readAt: path,
+                    bytes: one.size as number,
+                    hash: typeof one.hash === 'string' ? one.hash : null,
+                };
+            });
+    }
+
+    private async readJson(url: string, spec: ReadingSpec): Promise<unknown> {
+        const answer = await this.config.fetch(url);
         if (answer.status === 404) {
             throw new Error(`Nothing is published at ${describe(spec)}.`);
         }
         if (!answer.ok) {
             throw new Error(`${describe(spec)} could not be read (${answer.status}).`);
         }
+        return answer.json();
+    }
 
-        const held = await answer.json() as { files?: readonly { name?: unknown; size?: unknown }[] };
-        return (held.files ?? [])
-            .filter((one) => typeof one.name === 'string' && typeof one.size === 'number')
-            .map((one) => {
-                const path = (one.name as string).replace(/^\//, '');
-                return { path, readAt: path, bytes: one.size as number };
-            });
+    private async readFile(at: string, one: FoundFile): Promise<readonly [string, string]> {
+        const url = `${at}/${one.readAt}`;
+        try {
+            return [one.path, await this.fetchOnce(url, one)];
+        } catch (refusal) {
+            if (refusal instanceof Error && refusal.message.includes('not the file that was listed')) {
+                throw refusal;
+            }
+            // Asked once more before giving up: twenty files asked for in one
+            // breath came back with some of them refused, and the same ask a
+            // moment later answered every one of them.
+            await delay(BEFORE_ASKING_AGAIN_MS);
+            return [one.path, await this.fetchOnce(url, one)];
+        }
+    }
+
+    private async fetchOnce(url: string, one: FoundFile): Promise<string> {
+        const answer = await this.config.fetch(url);
+        if (!answer.ok) {
+            throw new Error(`${one.path} could not be fetched (${answer.status}).`);
+        }
+
+        // Checked against the listing the reader was shown rather than taken on
+        // trust: the listing and the files come from two services with their
+        // own caches, and what was approved has to be what runs.
+        const bytes = await answer.arrayBuffer();
+        if (bytes.byteLength !== one.bytes) {
+            throw new Error(`${one.path} is not the file that was listed. Nothing was opened.`);
+        }
+        await this.checkHash(bytes, one);
+        return new TextDecoder().decode(bytes);
+    }
+
+    private async checkHash(bytes: ArrayBuffer, one: FoundFile): Promise<void> {
+        const digest = this.config.digest;
+        if (digest === undefined || one.hash === null) {
+            return;
+        }
+
+        const hashed = new Uint8Array(await digest(bytes));
+        const asBase64 = btoa(String.fromCharCode(...hashed));
+        if (asBase64 !== one.hash) {
+            throw new Error(`${one.path} is not the file that was listed. Nothing was opened.`);
+        }
     }
 }
 
@@ -171,27 +259,16 @@ export class ReadingImportService {
  */
 export function readSpec(typed: string): ReadingSpec {
     const trimmed = typed.trim();
-    const fromWeb = readAddress(trimmed);
-    const rest = fromWeb ?? trimmed.replace(/^\/+/, '');
+    const rest = readAddress(trimmed) ?? trimmed.replace(/^\/+/, '');
 
-    const asRepository = /^gh\/([^/@\s]+\/[^/@\s]+)(?:@([^/\s]+))?(?:\/(.*))?$/.exec(rest);
-    if (asRepository !== null) {
-        return {
-            host: 'gh',
-            name: asRepository[1]!,
-            version: asRepository[2] ?? null,
-            folder: trimFolder(asRepository[3]),
-        };
+    const asRepository = /^gh\/([^@/\s]+\/[^@/\s]+)(?:@([^/\s]+))?(?:\/(.*))?$/.exec(rest);
+    if (asRepository !== null && REPOSITORY_NAME.test(asRepository[1]!)) {
+        return buildSpec('gh', asRepository);
     }
 
-    const asPackage = /^npm\/((?:@[^/@\s]+\/)?[^/@\s]+)(?:@([^/\s]+))?(?:\/(.*))?$/.exec(rest);
-    if (asPackage !== null) {
-        return {
-            host: 'npm',
-            name: asPackage[1]!,
-            version: asPackage[2] ?? null,
-            folder: trimFolder(asPackage[3]),
-        };
+    const asPackage = /^npm\/((?:@[^@/\s]+\/)?[^@/\s]+)(?:@([^/\s]+))?(?:\/(.*))?$/.exec(rest);
+    if (asPackage !== null && PACKAGE_NAME.test(asPackage[1]!)) {
+        return buildSpec('npm', asPackage);
     }
 
     throw new Error(
@@ -204,13 +281,20 @@ export function describe(spec: ReadingSpec): string {
     return `${spec.host}/${nameAndVersion(spec)}${spec.folder === '' ? '' : `/${spec.folder}`}`;
 }
 
+function buildSpec(host: 'gh' | 'npm', found: RegExpExecArray): ReadingSpec {
+    const version = found[2];
+    if (version !== undefined && !PLAIN_VERSION.test(version)) {
+        throw new Error(`“${version}” is not a version, a tag or a branch.`);
+    }
+    return { host, name: found[1]!, version: version ?? null, folder: trimFolder(found[3]) };
+}
+
 function nameAndVersion(spec: ReadingSpec): string {
     return spec.version === null ? spec.name : `${spec.name}@${spec.version}`;
 }
 
 function nameOf(spec: ReadingSpec): string {
-    const last = (spec.folder === '' ? spec.name : spec.folder).split('/').pop() ?? spec.name;
-    return last;
+    return (spec.folder === '' ? spec.name : spec.folder).split('/').pop() ?? spec.name;
 }
 
 /** An address copied out of a browser, turned into the spec it names. */

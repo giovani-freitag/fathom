@@ -70,15 +70,18 @@ function buildFakeEditor(settleMs = 0) {
             if (settleMs > 0) {
                 await new Promise((resolve) => { setTimeout(resolve, settleMs); });
             }
-            // The fake is its own compiler: the source is already the emitted
-            // shape, so what a test writes is what the runtime is handed.
             if (isRefusing) {
                 throw new Error('the compiler never answered');
             }
+            // Sampled after the wait, as the real one is: what a test types
+            // while the compiler works is in the pair or in neither.
+            const held = { ...files };
             if (isFaulting) {
-                return { compiled: {}, faults: [{ message: 'no', line: 1, column: 1, file: ENTRY_FILE }] };
+                return { files: held, compiled: {}, faults: [{ message: 'no', line: 1, column: 1, file: ENTRY_FILE }] };
             }
-            return { compiled: files, faults: [] };
+            // The fake is its own compiler: the source is already the emitted
+            // shape, so what a test writes is what the runtime is handed.
+            return { files: held, compiled: held, faults: [] };
         },
         showRuntimeFault: () => undefined,
         applyTheme: () => undefined,
@@ -547,6 +550,36 @@ describe('deleting a reading', () => {
         expect(result.current.lastDiscarded).toBeNull();
     });
 
+    it('puts back a reading that was not the starter, which is every real one', async () => {
+        // The undo after a deletion offers the work back and files it again.
+        // Recorded and then recorded over by the load that follows, it came
+        // back to the editor and never came back to the shelf.
+        const { factory, type } = buildFakeEditor();
+        const { kernel, result } = renderEditor(factory);
+        act(() => { type(sourceNamed('Mine')); });
+        await act(async () => { await result.current.save(); });
+        act(() => { result.current.remove(); });
+
+        act(() => { result.current.undoDiscard(); });
+
+        await waitFor(() => { expect(kernel.container.addons.list()).toHaveLength(1); });
+    });
+
+    it('puts back the code it deleted, not the starter it was replaced with', async () => {
+        const { factory, type } = buildFakeEditor();
+        const { kernel, result } = renderEditor(factory);
+        act(() => { type(sourceNamed('Mine')); });
+        await act(async () => { await result.current.save(); });
+        act(() => { result.current.remove(); });
+
+        act(() => { result.current.undoDiscard(); });
+
+        await waitFor(() => { expect(kernel.container.addons.list()).toHaveLength(1); });
+        const [filed] = kernel.container.addons.list();
+        const rebuilt = buildAddon(filed?.compiled ?? {});
+        expect(rebuilt.kind === 'ready' ? rebuilt.indicator.label : null).toBe('Mine');
+    });
+
     it('stops offering it once the moment has passed', async () => {
         vi.useFakeTimers();
         try {
@@ -574,6 +607,96 @@ describe('deleting a reading', () => {
         await waitFor(() => { expect(kernel.container.addons.list()).toEqual([]); });
         expect(kernel.readAdded().map((entry) => entry.indicatorId))
             .not.toContain(`${ADDON_ID_PREFIX}my-mean`);
+    });
+});
+
+describe('opening a bundle somebody handed over', () => {
+    async function importText(text: string, called = 'theirs.fathom.json') {
+        const { factory, buffer } = buildFakeEditor();
+        const { result } = renderEditor(factory);
+        await waitFor(() => { expect(result.current.status?.kind).toBe('ready'); });
+
+        await act(async () => {
+            await result.current.importFile(new File([text], called, { type: 'application/json' }));
+        });
+
+        return { result, buffer };
+    }
+
+    it('opens one that holds a whole reading', async () => {
+        const bundle = JSON.stringify({ fathom: 1, name: 'Theirs', files: { 'main.ts': 'the entry' } });
+
+        const { result, buffer } = await importText(bundle);
+
+        expect(result.current.name).toBe('Theirs');
+        expect(buffer()).toBe('the entry');
+    });
+
+    it('refuses one with no entry rather than opening a buffer nothing can save', async () => {
+        // The editor showed a Monaco buffer of its own that `readFiles` could
+        // never see: everything typed into it was invisible to save and draft.
+        // Refused outright, what the reader had stays where it was.
+        const bundle = JSON.stringify({ fathom: 1, files: { 'helpers.ts': 'no entry here' } });
+
+        const { result, buffer } = await importText(bundle);
+
+        expect(result.current.files).toEqual([ENTRY_FILE]);
+        expect(buffer()).toBe(STARTER[ENTRY_FILE]);
+    });
+
+    it('refuses one whose paths climb out of the reading', async () => {
+        const bundle = JSON.stringify({
+            fathom: 1,
+            files: { 'main.ts': 'the entry', '../escape.ts': 'elsewhere' },
+        });
+
+        const { result } = await importText(bundle);
+
+        expect(result.current.files).not.toContain('../escape.ts');
+    });
+});
+
+describe('a draft left behind by one reading', () => {
+    it('is not offered to another one being opened', async () => {
+        // A draft belongs to the reading it was typed into. Offered to
+        // whichever one was opened next, it showed under that one's name — and
+        // saving filed it over the reading it was named after.
+        const first = buildFakeEditor();
+        const opened = renderEditor(first.factory);
+        act(() => { first.type(sourceNamed('Mine')); });
+        await act(async () => { await opened.result.current.save(); });
+        const mine = opened.result.current.openKey!;
+        act(() => { opened.result.current.startAnew(); });
+        act(() => { first.type(sourceNamed('Yours')); });
+        await act(async () => { await opened.result.current.save(); });
+        const yours = opened.result.current.openKey!;
+        act(() => { opened.result.current.open(mine); });
+        act(() => { first.type(sourceNamed('Mine, half rewritten')); });
+        await waitFor(() => { expect(opened.result.current.isUnsaved).toBe(true); });
+        opened.unmount();
+
+        const second = buildFakeEditor();
+        const reopened = renderEditor(second.factory, yours, opened.kernel);
+
+        await waitFor(() => { expect(reopened.result.current.status?.kind).toBe('ready'); });
+        expect(second.buffer()).toBe(sourceNamed('Yours'));
+        expect(reopened.result.current.name).toBe('Yours');
+    });
+
+    it('is still offered back to the reading it does belong to', async () => {
+        const first = buildFakeEditor();
+        const opened = renderEditor(first.factory);
+        act(() => { first.type(sourceNamed('Mine')); });
+        await act(async () => { await opened.result.current.save(); });
+        const mine = opened.result.current.openKey!;
+        act(() => { first.type(sourceNamed('Mine, half rewritten')); });
+        await waitFor(() => { expect(opened.result.current.isUnsaved).toBe(true); });
+        opened.unmount();
+
+        const second = buildFakeEditor();
+        renderEditor(second.factory, mine, opened.kernel);
+
+        await waitFor(() => { expect(second.buffer()).toBe(sourceNamed('Mine, half rewritten')); });
     });
 });
 
@@ -608,6 +731,24 @@ describe('a reading written across several files', () => {
         act(() => { refusal = result.current.addFile('helpers.ts'); });
 
         expect(refusal).toMatch(/already has a helpers\.ts/);
+    });
+
+    it('files a source and a build that came from the same instant', async () => {
+        // Read a moment apart, a keystroke landing between them filed source
+        // beside a build of something else — and the next reload drew
+        // arithmetic that was nowhere in the file the editor showed.
+        const { factory, type } = buildFakeEditor(30);
+        const { kernel, result } = renderEditor(factory);
+        await waitFor(() => { expect(result.current.status?.kind).toBe('ready'); });
+
+        const filing = act(async () => { await result.current.save(); });
+        act(() => { type(sourceNamed('Typed while it compiled')); });
+        await filing;
+
+        const [filed] = kernel.container.addons.list();
+        const rebuilt = buildAddon(filed?.compiled ?? {});
+        const named = rebuilt.kind === 'ready' ? rebuilt.indicator.label : null;
+        expect(filed?.files[ENTRY_FILE]).toBe(sourceNamed(named ?? 'nothing'));
     });
 
     it('files every file, so a reload opens the whole reading', async () => {

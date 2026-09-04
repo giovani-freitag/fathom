@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type AddonBuild, buildAddon } from '../addons/addon-runtime.ts';
-import type { SourceFault } from '../services/addon-editor/addon-editor-service.ts';
+import type { CompileResult, SourceFault } from '../services/addon-editor/addon-editor-service.ts';
 import type { SavedReading } from '../services/addon-library/addon-library-service.ts';
 import { ADDON_ID_PREFIX, forgetAddon, registerAddon, UNSAVED_ADDON_ID } from '../addons/addon-registry.ts';
 import { readLayerDefaults } from '../indicators/indicator-catalogue.ts';
@@ -10,7 +10,7 @@ import { useKernel } from './kernel-context.ts';
 import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
 import type { Indicator } from '../../shared/core/draw-plan.ts';
 import { withIndicatorAdded } from '../../shared/core/indicator-selection.ts';
-import { ENTRY_FILE, type ReadingFiles } from '../../shared/core/reading-files.ts';
+import { ENTRY_FILE, isLegalPath, type ReadingFiles } from '../../shared/core/reading-files.ts';
 
 /**
  * Work that has just left the editor, and can still be had back.
@@ -22,6 +22,8 @@ import { ENTRY_FILE, type ReadingFiles } from '../../shared/core/reading-files.t
 export interface DiscardedWork {
     readonly name: string;
     readonly files: ReadingFiles;
+    /** The build that belongs to these files, so filing it again is not a guess. */
+    readonly compiled: ReadingFiles;
     /** The shelf entry it came from, where it had one. */
     readonly key: string | null;
     /** True where it also left the shelf, and undoing has to put it back. */
@@ -100,7 +102,7 @@ export interface SourceEditor {
     addFile: (path: string) => void;
     removeFile: (path: string) => void;
     renameFile: (from: string, to: string) => void;
-    compile: () => Promise<{ readonly compiled: ReadingFiles; readonly faults: readonly SourceFault[] }>;
+    compile: () => Promise<CompileResult>;
     showRuntimeFault: (
         fault: { readonly message: string; readonly line?: number; readonly file?: string } | null,
     ) => void;
@@ -215,7 +217,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         if (isEdit) {
             setIsUnsaved(true);
         }
-        library.rememberDraft(service.readFiles());
+        library.rememberDraft({ key: underKey, files: service.readFiles() });
         setIsRunning(true);
         try {
             const { compiled, faults } = await service.compile();
@@ -274,8 +276,14 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
             ariaLabel: editorLabel,
         });
         serviceRef.current = service;
-        service.mount(node, library.readDraft() ?? opening(library, openOn)?.files ?? starter);
-        void rebuild(opening(library, openOn)?.key ?? null, false);
+        const wanted = opening(library, openOn);
+        // The draft only where it belongs to the reading being opened. Offered
+        // to any of them, opening one reading showed another's code under the
+        // first one's key, and saving filed it over the reading it named.
+        const held = library.readDraft();
+        const draft = held !== null && held.key === (wanted?.key ?? null) ? held.files : null;
+        service.mount(node, draft ?? wanted?.files ?? starter);
+        void rebuild(wanted?.key ?? null, false);
     // Mounted once. Rebuilding on every change of `rebuild` would tear the
     // editor down and put it back mid-keystroke.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -314,10 +322,11 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         if (service === null) {
             return;
         }
-        // Read before the await, so a keystroke while the compiler is working
-        // cannot file a source that does not match the compiled beside it.
-        const files = service.readFiles();
-        const { compiled, faults } = await service.compile();
+        // The pair comes back from the one pass, so a keystroke while the
+        // compiler is working cannot file a source that does not match the
+        // compiled beside it — nor a file added or removed meanwhile, which
+        // would leave the two holding different sets of paths.
+        const { files, compiled, faults } = await service.compile();
         if (faults.length > 0) {
             // Refused rather than filed against the last build that worked: the
             // pair would then disagree, and the next reload would draw
@@ -352,9 +361,10 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         files: ReadingFiles,
         key: string | null,
         called: string | null,
-        // Putting work back is not replacing it: recorded, undoing would offer
-        // to undo itself and the offer would never go away.
-        isUndo = false,
+        // What becomes of the work being replaced. `keep` is for the callers
+        // that have already said — undoing, which would otherwise offer to undo
+        // itself, and deleting, whose own record this would write over.
+        leaving: 'offer' | 'keep' = 'offer',
     ): void => {
         const service = serviceRef.current;
         if (service === null) {
@@ -363,12 +373,18 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         // What is being replaced is offered back. Starting a new one, opening
         // another and importing a file all overwrite the buffer, and none of
         // them was a decision to throw away what was in it.
-        const leaving = service.readFiles();
-        if (!isUndo && !isBlank(leaving) && !isSameWork(leaving, files)) {
-            setLastDiscarded({ name: nameRef.current, files: leaving, key: openKeyRef.current, wasDeleted: false });
+        const held = service.readFiles();
+        if (leaving === 'offer' && !isBlank(held) && !isSameWork(held, files)) {
+            setLastDiscarded({
+                name: nameRef.current,
+                files: held,
+                compiled: compiledRef.current,
+                key: openKeyRef.current,
+                wasDeleted: false,
+            });
         }
         service.replaceFiles(files);
-        library.rememberDraft(files);
+        library.rememberDraft({ key, files });
         setOpenKey(key);
         setIsNamedByHand(called !== null);
         setName(called ?? untitled);
@@ -401,21 +417,23 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
             );
             setSaved(library.list());
         }
-        setLastDiscarded({ name, files: held, key: openKey, wasDeleted: true });
-        load(starter, null, null);
+        setLastDiscarded({ name, files: held, compiled: compiledRef.current, key: openKey, wasDeleted: true });
+        load(starter, null, null, 'keep');
     }, [kernel, library, load, name, openKey, starter]);
 
     const undoDiscard = useCallback((): void => {
         if (lastDiscarded === null) {
             return;
         }
-        const { key, name: called, files, wasDeleted } = lastDiscarded;
+        const { key, name: called, files, compiled, wasDeleted } = lastDiscarded;
         if (wasDeleted && key !== null) {
-            library.save({ key, name: called, files, compiled: compiledRef.current });
+            // Its own build rather than whatever is in the editor now: by the
+            // time this runs, the starter that replaced it has been compiled.
+            library.save({ key, name: called, files, compiled });
             setSaved(library.list());
         }
         setLastDiscarded(null);
-        load(files, key, called, true);
+        load(files, key, called, 'keep');
     }, [lastDiscarded, library, load]);
 
     // Long enough to notice the mistake, short enough not to sit there.
@@ -563,8 +581,12 @@ function readBundle(text: string): { readonly name?: string; readonly files: Rea
         if (parsed.fathom !== 1 || typeof files !== 'object' || files === null) {
             return null;
         }
-        const held = Object.entries(files).filter(([, source]) => typeof source === 'string');
-        if (held.length === 0) {
+        // Paths checked as the editor checks them, and an entry insisted on:
+        // a bundle is a file anybody can hand-edit, and one with no `main.ts`
+        // left the editor showing a buffer nothing could see or save.
+        const held = Object.entries(files)
+            .filter(([path, source]) => typeof source === 'string' && isLegalPath(path));
+        if (!held.some(([path]) => path === ENTRY_FILE)) {
             return null;
         }
         return {

@@ -35,6 +35,15 @@ export interface AddonEditorServiceConfig {
     readonly settleMs?: number;
 }
 
+/** What one pass of the compiler produced, all read at the same instant. */
+export interface CompileResult {
+    /** The source it worked from, by path. */
+    readonly files: ReadingFiles;
+    /** The JavaScript it emitted, by the same paths. Empty where it refused. */
+    readonly compiled: ReadingFiles;
+    readonly faults: readonly SourceFault[];
+}
+
 /** A fault the language service found, in the reader's own coordinates. */
 export interface SourceFault {
     readonly message: string;
@@ -290,28 +299,36 @@ export class AddonEditorService {
     /**
      * Compiles what is in the editor.
      *
-     * @returns The JavaScript, or the faults that stopped it being produced.
+     * The source comes back beside the JavaScript, read at the same instant:
+     * the compiler works over a round trip, and anything typed meanwhile is in
+     * one and not the other. Filed as a pair, they would disagree, and the next
+     * reload would draw arithmetic that is nowhere in the file being shown.
+     *
+     * @returns The source, the JavaScript, or the faults that stopped it.
      */
-    async compile(): Promise<{ readonly compiled: ReadingFiles; readonly faults: readonly SourceFault[] }> {
+    async compile(): Promise<CompileResult> {
         const entry = this.models.get(ENTRY_FILE);
         if (entry === undefined) {
-            return { compiled: {}, faults: [] };
+            return { files: {}, compiled: {}, faults: [] };
         }
 
         const worker = await this.reachWorker(entry.uri);
         const found = await Promise.all(
             [...this.models].map(async ([path, model]) => ({
                 path,
+                source: model.getValue(),
                 faults: await this.readFaults(worker, model, path),
                 emitted: await worker.getEmitOutput(model.uri.toString()),
             })),
         );
 
+        const files = Object.fromEntries(found.map((one) => [one.path, one.source]));
         const faults = found.flatMap((one) => one.faults);
         if (faults.length > 0) {
-            return { compiled: {}, faults };
+            return { files, compiled: {}, faults };
         }
         return {
+            files,
             compiled: Object.fromEntries(
                 found.map((one) => [one.path, one.emitted.outputFiles[0]?.text ?? '']),
             ),

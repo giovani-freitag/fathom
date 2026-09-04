@@ -85,7 +85,12 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
         : { slot: 'fathom.addons.sheetHeight', growsAlong: 'height', openingRatio: 0.6, smallest: 0.25, largest: 0.85 });
     const [fileRefusal, setFileRefusal] = useState<string | null>(null);
     const [isBringingIn, setIsBringingIn] = useState(false);
-    const importer = useMemo(() => new ReadingImportService({ fetch: globalThis.fetch.bind(globalThis) }), []);
+    const importer = useMemo(() => new ReadingImportService({
+        fetch: globalThis.fetch.bind(globalThis),
+        // Read through the crypto object because it is absent outside a secure
+        // context, where the size the listing gave is the only check left.
+        digest: (data) => globalThis.crypto.subtle.digest('SHA-256', data),
+    }), []);
     const closeRef = useRef<HTMLButtonElement>(null);
     const undoRef = useRef<HTMLButtonElement>(null);
     const returnFocusTo = useRef<Element | null>(null);
@@ -140,7 +145,7 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
                 isOpen={isBringingIn}
                 onOpenChange={setIsBringingIn}
                 onLook={(typed) => importer.look(typed)}
-                onTake={(typed, found) => importer.take(typed, found)}
+                onTake={(found) => importer.take(found)}
                 onOpened={editor.openBroughtIn}
             />
             <ReadingFileStrip

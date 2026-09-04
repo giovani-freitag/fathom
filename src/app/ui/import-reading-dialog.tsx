@@ -18,8 +18,8 @@ interface ImportReadingDialogProps {
     readonly onOpenChange: (isOpen: boolean) => void;
     /** Looks at a spec without fetching any of the code behind it. */
     readonly onLook: (typed: string) => Promise<FoundReading>;
-    /** Fetches what a look found. */
-    readonly onTake: (typed: string, found: FoundReading) => Promise<ReadingFiles>;
+    /** Fetches what a look found, from where that look found it. */
+    readonly onTake: (found: FoundReading) => Promise<ReadingFiles>;
     readonly onOpened: (files: ReadingFiles, name: string) => void;
 }
 
@@ -60,7 +60,7 @@ export function ImportReadingDialog({
     const take = async (found: FoundReading): Promise<void> => {
         setStage({ kind: 'looking' });
         try {
-            const files = await onTake(typed, found);
+            const files = await onTake(found);
             onOpenChange(false);
             setTyped('');
             setStage({ kind: 'asking' });
