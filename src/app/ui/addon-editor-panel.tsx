@@ -13,6 +13,7 @@ import {
     CircleQuestionMark,
     CloudDownload,
     Download,
+    FilePlus2,
     Loader,
     Plus,
     Save,
@@ -94,6 +95,7 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
     // What the file strip last had to say — a refusal, or a change that worked.
     const [fileSaid, setFileSaid] = useState<FileNotice | null>(null);
     const [isBringingIn, setIsBringingIn] = useState(false);
+    const [isNamingFile, setIsNamingFile] = useState(false);
 
     const importer = useMemo(() => new ReadingImportService({
         fetch: globalThis.fetch.bind(globalThis),
@@ -172,7 +174,22 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
                     editor={editor}
                     translate={translate}
                     onBringIn={() => { setIsBringingIn(true); }}
+                    onAddFile={() => { setIsNamingFile(true); }}
                     isWide
+                />
+            )}
+            {isWide && (
+                <ReadingFileStrip
+                    files={editor.files}
+                    shownFile={editor.shownFile}
+                    translate={translate}
+                    onShow={editor.showFile}
+                    onAdd={editor.addFile}
+                    onRename={editor.renameFile}
+                    onRemove={editor.removeFile}
+                    onSay={setFileSaid}
+                    isNaming={isNamingFile}
+                    onNamed={() => { setIsNamingFile(false); }}
                 />
             )}
             <ImportReadingDialog
@@ -181,16 +198,6 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
                 onLook={(typed) => importer.look(typed)}
                 onTake={(found) => importer.take(found)}
                 onOpened={editor.openBroughtIn}
-            />
-            <ReadingFileStrip
-                files={editor.files}
-                shownFile={editor.shownFile}
-                translate={translate}
-                onShow={editor.showFile}
-                onAdd={editor.addFile}
-                onRename={editor.renameFile}
-                onRemove={editor.removeFile}
-                onSay={setFileSaid}
             />
             {/* A floor under it, because everything else here can grow: the
                 console, the file strip and a list of faults together had left
@@ -249,10 +256,25 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
                         )}
             </div>
             {!isWide && (
+                <ReadingFileStrip
+                    files={editor.files}
+                    shownFile={editor.shownFile}
+                    translate={translate}
+                    onShow={editor.showFile}
+                    onAdd={editor.addFile}
+                    onRename={editor.renameFile}
+                    onRemove={editor.removeFile}
+                    onSay={setFileSaid}
+                    isNaming={isNamingFile}
+                    onNamed={() => { setIsNamingFile(false); }}
+                />
+            )}
+            {!isWide && (
                 <EditorToolbar
                     editor={editor}
                     translate={translate}
                     onBringIn={() => { setIsBringingIn(true); }}
+                    onAddFile={() => { setIsNamingFile(true); }}
                     isWide={false}
                 />
             )}
@@ -410,11 +432,13 @@ interface EditorToolbarProps {
     readonly translate: Translate;
     /** Opens the way in from a repository or a package. */
     readonly onBringIn: () => void;
+    /** Starts naming a new file, which the strip then takes over. */
+    readonly onAddFile: () => void;
     /** False on a phone, where the actions sit along the foot instead. */
     readonly isWide: boolean;
 }
 
-function EditorToolbar({ editor, translate, onBringIn, isWide }: EditorToolbarProps): ReactElement {
+function EditorToolbar({ editor, translate, onBringIn, onAddFile, isWide }: EditorToolbarProps): ReactElement {
     const fileRef = useRef<HTMLInputElement>(null);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const { importFile } = editor;
@@ -450,6 +474,11 @@ function EditorToolbar({ editor, translate, onBringIn, isWide }: EditorToolbarPr
             </PanelAction>
             <PanelAction label={translate('editor.new')} onPress={editor.startAnew}>
                 <Plus className="size-4" />
+            </PanelAction>
+            {/* Here rather than in the strip, because the strip is not there at
+                all until a reading has a second file to name. */}
+            <PanelAction label={translate('files.add')} onPress={onAddFile}>
+                <FilePlus2 className="size-4" />
             </PanelAction>
 
             <Divider />

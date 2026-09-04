@@ -1,5 +1,5 @@
 import { type KeyboardEvent, type ReactElement, useEffect, useRef, useState } from 'react';
-import { FilePlus2, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { CONTROL_CHOSEN_CLASSES, CONTROL_OFFERED_CLASSES } from './control-shell.ts';
 import { ENTRY_FILE } from '../../shared/core/reading-files.ts';
 import type { Translate } from '../i18n/translator.ts';
@@ -12,6 +12,9 @@ interface ReadingFileStripProps {
     readonly shownFile: string;
     readonly translate: Translate;
     readonly onShow: (path: string) => void;
+    /** True while the reader is naming a new file, which the dock asks for. */
+    readonly isNaming: boolean;
+    readonly onNamed: () => void;
     /** Both answer with what they refused over, or null. */
     readonly onAdd: (path: string) => string | null;
     readonly onRename: (from: string, to: string) => string | null;
@@ -37,13 +40,15 @@ export function ReadingFileStrip({
     files,
     shownFile,
     translate,
+    isNaming,
+    onNamed,
     onShow,
     onAdd,
     onRename,
     onRemove,
     onSay,
-}: ReadingFileStripProps): ReactElement {
-    const [typing, setTyping] = useState<{ readonly renaming: string | null } | null>(null);
+}: ReadingFileStripProps): ReactElement | null {
+    const [renaming, setRenaming] = useState<string | null>(null);
     // Counted rather than held as state, because what it points at is a node
     // that does not exist yet: the effect runs once the strip has been redrawn.
     const [settled, setSettled] = useState(0);
@@ -70,9 +75,9 @@ export function ReadingFileStrip({
     };
 
     const settle = (typed: string): void => {
-        const renaming = typing?.renaming ?? null;
         const wanted = typed.trim();
-        setTyping(null);
+        setRenaming(null);
+        onNamed();
         if (wanted === '' || wanted === renaming) {
             onSay(null);
             focusAfter(renaming ?? '');
@@ -87,6 +92,13 @@ export function ReadingFileStrip({
         focusAfter(refusal === null ? wanted : renaming ?? '');
     };
 
+    // Nothing at all while a reading is the one file it starts as. A strip
+    // holding a single unremovable tab is a band of the panel spent saying what
+    // the title already said, on a screen where the code has none to spare.
+    if (files.length < 2 && !isNaming) {
+        return null;
+    }
+
     return (
         <div
             ref={strip}
@@ -96,10 +108,10 @@ export function ReadingFileStrip({
             // Capped and scrolled: a reading brought in from a repository can
             // be twenty files, and a strip that grows with them takes the
             // panel over before a line of code is read.
-            className="flex max-h-24 shrink-0 flex-wrap items-center gap-1 overflow-y-auto border-b border-hairline px-2 py-1.5"
+            className="flex max-h-24 shrink-0 flex-wrap items-center gap-1 overflow-y-auto border-y border-hairline px-2 py-1.5"
         >
             {files.map((path) => (
-                typing?.renaming === path
+                renaming === path
                     ? <PathField key={path} startingAt={path} translate={translate} onSettle={settle} />
                     : (
                         <FileChip
@@ -108,7 +120,7 @@ export function ReadingFileStrip({
                             isShown={path === shownFile}
                             translate={translate}
                             onShow={() => { onShow(path); }}
-                            onRename={() => { onSay(null); setTyping({ renaming: path }); }}
+                            onRename={() => { onSay(null); setRenaming(path); }}
                             onRemove={() => {
                                 onRemove(path);
                                 onSay({ kind: 'done', text: translate('files.removed', { path }) });
@@ -118,20 +130,10 @@ export function ReadingFileStrip({
                     )
             ))}
 
-            {typing?.renaming === null
-                ? <PathField startingAt="" translate={translate} onSettle={settle} />
-                : (
-                    <button
-                        ref={addButton}
-                        type="button"
-                        onClick={() => { onSay(null); setTyping({ renaming: null }); }}
-                        aria-label={translate('files.add')}
-                        title={translate('files.add')}
-                        className="grid size-7 shrink-0 place-items-center rounded-md text-ink-500 outline-none transition-colors hover:bg-abyss-800 hover:text-ink-100 focus-visible:ring-2 focus-visible:ring-phosphor"
-                    >
-                        <FilePlus2 className="size-3.5" />
-                    </button>
-                )}
+            {isNaming && renaming === null && (
+                <PathField startingAt="" translate={translate} onSettle={settle} />
+            )}
+            <span ref={addButton} tabIndex={-1} className="sr-only" />
         </div>
     );
 }
