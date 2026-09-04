@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.14.0](https://github.com/giovani-freitag/fathom/compare/v0.13.0...v0.14.0) (2026-09-04)
+
+
+### Features
+
+* offer the guide in Portuguese, from what it is to writing one ([fc76412](https://github.com/giovani-freitag/fathom/commit/fc76412e003f9d5f58e4b9b0cf7f8f5f942cbbce))
+
+
+### Bug Fixes
+
+* build the image on the node the project is tested on ([3fff421](https://github.com/giovani-freitag/fathom/commit/3fff42158914f1e646f01cc8a3e67a177df518f6))
+* open the editor placeholder in the shape the editor will take ([cedc3b9](https://github.com/giovani-freitag/fathom/commit/cedc3b93a410f621cdc5f5a34c0a8c5248577123))
+* stop two different plus buttons sitting side by side in the editor ([c317ad1](https://github.com/giovani-freitag/fathom/commit/c317ad1db9b1c895fd44aa25058b1f1c57aabbc9))
+
 ## [0.13.0](https://github.com/giovani-freitag/fathom/compare/v0.12.0...v0.13.0) (2026-09-04)
 
 
