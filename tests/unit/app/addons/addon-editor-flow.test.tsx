@@ -38,7 +38,9 @@ function buildFakeEditor(settleMs = 0) {
     const editor: SourceEditor = {
         mount: (_host, opening) => { files = { ...opening }; },
         unmount: () => undefined,
-        readFiles: () => files,
+        // A copy, as the real one is: it reads each model in turn. Handing the
+        // live object back let a caller's snapshot change under it.
+        readFiles: () => ({ ...files }),
         listFiles: () => [ENTRY_FILE, ...Object.keys(files).filter((path) => path !== ENTRY_FILE).sort()],
         shownFile: () => shown,
         replaceFiles: (next) => { files = { ...next }; shown = ENTRY_FILE; },
@@ -632,6 +634,16 @@ describe('opening a bundle somebody handed over', () => {
         expect(buffer()).toBe('the entry');
     });
 
+    it('says it is unsaved, because it is on no shelf', async () => {
+        // The one signal a reader has about whether it is safe to close the
+        // panel. Work that came from a file has never been filed anywhere.
+        const bundle = JSON.stringify({ fathom: 1, name: 'Theirs', files: { 'main.ts': 'the entry' } });
+
+        const { result } = await importText(bundle);
+
+        expect(result.current.isUnsaved).toBe(true);
+    });
+
     it('refuses one with no entry rather than opening a buffer nothing can save', async () => {
         // The editor showed a Monaco buffer of its own that `readFiles` could
         // never see: everything typed into it was invisible to save and draft.
@@ -777,6 +789,40 @@ describe('a reading written across several files', () => {
         act(() => { result.current.open(key); });
 
         await waitFor(() => { expect(result.current.files).toEqual([ENTRY_FILE, 'helpers.ts']); });
+    });
+
+    it('offers a removed file back, since one can hold as much work as a reading', async () => {
+        // The cross that takes a file away sits against the tab that opens it,
+        // and nothing asked. Every other removal here is offered back.
+        const { factory, typeInto } = buildFakeEditor();
+        const { result } = renderEditor(factory);
+        await waitFor(() => { expect(result.current.status?.kind).toBe('ready'); });
+        act(() => { result.current.addFile('helpers.ts'); });
+        act(() => { typeInto('helpers.ts', 'a morning of work'); });
+        act(() => { result.current.removeFile('helpers.ts'); });
+
+        act(() => { result.current.undoFileRemoval(); });
+
+        expect(result.current.files).toEqual([ENTRY_FILE, 'helpers.ts']);
+        expect(result.current.shownFile).toBe('helpers.ts');
+    });
+
+    it('stops offering it once the moment has passed', async () => {
+        vi.useFakeTimers();
+        try {
+            const { factory } = buildFakeEditor();
+            const { result } = renderEditor(factory);
+            await vi.waitFor(() => { expect(result.current.status?.kind).toBe('ready'); });
+            act(() => { result.current.addFile('helpers.ts'); });
+            act(() => { result.current.removeFile('helpers.ts'); });
+            expect(result.current.lastRemovedFile).toBe('helpers.ts');
+
+            act(() => { vi.advanceTimersByTime(8_000); });
+
+            expect(result.current.lastRemovedFile).toBeNull();
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('keeps the reader in the entry when the file they were in goes', async () => {

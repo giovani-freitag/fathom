@@ -71,6 +71,9 @@ export interface AddonEditorControls {
     readonly addFile: (path: string) => string | null;
     readonly renameFile: (from: string, to: string) => string | null;
     readonly removeFile: (path: string) => void;
+    /** The file just taken out, for as long as it can be had back. */
+    readonly lastRemovedFile: string | null;
+    readonly undoFileRemoval: () => void;
 }
 
 /** How long a deleted reading can still be had back. */
@@ -365,6 +368,10 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         // that have already said — undoing, which would otherwise offer to undo
         // itself, and deleting, whose own record this would write over.
         leaving: 'offer' | 'keep' = 'offer',
+        // Whether what is being opened is already on the shelf. Work brought in
+        // from a file or a repository is not, and saying it is saved is the one
+        // signal a reader has about whether it is safe to close the panel.
+        isFiled = true,
     ): void => {
         const service = serviceRef.current;
         if (service === null) {
@@ -388,7 +395,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         setOpenKey(key);
         setIsNamedByHand(called !== null);
         setName(called ?? untitled);
-        setIsUnsaved(false);
+        setIsUnsaved(!isFiled);
         // The key is handed over rather than read back: this runs before the
         // state settles, and publishing under the key being left behind put the
         // reading back on the chart the moment it was deleted.
@@ -477,14 +484,14 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
             return;
         }
         if (bundle === null) {
-            load({ [ENTRY_FILE]: text }, null, file.name.replace(/\.[jt]sx?$/, ''));
+            load({ [ENTRY_FILE]: text }, null, file.name.replace(/\.[jt]sx?$/, ''), 'offer', false);
             return;
         }
-        load(bundle.files, null, bundle.name ?? file.name.replace(BUNDLE_SUFFIX, ''));
+        load(bundle.files, null, bundle.name ?? file.name.replace(BUNDLE_SUFFIX, ''), 'offer', false);
     }, [importNotBundleMessage, importNotTextMessage, importTooLargeMessage, load]);
 
     const openBroughtIn = useCallback((brought: ReadingFiles, called: string): void => {
-        load(brought, null, called);
+        load(brought, null, called, 'offer', false);
     }, [load]);
 
     // Mirrored into state because the files live in the editor, which is not
@@ -517,10 +524,41 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         return refusal;
     }, [followFiles]);
 
+    // Offered back rather than asked about, which is how this chart treats
+    // every other removal. A file can hold as much work as a whole reading and
+    // the cross that takes it away sits against the tab that opens it.
+    const [lastRemovedFile, setLastRemovedFile] = useState<{ path: string; files: ReadingFiles } | null>(null);
+
     const removeFile = useCallback((path: string): void => {
-        serviceRef.current?.removeFile(path);
+        const service = serviceRef.current;
+        if (service === null) {
+            return;
+        }
+        setLastRemovedFile({ path, files: service.readFiles() });
+        service.removeFile(path);
         followFiles();
     }, [followFiles]);
+
+    const undoFileRemoval = useCallback((): void => {
+        const held = lastRemovedFile;
+        if (held === null) {
+            return;
+        }
+        setLastRemovedFile(null);
+        serviceRef.current?.replaceFiles(held.files);
+        serviceRef.current?.showFile(held.path);
+        followFiles();
+        void rebuild(openKeyRef.current);
+    }, [followFiles, lastRemovedFile, rebuild]);
+
+    // The same moment a deleted reading gets, for the same reason.
+    useEffect(() => {
+        if (lastRemovedFile === null) {
+            return;
+        }
+        const timer = setTimeout(() => { setLastRemovedFile(null); }, REMOVAL_GRACE_MS);
+        return () => { clearTimeout(timer); };
+    }, [lastRemovedFile]);
 
     useEffect(() => { saveRef.current = save; });
     useEffect(() => { leaveRef.current = onLeave; });
@@ -550,6 +588,8 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         addFile,
         renameFile,
         removeFile,
+        lastRemovedFile: lastRemovedFile?.path ?? null,
+        undoFileRemoval,
     };
 }
 

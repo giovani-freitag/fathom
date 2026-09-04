@@ -188,17 +188,26 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
             />
             <AddonConsolePanel translate={translate} triggerRef={consoleRef} />
 
-            {/* One region present in every state rather than one per state: a
-                live region that is itself added to the tree is not reliably
-                read out when it appears. */}
-            <div role="status" className="shrink-0">
+            {/* The words on their own, out of sight, and the visible footer
+                outside any live region. One region wrapped around the footer is
+                read out whole on every change — and a build settles 400 ms
+                after each keystroke, so a reader typing had the entire fault
+                list read back to them over and over, undo button and all. */}
+            <p className="sr-only" role="status">
+                {spokenStatus({ fileSaid, discarded: editor.lastDiscarded, status, drawFailure, translate })}
+            </p>
+            <div className="shrink-0">
                 {fileSaid !== null
                     ? (fileSaid.kind === 'refused'
                         ? <FaultList translate={translate} lines={[fileSaid.text]} />
                         : (
-                            <footer className="border-t border-hairline px-4 py-2.5 text-xs text-ink-300">
-                                {fileSaid.text}
-                            </footer>
+                            <OfferBack
+                                said={fileSaid.text}
+                                translate={translate}
+                                {...(editor.lastRemovedFile === null
+                                    ? {}
+                                    : { onUndo: editor.undoFileRemoval })}
+                            />
                         ))
                     : editor.lastDiscarded === null
                         ? <EditorStatusLine status={status} drawFailure={drawFailure} translate={translate} />
@@ -273,6 +282,69 @@ function PanelGrip({ size, isWide, translate }: PanelGripProps): ReactElement {
                 }`}
             />
         </div>
+    );
+}
+
+interface SpokenStatusRequest {
+    readonly fileSaid: FileNotice | null;
+    readonly discarded: AddonEditorControls['lastDiscarded'];
+    readonly status: AddonEditorControls['status'];
+    readonly drawFailure: string | null;
+    readonly translate: Translate;
+}
+
+/** Everything the footer says, as the one sentence a screen reader hears. */
+function spokenStatus(request: SpokenStatusRequest): string {
+    const { fileSaid, discarded, status, drawFailure, translate } = request;
+    if (fileSaid !== null) {
+        return fileSaid.text;
+    }
+    if (discarded !== null) {
+        return translate(
+            discarded.wasDeleted ? 'indicators.removed' : 'editor.replaced',
+            { name: discarded.name },
+        );
+    }
+    if (drawFailure !== null) {
+        return translate('editor.threw', { message: drawFailure });
+    }
+    if (status === null) {
+        return translate('editor.starting');
+    }
+    if (status.kind === 'ready') {
+        return translate('editor.drawing', { name: status.label });
+    }
+    if (status.kind === 'broken') {
+        return status.message;
+    }
+    return status.faults
+        .map((fault) => translate('editor.fault', { line: fault.line, message: fault.message }))
+        .join(' ');
+}
+
+interface OfferBackProps {
+    readonly said: string;
+    readonly translate: Translate;
+    /** Absent where what happened is not something to put back. */
+    readonly onUndo?: () => void;
+}
+
+/** Says what just happened to the reading's files, and offers it back. */
+function OfferBack({ said, translate, onUndo }: OfferBackProps): ReactElement {
+    return (
+        <footer className="flex items-center gap-3 border-t border-hairline px-4 py-2.5 text-xs text-ink-300">
+            <span className="min-w-0 flex-1 truncate">{said}</span>
+            {onUndo !== undefined && (
+                <button
+                    type="button"
+                    onClick={onUndo}
+                    className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs font-semibold text-phosphor outline-none hover:bg-phosphor/12 focus-visible:ring-2 focus-visible:ring-phosphor"
+                >
+                    <Undo2 className="size-3.5" />
+                    {translate('indicators.undo')}
+                </button>
+            )}
+        </footer>
     );
 }
 
