@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.13.0](https://github.com/giovani-freitag/fathom/compare/v0.12.0...v0.13.0) (2026-09-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* stop publishing the compose file as its own package
+
+### Features
+
+* a reader writes an indicator in the page ([#3](https://github.com/giovani-freitag/fathom/issues/3)) ([2849901](https://github.com/giovani-freitag/fathom/commit/2849901dacab8a402882740b25568b81b3626f63))
+* ship the whole of Fathom as one container that runs on its own ([655d520](https://github.com/giovani-freitag/fathom/commit/655d520dfe3384acf669959c2196076cca40ccee))
+* stop publishing the compose file as its own package ([65c3697](https://github.com/giovani-freitag/fathom/commit/65c36977bd4dc19aaa80f69da0fce30eb9547b94))
+
+
+### Bug Fixes
+
+* publish the compose artifact instead of declining a prompt nobody sees ([aa73546](https://github.com/giovani-freitag/fathom/commit/aa73546756f295990be46d16a954e9b264942552))
+
 ## [0.12.0](https://github.com/giovani-freitag/fathom/compare/v0.11.0...v0.12.0) (2026-09-02)
 
 
