@@ -280,3 +280,33 @@ describe('a reading written across several files', () => {
         expect(built.kind === 'ready' && built.indicator.label).toBe('Round 1');
     });
 });
+
+describe('an import written the way TypeScript has them written', () => {
+    it('finds the file a .js specifier names, which is a .ts file', () => {
+        // TypeScript has an import name the file that will exist after a build,
+        // and its own language service resolves `./helpers.js` to `helpers.ts`
+        // without a word. Left out here, the editor said the reading was fine
+        // and only the run disagreed.
+        const built = buildAddon({
+            'main.ts': "const helpers = require('./helpers.js'); exports.default = { label: helpers.name, parameters: [], compute: () => ({ series: [] }) };",
+            'helpers.ts': "exports.name = 'Found it';",
+        });
+
+        expect(built.kind === 'ready' && built.indicator.label).toBe('Found it');
+    });
+
+    it('finds a .tsx file from a .jsx specifier too', () => {
+        const built = buildAddon({
+            'main.ts': "exports.default = { label: require('./panel.jsx').name, parameters: [], compute: () => ({ series: [] }) };",
+            'panel.tsx': "exports.name = 'Also found';",
+        });
+
+        expect(built.kind === 'ready' && built.indicator.label).toBe('Also found');
+    });
+
+    it('still says so when nothing answers to a .js specifier either', () => {
+        const built = buildOne("require('./nowhere.js'); exports.default = {};");
+
+        expect(failureOf(built)).toMatch(/Nothing in this reading answers to '\.\/nowhere\.js'/);
+    });
+});

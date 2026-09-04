@@ -292,8 +292,10 @@ export function rollingMean(
 import { rollingMean } from './maths/mean';
 ```
 
-Relative paths only, and only within the reading: `./`, `../`, with or without
-the `.ts`, and `index.ts` for a folder. `'fathom'` is the one other thing that
+Relative paths only, and only within the reading: `./`, `../`, and `index.ts`
+for a folder. Write the ending or leave it off — and `./helpers.js` finds
+`helpers.ts`, which is how TypeScript has you write it and what its own editor
+here resolves. `'fathom'` is the one other thing that
 resolves — there is no npm here, and nothing is fetched. Each file runs once
 however many others ask for it, and two files that import each other get what
 the other has exported so far rather than looping.

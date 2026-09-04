@@ -11,6 +11,16 @@ const LEGAL_PATH = /^(?!\/)(?!.*\/\/)(?!.*(^|\/)\.\.?(\/|$))[\w.\-/]+\.tsx?$/;
 const ENDINGS = ['', '.ts', '.tsx', '/index.ts', '/index.tsx'];
 
 /**
+ * What a specifier written with a compiled ending points at.
+ *
+ * TypeScript has its imports name the file that will exist after a build, so
+ * `./helpers.js` is how a reader is told to write a reference to `helpers.ts` —
+ * and the language service resolves it happily. Left out here, the editor said
+ * the reading was fine and only the run disagreed.
+ */
+const COMPILED_ENDING = /\.(?:js|jsx|mjs|cjs)$/;
+
+/**
  * Whether a path may name a file inside a reading.
  *
  * @param path - What the reader typed, or what a stored reading claims.
@@ -47,7 +57,10 @@ export function resolveWithin(
     }
 
     const joined = parts.join('/');
-    return ENDINGS.map((ending) => `${joined}${ending}`).find((path) => held.has(path)) ?? null;
+    const wanted = COMPILED_ENDING.test(joined)
+        ? [joined.replace(COMPILED_ENDING, '.ts'), joined.replace(COMPILED_ENDING, '.tsx')]
+        : ENDINGS.map((ending) => `${joined}${ending}`);
+    return wanted.find((path) => held.has(path)) ?? null;
 }
 
 /** Whether a specifier points inside the reading rather than at the surface. */
