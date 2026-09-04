@@ -179,6 +179,6 @@ they fold needs afterwards.
 - [Data model](docs/data-model.md) — schema, grids, and what each column means
 - [Operations](docs/operations.md) — running it as a service, reading its log, disk, sharing it
 - [The guide](https://giovani-freitag.github.io/fathom/guide/) — writing a reading, the API reference, the architecture and every decision, as a site
-- [fathom-addons](https://github.com/giovani-freitag/fathom-addons) — worked examples, checked against this surface on every push
+- [fathom-example-addons](https://github.com/giovani-freitag/fathom-example-addons) — worked examples, checked against this surface on every push
 - [Decisions](docs/adr/) — why the design is what it is, with the measurements behind it
 - [Demo](demo/) — the browser-only build, published to GitHub Pages on every release

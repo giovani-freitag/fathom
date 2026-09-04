@@ -71,7 +71,7 @@ export default withMermaid({
                     { text: 'API reference', link: '/api/' },
                     {
                         text: 'Worked examples',
-                        link: 'https://github.com/giovani-freitag/fathom-addons',
+                        link: 'https://github.com/giovani-freitag/fathom-example-addons',
                     },
                 ],
             },
@@ -101,7 +101,7 @@ export default withMermaid({
             message: 'An order book is only ever recorded, never recovered. '
                 + '<a href="https://github.com/giovani-freitag/fathom">Source</a> · '
                 + '<a href="https://giovani-freitag.github.io/fathom/">Chart</a> · '
-                + '<a href="https://github.com/giovani-freitag/fathom-addons">Addons</a>',
+                + '<a href="https://github.com/giovani-freitag/fathom-example-addons">Addons</a>',
             copyright: 'MIT',
         },
     },

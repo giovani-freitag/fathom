@@ -30,7 +30,7 @@ For `'fathom'` to resolve, map it in your `tsconfig.json`:
 Generated out of Fathom's own source on every release, and held to it by an
 architecture test — it cannot say something the editor does not.
 
-Worked examples: [fathom-addons](https://github.com/giovani-freitag/fathom-addons).
+Worked examples: [fathom-example-addons](https://github.com/giovani-freitag/fathom-example-addons).
 Guide: [Writing a reading](https://github.com/giovani-freitag/fathom/blob/main/docs/writing-a-reading.md).
 
 MIT.

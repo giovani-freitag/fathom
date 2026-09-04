@@ -8,7 +8,7 @@ This guide goes from the smallest reading that works to the parts you will reach
 for last. Every example here compiles.
 
 Worked examples you can open in one press:
-[github.com/giovani-freitag/fathom-addons](https://github.com/giovani-freitag/fathom-addons)
+[github.com/giovani-freitag/fathom-example-addons](https://github.com/giovani-freitag/fathom-example-addons)
 — checked against this surface on every push, so nothing there is a snippet
 that used to work.
 
