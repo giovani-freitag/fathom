@@ -2,10 +2,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AddonLibraryService } from '../../../../src/app/services/addon-library/addon-library-service.ts';
 
 /** Storage a test owns, so nothing leaks between them. */
-function buildStorage(seeded: string | null = null) {
+function buildStorage(seeded: string | null = null, seededDraft: string | null = null) {
     const held = new Map<string, string>();
     if (seeded !== null) {
         held.set('fathom.addons', seeded);
+    }
+    if (seededDraft !== null) {
+        held.set('fathom.addons.draft', seededDraft);
     }
     return {
         getItem: (key: string): string | null => held.get(key) ?? null,
@@ -25,28 +28,32 @@ beforeEach(() => {
 });
 
 function saveOne(key: string, name = key): void {
-    library.save({ key, name, source: `// ${name}`, compiled: `/* ${name} */` });
+    library.save({ key, name, files: { 'main.ts': `// ${name}` }, compiled: { 'main.ts': `/* ${name} */` } });
 }
 
 describe('keeping a reading between sessions', () => {
     it('reads back what was written', () => {
-        library.save({ key: 'mean', name: 'My mean', source: 'a', compiled: 'b' });
+        library.save({ key: 'mean', name: 'My mean', files: { 'main.ts': 'a' }, compiled: { 'main.ts': 'b' } });
 
-        expect(library.find('mean')).toMatchObject({ name: 'My mean', source: 'a', compiled: 'b' });
+        expect(library.find('mean')).toMatchObject({
+            name: 'My mean',
+            files: { 'main.ts': 'a' },
+            compiled: { 'main.ts': 'b' },
+        });
     });
 
     it('keeps the compiled form beside the source', () => {
         // What lets a reload put the reading back on the chart without loading
         // a compiler several times the weight of the app.
-        library.save({ key: 'mean', name: 'My mean', source: 'a', compiled: 'b' });
+        library.save({ key: 'mean', name: 'My mean', files: { 'main.ts': 'a' }, compiled: { 'main.ts': 'b' } });
 
-        expect(library.find('mean')?.compiled).toBe('b');
+        expect(library.find('mean')?.compiled).toEqual({ 'main.ts': 'b' });
     });
 
     it('replaces what was under the same key', () => {
         saveOne('mean', 'First');
 
-        library.save({ key: 'mean', name: 'Second', source: 'x', compiled: 'y' });
+        library.save({ key: 'mean', name: 'Second', files: { 'main.ts': 'x' }, compiled: { 'main.ts': 'y' } });
 
         expect(library.list()).toHaveLength(1);
         expect(library.find('mean')?.name).toBe('Second');
@@ -103,9 +110,9 @@ describe('naming what is saved', () => {
     });
 
     it('keeps the key when the name changes, so a chart keeps its selection', () => {
-        library.save({ key: 'mean', name: 'First', source: 'a', compiled: 'b' });
+        library.save({ key: 'mean', name: 'First', files: { 'main.ts': 'a' }, compiled: { 'main.ts': 'b' } });
 
-        library.save({ key: 'mean', name: 'Renamed', source: 'a', compiled: 'b' });
+        library.save({ key: 'mean', name: 'Renamed', files: { 'main.ts': 'a' }, compiled: { 'main.ts': 'b' } });
 
         expect(library.list()).toHaveLength(1);
         expect(library.find('mean')?.name).toBe('Renamed');
@@ -114,23 +121,23 @@ describe('naming what is saved', () => {
 
 describe('what is being written', () => {
     it('waits beside the shelf, not on it', () => {
-        library.rememberDraft('half a reading');
+        library.rememberDraft({ 'main.ts': 'half a reading' });
 
         expect(library.list()).toEqual([]);
-        expect(library.readDraft()).toBe('half a reading');
+        expect(library.readDraft()).toEqual({ 'main.ts': 'half a reading' });
     });
 
     it('outlives the page it was written in', () => {
-        library.rememberDraft('half a reading');
+        library.rememberDraft({ 'main.ts': 'half a reading' });
 
         // A second service over the same storage is what a reload amounts to.
         const afterReload = new AddonLibraryService({ storage, now: () => 1 });
 
-        expect(afterReload.readDraft()).toBe('half a reading');
+        expect(afterReload.readDraft()).toEqual({ 'main.ts': 'half a reading' });
     });
 
     it('is gone once there is nothing being written', () => {
-        library.rememberDraft('half a reading');
+        library.rememberDraft({ 'main.ts': 'half a reading' });
 
         library.rememberDraft(null);
 
@@ -138,7 +145,7 @@ describe('what is being written', () => {
     });
 
     it('is never mistaken for a saved reading', () => {
-        library.rememberDraft('half a reading');
+        library.rememberDraft({ 'main.ts': 'half a reading' });
         saveOne('filed');
 
         expect(library.list().map((one) => one.key)).toEqual(['filed']);
@@ -161,7 +168,33 @@ describe('storage that will not cooperate', () => {
             now: () => 1,
         });
 
-        expect(() => broken.save({ key: 'a', name: 'A', source: '', compiled: '' })).not.toThrow();
+        expect(() => broken.save({ key: 'a', name: 'A', files: { 'main.ts': '' }, compiled: { 'main.ts': '' } })).not.toThrow();
+    });
+
+    it('opens a reading filed before one could have more than one file', () => {
+        // Storage outlives the shape it was written in. Read as nonsense, the
+        // reader opens the page to an empty shelf where their work used to be.
+        const older = new AddonLibraryService({
+            storage: buildStorage('[{"key":"mean","name":"My mean","source":"a","compiled":"b","savedAtMs":7}]'),
+            now: () => 1,
+        });
+
+        expect(older.find('mean')).toEqual({
+            key: 'mean',
+            name: 'My mean',
+            files: { 'main.ts': 'a' },
+            compiled: { 'main.ts': 'b' },
+            savedAtMs: 7,
+        });
+    });
+
+    it('opens a draft left behind by that same older shape', () => {
+        const older = new AddonLibraryService({
+            storage: buildStorage(null, 'half a reading'),
+            now: () => 1,
+        });
+
+        expect(older.readDraft()).toEqual({ 'main.ts': 'half a reading' });
     });
 
     it('ignores a row that is not a reading rather than crashing on it', () => {

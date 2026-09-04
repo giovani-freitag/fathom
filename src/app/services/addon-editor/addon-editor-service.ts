@@ -5,12 +5,13 @@ import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import typescriptWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import { ADDON_SURFACE_TYPES } from '../../addons/addon-surface.generated.ts';
 import { delay } from '../../../shared/core/timers.ts';
+import { ENTRY_FILE, folderOf, isLegalPath, type ReadingFiles } from '../../../shared/core/reading-files.ts';
 
 /** The chart's monospace, as the stylesheet declares it. */
 const MONOSPACE = "'Azeret Mono', ui-monospace, 'SF Mono', monospace";
 
-/** Where the reader's file lives, as far as the language service is concerned. */
-const ADDON_URI = 'file:///addon.ts';
+/** Where a reading's files live, as far as the language service is concerned. */
+const READING_ROOT = 'file:///reading/';
 
 /** Where the surface lives, so a bare import of it resolves. */
 const SURFACE_URI = 'file:///node_modules/@types/fathom/index.d.ts';
@@ -21,7 +22,7 @@ const REGISTRATION_WAIT_MS = 50;
 
 export interface AddonEditorServiceConfig {
     /** Runs on every edit, after the pause. */
-    readonly onChange: (source: string) => void;
+    readonly onChange: (files: ReadingFiles) => void;
     /** Which of the chart's two palettes to open in. */
     readonly theme?: 'dark' | 'light';
     /** Runs on the chord every text box in the world answers to. */
@@ -39,6 +40,8 @@ export interface SourceFault {
     readonly message: string;
     readonly line: number;
     readonly column: number;
+    /** Which of the reading's files it is in. */
+    readonly file: string;
 }
 
 /**
@@ -51,8 +54,9 @@ export interface SourceFault {
 export class AddonEditorService {
     private readonly config: AddonEditorServiceConfig;
     private editor: monaco.editor.IStandaloneCodeEditor | null = null;
-    private model: monaco.editor.ITextModel | null = null;
-    private subscription: monaco.IDisposable | null = null;
+    private readonly models = new Map<string, monaco.editor.ITextModel>();
+    private readonly watches = new Map<string, monaco.IDisposable>();
+    private shown = ENTRY_FILE;
     private settleTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor(config: AddonEditorServiceConfig) {
@@ -68,17 +72,14 @@ export class AddonEditorService {
      * @param source - What to open with.
      * @throws Error when called twice without a teardown between.
      */
-    mount(host: HTMLElement, source: string): void {
+    mount(host: HTMLElement, files: ReadingFiles): void {
         if (this.editor !== null) {
             throw new Error('The addon editor is already mounted.');
         }
         configureLanguage();
-
-        const uri = monaco.Uri.parse(ADDON_URI);
-        this.model = monaco.editor.getModel(uri) ?? monaco.editor.createModel(source, 'typescript', uri);
-        this.model.setValue(source);
+        this.replaceFiles(files);
         this.editor = monaco.editor.create(host, {
-            model: this.model,
+            model: this.models.get(this.shown) ?? null,
             theme: `fathom-${this.config.theme ?? 'dark'}`,
             automaticLayout: true,
             minimap: { enabled: false },
@@ -86,7 +87,10 @@ export class AddonEditorService {
             // the chart it is about, and a line that runs off the edge is read
             // by dragging a bar back and forth instead of by reading.
             wordWrap: 'on',
-            wrappingIndent: 'indent',
+            // Aligned with the line it came from rather than a level in: a
+            // panel this narrow wraps a chained call several times, and each
+            // extra level walks the rest of it further off the right edge.
+            wrappingIndent: 'same',
             fontSize: 12,
             // The chart's own monospace. Left unset, Monaco paints two thirds
             // of this panel in a typeface that appears nowhere else here.
@@ -101,7 +105,6 @@ export class AddonEditorService {
             tabSize: 4,
             ...(this.config.ariaLabel === undefined ? {} : { ariaLabel: this.config.ariaLabel }),
         });
-        this.subscription = this.model.onDidChangeContent(this.handleModelChange);
         this.bindChords();
     }
 
@@ -133,15 +136,12 @@ export class AddonEditorService {
         });
     }
 
-    /** Releases the editor, its model and everything watching them. */
+    /** Releases the editor, its models and everything watching them. */
     unmount(): void {
         this.clearTimer();
-        this.subscription?.dispose();
         this.editor?.dispose();
-        this.model?.dispose();
-        this.subscription = null;
         this.editor = null;
-        this.model = null;
+        this.forgetAll();
     }
 
     /**
@@ -157,18 +157,134 @@ export class AddonEditorService {
         }
     }
 
-    /** What the reader has typed. */
-    readSource(): string {
-        return this.model?.getValue() ?? '';
+    /** What the reader has typed, by path. */
+    readFiles(): ReadingFiles {
+        return Object.fromEntries([...this.models].map(([path, model]) => [path, model.getValue()]));
+    }
+
+    /** The paths in the reading, in the order they are shown. */
+    listFiles(): readonly string[] {
+        // The entry first, wherever its name would sort: it is where the
+        // reading starts, and a list of files is read from the start.
+        const rest = [...this.models.keys()].filter((path) => path !== ENTRY_FILE);
+        return [ENTRY_FILE, ...rest.sort(byPath)];
+    }
+
+    /** Which file the editor is showing. */
+    shownFile(): string {
+        return this.shown;
     }
 
     /**
-     * Puts a different script in the editor, as opening one does.
+     * Puts a different reading in the editor, as opening one does.
      *
-     * @param source - What to show instead.
+     * @param files - What to show instead, by path.
      */
-    replaceSource(source: string): void {
-        this.model?.setValue(source);
+    replaceFiles(files: ReadingFiles): void {
+        const wanted = Object.keys(files).length === 0 ? { [ENTRY_FILE]: '' } : files;
+        this.forgetAll();
+        for (const [path, source] of Object.entries(wanted)) {
+            this.models.set(path, this.buildModel(path, source));
+        }
+        this.showFile(wanted[this.shown] === undefined ? ENTRY_FILE : this.shown);
+    }
+
+    /**
+     * Shows one of the reading's files.
+     *
+     * @param path - Which file, ignored where the reading has no such file.
+     */
+    showFile(path: string): void {
+        const model = this.models.get(path);
+        if (model === undefined) {
+            return;
+        }
+        this.shown = path;
+        this.editor?.setModel(model);
+    }
+
+    /**
+     * Adds an empty file to the reading and shows it.
+     *
+     * @param path - Where it sits within the reading.
+     * @throws Error when the path is not one a reading may hold, or is taken.
+     */
+    addFile(path: string): void {
+        if (!isLegalPath(path)) {
+            throw new Error(`“${path}” is not a name a file can have. Try something like helpers.ts.`);
+        }
+        if (this.models.has(path)) {
+            throw new Error(`This reading already has a ${path}.`);
+        }
+        this.models.set(path, this.buildModel(path, ''));
+        this.showFile(path);
+        this.handleModelChange();
+    }
+
+    /**
+     * Takes a file out of the reading.
+     *
+     * @param path - Which file. The entry cannot be removed.
+     */
+    removeFile(path: string): void {
+        if (path === ENTRY_FILE || !this.models.has(path)) {
+            return;
+        }
+        this.forget(path);
+        this.models.delete(path);
+        if (this.shown === path) {
+            this.showFile(ENTRY_FILE);
+        }
+        this.handleModelChange();
+    }
+
+    /**
+     * Moves a file within the reading, keeping what is in it.
+     *
+     * @param from - The path it has.
+     * @param to - The path it should have.
+     * @throws Error when the new path is not one a reading may hold, or is taken.
+     */
+    renameFile(from: string, to: string): void {
+        const model = this.models.get(from);
+        if (from === ENTRY_FILE || model === undefined || from === to) {
+            return;
+        }
+        if (!isLegalPath(to)) {
+            throw new Error(`“${to}” is not a name a file can have. Try something like helpers.ts.`);
+        }
+        if (this.models.has(to)) {
+            throw new Error(`This reading already has a ${to}.`);
+        }
+        // Rebuilt rather than moved: a model's URI is what the language service
+        // resolves an import against, and Monaco does not let one be changed.
+        const held = model.getValue();
+        this.forget(from);
+        this.models.delete(from);
+        this.models.set(to, this.buildModel(to, held));
+        this.showFile(this.shown === from ? to : this.shown);
+        this.handleModelChange();
+    }
+
+    private buildModel(path: string, source: string): monaco.editor.ITextModel {
+        const uri = monaco.Uri.parse(`${READING_ROOT}${path}`);
+        const model = monaco.editor.getModel(uri) ?? monaco.editor.createModel(source, 'typescript', uri);
+        model.setValue(source);
+        this.watches.set(path, model.onDidChangeContent(this.handleModelChange));
+        return model;
+    }
+
+    private forget(path: string): void {
+        this.watches.get(path)?.dispose();
+        this.watches.delete(path);
+        this.models.get(path)?.dispose();
+    }
+
+    private forgetAll(): void {
+        for (const path of [...this.models.keys()]) {
+            this.forget(path);
+        }
+        this.models.clear();
     }
 
     /**
@@ -176,20 +292,31 @@ export class AddonEditorService {
      *
      * @returns The JavaScript, or the faults that stopped it being produced.
      */
-    async compile(): Promise<{ readonly compiled: string; readonly faults: readonly SourceFault[] }> {
-        const model = this.model;
-        if (model === null) {
-            return { compiled: '', faults: [] };
+    async compile(): Promise<{ readonly compiled: ReadingFiles; readonly faults: readonly SourceFault[] }> {
+        const entry = this.models.get(ENTRY_FILE);
+        if (entry === undefined) {
+            return { compiled: {}, faults: [] };
         }
 
-        const worker = await this.reachWorker(model.uri);
-        const faults = await this.readFaults(worker, model);
+        const worker = await this.reachWorker(entry.uri);
+        const found = await Promise.all(
+            [...this.models].map(async ([path, model]) => ({
+                path,
+                faults: await this.readFaults(worker, model, path),
+                emitted: await worker.getEmitOutput(model.uri.toString()),
+            })),
+        );
+
+        const faults = found.flatMap((one) => one.faults);
         if (faults.length > 0) {
-            return { compiled: '', faults };
+            return { compiled: {}, faults };
         }
-
-        const emitted = await worker.getEmitOutput(model.uri.toString());
-        return { compiled: emitted.outputFiles[0]?.text ?? '', faults: [] };
+        return {
+            compiled: Object.fromEntries(
+                found.map((one) => [one.path, one.emitted.outputFiles[0]?.text ?? '']),
+            ),
+            faults: [],
+        };
     }
 
     /**
@@ -219,13 +346,18 @@ export class AddonEditorService {
      *
      * @param fault - What went wrong and where, or null to clear.
      */
-    showRuntimeFault(fault: { readonly message: string; readonly line?: number } | null): void {
-        const model = this.model;
-        if (model === null) {
+    showRuntimeFault(
+        fault: { readonly message: string; readonly line?: number; readonly file?: string } | null,
+    ): void {
+        for (const held of this.models.values()) {
+            monaco.editor.setModelMarkers(held, 'fathom-runtime', []);
+        }
+        const model = this.models.get(fault?.file ?? ENTRY_FILE);
+        if (fault === null || model === undefined) {
             return;
         }
-        const line = Math.min(fault?.line ?? 1, model.getLineCount());
-        monaco.editor.setModelMarkers(model, 'fathom-runtime', fault === null ? [] : [{
+        const line = Math.min(fault.line ?? 1, model.getLineCount());
+        monaco.editor.setModelMarkers(model, 'fathom-runtime', [{
             severity: monaco.MarkerSeverity.Error,
             message: fault.message,
             startLineNumber: line,
@@ -238,6 +370,7 @@ export class AddonEditorService {
     private async readFaults(
         worker: monaco.languages.typescript.TypeScriptWorker,
         model: monaco.editor.ITextModel,
+        path: string,
     ): Promise<readonly SourceFault[]> {
         const uri = model.uri.toString();
         const [syntactic, semantic] = await Promise.all([
@@ -251,6 +384,7 @@ export class AddonEditorService {
                 message: typeof one.messageText === 'string' ? one.messageText : one.messageText.messageText,
                 line: at.lineNumber,
                 column: at.column,
+                file: path,
             };
         });
     }
@@ -262,7 +396,7 @@ export class AddonEditorService {
 
     private handleSettle(): void {
         this.settleTimer = null;
-        this.config.onChange(this.readSource());
+        this.config.onChange(this.readFiles());
     }
 
     private clearTimer(): void {
@@ -374,6 +508,12 @@ function configureWorkers(): void {
  * CommonJS on purpose: what comes out is run by handing it a `require`, so the
  * page never has to resolve a bare specifier at run time.
  */
+/** Folders before loose files, then by name, so a list reads like a tree. */
+function byPath(one: string, other: string): number {
+    const depth = folderOf(other).split('/').length - folderOf(one).split('/').length;
+    return folderOf(one) === folderOf(other) ? one.localeCompare(other) : depth || one.localeCompare(other);
+}
+
 function configureLanguage(): void {
     if (isLanguageConfigured) {
         return;

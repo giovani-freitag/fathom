@@ -1,17 +1,28 @@
+import { ENTRY_FILE, type ReadingFiles } from '../../../shared/core/reading-files.ts';
+
 /** One reading a reader wrote, as it is kept between sessions. */
 export interface SavedReading {
     /** Stable across renames, because the chart stores selections against it. */
     readonly key: string;
     readonly name: string;
-    readonly source: string;
+    /** What the reader wrote, by path within the reading. */
+    readonly files: ReadingFiles;
     /**
-     * The JavaScript the editor emitted.
+     * The JavaScript the editor emitted, by the same paths.
      *
      * Kept beside the source so a reload can put the reading back on the chart
      * without loading a compiler, which is several times the weight of the app.
      */
-    readonly compiled: string;
+    readonly compiled: ReadingFiles;
     readonly savedAtMs: number;
+}
+
+/** A reading as it was stored before one could be written across several files. */
+interface OneFileReading {
+    readonly key: string;
+    readonly name: string;
+    readonly source: string;
+    readonly compiled: string;
 }
 
 export interface AddonLibraryServiceConfig {
@@ -35,7 +46,7 @@ const DRAFT = 'fathom.addons.draft';
  */
 export class AddonLibraryService {
     private readonly config: AddonLibraryServiceConfig;
-    private draft: string | null = null;
+    private draft: ReadingFiles | null = null;
 
     constructor(config: AddonLibraryServiceConfig) {
         this.config = config;
@@ -49,16 +60,16 @@ export class AddonLibraryService {
      * back — a narrowed window, a rotated tablet, a zoom, a closed tab — none
      * of which is a decision to discard work.
      *
-     * @param source - What is in the editor, or null once it is filed.
+     * @param files - What is in the editor, or null once it is filed.
      */
-    rememberDraft(source: string | null): void {
-        this.draft = source;
+    rememberDraft(files: ReadingFiles | null): void {
+        this.draft = files;
         try {
-            if (source === null) {
+            if (files === null) {
                 this.config.storage.removeItem(DRAFT);
                 return;
             }
-            this.config.storage.setItem(DRAFT, source);
+            this.config.storage.setItem(DRAFT, JSON.stringify(files));
         } catch {
             // Storage refused. The draft still survives a remount in memory;
             // what is lost is only its surviving the tab being closed.
@@ -66,12 +77,13 @@ export class AddonLibraryService {
     }
 
     /** What was being written when the editor last went away. */
-    readDraft(): string | null {
+    readDraft(): ReadingFiles | null {
         if (this.draft !== null) {
             return this.draft;
         }
         try {
-            return this.config.storage.getItem(DRAFT);
+            const held = this.config.storage.getItem(DRAFT);
+            return held === null ? null : readDraftShape(held);
         } catch {
             return null;
         }
@@ -156,8 +168,9 @@ export class AddonLibraryService {
     private read(): Map<string, SavedReading> {
         try {
             const held = this.config.storage.getItem(SHELF);
-            const parsed = held === null ? [] : JSON.parse(held) as SavedReading[];
-            return new Map(parsed.filter(isReading).map((one) => [one.key, one]));
+            const parsed = held === null ? [] : JSON.parse(held) as unknown[];
+            const readings = parsed.map(asReading).filter((one) => one !== null);
+            return new Map(readings.map((one) => [one.key, one]));
         } catch {
             // Unreadable storage reads as an empty shelf rather than as a
             // failure: a reader whose browser refuses it still gets the editor.
@@ -183,11 +196,48 @@ export class AddonLibraryService {
     }
 }
 
-function isReading(candidate: unknown): candidate is SavedReading {
-    const one = candidate as Partial<SavedReading> | null;
-    return one !== null
-        && typeof one.key === 'string'
-        && typeof one.name === 'string'
-        && typeof one.source === 'string'
-        && typeof one.compiled === 'string';
+/**
+ * One stored reading, in whichever shape it was written in.
+ *
+ * A reading filed before a reading could have more than one file is read as a
+ * reading with one: the alternative is a reader opening the page to an empty
+ * shelf where their work used to be.
+ */
+function asReading(candidate: unknown): SavedReading | null {
+    const one = candidate as Partial<SavedReading & OneFileReading> | null;
+    if (one === null || typeof one.key !== 'string' || typeof one.name !== 'string') {
+        return null;
+    }
+
+    const savedAtMs = typeof one.savedAtMs === 'number' ? one.savedAtMs : 0;
+    if (typeof one.source === 'string' && typeof one.compiled === 'string') {
+        return {
+            key: one.key,
+            name: one.name,
+            files: { [ENTRY_FILE]: one.source },
+            compiled: { [ENTRY_FILE]: one.compiled },
+            savedAtMs,
+        };
+    }
+    if (isFileMap(one.files) && isFileMap(one.compiled)) {
+        return { key: one.key, name: one.name, files: one.files, compiled: one.compiled, savedAtMs };
+    }
+    return null;
+}
+
+/** A draft written before a reading could have more than one file. */
+function readDraftShape(held: string): ReadingFiles | null {
+    try {
+        const parsed = JSON.parse(held) as unknown;
+        return isFileMap(parsed) ? parsed : { [ENTRY_FILE]: held };
+    } catch {
+        return { [ENTRY_FILE]: held };
+    }
+}
+
+function isFileMap(candidate: unknown): candidate is ReadingFiles {
+    return typeof candidate === 'object'
+        && candidate !== null
+        && !Array.isArray(candidate)
+        && Object.values(candidate).every((value) => typeof value === 'string');
 }

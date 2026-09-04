@@ -1,57 +1,140 @@
 import type { Indicator } from '../../shared/core/draw-plan.ts';
 import * as ADDON_API from '../../shared/core/addon-api.ts';
 import { buildAddonConsole } from './addon-console.ts';
+import { ENTRY_FILE, isWithin, type ReadingFiles, resolveWithin } from '../../shared/core/reading-files.ts';
 
-/** What an addon's source is turned into, or why it could not be. */
+/** What an addon's files are turned into, or why they could not be. */
 export type AddonBuild =
     | { readonly kind: 'ready'; readonly indicator: Indicator }
-    | { readonly kind: 'failed'; readonly message: string; readonly line?: number };
+    | {
+        readonly kind: 'failed';
+        readonly message: string;
+        readonly line?: number;
+        /** Which file it went wrong in, absent where that could not be told. */
+        readonly file?: string;
+    };
 
 /** The specifier an addon imports the surface from. */
 export const ADDON_MODULE = 'fathom';
 
 /**
- * Runs compiled addon source and takes its default export.
+ * Runs an addon's compiled files and takes the default export of its entry.
  *
- * CommonJS rather than a module: the emitted `require` is a function we hand
- * over, so the surface reaches the script without an import map, a blob URL or
- * anything else the page has to resolve at run time.
+ * CommonJS rather than modules: the emitted `require` is a function we hand
+ * over, so the surface and the reading's own files reach each other without an
+ * import map, a blob URL or anything else the page has to resolve at run time.
  *
- * @param compiled - JavaScript the editor's compiler emitted.
+ * @param compiled - JavaScript the editor's compiler emitted, by path.
  * @returns The reading it exports, or why it could not be taken.
  */
-export function buildAddon(compiled: string): AddonBuild {
-    const exported: Record<string, unknown> = {};
-    let label = '';
+export function buildAddon(compiled: ReadingFiles): AddonBuild {
+    const linker = new Linker(compiled);
     try {
-        // Running a reader's own code is the whole feature. What contains it is
-        // the surface `require` will hand over and nothing else in scope.
-        // eslint-disable-next-line @typescript-eslint/no-implied-eval
-        const run = new Function('exports', 'module', 'require', 'console', compiled) as (
-            exports: Record<string, unknown>,
-            module: { exports: Record<string, unknown> },
-            require: (specifier: string) => unknown,
-            printer: ReturnType<typeof buildAddonConsole>,
-        ) => void;
-        const holder = { exports: exported };
-        // Named as a parameter so it shadows the page's own inside the script:
-        // what a reading prints belongs in the panel beside it.
-        run(exported, holder, requireSurface, buildAddonConsole(() => label));
-        const built = takeIndicator(holder.exports['default'] ?? exported['default']);
+        const entry = linker.load(ENTRY_FILE);
+        const built = takeIndicator(entry['default']);
         if (built.kind === 'ready') {
-            label = built.indicator.label;
+            linker.answerTo(built.indicator.label);
         }
         return built;
     } catch (error) {
-        return { kind: 'failed', message: describeFailure(error), ...findLine(error) };
+        return {
+            kind: 'failed',
+            message: describeFailure(error),
+            ...findLine(error),
+            ...(linker.blamed === null ? {} : { file: linker.blamed }),
+        };
     }
 }
 
-function requireSurface(specifier: string): unknown {
-    if (specifier !== ADDON_MODULE) {
-        throw new Error(`An addon can import only '${ADDON_MODULE}'. Asked for '${specifier}'.`);
+/**
+ * Runs the files of one reading, each once, resolving what they ask of each other.
+ *
+ * A class rather than a closure because a failure has to be able to say which
+ * file it happened in, and that is state the run carries as it goes.
+ */
+class Linker {
+    /** Where it went wrong, which is the innermost file that threw. */
+    blamed: string | null = null;
+
+    private readonly files: ReadingFiles;
+    private readonly loaded = new Map<string, Record<string, unknown>>();
+    private label = '';
+
+    constructor(files: ReadingFiles) {
+        this.files = files;
     }
-    return ADDON_API;
+
+    /** Names the reading, so what it prints can be told from another's. */
+    answerTo(label: string): void {
+        this.label = label;
+    }
+
+    /**
+     * Runs one file and hands back what it exported.
+     *
+     * @param path - The file's path within the reading.
+     * @returns Its exports, run only the first time it is asked for.
+     * @throws Error when the reading has no such file.
+     */
+    load(path: string): Record<string, unknown> {
+        const held = this.loaded.get(path);
+        if (held !== undefined) {
+            return held;
+        }
+
+        const source = this.files[path];
+        if (source === undefined) {
+            throw new Error(`This reading has no ${path}.`);
+        }
+
+        const exported: Record<string, unknown> = {};
+        const holder = { exports: exported };
+        // Filed before it runs, so two files that import each other get each
+        // other's exports as far as they are filled rather than for ever.
+        this.loaded.set(path, exported);
+
+        try {
+            // Running a reader's own code is the whole feature. What contains
+            // it is what `require` hands over and nothing else in scope.
+            // eslint-disable-next-line @typescript-eslint/no-implied-eval
+            const run = new Function('exports', 'module', 'require', 'console', source) as (
+                exports: Record<string, unknown>,
+                module: { exports: Record<string, unknown> },
+                require: (specifier: string) => unknown,
+                printer: ReturnType<typeof buildAddonConsole>,
+            ) => void;
+            // Named as a parameter so it shadows the page's own inside the
+            // script: what a reading prints belongs in the panel beside it.
+            run(exported, holder, (specifier) => this.reach(specifier, path), buildAddonConsole(() => this.label));
+        } catch (error) {
+            // The innermost file wins, because the one that threw is nearer to
+            // what is wrong than every file waiting on it up the chain.
+            this.blamed ??= path;
+            throw error;
+        }
+
+        // Read after the run rather than before: a file that replaces
+        // `module.exports` wholesale exports something other than what was filed.
+        this.loaded.set(path, holder.exports);
+        return holder.exports;
+    }
+
+    private reach(specifier: string, from: string): unknown {
+        if (specifier === ADDON_MODULE) {
+            return ADDON_API;
+        }
+        if (!isWithin(specifier)) {
+            throw new Error(
+                `An addon can import '${ADDON_MODULE}' and its own files. Asked for '${specifier}'.`,
+            );
+        }
+
+        const path = resolveWithin(specifier, from, Object.keys(this.files));
+        if (path === null) {
+            throw new Error(`Nothing in this reading answers to '${specifier}'.`);
+        }
+        return this.load(path);
+    }
 }
 
 /**

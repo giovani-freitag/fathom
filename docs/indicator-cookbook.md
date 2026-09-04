@@ -271,6 +271,38 @@ Reaching for a session that was never declared throws by name, listing what
 
 ---
 
+## Writing a reading across several files
+
+A reading starts as one file, `main.ts`, and that is the one the chart takes it
+out of — its default export is the reading. Add more from the strip above the
+editor, and import between them the way you would anywhere else.
+
+```ts
+// maths/mean.ts
+export function rollingMean(
+    values: readonly number[],
+    periodBars: number,
+): number[] {
+    // ...
+}
+```
+
+```ts
+// main.ts
+import { rollingMean } from './maths/mean';
+```
+
+Relative paths only, and only within the reading: `./`, `../`, with or without
+the `.ts`, and `index.ts` for a folder. `'fathom'` is the one other thing that
+resolves — there is no npm here, and nothing is fetched. Each file runs once
+however many others ask for it, and two files that import each other get what
+the other has exported so far rather than looping.
+
+A reading of one file still exports as a `.ts`. One of several exports as a
+`.fathom.json` holding all of them, which is also what it opens from.
+
+---
+
 ## Naming a reading in more than one language
 
 The interface has two languages, and a reading names itself — in the legend,

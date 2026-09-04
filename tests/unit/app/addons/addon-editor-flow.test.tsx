@@ -7,6 +7,7 @@ import { createIndicatorKernel } from '../../../mocks/indicator-kernel.tsx';
 import { type EditorFactory, type SourceEditor, useAddonEditor } from '../../../../src/app/react/use-addon-editor.ts';
 import { AddonLibraryService } from '../../../../src/app/services/addon-library/addon-library-service.ts';
 import { KernelProvider } from '../../../../src/app/react/kernel-provider.tsx';
+import { ENTRY_FILE } from '../../../../src/shared/core/reading-files.ts';
 
 /** A reading whose label says which source produced it. */
 function sourceNamed(label: string): string {
@@ -22,7 +23,7 @@ function sourceNamed(label: string): string {
     `;
 }
 
-const STARTER = sourceNamed('My mean');
+const STARTER = { [ENTRY_FILE]: sourceNamed('My mean') };
 
 /**
  * An editor with no browser behind it.
@@ -31,13 +32,38 @@ const STARTER = sourceNamed('My mean');
  * which is the order that filed a reading with no compiled body at all.
  */
 function buildFakeEditor(settleMs = 0) {
-    let source = '';
+    let files: Record<string, string> = {};
+    let shown = ENTRY_FILE;
     let onChange = (): void => undefined;
     const editor: SourceEditor = {
-        mount: (_host, opening) => { source = opening; },
+        mount: (_host, opening) => { files = { ...opening }; },
         unmount: () => undefined,
-        readSource: () => source,
-        replaceSource: (next) => { source = next; },
+        readFiles: () => files,
+        listFiles: () => [ENTRY_FILE, ...Object.keys(files).filter((path) => path !== ENTRY_FILE).sort()],
+        shownFile: () => shown,
+        replaceFiles: (next) => { files = { ...next }; shown = ENTRY_FILE; },
+        showFile: (path) => { shown = path; },
+        addFile: (path) => {
+            if (files[path] !== undefined) {
+                throw new Error(`This reading already has a ${path}.`);
+            }
+            files[path] = '';
+            shown = path;
+        },
+        removeFile: (path) => {
+            if (path !== ENTRY_FILE) {
+                delete files[path];
+                shown = ENTRY_FILE;
+            }
+        },
+        renameFile: (from, to) => {
+            if (from === ENTRY_FILE || files[from] === undefined) {
+                return;
+            }
+            files[to] = files[from]!;
+            delete files[from];
+            shown = to;
+        },
         compile: async () => {
             // Only ever a timer when a test asked for one, so a test that
             // freezes the clock does not also freeze the compiler.
@@ -50,9 +76,9 @@ function buildFakeEditor(settleMs = 0) {
                 throw new Error('the compiler never answered');
             }
             if (isFaulting) {
-                return { compiled: '', faults: [{ message: 'no', line: 1, column: 1 }] };
+                return { compiled: {}, faults: [{ message: 'no', line: 1, column: 1, file: ENTRY_FILE }] };
             }
-            return { compiled: source, faults: [] };
+            return { compiled: files, faults: [] };
         },
         showRuntimeFault: () => undefined,
         applyTheme: () => undefined,
@@ -67,7 +93,9 @@ function buildFakeEditor(settleMs = 0) {
     };
     return {
         factory,
-        type: (next: string): void => { source = next; onChange(); },
+        type: (next: string): void => { files = { ...files, [shown]: next }; onChange(); },
+        /** Writes into one of the reading's other files. */
+        typeInto: (path: string, next: string): void => { files = { ...files, [path]: next }; onChange(); },
         /** What Ctrl+S does, as the editor would fire it. */
         pressSave: (): void => { onSave(); },
         /** Makes every compile report a fault, as a typo would. */
@@ -75,7 +103,7 @@ function buildFakeEditor(settleMs = 0) {
         /** Makes the compiler itself refuse, as one not yet started does. */
         refuseFrom: (): void => { isRefusing = true; },
         /** What is actually in the editor, which a refusal must not disturb. */
-        buffer: (): string => source,
+        buffer: (): string => files[shown] ?? '',
     };
 }
 
@@ -123,7 +151,7 @@ describe('opening the editor', () => {
         await waitFor(() => { expect(result.current.status?.kind).toBe('ready'); });
 
         refuseFrom();
-        act(() => { type(STARTER); });
+        act(() => { type(STARTER[ENTRY_FILE]); });
 
         await waitFor(() => { expect(result.current.status?.kind).toBe('broken'); });
     });
@@ -205,7 +233,7 @@ describe('saving a reading', () => {
 
         await act(async () => { await result.current.save(); });
         const [filed] = kernel.container.addons.list();
-        const rebuilt = buildAddon(filed?.compiled ?? '');
+        const rebuilt = buildAddon(filed?.compiled ?? {});
         expect(rebuilt.kind).toBe('ready');
         expect(rebuilt.kind === 'ready' ? rebuilt.indicator.label : null).toBe(filed?.name);
     });
@@ -530,5 +558,79 @@ describe('deleting a reading', () => {
         await waitFor(() => { expect(kernel.container.addons.list()).toEqual([]); });
         expect(kernel.readAdded().map((entry) => entry.indicatorId))
             .not.toContain(`${ADDON_ID_PREFIX}my-mean`);
+    });
+});
+
+describe('a reading written across several files', () => {
+    it('starts as one, so nothing is decided for a reader who wants one', async () => {
+        const { factory } = buildFakeEditor();
+
+        const { result } = renderEditor(factory);
+
+        await waitFor(() => { expect(result.current.status?.kind).toBe('ready'); });
+        expect(result.current.files).toEqual([ENTRY_FILE]);
+    });
+
+    it('shows the file it has just added, rather than leaving the reader to find it', async () => {
+        const { factory } = buildFakeEditor();
+        const { result } = renderEditor(factory);
+        await waitFor(() => { expect(result.current.status?.kind).toBe('ready'); });
+
+        act(() => { result.current.addFile('helpers.ts'); });
+
+        expect(result.current.files).toEqual([ENTRY_FILE, 'helpers.ts']);
+        expect(result.current.shownFile).toBe('helpers.ts');
+    });
+
+    it('says why rather than quietly doing nothing when a name is taken', async () => {
+        const { factory } = buildFakeEditor();
+        const { result } = renderEditor(factory);
+        await waitFor(() => { expect(result.current.status?.kind).toBe('ready'); });
+        act(() => { result.current.addFile('helpers.ts'); });
+
+        let refusal: string | null = null;
+        act(() => { refusal = result.current.addFile('helpers.ts'); });
+
+        expect(refusal).toMatch(/already has a helpers\.ts/);
+    });
+
+    it('files every file, so a reload opens the whole reading', async () => {
+        const { factory, typeInto } = buildFakeEditor();
+        const { kernel, result } = renderEditor(factory);
+        await waitFor(() => { expect(result.current.status?.kind).toBe('ready'); });
+        act(() => { result.current.addFile('helpers.ts'); });
+        act(() => { typeInto('helpers.ts', 'exports.mean = 1;'); });
+
+        await act(async () => { await result.current.save(); });
+
+        const [filed] = kernel.container.addons.list();
+        expect(Object.keys(filed?.files ?? {}).sort()).toEqual(['helpers.ts', ENTRY_FILE]);
+    });
+
+    it('opens a saved reading back into all of its files', async () => {
+        const { factory, typeInto } = buildFakeEditor();
+        const { result } = renderEditor(factory);
+        await waitFor(() => { expect(result.current.status?.kind).toBe('ready'); });
+        act(() => { result.current.addFile('helpers.ts'); });
+        act(() => { typeInto('helpers.ts', 'exports.mean = 1;'); });
+        await act(async () => { await result.current.save(); });
+        const key = result.current.openKey!;
+        act(() => { result.current.startAnew(); });
+
+        act(() => { result.current.open(key); });
+
+        await waitFor(() => { expect(result.current.files).toEqual([ENTRY_FILE, 'helpers.ts']); });
+    });
+
+    it('keeps the reader in the entry when the file they were in goes', async () => {
+        const { factory } = buildFakeEditor();
+        const { result } = renderEditor(factory);
+        await waitFor(() => { expect(result.current.status?.kind).toBe('ready'); });
+        act(() => { result.current.addFile('helpers.ts'); });
+
+        act(() => { result.current.removeFile('helpers.ts'); });
+
+        expect(result.current.files).toEqual([ENTRY_FILE]);
+        expect(result.current.shownFile).toBe(ENTRY_FILE);
     });
 });

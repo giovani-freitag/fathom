@@ -26,59 +26,16 @@ import { AddonEditorService } from '../services/addon-editor/addon-editor-servic
 import type { Choice } from './choice.ts';
 import { AddonConsolePanel } from './addon-console-panel.tsx';
 import { ConfirmDialog } from './confirm-dialog.tsx';
+import { ReadingFileStrip } from './reading-file-strip.tsx';
 import { Divider } from './chart-dock.tsx';
 import { Select } from './select.tsx';
 import { ADDON_EDITOR_ID } from './panel-ids.ts';
 import type { Translate } from '../i18n/translator.ts';
 import { useIsViewportAtLeast } from '../react/use-viewport-width.ts';
 import { usePanelSize } from '../react/use-panel-size.ts';
+
+import { STARTER_FILES } from './starter-reading.ts';
 import { useTranslate } from '../react/use-appearance.ts';
-
-/** What a reader with an empty shelf opens on: a whole, working reading. */
-export const STARTER_SOURCE = `// This is yours to change. It is already running, and every edit redraws the
-// chart beside it. Nothing here leaves this browser.
-import { Params, Plot, readSetting } from 'fathom';
-import type { Indicator, IndicatorInput, IndicatorSettings, PlanDraft, SourceRequest } from 'fathom';
-
-const PERIOD = Params.integer('periodBars')
-    .called('Period')
-    .between(2, 400)
-    .startingAt(20);
-
-export default class MyMean implements Indicator {
-    // What the chart calls it, in the legend and in the layer list.
-    readonly label = 'My mean';
-    readonly about = 'The mean of the close, written in the page';
-    readonly parameters = [PERIOD];
-
-    // Everything besides the drawn bars this reads, for the chart to fetch.
-    resolveSources(settings: IndicatorSettings): SourceRequest {
-        return { warmupBars: readSetting(settings, PERIOD) };
-    }
-
-    compute(input: IndicatorInput): PlanDraft {
-        const bars = input.bars.bars;
-        const periodBars = readSetting(input.settings, PERIOD);
-        const value = bars.map((_bar, index) => {
-            if (index < periodBars - 1) {
-                // NaN breaks the line rather than drawing a mean of fewer bars
-                // than the reader asked for.
-                return Number.NaN;
-            }
-            let total = 0;
-            for (let step = 0; step < periodBars; step += 1) {
-                total += bars[index - step]!.closePrice;
-            }
-            return total / periodBars;
-        });
-
-        // The colour comes from the layer list, not from here.
-        return Plot.over(input.bars)
-            .line(value, 'My mean')
-            .overThePrice();
-    }
-}
-`;
 
 /**
  * What the menu shows while the open reading has never been saved.
@@ -122,12 +79,13 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
     const size = usePanelSize(isWide
         ? { slot: 'fathom.addons.railWidth', growsAlong: 'width', openingRatio: 0.32, smallest: 0.2, largest: 0.6 }
         : { slot: 'fathom.addons.sheetHeight', growsAlong: 'height', openingRatio: 0.6, smallest: 0.25, largest: 0.85 });
+    const [fileRefusal, setFileRefusal] = useState<string | null>(null);
     const closeRef = useRef<HTMLButtonElement>(null);
     const undoRef = useRef<HTMLButtonElement>(null);
     const returnFocusTo = useRef<Element | null>(null);
 
     const { mountInto, status, drawFailure, ...editor } = useAddonEditor({
-        starter: STARTER_SOURCE,
+        starter: STARTER_FILES,
         openOn: openKey,
         buildEditor,
         // Monaco eats Tab, so escape is the way out of it. It lands on the one
@@ -166,6 +124,16 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
         >
             <PanelGrip size={size} isWide={isWide} translate={translate} />
             <EditorToolbar editor={editor} translate={translate} onClose={onClose} closeRef={closeRef} />
+            <ReadingFileStrip
+                files={editor.files}
+                shownFile={editor.shownFile}
+                translate={translate}
+                onShow={editor.showFile}
+                onAdd={editor.addFile}
+                onRename={editor.renameFile}
+                onRemove={editor.removeFile}
+                onRefuse={setFileRefusal}
+            />
             <div ref={mountInto} className="min-h-0 flex-1" />
             <AddonConsolePanel translate={translate} />
 
@@ -173,27 +141,29 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
                 live region that is itself added to the tree is not reliably
                 read out when it appears. */}
             <div role="status" className="shrink-0">
-                {editor.lastDiscarded === null
-                    ? <EditorStatusLine status={status} drawFailure={drawFailure} translate={translate} />
-                    : (
-                        <footer className="flex items-center gap-3 border-t border-hairline px-4 py-2.5 text-xs text-ink-300">
-                            <span className="min-w-0 flex-1 truncate">
-                                {translate(
-                                    editor.lastDiscarded.wasDeleted ? 'indicators.removed' : 'editor.replaced',
-                                    { name: editor.lastDiscarded.name },
-                                )}
-                            </span>
-                            <button
-                                ref={undoRef}
-                                type="button"
-                                onClick={editor.undoDiscard}
-                                className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs font-semibold text-phosphor outline-none hover:bg-phosphor/12 focus-visible:ring-2 focus-visible:ring-phosphor/50"
-                            >
-                                <Undo2 className="size-3.5" />
-                                {translate('indicators.undo')}
-                            </button>
-                        </footer>
-                    )}
+                {fileRefusal !== null
+                    ? <FaultList translate={translate} lines={[fileRefusal]} />
+                    : editor.lastDiscarded === null
+                        ? <EditorStatusLine status={status} drawFailure={drawFailure} translate={translate} />
+                        : (
+                            <footer className="flex items-center gap-3 border-t border-hairline px-4 py-2.5 text-xs text-ink-300">
+                                <span className="min-w-0 flex-1 truncate">
+                                    {translate(
+                                        editor.lastDiscarded.wasDeleted ? 'indicators.removed' : 'editor.replaced',
+                                        { name: editor.lastDiscarded.name },
+                                    )}
+                                </span>
+                                <button
+                                    ref={undoRef}
+                                    type="button"
+                                    onClick={editor.undoDiscard}
+                                    className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs font-semibold text-phosphor outline-none hover:bg-phosphor/12 focus-visible:ring-2 focus-visible:ring-phosphor/50"
+                                >
+                                    <Undo2 className="size-3.5" />
+                                    {translate('indicators.undo')}
+                                </button>
+                            </footer>
+                        )}
             </div>
         </aside>
     );

@@ -10,6 +10,7 @@ import { useKernel } from './kernel-context.ts';
 import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
 import type { Indicator } from '../../shared/core/draw-plan.ts';
 import { withIndicatorAdded } from '../../shared/core/indicator-selection.ts';
+import { ENTRY_FILE, type ReadingFiles } from '../../shared/core/reading-files.ts';
 
 /**
  * Work that has just left the editor, and can still be had back.
@@ -20,7 +21,7 @@ import { withIndicatorAdded } from '../../shared/core/indicator-selection.ts';
  */
 export interface DiscardedWork {
     readonly name: string;
-    readonly source: string;
+    readonly files: ReadingFiles;
     /** The shelf entry it came from, where it had one. */
     readonly key: string | null;
     /** True where it also left the shelf, and undoing has to put it back. */
@@ -58,6 +59,14 @@ export interface AddonEditorControls {
     /** Hands the reader the open script as a file. */
     readonly exportFile: () => void;
     readonly importFile: (file: File) => Promise<void>;
+    /** The paths in the open reading, and which one is shown. */
+    readonly files: readonly string[];
+    readonly shownFile: string;
+    readonly showFile: (path: string) => void;
+    /** Adds, moves or removes a file. Answers with what went wrong, or null. */
+    readonly addFile: (path: string) => string | null;
+    readonly renameFile: (from: string, to: string) => string | null;
+    readonly removeFile: (path: string) => void;
 }
 
 /** How long a deleted reading can still be had back. */
@@ -79,12 +88,20 @@ const LARGEST_IMPORT_BYTES = 256 * 1024;
  * does things in is exactly what was getting them wrong.
  */
 export interface SourceEditor {
-    mount: (host: HTMLElement, source: string) => void;
+    mount: (host: HTMLElement, files: ReadingFiles) => void;
     unmount: () => void;
-    readSource: () => string;
-    replaceSource: (source: string) => void;
-    compile: () => Promise<{ readonly compiled: string; readonly faults: readonly SourceFault[] }>;
-    showRuntimeFault: (fault: { readonly message: string; readonly line?: number } | null) => void;
+    readFiles: () => ReadingFiles;
+    listFiles: () => readonly string[];
+    shownFile: () => string;
+    replaceFiles: (files: ReadingFiles) => void;
+    showFile: (path: string) => void;
+    addFile: (path: string) => void;
+    removeFile: (path: string) => void;
+    renameFile: (from: string, to: string) => void;
+    compile: () => Promise<{ readonly compiled: ReadingFiles; readonly faults: readonly SourceFault[] }>;
+    showRuntimeFault: (
+        fault: { readonly message: string; readonly line?: number; readonly file?: string } | null,
+    ) => void;
     applyTheme: (theme: 'dark' | 'light') => void;
 }
 
@@ -99,7 +116,7 @@ export type EditorFactory = (config: {
 
 export interface AddonEditorRequest {
     /** What a reader with an empty shelf opens on. */
-    readonly starter: string;
+    readonly starter: ReadingFiles;
     /** Where the keyboard goes when the reader asks to leave the editor. */
     readonly onLeave: () => void;
     /** A saved reading to open, where the reader picked one. */
@@ -129,6 +146,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
     const importTooLargeMessage = translate('editor.tooLarge');
     const compilerLostMessage = translate('editor.compilerLost');
     const importNotTextMessage = translate('editor.notText');
+    const importNotBundleMessage = translate('editor.notBundle');
     const editorLabel = translate('editor.code');
     const [status, setStatus] = useState<EditorStatus | null>(null);
     const [isRunning, setIsRunning] = useState(false);
@@ -149,7 +167,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         return drawn === undefined ? null : state.layerFailures[drawn.instanceId] ?? null;
     });
     const serviceRef = useRef<SourceEditor | null>(null);
-    const compiledRef = useRef('');
+    const compiledRef = useRef<ReadingFiles>({});
     const rebuildRef = useRef<() => Promise<void>>(() => Promise.resolve());
     const saveRef = useRef<() => Promise<void>>(() => Promise.resolve());
     const leaveRef = useRef<() => void>(() => undefined);
@@ -195,10 +213,17 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         if (isEdit) {
             setIsUnsaved(true);
         }
-        library.rememberDraft(service.readSource());
+        library.rememberDraft(service.readFiles());
         setIsRunning(true);
         try {
             const { compiled, faults } = await service.compile();
+            // The editor may have been taken down while the compiler worked —
+            // a remount, a close. What it answered belongs to an editor that is
+            // no longer there, and publishing it puts an empty reading on the
+            // chart over whatever the live one has just built.
+            if (serviceRef.current !== service) {
+                return;
+            }
             if (faults.length > 0) {
                 setStatus({ kind: 'faulted', faults });
                 return;
@@ -244,7 +269,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
             ariaLabel: editorLabel,
         });
         serviceRef.current = service;
-        service.mount(node, library.readDraft() ?? opening(library, openOn)?.source ?? starter);
+        service.mount(node, library.readDraft() ?? opening(library, openOn)?.files ?? starter);
         void rebuild(opening(library, openOn)?.key ?? null, false);
     // Mounted once. Rebuilding on every change of `rebuild` would tear the
     // editor down and put it back mid-keystroke.
@@ -286,7 +311,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         }
         // Read before the await, so a keystroke while the compiler is working
         // cannot file a source that does not match the compiled beside it.
-        const source = service.readSource();
+        const files = service.readFiles();
         const { compiled, faults } = await service.compile();
         if (faults.length > 0) {
             // Refused rather than filed against the last build that worked: the
@@ -302,7 +327,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         const built = buildAddon(compiled);
         const called = isNamedByHand || built.kind !== 'ready' ? name : built.indicator.label;
         const key = openKey ?? library.mintKey(called);
-        if (library.save({ key, name: called, source, compiled }) === null) {
+        if (library.save({ key, name: called, files, compiled }) === null) {
             setStatus({ kind: 'broken', message: shelfRefusedMessage });
             return;
         }
@@ -319,7 +344,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
     }, [isNamedByHand, kernel, library, name, openKey, shelfRefusedMessage]);
 
     const load = useCallback((
-        source: string,
+        files: ReadingFiles,
         key: string | null,
         called: string | null,
         // Putting work back is not replacing it: recorded, undoing would offer
@@ -333,12 +358,12 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         // What is being replaced is offered back. Starting a new one, opening
         // another and importing a file all overwrite the buffer, and none of
         // them was a decision to throw away what was in it.
-        const leaving = service.readSource();
-        if (!isUndo && leaving !== '' && leaving !== source) {
-            setLastDiscarded({ name: nameRef.current, source: leaving, key: openKeyRef.current, wasDeleted: false });
+        const leaving = service.readFiles();
+        if (!isUndo && !isBlank(leaving) && !isSameWork(leaving, files)) {
+            setLastDiscarded({ name: nameRef.current, files: leaving, key: openKeyRef.current, wasDeleted: false });
         }
-        service.replaceSource(source);
-        library.rememberDraft(source);
+        service.replaceFiles(files);
+        library.rememberDraft(files);
         setOpenKey(key);
         setIsNamedByHand(called !== null);
         setName(called ?? untitled);
@@ -352,7 +377,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
     const open = useCallback((key: string): void => {
         const found = library.find(key);
         if (found !== null) {
-            load(found.source, found.key, found.name);
+            load(found.files, found.key, found.name);
         }
     }, [library, load]);
 
@@ -362,7 +387,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         // Deleted at once and offered back, which is how this chart treats every
         // other removal: a confirmation asks about work the reader has not lost
         // yet, and an undo answers about work they have.
-        const held = serviceRef.current?.readSource() ?? '';
+        const held = serviceRef.current?.readFiles() ?? {};
         if (openKey !== null) {
             library.remove(openKey);
             forgetAddon(liveId(openKey));
@@ -371,7 +396,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
             );
             setSaved(library.list());
         }
-        setLastDiscarded({ name, source: held, key: openKey, wasDeleted: true });
+        setLastDiscarded({ name, files: held, key: openKey, wasDeleted: true });
         load(starter, null, null);
     }, [kernel, library, load, name, openKey, starter]);
 
@@ -379,13 +404,13 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         if (lastDiscarded === null) {
             return;
         }
-        const { key, name: called, source, wasDeleted } = lastDiscarded;
+        const { key, name: called, files, wasDeleted } = lastDiscarded;
         if (wasDeleted && key !== null) {
-            library.save({ key, name: called, source, compiled: compiledRef.current });
+            library.save({ key, name: called, files, compiled: compiledRef.current });
             setSaved(library.list());
         }
         setLastDiscarded(null);
-        load(source, key, called, true);
+        load(files, key, called, true);
     }, [lastDiscarded, library, load]);
 
     // Long enough to notice the mistake, short enough not to sit there.
@@ -398,8 +423,16 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
     }, [lastDiscarded]);
 
     const exportFile = useCallback((): void => {
-        const source = serviceRef.current?.readSource() ?? '';
-        downloadAsFile(`${name.replace(/[^\w.-]+/g, '-') || 'reading'}.ts`, source);
+        const files = serviceRef.current?.readFiles() ?? {};
+        const stem = name.replace(/[^\w.-]+/g, '-') || 'reading';
+        const only = Object.keys(files);
+        // One file leaves as itself, so a reading anybody can read stays a
+        // script rather than becoming an envelope with a script inside it.
+        if (only.length === 1) {
+            downloadAsFile(`${stem}.ts`, files[only[0]!] ?? '');
+            return;
+        }
+        downloadAsFile(`${stem}${BUNDLE_SUFFIX}`, JSON.stringify({ fathom: 1, name, files }, null, 4));
     }, [name]);
 
     const importFile = useCallback(async (file: File): Promise<void> => {
@@ -415,8 +448,52 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
             setStatus({ kind: 'broken', message: importNotTextMessage });
             return;
         }
-        load(text, null, file.name.replace(/\.[jt]s$/, ''));
-    }, [importNotTextMessage, importTooLargeMessage, load]);
+        const bundle = readBundle(text);
+        if (file.name.endsWith('.json') && bundle === null) {
+            setStatus({ kind: 'broken', message: importNotBundleMessage });
+            return;
+        }
+        if (bundle === null) {
+            load({ [ENTRY_FILE]: text }, null, file.name.replace(/\.[jt]sx?$/, ''));
+            return;
+        }
+        load(bundle.files, null, bundle.name ?? file.name.replace(BUNDLE_SUFFIX, ''));
+    }, [importNotBundleMessage, importNotTextMessage, importTooLargeMessage, load]);
+
+    // Mirrored into state because the files live in the editor, which is not
+    // React's, and a list nothing re-renders is a list that never changes.
+    const [files, setFiles] = useState<readonly string[]>([ENTRY_FILE]);
+    const [shownFile, setShownFile] = useState(ENTRY_FILE);
+    const followFiles = useCallback((): void => {
+        const service = serviceRef.current;
+        if (service !== null) {
+            setFiles(service.listFiles());
+            setShownFile(service.shownFile());
+        }
+    }, []);
+    useEffect(followFiles, [followFiles, status]);
+
+    const showFile = useCallback((path: string): void => {
+        serviceRef.current?.showFile(path);
+        followFiles();
+    }, [followFiles]);
+
+    const addFile = useCallback((path: string): string | null => {
+        const refusal = tryFileChange(() => { serviceRef.current?.addFile(path); });
+        followFiles();
+        return refusal;
+    }, [followFiles]);
+
+    const renameFile = useCallback((from: string, to: string): string | null => {
+        const refusal = tryFileChange(() => { serviceRef.current?.renameFile(from, to); });
+        followFiles();
+        return refusal;
+    }, [followFiles]);
+
+    const removeFile = useCallback((path: string): void => {
+        serviceRef.current?.removeFile(path);
+        followFiles();
+    }, [followFiles]);
 
     useEffect(() => { saveRef.current = save; });
     useEffect(() => { leaveRef.current = onLeave; });
@@ -439,7 +516,64 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         undoDiscard,
         exportFile,
         importFile,
+        files,
+        shownFile,
+        showFile,
+        addFile,
+        renameFile,
+        removeFile,
     };
+}
+
+/** What a reading with more than one file leaves as. */
+const BUNDLE_SUFFIX = '.fathom.json';
+
+/** Whether nothing has been written in any of a reading's files. */
+function isBlank(files: ReadingFiles): boolean {
+    return Object.values(files).every((source) => source.trim() === '');
+}
+
+/** Whether two readings hold the same files with the same text in them. */
+function isSameWork(one: ReadingFiles, other: ReadingFiles): boolean {
+    const paths = Object.keys(one);
+    return paths.length === Object.keys(other).length
+        && paths.every((path) => one[path] === other[path]);
+}
+
+/**
+ * A reading out of an exported bundle.
+ *
+ * @param text - What was in the file.
+ * @returns The reading, or null where the file is not one of ours.
+ */
+function readBundle(text: string): { readonly name?: string; readonly files: ReadingFiles } | null {
+    try {
+        const parsed = JSON.parse(text) as { fathom?: unknown; name?: unknown; files?: unknown };
+        const files = parsed.files;
+        if (parsed.fathom !== 1 || typeof files !== 'object' || files === null) {
+            return null;
+        }
+        const held = Object.entries(files).filter(([, source]) => typeof source === 'string');
+        if (held.length === 0) {
+            return null;
+        }
+        return {
+            ...(typeof parsed.name === 'string' ? { name: parsed.name } : {}),
+            files: Object.fromEntries(held),
+        };
+    } catch {
+        return null;
+    }
+}
+
+/** Runs a change to the reading's files, answering with what it refused over. */
+function tryFileChange(change: () => void): string | null {
+    try {
+        change();
+        return null;
+    } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+    }
 }
 
 /**

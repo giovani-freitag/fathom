@@ -19,8 +19,8 @@ exports.default = {
 const SAVED: SavedReading = {
     key: 'mine',
     name: 'Mine',
-    source: '',
-    compiled: NAMED_IN_BOTH,
+    files: { 'main.ts': '' },
+    compiled: { 'main.ts': NAMED_IN_BOTH },
     savedAtMs: 0,
 };
 

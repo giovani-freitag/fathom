@@ -3,6 +3,7 @@ import { renderHook } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
 import { ADDON_ID_PREFIX, forgetAddon } from '../../../../src/app/addons/addon-registry.ts';
 import { buildAddon } from '../../../../src/app/addons/addon-runtime.ts';
+import { ENTRY_FILE } from '../../../../src/shared/core/reading-files.ts';
 import { createIndicatorKernel } from '../../../mocks/indicator-kernel.tsx';
 import { KernelProvider } from '../../../../src/app/react/kernel-provider.tsx';
 import { readLayerDefaults } from '../../../../src/app/indicators/indicator-catalogue.ts';
@@ -36,7 +37,7 @@ function sourceNamed(label: string): string {
 function usePublisher() {
     const kernel = useKernel();
     return (source: string): void => {
-        const built = buildAddon(source);
+        const built = buildAddon({ [ENTRY_FILE]: source });
         if (built.kind !== 'ready') {
             throw new Error(built.message);
         }
