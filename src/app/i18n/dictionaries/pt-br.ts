@@ -163,6 +163,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'editor.wide': '{share} por cento da largura',
     'editor.tall': '{share} por cento da altura',
     'editor.save': 'Salvar',
+    'editor.actions': 'O que dá para fazer com esta leitura',
     'editor.new': 'Começar uma nova',
     'editor.openSaved': 'Abrir salva',
     'editor.export': 'Exportar como arquivo',

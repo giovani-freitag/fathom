@@ -30,9 +30,14 @@ export function Select({ value, choices, onSelect, label }: SelectProps): ReactE
         <RadixSelect.Root value={value} onValueChange={onSelect}>
             <RadixSelect.Trigger
                 aria-label={label}
-                className={`inline-flex items-center justify-between gap-2 rounded-md border border-hairline bg-abyss-800/80 px-3 text-ink-100 transition-colors hover:border-hairline-bright data-[state=open]:border-phosphor/60 ${height}`}
+                className={`inline-flex min-w-0 items-center justify-between gap-2 rounded-md border border-hairline bg-abyss-800/80 px-3 text-ink-100 transition-colors hover:border-hairline-bright data-[state=open]:border-phosphor/60 ${height}`}
             >
-                <RadixSelect.Value placeholder="—" />
+                {/* Cut rather than wrapped: a name long enough to break over two
+                    lines pushed the control past the height every other one
+                    keeps, and left the row it sits in a different shape. */}
+                <span className="min-w-0 truncate whitespace-nowrap">
+                    <RadixSelect.Value placeholder="—" />
+                </span>
                 <RadixSelect.Icon>
                     <ChevronDown className="size-3.5 text-ink-500" />
                 </RadixSelect.Icon>

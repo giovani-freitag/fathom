@@ -22,7 +22,12 @@ import {
     Upload,
     X,
 } from 'lucide-react';
-import { CONTROL_BUTTON_CLASSES, CONTROL_RESTING_CLASSES, PANEL_TITLE_CLASSES } from './control-shell.ts';
+import {
+    CONTROL_BAR_CLASSES,
+    CONTROL_BUTTON_CLASSES,
+    CONTROL_RESTING_CLASSES,
+    PANEL_TITLE_CLASSES,
+} from './control-shell.ts';
 import { type AddonEditorControls, useAddonEditor } from '../react/use-addon-editor.ts';
 import { AddonEditorService } from '../services/addon-editor/addon-editor-service.ts';
 import type { Choice } from './choice.ts';
@@ -89,6 +94,7 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
     // What the file strip last had to say — a refusal, or a change that worked.
     const [fileSaid, setFileSaid] = useState<FileNotice | null>(null);
     const [isBringingIn, setIsBringingIn] = useState(false);
+
     const importer = useMemo(() => new ReadingImportService({
         fetch: globalThis.fetch.bind(globalThis),
         // Read through the crypto object because it is absent outside a secure
@@ -152,13 +158,23 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
             className="fixed inset-x-0 bottom-0 z-40 flex min-w-0 flex-col rounded-t-xl border-t border-hairline bg-abyss-850 shadow-2xl shadow-black/80 lg:relative lg:inset-auto lg:h-auto lg:rounded-none lg:border-l lg:border-t-0"
         >
             <PanelGrip size={size} isWide={isWide} translate={translate} />
-            <EditorToolbar
+            <EditorTitleRow
                 editor={editor}
                 translate={translate}
                 onClose={onClose}
                 closeRef={closeRef}
-                onBringIn={() => { setIsBringingIn(true); }}
             />
+            {/* Placed rather than reordered by CSS: what a reader tabs through
+                has to be what they see, and a bar moved down the screen by
+                `order` is still second in the keyboard's own order. */}
+            {isWide && (
+                <EditorToolbar
+                    editor={editor}
+                    translate={translate}
+                    onBringIn={() => { setIsBringingIn(true); }}
+                    isWide
+                />
+            )}
             <ImportReadingDialog
                 isOpen={isBringingIn}
                 onOpenChange={setIsBringingIn}
@@ -187,6 +203,7 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
                 className="min-h-24 flex-1"
             />
             <AddonConsolePanel translate={translate} triggerRef={consoleRef} />
+
 
             {/* The words on their own, out of sight, and the visible footer
                 outside any live region. One region wrapped around the footer is
@@ -231,6 +248,14 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
                             </footer>
                         )}
             </div>
+            {!isWide && (
+                <EditorToolbar
+                    editor={editor}
+                    translate={translate}
+                    onBringIn={() => { setIsBringingIn(true); }}
+                    isWide={false}
+                />
+            )}
         </aside>
     );
 }
@@ -348,16 +373,48 @@ function OfferBack({ said, translate, onUndo }: OfferBackProps): ReactElement {
     );
 }
 
-interface EditorToolbarProps {
+interface EditorTitleRowProps {
     readonly editor: Omit<AddonEditorControls, 'mountInto' | 'status' | 'drawFailure'>;
     readonly translate: Translate;
     readonly onClose: () => void;
     readonly closeRef: RefObject<HTMLButtonElement | null>;
-    /** Opens the way in from a repository or a package. */
-    readonly onBringIn: () => void;
 }
 
-function EditorToolbar({ editor, translate, onClose, closeRef, onBringIn }: EditorToolbarProps): ReactElement {
+/** What this is on the left, what closes it on the right, as every panel has. */
+function EditorTitleRow({ editor, translate, onClose, closeRef }: EditorTitleRowProps): ReactElement {
+    return (
+        <div className="flex shrink-0 items-center gap-2 border-b border-hairline px-4 py-3">
+            <input
+                type="text"
+                name="readingName"
+                aria-label={translate('editor.name')}
+                value={editor.name}
+                onChange={(event) => { editor.rename(event.target.value); }}
+                className={`min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 outline-none transition-colors hover:border-hairline focus-visible:ring-2 focus-visible:ring-phosphor ${PANEL_TITLE_CLASSES}`}
+            />
+            {editor.isUnsaved && (
+                <span className="shrink-0 text-[11px] text-ink-500">
+                    {translate('editor.unsaved')}
+                </span>
+            )}
+            {editor.isRunning && <Loader className="size-4 shrink-0 animate-spin text-ink-500" />}
+            <PanelAction label={translate('editor.close')} onPress={onClose} actionRef={closeRef}>
+                <X className="size-4" />
+            </PanelAction>
+        </div>
+    );
+}
+
+interface EditorToolbarProps {
+    readonly editor: Omit<AddonEditorControls, 'mountInto' | 'status' | 'drawFailure'>;
+    readonly translate: Translate;
+    /** Opens the way in from a repository or a package. */
+    readonly onBringIn: () => void;
+    /** False on a phone, where the actions sit along the foot instead. */
+    readonly isWide: boolean;
+}
+
+function EditorToolbar({ editor, translate, onBringIn, isWide }: EditorToolbarProps): ReactElement {
     const fileRef = useRef<HTMLInputElement>(null);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const { importFile } = editor;
@@ -378,100 +435,82 @@ function EditorToolbar({ editor, translate, onClose, closeRef, onBringIn }: Edit
         ...editor.saved.map((one) => ({ value: one.key, label: one.name })),
     ];
 
+    // A bar along the foot on a phone, the way the chart's own tools sit, and a
+    // row under the title on a desk. Scrolled sideways either way: eight
+    // controls and a menu do not fit the width a panel beside a chart has, and
+    // wrapping them makes a block that eats the code.
     return (
-        <header className="shrink-0 border-b border-hairline">
-            {/* The panel's own title row, laid out as every other panel's is:
-                what this is on the left, what closes it on the right. */}
-            <div className="flex items-center gap-2 px-4 py-3">
-                <input
-                    type="text"
-                    name="readingName"
-                    aria-label={translate('editor.name')}
-                    value={editor.name}
-                    onChange={(event) => { editor.rename(event.target.value); }}
-                    className={`min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 outline-none transition-colors hover:border-hairline focus-visible:ring-2 focus-visible:ring-phosphor ${PANEL_TITLE_CLASSES}`}
-                />
-                {editor.isUnsaved && (
-                    <span className="shrink-0 text-[11px] text-ink-500">
-                        {translate('editor.unsaved')}
-                    </span>
-                )}
-                {editor.isRunning && <Loader className="size-4 shrink-0 animate-spin text-ink-500" />}
-                <PanelAction label={translate('editor.close')} onPress={onClose} actionRef={closeRef}>
-                    <X className="size-4" />
-                </PanelAction>
-            </div>
+        <div
+            role="toolbar"
+            aria-label={translate('editor.actions')}
+            className={`${CONTROL_BAR_CLASSES} ${isWide ? 'border-b' : 'border-t'} border-hairline`}
+        >
+            <PanelAction label={translate('editor.save')} onPress={() => { void editor.save(); }}>
+                <Save className="size-4" />
+            </PanelAction>
+            <PanelAction label={translate('editor.new')} onPress={editor.startAnew}>
+                <Plus className="size-4" />
+            </PanelAction>
 
-            {/* Grouped rather than spread: what changes the shelf, what moves a
-                reading in or out of the page, and the one that destroys work. */}
-            <div className="flex items-center gap-1 px-4 pb-3">
-                <PanelAction label={translate('editor.save')} onPress={() => { void editor.save(); }}>
-                    <Save className="size-4" />
-                </PanelAction>
-                <PanelAction label={translate('editor.new')} onPress={editor.startAnew}>
-                    <Plus className="size-4" />
-                </PanelAction>
-
-                <Divider />
-                <div className="min-w-0 flex-1">
-                    <Select
-                        value={editor.openKey ?? UNSAVED_CHOICE}
-                        choices={saved}
-                        onSelect={(key) => {
-                            if (key !== UNSAVED_CHOICE) {
-                                editor.open(key);
-                            }
-                        }}
-                        label={translate('editor.openSaved')}
-                    />
-                </div>
-                <Divider />
-
-                <PanelAction label={translate('editor.export')} onPress={editor.exportFile}>
-                    <Download className="size-4" />
-                </PanelAction>
-                <PanelAction label={translate('editor.import')} onPress={() => { fileRef.current?.click(); }}>
-                    <Upload className="size-4" />
-                </PanelAction>
-                <PanelAction label={translate('import.title')} onPress={onBringIn}>
-                    <CloudDownload className="size-4" />
-                </PanelAction>
-                <input
-                    ref={fileRef}
-                    type="file"
-                    accept=".ts,.tsx,.json,text/plain"
-                    className="hidden"
-                    onChange={handleFileChosen}
-                />
-                <a
-                    href={COOKBOOK_URL}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={translate('editor.help')}
-                    title={translate('editor.help')}
-                    className={`${CONTROL_BUTTON_CLASSES} ${CONTROL_RESTING_CLASSES} outline-none focus-visible:ring-2 focus-visible:ring-phosphor`}
-                >
-                    <CircleQuestionMark className="size-4" />
-                </a>
-
-                <Divider />
-                <PanelAction
-                    label={translate('editor.delete')}
-                    onPress={() => { setIsConfirmingDelete(true); }}
-                    isDangerous
-                >
-                    <Trash2 className="size-4" />
-                </PanelAction>
-                <ConfirmDialog
-                    isOpen={isConfirmingDelete}
-                    onOpenChange={setIsConfirmingDelete}
-                    title={translate('editor.deleteTitle')}
-                    body={translate('editor.deleteBody', { name: editor.name })}
-                    confirmLabel={translate('editor.deleteConfirm')}
-                    onConfirm={editor.remove}
+            <Divider />
+            <div className="w-36 shrink-0">
+                <Select
+                    value={editor.openKey ?? UNSAVED_CHOICE}
+                    choices={saved}
+                    onSelect={(key) => {
+                        if (key !== UNSAVED_CHOICE) {
+                            editor.open(key);
+                        }
+                    }}
+                    label={translate('editor.openSaved')}
                 />
             </div>
-        </header>
+            <Divider />
+
+            <PanelAction label={translate('editor.export')} onPress={editor.exportFile}>
+                <Download className="size-4" />
+            </PanelAction>
+            <PanelAction label={translate('editor.import')} onPress={() => { fileRef.current?.click(); }}>
+                <Upload className="size-4" />
+            </PanelAction>
+            <PanelAction label={translate('import.title')} onPress={onBringIn}>
+                <CloudDownload className="size-4" />
+            </PanelAction>
+            <input
+                ref={fileRef}
+                type="file"
+                accept=".ts,.tsx,.json,text/plain"
+                className="hidden"
+                onChange={handleFileChosen}
+            />
+            <a
+                href={COOKBOOK_URL}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={translate('editor.help')}
+                title={translate('editor.help')}
+                className={`${CONTROL_BUTTON_CLASSES} ${CONTROL_RESTING_CLASSES} outline-none focus-visible:ring-2 focus-visible:ring-phosphor`}
+            >
+                <CircleQuestionMark className="size-4" />
+            </a>
+
+            <Divider />
+            <PanelAction
+                label={translate('editor.delete')}
+                onPress={() => { setIsConfirmingDelete(true); }}
+                isDangerous
+            >
+                <Trash2 className="size-4" />
+            </PanelAction>
+            <ConfirmDialog
+                isOpen={isConfirmingDelete}
+                onOpenChange={setIsConfirmingDelete}
+                title={translate('editor.deleteTitle')}
+                body={translate('editor.deleteBody', { name: editor.name })}
+                confirmLabel={translate('editor.deleteConfirm')}
+                onConfirm={editor.remove}
+            />
+        </div>
     );
 }
 

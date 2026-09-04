@@ -161,6 +161,7 @@ export const EN_DICTIONARY = {
     'editor.wide': '{share} per cent of the width',
     'editor.tall': '{share} per cent of the height',
     'editor.save': 'Save',
+    'editor.actions': 'What can be done with this reading',
     'editor.new': 'Start a new one',
     'editor.openSaved': 'Open saved',
     'editor.export': 'Export as a file',
