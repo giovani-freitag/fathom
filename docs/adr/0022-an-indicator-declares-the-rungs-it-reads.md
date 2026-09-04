@@ -61,6 +61,16 @@ knowable, and holding them back a bar draws yesterday's level a minute into
 today. Everything that reads a coarser rung goes through it, so the rule cannot
 be got right in one reading and wrong in the next.
 
+**A reading is handed the run, not only the newest.** "What did this bar know"
+is one bar, and a mean, a range or anything else with a memory needs the run
+behind it. Built instead from the sessions that happen to turn over inside the
+drawn window, a fifty-period mean on a minute chart has one day of history and
+no weeks at all — measured, twenty-seven hourly closes, two daily and one
+weekly. So the sessions that had settled come back as a list, with an index per
+drawn bar saying where in that list the bar sits. The list is cut at the last
+drawn bar's own walk, so nothing still forming is in it and widening the window
+cannot change what an earlier bar was told.
+
 **A rung the venue has no candle for is dropped, not raised.** No venue
 publishes every width, and the month cannot even be asked for — this is keyed
 by a width in milliseconds and a month has no fixed one. A reading that wanted

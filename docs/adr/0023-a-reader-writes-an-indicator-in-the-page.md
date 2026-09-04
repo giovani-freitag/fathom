@@ -37,11 +37,15 @@ not a chart anyone will experiment on.
 
 ## Decision
 
-**A reader's script runs in a worker.** Terminating one costs the chart a
-repaint; a runaway on the render thread costs the reader the page. The worker's
-own error reporting is the error reporting — a stack from the real engine,
-against the code as written, with no wrapper interpreting it. When a change here
-breaks a script, that is what the author sees, and reprocessing is theirs to do.
+**A reader's script runs in the page, on the main thread.** A worker was the
+plan, and terminating one would have made a runaway loop cost a repaint instead
+of the tab. It is not what was built: a reading is a pure function from bars to
+vertices, called once per draw, and moving it across a thread boundary would put
+a message round trip inside the paint the reader is watching. So a reading runs
+where the shipped indicators run, and reaches a global if it goes looking — the
+guide says so plainly rather than implying a sandbox that is not there. The
+engine's own error reporting is the error reporting: a stack from the real
+engine, against the code as written, with no wrapper interpreting it.
 
 **The public surface is a barrel with a facade behind it.** One import path, an
 object-oriented shape, and names chosen so that reading a script says what it
