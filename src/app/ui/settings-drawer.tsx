@@ -16,20 +16,18 @@ interface SettingsDrawerProps {
     readonly isFloating?: boolean;
 }
 
-/** Over the chart it needs a shell of its own; in a bar it takes the bar's. */
+/**
+ * Over the chart it needs a shell of its own; in a bar it takes the bar's.
+ *
+ * Ten, not nine: every other control a thumb reaches for on this screen is ten,
+ * and the one that opens the settings was the odd one out.
+ */
 const FLOATING_TRIGGER_CLASSES =
-    `pointer-events-auto grid size-9 shrink-0 place-items-center rounded-lg ${FLOATING_SURFACE_CLASSES}`
+    `pointer-events-auto grid size-10 shrink-0 place-items-center rounded-lg ${FLOATING_SURFACE_CLASSES}`
     + ' text-ink-400 shadow-lg transition-colors'
     + ' hover:border-hairline-bright hover:text-ink-100';
 
-/**
- * What the chart looks like and what it is, in one drawer.
- *
- * The layers used to be listed in here as well as in their own panel, which
- * meant a reader could be looking at two lists of the same thing that answered
- * to different controls. They live in one place now, and this is what is left:
- * the appearance, and what this build is.
- */
+/** What the chart looks like, and what this build is. */
 function SettingsDrawerShell({
     isOpen,
     onOpenChange,

@@ -48,7 +48,7 @@ import { EDITOR_SHELL_CLASSES, RAIL, SHEET } from './editor-shell.ts';
 
 import { STARTER_FILES } from './starter-reading.ts';
 import { useAppearance, useTranslate } from '../react/use-appearance.ts';
-import type { Locale } from '../../shared/core/reading-words.ts';
+import { GUIDE_URLS } from '../i18n/guide-urls.ts';
 
 /**
  * What the menu shows while the open reading has never been saved.
@@ -62,17 +62,6 @@ const UNSAVED_CHOICE = 'unsaved';
 const FILE_NOTICE_MS = 5_000;
 
 /** Where the worked examples live, since a reader cannot go and find them. */
-/**
- * The guide, in the language the chart is being read in.
- *
- * Both languages sit under a folder of their own, so neither is the one you get
- * by not asking — which means this has to ask.
- */
-const GUIDE_URLS: Readonly<Record<Locale, string>> = {
-    en: 'https://giovani-freitag.github.io/fathom/guide/en/writing-a-reading',
-    'pt-BR': 'https://giovani-freitag.github.io/fathom/guide/pt-BR/writing-a-reading',
-};
-
 /**
  * The editor this panel runs on.
  *
@@ -415,7 +404,7 @@ function EditorTitleRow({ editor, translate, onClose, closeRef }: EditorTitleRow
                 aria-label={translate('editor.name')}
                 value={editor.name}
                 onChange={(event) => { editor.rename(event.target.value); }}
-                className={`min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 outline-none transition-colors hover:border-hairline focus-visible:ring-2 focus-visible:ring-phosphor ${PANEL_TITLE_CLASSES}`}
+                className={`h-10 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 outline-none transition-colors hover:border-hairline focus-visible:ring-2 focus-visible:ring-phosphor ${PANEL_TITLE_CLASSES}`}
             />
             {editor.isUnsaved && (
                 <span className="shrink-0 text-[11px] text-ink-500">

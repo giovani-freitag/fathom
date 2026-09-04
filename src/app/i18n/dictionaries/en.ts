@@ -336,6 +336,7 @@ export const EN_DICTIONARY = {
     'settings.columnsLoaded': 'Columns loaded',
     'settings.gapsInWindow': 'Gaps in window',
     'about.whatsNew': 'What’s new',
+    'about.guide': 'Read the guide',
     'about.releasedOn': 'Released {date}',
     'about.unreleased': 'Built from the working tree',
 

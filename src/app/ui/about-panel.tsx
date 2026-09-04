@@ -1,5 +1,7 @@
 import type { ReactElement } from 'react';
 import type { Translate } from '../i18n/translator.ts';
+import { GUIDE_HOME_URLS } from '../i18n/guide-urls.ts';
+import { useAppearance } from '../react/use-appearance.ts';
 
 export interface AboutPanelProps {
     readonly translate: Translate;
@@ -9,6 +11,7 @@ export interface AboutPanelProps {
  * Which build is on screen, and what changed in it.
  */
 export function AboutPanel({ translate }: AboutPanelProps): ReactElement {
+    const { locale } = useAppearance();
     const notes = __RELEASE_NOTES__;
 
     return (
@@ -21,6 +24,21 @@ export function AboutPanel({ translate }: AboutPanelProps): ReactElement {
                         : translate('about.releasedOn', { date: notes.releasedOn })}
                 </span>
             </div>
+
+            {/*
+                Here rather than in the editor's own bar, which is the only
+                other way to the guide: a reader who has never written a
+                reading has no cause to open that panel, and they are the one
+                the guide was written for.
+            */}
+            <a
+                href={GUIDE_HOME_URLS[locale]}
+                target="_blank"
+                rel="noreferrer"
+                className="flex h-10 items-center text-ink-300 underline-offset-2 transition-colors hover:text-phosphor hover:underline"
+            >
+                {translate('about.guide')}
+            </a>
 
             {notes !== null && notes.changes.length > 0 && (
                 <details className="group">

@@ -33,7 +33,7 @@ export function AddonConsolePanel({ translate, openName, triggerRef }: AddonCons
     return (
         <Collapsible.Root open={isOpen} onOpenChange={setIsOpen} className="shrink-0 border-t border-hairline">
             <div className="flex items-center gap-2 px-2">
-                <Collapsible.Trigger ref={trigger} className="flex min-w-0 flex-1 items-center gap-1.5 rounded px-2 py-2 text-xs text-ink-400 outline-none hover:text-ink-200 focus-visible:ring-2 focus-visible:ring-phosphor">
+                <Collapsible.Trigger ref={trigger} className="flex h-10 min-w-0 flex-1 items-center gap-1.5 rounded px-2 text-xs text-ink-400 outline-none hover:text-ink-200 focus-visible:ring-2 focus-visible:ring-phosphor">
                     <ChevronRight
                         className={`size-3.5 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`}
                     />
