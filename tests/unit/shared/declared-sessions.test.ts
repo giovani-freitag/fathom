@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { alignSessions, collectSessions } from '../../../src/shared/core/settled-sessions.ts';
-import { readSessions } from '../../../src/shared/core/draw-plan.ts';
+import { NO_SESSIONS, readSessions } from '../../../src/shared/core/draw-plan.ts';
 import type { IndicatorInput, SessionRequest } from '../../../src/shared/core/draw-plan.ts';
 import type { PriceBar, PriceBarWindow } from '../../../src/shared/core/price-bar.ts';
 import { buildBar, buildRun, buildWindow } from '../../mocks/price-bars.ts';
@@ -106,9 +106,77 @@ describe('collecting what a reading declared', () => {
     });
 });
 
+describe('the run of settled sessions behind the drawn window', () => {
+    it('hands over every session that had settled, oldest first', () => {
+        // The point of having it: a mean over a coarser rung needs the run, and
+        // `perBar` only ever answers with one bar. Built from the turnovers
+        // inside the window instead, a fifty-period mean on a minute chart
+        // would have one day of history and no weeks at all.
+        const bars = buildRun(3, () => 100);
+        const before = [
+            buildSession(bars[0]!.openedAtMs - 3 * DAY_MS),
+            buildSession(bars[0]!.openedAtMs - 2 * DAY_MS),
+            buildSession(bars[1]!.openedAtMs - DAY_MS),
+        ];
+
+        const settled = alignSessions(bars, before);
+
+        expect(settled.closed.map((bar) => bar.openedAtMs)).toEqual(before.map((bar) => bar.openedAtMs));
+    });
+
+    it('leaves out a session that had not closed by the last drawn bar', () => {
+        // The fetch reaches past the window and its newest bar may still be
+        // forming. Averaged in, it would show a figure that moves after the
+        // fact — which is the whole thing holding a rung back is for.
+        const bars = buildRun(2, () => 100);
+        const settled = buildSession(bars[0]!.openedAtMs - DAY_MS);
+        const stillForming = buildSession(bars[1]!.openedAtMs);
+
+        expect(alignSessions(bars, [settled, stillForming]).closed).toHaveLength(1);
+    });
+
+    it('says where in the run each drawn bar sits', () => {
+        const bars = buildRun(3, () => 100);
+        const first = buildSession(bars[0]!.openedAtMs - DAY_MS);
+        const second = buildSession(bars[2]!.openedAtMs - DAY_MS);
+
+        const settled = alignSessions(bars, [first, second]);
+
+        expect([...settled.indexPerBar]).toEqual([0, 0, 1]);
+    });
+
+    it('says -1 for a bar with nothing settled behind it yet', () => {
+        const bars = buildRun(2, () => 100);
+        const closesOnTheSecond = buildSession(bars[1]!.openedAtMs - DAY_MS);
+
+        expect([...alignSessions(bars, [closesOnTheSecond]).indexPerBar]).toEqual([-1, 0]);
+    });
+
+    it('indexes into the run it handed over, for every drawn bar', () => {
+        const bars = buildRun(4, () => 100);
+        const before = [
+            buildSession(bars[0]!.openedAtMs - 2 * DAY_MS),
+            buildSession(bars[2]!.openedAtMs - DAY_MS),
+        ];
+
+        const settled = alignSessions(bars, before);
+
+        expect(settled.perBar).toEqual(
+            [...settled.indexPerBar].map((at) => (at === -1 ? undefined : settled.closed[at])),
+        );
+    });
+
+    it('has nothing and points nowhere for a rung the archive had none of', () => {
+        const only = collectSessions(buildRun(2, () => 100), new Map(), DECLARED)['session']!;
+
+        expect({ closed: only.closed, indexPerBar: [...only.indexPerBar] })
+            .toEqual({ closed: [], indexPerBar: [-1, -1] });
+    });
+});
+
 describe('reading a session back', () => {
     it('throws on a name nothing was declared under, and names what was', () => {
-        const input = buildInput({ daily: { hasAny: false, perBar: [], turnsOver: new Uint8Array(0) } });
+        const input = buildInput({ daily: NO_SESSIONS });
 
         expect(() => readSessions(input, 'weekly')).toThrow(/'weekly'.*Declared: daily/);
     });
@@ -118,7 +186,7 @@ describe('reading a session back', () => {
     });
 
     it('returns what was declared', () => {
-        const daily = { hasAny: true, perBar: [], turnsOver: new Uint8Array(0) };
+        const daily = { ...NO_SESSIONS, hasAny: true };
 
         expect(readSessions(buildInput({ daily }), 'daily')).toBe(daily);
     });

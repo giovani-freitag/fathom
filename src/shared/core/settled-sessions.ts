@@ -23,21 +23,39 @@ export function holdLastClosed(
     bars: readonly PriceBar[],
     higher: readonly PriceBar[],
 ): readonly (PriceBar | undefined)[] {
-    const held: (PriceBar | undefined)[] = [];
+    return walkSettled(bars, higher).perBar;
+}
+
+/**
+ * The same walk, keeping where each drawn bar landed as well as what it landed on.
+ *
+ * @param bars - The window being drawn, oldest first.
+ * @param higher - Bars of the coarser rung, oldest first.
+ * @returns What each drawn bar knew, and how far the walk got.
+ */
+function walkSettled(bars: readonly PriceBar[], higher: readonly PriceBar[]): {
+    readonly perBar: readonly (PriceBar | undefined)[];
+    readonly indexPerBar: Int32Array;
+    /** How many of `higher` had settled by the last drawn bar. */
+    readonly reached: number;
+} {
+    const perBar: (PriceBar | undefined)[] = [];
+    const indexPerBar = new Int32Array(bars.length);
     let cursor = 0;
     let settled: PriceBar | undefined;
 
     // One walk of each, not a search per bar: both are in order, so the coarser
     // cursor only ever moves forward.
-    for (const bar of bars) {
+    for (const [at, bar] of bars.entries()) {
         while (cursor < higher.length && higher[cursor]!.closedAtMs <= bar.openedAtMs) {
             settled = higher[cursor]!;
             cursor += 1;
         }
-        held.push(settled);
+        perBar.push(settled);
+        indexPerBar[at] = cursor - 1;
     }
 
-    return held;
+    return { perBar, indexPerBar, reached: cursor };
 }
 
 /**
@@ -55,10 +73,10 @@ export function alignSessions(
     higher: readonly PriceBar[] | null,
 ): SettledSessions {
     if (higher === null || higher.length === 0) {
-        return { hasAny: false, perBar: bars.map(() => undefined), turnsOver: new Uint8Array(bars.length) };
+        return blankFor(bars);
     }
 
-    const perBar = holdLastClosed(bars, higher);
+    const { perBar, indexPerBar, reached } = walkSettled(bars, higher);
     const turnsOver = new Uint8Array(perBar.length);
     let hasAny = false;
 
@@ -69,7 +87,10 @@ export function alignSessions(
         }
     }
 
-    return { hasAny, perBar, turnsOver };
+    // Cut at the walk rather than handed over whole. The fetch reaches past the
+    // last drawn bar and its newest bar may still be forming, and a reading
+    // that averaged that one would show a figure that moves after the fact.
+    return { hasAny, perBar, turnsOver, closed: higher.slice(0, reached), indexPerBar };
 }
 
 /**
@@ -94,10 +115,18 @@ export function collectSessions(
         const window = supplied.get(request.intervalMs);
         // Present and blank rather than absent: no venue publishes a candle for
         // every rung, and "nothing to draw" must not read as "declared nothing".
-        collected[name] = window === undefined
-            ? { ...NO_SESSIONS, perBar: bars.map(() => undefined), turnsOver: new Uint8Array(bars.length) }
-            : alignSessions(bars, window.bars);
+        collected[name] = window === undefined ? blankFor(bars) : alignSessions(bars, window.bars);
     }
 
     return collected;
+}
+
+/** A rung the archive had nothing for, sized to the window all the same. */
+function blankFor(bars: readonly PriceBar[]): SettledSessions {
+    return {
+        ...NO_SESSIONS,
+        perBar: bars.map(() => undefined),
+        turnsOver: new Uint8Array(bars.length),
+        indexPerBar: new Int32Array(bars.length).fill(-1),
+    };
 }

@@ -256,20 +256,48 @@ Then read it back:
 ```ts
 const previous = readSessions(input, 'previous');
 
-previous.hasAny            // false where nothing had settled by any drawn bar
-previous.perBar[index]     // the newest session that had closed by that bar's open
-previous.turnsOver[index]  // 1 where this bar is the first after the turn
+previous.hasAny             // false where nothing had settled by any drawn bar
+previous.perBar[index]      // the newest session that had closed by that bar's open
+previous.turnsOver[index]   // 1 where this bar is the first after the turn
+previous.closed             // every settled session, oldest first
+previous.indexPerBar[index] // where in `closed` this bar's own session sits
 ```
 
-**`perBar` is the whole point.** It is aligned to the drawn bars and held back to
-what each one could know, so there is no index that reaches a session a drawn
-bar could not have seen. A reading written against it cannot repaint.
+**All four are held back to what each drawn bar could know**, so there is no
+index that reaches a session a drawn bar could not have seen. A reading written
+against them cannot repaint.
 
 `perBar[index]` is `undefined` at the left edge, before anything had settled.
 `?? Number.NaN` is the usual answer.
 
 Reaching for a name you never declared throws, and says which names you did
 declare. That is the one failure this design refuses to make silent.
+
+### A figure computed over the coarser rung
+
+`perBar` answers *what did this bar know*, which is one session. For a mean, a
+range or anything else with a memory, you need the run — that is `closed`, and
+`indexPerBar` says where each drawn bar sits in it:
+
+```ts
+const period = 50;
+const held = readSessions(input, 'previous');
+
+// Computed once over the run, then held at each drawn bar: a step, because the
+// coarser mean did not move between closes.
+const means = exponentialMean(held.closed.map((bar) => bar.closePrice), period);
+const perBar = [...held.indexPerBar]
+    .map((at) => (at < 0 ? Number.NaN : means[at] ?? Number.NaN));
+```
+
+`closed` reaches back by `reachingBack` sessions, so ask for a multiple of the
+period rather than for one: `reachingBack: period * 8` hands a fifty-period mean
+four hundred closes, and it costs the same one request per rung as asking for
+one. Nothing still forming is in there.
+
+Which rungs a venue publishes is a fixed list — a minute, five, fifteen, thirty,
+an hour, two, four, a day, a week. A month is not on it and cannot be: the list
+is keyed by a width in milliseconds and a month has no fixed one.
 
 ### Saying you have nothing yet
 

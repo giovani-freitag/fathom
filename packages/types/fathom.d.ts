@@ -355,6 +355,30 @@ export interface SettledSessions {
     readonly perBar: readonly (PriceBar | undefined)[];
     /** 1 where a drawn bar is the first after the session turned over. */
     readonly turnsOver: Uint8Array;
+    /**
+     * Every session that had settled, oldest first, back as far as was asked.
+     *
+     * `perBar` answers "what did this drawn bar know", which is one bar. This
+     * answers "what is there to work from", which is the run of them — and a
+     * mean over a coarser rung needs the run. Without it a fifty-period mean
+     * could only be built from the sessions that happened to turn over inside
+     * the drawn window, which on a minute chart is one day and no weeks.
+     *
+     * Reaches back by `reachingBack` sessions before the window opens. Nothing
+     * still forming is in here: the newest is the newest that had closed by the
+     * last drawn bar, so widening the window cannot change what an earlier bar
+     * was told.
+     */
+    readonly closed: readonly PriceBar[];
+    /**
+     * One entry per drawn bar: where in `closed` its own session sits.
+     *
+     * -1 before the first one settled. Carried rather than left to be searched
+     * for, because holding a figure computed over `closed` at each drawn bar is
+     * the whole point of having both, and matching the bars by identity is a
+     * scan per drawn bar.
+     */
+    readonly indexPerBar: Int32Array;
 }
 /** What a reading with no sessions declared is handed under any name. */
 export declare const NO_SESSIONS: SettledSessions;
