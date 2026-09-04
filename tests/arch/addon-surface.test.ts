@@ -8,6 +8,9 @@ import { ADDON_SURFACE_TYPES } from '../../src/app/addons/addon-surface.generate
 const ROOT = join(import.meta.dirname, '../..');
 const GENERATED = join(ROOT, 'src', 'app', 'addons', 'addon-surface.generated.ts');
 
+/** What a repository of readings resolves `'fathom'` to, by depending on this one. */
+const PUBLISHED = join(ROOT, 'types', 'fathom.d.ts');
+
 /**
  * An addon written the way the cookbook says to write one.
  *
@@ -108,6 +111,19 @@ describe('the types the in-page editor is given', () => {
         execFileSync('node', ['scripts/build-addon-types.mjs', beside], { cwd: ROOT, stdio: 'pipe' });
 
         expect(readFileSync(beside, 'utf8')).toBe(readFileSync(GENERATED, 'utf8'));
+        rmSync(staging, { recursive: true, force: true });
+    }, 60_000);
+
+    it('are the same surface a repository of readings depends on', () => {
+        // The package's own types, which anything depending on this repository
+        // resolves `import … from 'fathom'` to. Generated from the same barrel
+        // as the editor's copy, so the two cannot say different things.
+        const staging = mkdtempSync(join(tmpdir(), 'fathom-drift-'));
+        const beside = join(staging, 'fathom.d.ts');
+
+        execFileSync('node', ['scripts/build-addon-types.mjs', '--dts', beside], { cwd: ROOT, stdio: 'pipe' });
+
+        expect(readFileSync(beside, 'utf8')).toBe(readFileSync(PUBLISHED, 'utf8'));
         rmSync(staging, { recursive: true, force: true });
     }, 60_000);
 });

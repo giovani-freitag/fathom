@@ -10,6 +10,14 @@ import { ENTRY_FILE, folderOf, isLegalPath, type ReadingFiles } from '../../../s
 /** The chart's monospace, as the stylesheet declares it. */
 const MONOSPACE = "'Azeret Mono', ui-monospace, 'SF Mono', monospace";
 
+/**
+ * `ModuleResolutionKind.Bundler`, which Monaco's own enum predates.
+ *
+ * Named by its number because the editor ships the two kinds TypeScript had at
+ * the time; the compiler behind it knows the rest.
+ */
+const BUNDLER_RESOLUTION = 100 as monaco.languages.typescript.ModuleResolutionKind;
+
 /** Where a reading's files live, as far as the language service is concerned. */
 const READING_ROOT = 'file:///reading/';
 
@@ -562,7 +570,11 @@ function configureLanguage(): void {
     typescript.typescriptDefaults.setCompilerOptions({
         target: typescript.ScriptTarget.ES2020,
         module: typescript.ModuleKind.CommonJS,
-        moduleResolution: typescript.ModuleResolutionKind.NodeJs,
+        // Bundler, by its number: Monaco's enum stops at the two TypeScript
+        // had when it was written. It is the mode where `./helpers.js` resolves
+        // to `helpers.ts`, which is how TypeScript has an import written and
+        // what the linker behind this already does.
+        moduleResolution: BUNDLER_RESOLUTION,
         strict: true,
         noEmitOnError: false,
         allowNonTsExtensions: true,

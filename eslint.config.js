@@ -5,7 +5,9 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-    { ignores: ['dist/**', 'coverage/**', 'node_modules/**'] },
+    // `types/` is generated for anything that depends on this repository, and
+    // is held honest by an arch test rather than by this.
+    { ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'types/**'] },
 
     js.configs.recommended,
     ...tseslint.configs.recommendedTypeChecked,
