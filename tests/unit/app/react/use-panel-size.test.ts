@@ -123,6 +123,25 @@ describe('sizing a panel from the keyboard', () => {
         expect(result.current.sizePx).toBe(250);
     });
 
+    it('puts it back on Enter, because the label promises it can be put back', () => {
+        // Reset was a double-press and nothing else, on a control whose own
+        // label told a reader on a keyboard to double-press it.
+        globalThis.localStorage.setItem('test.rail', '300');
+        const { result } = renderHook(() => usePanelSize(RAIL));
+
+        pressOnGrip(result.current.onGripKey, 'Enter');
+
+        expect(result.current.sizePx).toBe(500);
+    });
+
+    it('says how much of the screen it takes, not only how many pixels', () => {
+        const { result } = renderHook(() => usePanelSize(RAIL));
+
+        pressOnGrip(result.current.onGripKey, 'End');
+
+        expect(result.current.sharePercent).toBe(75);
+    });
+
     it('leaves a key that is not about sizing to whatever else wants it', () => {
         const { result } = renderHook(() => usePanelSize(RAIL));
 

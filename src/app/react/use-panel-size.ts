@@ -25,6 +25,8 @@ export interface PanelSize {
     /** The bounds in pixels, for a grip to announce where it sits between. */
     readonly smallestPx: number;
     readonly largestPx: number;
+    /** How much of the screen it takes, for a grip to say so in words. */
+    readonly sharePercent: number;
     /** Put these two on the grip the reader drags. */
     readonly onGripDown: (event: ReactPointerEvent<HTMLElement>) => void;
     readonly onGripKey: (event: ReactKeyboardEvent<HTMLElement>) => void;
@@ -153,13 +155,17 @@ export function usePanelSize(request: PanelSizeRequest): PanelSize {
             [shrinks]: sizePx - STEP_PX,
             Home: along * smallest,
             End: along * largest,
+            // Because the label promises it, and a double-press is not
+            // something a reader on a keyboard can perform.
+            Enter: along * openingRatio,
+            ' ': along * openingRatio,
         }[event.key];
 
         if (wanted !== undefined) {
             event.preventDefault();
             settle(wanted);
         }
-    }, [growsAlong, largest, settle, sizePx, smallest]);
+    }, [growsAlong, largest, openingRatio, settle, sizePx, smallest]);
 
     const reset = useCallback((): void => {
         settle(readViewport(growsAlong) * openingRatio);
@@ -169,6 +175,7 @@ export function usePanelSize(request: PanelSizeRequest): PanelSize {
         sizePx,
         smallestPx: alongPx * smallest,
         largestPx: alongPx * largest,
+        sharePercent: Math.round((sizePx / alongPx) * 100),
         onGripDown,
         onGripKey,
         isDragging,

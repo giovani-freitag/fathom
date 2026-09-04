@@ -30,7 +30,7 @@ import { AddonConsolePanel } from './addon-console-panel.tsx';
 import { ConfirmDialog } from './confirm-dialog.tsx';
 import { ImportReadingDialog } from './import-reading-dialog.tsx';
 import { ReadingImportService } from '../services/reading-import/reading-import-service.ts';
-import { ReadingFileStrip } from './reading-file-strip.tsx';
+import { type FileNotice, READING_FILE_PANEL_ID, ReadingFileStrip } from './reading-file-strip.tsx';
 import { Divider } from './chart-dock.tsx';
 import { Select } from './select.tsx';
 import { ADDON_EDITOR_ID } from './panel-ids.ts';
@@ -48,6 +48,9 @@ import { useTranslate } from '../react/use-appearance.ts';
  * falls back to its placeholder, which is a dash that says nothing.
  */
 const UNSAVED_CHOICE = 'unsaved';
+
+/** How long the strip's own news stays up before the compiler has the floor. */
+const FILE_NOTICE_MS = 5_000;
 
 /** Where the worked examples live, since a reader cannot go and find them. */
 const COOKBOOK_URL = 'https://github.com/giovani-freitag/fathom/blob/main/docs/indicator-cookbook.md';
@@ -83,7 +86,8 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
     const size = usePanelSize(isWide
         ? { slot: 'fathom.addons.railWidth', growsAlong: 'width', openingRatio: 0.32, smallest: 0.2, largest: 0.6 }
         : { slot: 'fathom.addons.sheetHeight', growsAlong: 'height', openingRatio: 0.6, smallest: 0.25, largest: 0.85 });
-    const [fileRefusal, setFileRefusal] = useState<string | null>(null);
+    // What the file strip last had to say — a refusal, or a change that worked.
+    const [fileSaid, setFileSaid] = useState<FileNotice | null>(null);
     const [isBringingIn, setIsBringingIn] = useState(false);
     const importer = useMemo(() => new ReadingImportService({
         fetch: globalThis.fetch.bind(globalThis),
@@ -92,6 +96,7 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
         digest: (data) => globalThis.crypto.subtle.digest('SHA-256', data),
     }), []);
     const closeRef = useRef<HTMLButtonElement>(null);
+    const consoleRef = useRef<HTMLButtonElement>(null);
     const undoRef = useRef<HTMLButtonElement>(null);
     const returnFocusTo = useRef<Element | null>(null);
 
@@ -99,9 +104,12 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
         starter: STARTER_FILES,
         openOn: openKey,
         buildEditor,
-        // Monaco eats Tab, so escape is the way out of it. It lands on the one
-        // control that is always there, from which the rest is a Tab away.
-        onLeave: () => { closeRef.current?.focus(); },
+        // Monaco eats Tab, so escape is the way out of it. Forward, onto the
+        // first control below the editor: everything under it — the console,
+        // what a reading printed, the offer to undo — is otherwise unreachable
+        // by keyboard, because tabbing on from the toolbar walks back into
+        // Monaco and stops there.
+        onLeave: () => { consoleRef.current?.focus(); },
     });
 
     // Put the keyboard back where it was. Unmounting the panel while focus is
@@ -111,6 +119,16 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
         returnFocusTo.current = document.activeElement;
         return () => { (returnFocusTo.current as HTMLElement | null)?.focus(); };
     }, []);
+
+    // Cleared after a moment: it is news about a change, not the state of the
+    // reading, and left up it sits over what the compiler has since said.
+    useEffect(() => {
+        if (fileSaid === null) {
+            return;
+        }
+        const timer = setTimeout(() => { setFileSaid(null); }, FILE_NOTICE_MS);
+        return () => { clearTimeout(timer); };
+    }, [fileSaid]);
 
     // The offer to undo is the only route back from a deletion, so it takes the
     // keyboard rather than waiting below the editor for somebody to find it.
@@ -156,20 +174,32 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
                 onAdd={editor.addFile}
                 onRename={editor.renameFile}
                 onRemove={editor.removeFile}
-                onRefuse={setFileRefusal}
+                onSay={setFileSaid}
             />
             {/* A floor under it, because everything else here can grow: the
                 console, the file strip and a list of faults together had left
                 the editor one line tall on a phone. */}
-            <div ref={mountInto} className="min-h-24 flex-1" />
-            <AddonConsolePanel translate={translate} />
+            <div
+                ref={mountInto}
+                id={READING_FILE_PANEL_ID}
+                role="tabpanel"
+                aria-label={translate('files.shown', { path: editor.shownFile })}
+                className="min-h-24 flex-1"
+            />
+            <AddonConsolePanel translate={translate} triggerRef={consoleRef} />
 
             {/* One region present in every state rather than one per state: a
                 live region that is itself added to the tree is not reliably
                 read out when it appears. */}
             <div role="status" className="shrink-0">
-                {fileRefusal !== null
-                    ? <FaultList translate={translate} lines={[fileRefusal]} />
+                {fileSaid !== null
+                    ? (fileSaid.kind === 'refused'
+                        ? <FaultList translate={translate} lines={[fileSaid.text]} />
+                        : (
+                            <footer className="border-t border-hairline px-4 py-2.5 text-xs text-ink-300">
+                                {fileSaid.text}
+                            </footer>
+                        ))
                     : editor.lastDiscarded === null
                         ? <EditorStatusLine status={status} drawFailure={drawFailure} translate={translate} />
                         : (
@@ -184,7 +214,7 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
                                     ref={undoRef}
                                     type="button"
                                     onClick={editor.undoDiscard}
-                                    className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs font-semibold text-phosphor outline-none hover:bg-phosphor/12 focus-visible:ring-2 focus-visible:ring-phosphor/50"
+                                    className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs font-semibold text-phosphor outline-none hover:bg-phosphor/12 focus-visible:ring-2 focus-visible:ring-phosphor"
                                 >
                                     <Undo2 className="size-3.5" />
                                     {translate('indicators.undo')}
@@ -219,6 +249,11 @@ function PanelGrip({ size, isWide, translate }: PanelGripProps): ReactElement {
             aria-valuenow={Math.round(size.sizePx)}
             aria-valuemin={Math.round(size.smallestPx)}
             aria-valuemax={Math.round(size.largestPx)}
+            // Said in words as well, because a bare figure read out as
+            // "separator, 614" tells a reader nothing about what it is 614 of.
+            aria-valuetext={translate(isWide ? 'editor.wide' : 'editor.tall', {
+                share: String(size.sharePercent),
+            })}
             onPointerDown={size.onGripDown}
             onKeyDown={size.onGripKey}
             onDoubleClick={size.reset}
@@ -282,7 +317,7 @@ function EditorToolbar({ editor, translate, onClose, closeRef, onBringIn }: Edit
                     aria-label={translate('editor.name')}
                     value={editor.name}
                     onChange={(event) => { editor.rename(event.target.value); }}
-                    className={`min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 outline-none transition-colors hover:border-hairline focus-visible:ring-2 focus-visible:ring-phosphor/50 ${PANEL_TITLE_CLASSES}`}
+                    className={`min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 outline-none transition-colors hover:border-hairline focus-visible:ring-2 focus-visible:ring-phosphor ${PANEL_TITLE_CLASSES}`}
                 />
                 {editor.isUnsaved && (
                     <span className="shrink-0 text-[11px] text-ink-500">
@@ -342,7 +377,7 @@ function EditorToolbar({ editor, translate, onClose, closeRef, onBringIn }: Edit
                     rel="noreferrer"
                     aria-label={translate('editor.help')}
                     title={translate('editor.help')}
-                    className={`${CONTROL_BUTTON_CLASSES} ${CONTROL_RESTING_CLASSES} outline-none focus-visible:ring-2 focus-visible:ring-phosphor/50`}
+                    className={`${CONTROL_BUTTON_CLASSES} ${CONTROL_RESTING_CLASSES} outline-none focus-visible:ring-2 focus-visible:ring-phosphor`}
                 >
                     <CircleQuestionMark className="size-4" />
                 </a>
@@ -397,7 +432,7 @@ function PanelAction({ label, onPress, isDangerous = false, actionRef, children 
             aria-label={label}
             title={label}
             onClick={onPress}
-            className={`${CONTROL_BUTTON_CLASSES} outline-none focus-visible:ring-2 focus-visible:ring-phosphor/50 ${tone}`}
+            className={`${CONTROL_BUTTON_CLASSES} outline-none focus-visible:ring-2 focus-visible:ring-phosphor ${tone}`}
         >
             {children}
         </button>
@@ -461,8 +496,12 @@ function FaultList({ lines, translate }: FaultListProps): ReactElement {
         // otherwise reachable by wheel alone.
         <footer
             tabIndex={0}
+            // A region rather than a bare footer: inside an aside this maps to
+            // nothing, where a label is prohibited and goes unread — on the one
+            // element here whose whole purpose is to be focused and read.
+            role="region"
             aria-label={translate('editor.faults')}
-            className="max-h-20 overflow-y-auto border-t border-hairline px-4 py-2.5 text-xs text-ask outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-phosphor/50 lg:max-h-32"
+            className="max-h-20 overflow-y-auto border-t border-hairline px-4 py-2.5 text-xs text-ask outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-phosphor lg:max-h-32"
         >
             <div className="flex items-start gap-2">
                 <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />

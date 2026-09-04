@@ -49,6 +49,9 @@ export function ImportReadingDialog({
 
     const look = async (event: FormEvent): Promise<void> => {
         event.preventDefault();
+        if (stage.kind === 'looking') {
+            return;
+        }
         setStage({ kind: 'looking' });
         try {
             setStage({ kind: 'found', found: await onLook(typed) });
@@ -97,11 +100,15 @@ export function ImportReadingDialog({
                             onChange={(event) => { setTyped(event.target.value); }}
                             aria-label={translate('import.where')}
                             placeholder={translate('import.example')}
-                            className="h-9 min-w-0 flex-1 rounded-lg border border-hairline bg-abyss-900 px-3 font-mono text-xs text-ink-100 outline-none transition-colors placeholder:text-ink-600 focus:border-phosphor/60"
+                            className="h-9 min-w-0 flex-1 rounded-lg border border-hairline bg-abyss-900 px-3 font-mono text-xs text-ink-100 outline-none transition-colors placeholder:text-ink-500 focus:border-phosphor/60"
                         />
+                        {/* Kept enabled while it works, and the press ignored
+                            instead: disabling the button under the finger that
+                            pressed it drops the keyboard on the document. */}
                         <button
                             type="submit"
-                            disabled={typed.trim() === '' || stage.kind === 'looking'}
+                            aria-label={translate('import.look')}
+                            aria-busy={stage.kind === 'looking'}
                             className={`${CONTROL_CHIP_CLASSES} h-9 shrink-0 justify-center ${CONTROL_OFFERED_CLASSES}`}
                         >
                             {stage.kind === 'looking'
@@ -110,20 +117,24 @@ export function ImportReadingDialog({
                         </button>
                     </form>
 
-                    {stage.kind === 'refused' && (
-                        <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-ask">
-                            <TriangleAlert className="mt-px size-3.5 shrink-0" />
-                            <span>{stage.reason}</span>
-                        </p>
-                    )}
+                    {/* One region in every state, so what it says is read out
+                        as it changes: a refusal, and what was found. */}
+                    <div role="status">
+                        {stage.kind === 'refused' && (
+                            <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-ask">
+                                <TriangleAlert className="mt-px size-3.5 shrink-0" />
+                                <span>{stage.reason}</span>
+                            </p>
+                        )}
 
-                    {stage.kind === 'found' && (
-                        <FoundPanel
-                            found={stage.found}
-                            translate={translate}
-                            onTake={() => { void take(stage.found); }}
-                        />
-                    )}
+                        {stage.kind === 'found' && (
+                            <FoundPanel
+                                found={stage.found}
+                                translate={translate}
+                                onTake={() => { void take(stage.found); }}
+                            />
+                        )}
+                    </div>
                 </Dialog.Content>
             </Dialog.Portal>
         </Dialog.Root>
@@ -140,7 +151,14 @@ function FoundPanel({ found, translate, onTake }: FoundPanelProps): ReactElement
     return (
         <div className="mt-3 rounded-lg border border-hairline bg-abyss-900/60 p-3">
             <p className="font-mono text-[0.6875rem] text-ink-300">{found.from}</p>
-            <ul className="mt-2 max-h-28 space-y-0.5 overflow-y-auto font-mono text-[0.6875rem] text-ink-400">
+            {/* Focusable because it scrolls: a repository of twenty files shows
+                five of them, and the rest were reachable by wheel alone —
+                inside a dialog that holds the keyboard. */}
+            <ul
+                tabIndex={0}
+                aria-label={translate('import.files')}
+                className="mt-2 max-h-28 space-y-0.5 overflow-y-auto rounded font-mono text-[0.6875rem] text-ink-400 outline-none focus-visible:ring-2 focus-visible:ring-phosphor"
+            >
                 {found.files.map((one) => (
                     <li key={one.path} className="flex justify-between gap-3">
                         <span className="truncate">{one.path}</span>
@@ -150,9 +168,12 @@ function FoundPanel({ found, translate, onTake }: FoundPanelProps): ReactElement
             </ul>
 
             {/* Said here rather than in the description above, because this is
-                the press that runs it and it is the last chance to say so. */}
-            <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-amber">
-                <TriangleAlert className="mt-px size-3.5 shrink-0" />
+                the press that runs it and it is the last chance to say so. The
+                caution is carried by the box and the mark, not by the colour of
+                the words: this is the sentence in the panel that has to be
+                legible, and amber text at eleven pixels is not. */}
+            <p className="mt-3 flex items-start gap-2 rounded-lg border border-amber/40 bg-amber/10 p-2.5 text-xs leading-relaxed text-ink-100">
+                <TriangleAlert className="mt-px size-3.5 shrink-0 text-amber" />
                 <span>{translate('import.runsHere')}</span>
             </p>
 

@@ -1,8 +1,11 @@
-import { type KeyboardEvent, type ReactElement, useRef, useState } from 'react';
+import { type KeyboardEvent, type ReactElement, useEffect, useRef, useState } from 'react';
 import { FilePlus2, X } from 'lucide-react';
 import { CONTROL_CHOSEN_CLASSES, CONTROL_OFFERED_CLASSES } from './control-shell.ts';
 import { ENTRY_FILE } from '../../shared/core/reading-files.ts';
 import type { Translate } from '../i18n/translator.ts';
+
+/** What the chosen file's tab points at, which is where the editor is. */
+export const READING_FILE_PANEL_ID = 'reading-file-panel';
 
 interface ReadingFileStripProps {
     readonly files: readonly string[];
@@ -13,7 +16,14 @@ interface ReadingFileStripProps {
     readonly onAdd: (path: string) => string | null;
     readonly onRename: (from: string, to: string) => string | null;
     readonly onRemove: (path: string) => void;
-    readonly onRefuse: (reason: string | null) => void;
+    /** What to say about the change, refusal or otherwise. Null says nothing. */
+    readonly onSay: (said: FileNotice | null) => void;
+}
+
+/** What the strip has to say about the last thing it was asked to do. */
+export interface FileNotice {
+    readonly kind: 'refused' | 'done';
+    readonly text: string;
 }
 
 /**
@@ -31,25 +41,55 @@ export function ReadingFileStrip({
     onAdd,
     onRename,
     onRemove,
-    onRefuse,
+    onSay,
 }: ReadingFileStripProps): ReactElement {
     const [typing, setTyping] = useState<{ readonly renaming: string | null } | null>(null);
+    // Counted rather than held as state, because what it points at is a node
+    // that does not exist yet: the effect runs once the strip has been redrawn.
+    const [settled, setSettled] = useState(0);
+    const wanting = useRef<string | null>(null);
+    const strip = useRef<HTMLDivElement>(null);
     const addButton = useRef<HTMLButtonElement>(null);
+
+    // Onto the file it just made, or back to where the naming started. Left to
+    // itself, the field it was typed in unmounts and the keyboard lands on the
+    // document, with nothing to say where it went.
+    useEffect(() => {
+        const path = wanting.current;
+        if (path === null) {
+            return;
+        }
+        wanting.current = null;
+        const chip = strip.current?.querySelector<HTMLElement>(`[data-path="${CSS.escape(path)}"]`);
+        (chip ?? addButton.current)?.focus();
+    }, [settled]);
+
+    const focusAfter = (path: string): void => {
+        wanting.current = path;
+        setSettled((held) => held + 1);
+    };
 
     const settle = (typed: string): void => {
         const renaming = typing?.renaming ?? null;
         const wanted = typed.trim();
         setTyping(null);
-        addButton.current?.focus();
         if (wanted === '' || wanted === renaming) {
-            onRefuse(null);
+            onSay(null);
+            focusAfter(renaming ?? '');
             return;
         }
-        onRefuse(renaming === null ? onAdd(wanted) : onRename(renaming, wanted));
+        const refusal = renaming === null ? onAdd(wanted) : onRename(renaming, wanted);
+        // Said either way. A file appearing in a strip is nothing a screen
+        // reader notices, so a change that worked was as silent as one refused.
+        onSay(refusal === null
+            ? { kind: 'done', text: translate(renaming === null ? 'files.added' : 'files.renamed', { path: wanted }) }
+            : { kind: 'refused', text: refusal });
+        focusAfter(refusal === null ? wanted : renaming ?? '');
     };
 
     return (
         <div
+            ref={strip}
             role="tablist"
             aria-label={translate('files.title')}
             aria-orientation="horizontal"
@@ -68,8 +108,12 @@ export function ReadingFileStrip({
                             isShown={path === shownFile}
                             translate={translate}
                             onShow={() => { onShow(path); }}
-                            onRename={() => { setTyping({ renaming: path }); }}
-                            onRemove={() => { onRemove(path); }}
+                            onRename={() => { onSay(null); setTyping({ renaming: path }); }}
+                            onRemove={() => {
+                                onRemove(path);
+                                onSay({ kind: 'done', text: translate('files.removed', { path }) });
+                                focusAfter(ENTRY_FILE);
+                            }}
                         />
                     )
             ))}
@@ -80,10 +124,10 @@ export function ReadingFileStrip({
                     <button
                         ref={addButton}
                         type="button"
-                        onClick={() => { onRefuse(null); setTyping({ renaming: null }); }}
+                        onClick={() => { onSay(null); setTyping({ renaming: null }); }}
                         aria-label={translate('files.add')}
                         title={translate('files.add')}
-                        className="grid size-7 shrink-0 place-items-center rounded-md text-ink-500 outline-none transition-colors hover:bg-abyss-800 hover:text-ink-100 focus-visible:ring-2 focus-visible:ring-phosphor/50"
+                        className="grid size-7 shrink-0 place-items-center rounded-md text-ink-500 outline-none transition-colors hover:bg-abyss-800 hover:text-ink-100 focus-visible:ring-2 focus-visible:ring-phosphor"
                     >
                         <FilePlus2 className="size-3.5" />
                     </button>
@@ -119,11 +163,13 @@ function FileChip({ path, isShown, translate, onShow, onRename, onRemove }: File
                 type="button"
                 role="tab"
                 aria-selected={isShown}
+                aria-controls={READING_FILE_PANEL_ID}
+                data-path={path}
                 onClick={onShow}
                 onDoubleClick={isEntry ? undefined : onRename}
                 onKeyDown={handleKey}
                 title={isEntry ? translate('files.entry') : translate('files.rename')}
-                className={`inline-flex h-7 items-center rounded-md border px-2 font-mono text-[0.6875rem] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-phosphor/50 ${
+                className={`inline-flex h-7 items-center rounded-md border px-2 font-mono text-[0.6875rem] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-phosphor ${
                     isShown ? CONTROL_CHOSEN_CLASSES : CONTROL_OFFERED_CLASSES
                 } ${isEntry ? '' : 'rounded-r-none border-r-0'}`}
             >
@@ -135,7 +181,7 @@ function FileChip({ path, isShown, translate, onShow, onRename, onRemove }: File
                     onClick={onRemove}
                     aria-label={translate('files.remove', { path })}
                     title={translate('files.remove', { path })}
-                    className={`grid h-7 w-6 place-items-center rounded-md rounded-l-none border border-l-0 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-phosphor/50 ${
+                    className={`grid h-7 w-6 place-items-center rounded-md rounded-l-none border border-l-0 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-phosphor ${
                         isShown ? CONTROL_CHOSEN_CLASSES : CONTROL_OFFERED_CLASSES
                     } hover:text-ask`}
                 >
@@ -174,7 +220,7 @@ function PathField({ startingAt, translate, onSettle }: PathFieldProps): ReactEl
             }}
             aria-label={translate('files.name')}
             placeholder={translate('files.example')}
-            className="h-7 w-32 rounded-md border border-phosphor/60 bg-abyss-900 px-2 font-mono text-[0.6875rem] text-ink-100 outline-none placeholder:text-ink-600"
+            className="h-7 w-32 rounded-md border border-phosphor/60 bg-abyss-900 px-2 font-mono text-[0.6875rem] text-ink-100 outline-none placeholder:text-ink-500"
         />
     );
 }
