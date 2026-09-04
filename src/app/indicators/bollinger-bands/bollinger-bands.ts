@@ -1,15 +1,16 @@
 import {
-    type DrawPlan,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
-    type NumericParameter,
     type IndicatorSettings,
+    type NumericParameter,
+    type PlanDraft,
     type PlotScale,
     readSetting,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
-import { collectSource, SOURCE } from '../shared/bar-source.ts';
-import { collectInstants, createBlankValues, findContinuousSegments } from '../shared/series-math.ts';
+import { collectSource, SOURCE } from '../../../shared/core/bar-source.ts';
+import { collectInstants, createBlankValues, findContinuousSegments } from '../../../shared/core/series-math.ts';
 
 const PERIOD_BARS: NumericParameter = {
     name: 'periodBars',
@@ -32,8 +33,8 @@ const DEVIATIONS: NumericParameter = {
  * A moving average with a channel scaled to how much the close has been moving.
  */
 export class BollingerBands implements Indicator {
-    readonly id = 'bollinger';
-    readonly labelKey = 'indicator.bollinger';
+    readonly label = 'indicator.bollinger';
+    readonly about = 'indicator.bollinger.help';
     readonly scale: PlotScale = { kind: 'price' };
     readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS, DEVIATIONS, SOURCE];
 
@@ -41,10 +42,10 @@ export class BollingerBands implements Indicator {
      * Bars needed before the window for the first channel to be a full one.
      *
      * @param settings - The reader's parameter values.
-     * @returns The bar count.
+     * @returns The bar count, as the only source it declares.
      */
-    resolveWarmupBars(settings: IndicatorSettings): number {
-        return readSetting(settings, PERIOD_BARS);
+    resolveSources(settings: IndicatorSettings): SourceRequest {
+        return { warmupBars: readSetting(settings, PERIOD_BARS) };
     }
 
     /**
@@ -53,7 +54,7 @@ export class BollingerBands implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns Three lines and the region between the outer two.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const periodBars = readSetting(input.settings, PERIOD_BARS);
         const deviations = readSetting(input.settings, DEVIATIONS);
@@ -74,17 +75,12 @@ export class BollingerBands implements Indicator {
 
         const atMs = collectInstants(bars);
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: `${periodBars} · ${deviations}`,
-            scale: this.scale,
             series: [
-                { labelKey: 'indicator.bollinger.upper', tone: 'phosphor', shape: 'line', atMs, value: upper },
-                { labelKey: 'indicator.bollinger.lower', tone: 'phosphor', shape: 'line', atMs, value: lower },
-                { labelKey: 'indicator.bollinger.middle', tone: 'muted', shape: 'line', atMs, value: middle, isDashed: true },
+                { label: 'indicator.bollinger.upper', tone: 'phosphor', shape: 'line', atMs, value: upper },
+                { label: 'indicator.bollinger.lower', tone: 'phosphor', shape: 'line', atMs, value: lower },
+                { label: 'indicator.bollinger.middle', tone: 'muted', shape: 'line', atMs, value: middle, isDashed: true },
             ],
             bands: [{ tone: 'phosphor', upperSeriesIndex: 0, lowerSeriesIndex: 1 }],
-            hasConverged: input.warmupBarCount >= periodBars,
         };
     }
 

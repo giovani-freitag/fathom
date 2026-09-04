@@ -1,6 +1,6 @@
-import type { ChoiceParameter, IndicatorSettings } from '../../../shared/core/draw-plan.ts';
-import type { PriceBar } from '../../../shared/core/price-bar.ts';
-import { readChoice } from '../../../shared/core/draw-plan.ts';
+import type { ChoiceParameter, IndicatorSettings } from './draw-plan.ts';
+import type { PriceBar } from './price-bar.ts';
+import { readChoice } from './draw-plan.ts';
 
 /**
  * Which figure of a bar an indicator is run over.

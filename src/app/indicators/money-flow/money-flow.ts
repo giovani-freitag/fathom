@@ -1,19 +1,20 @@
 import {
-    type DrawPlan,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
     type IndicatorSettings,
     type NumericParameter,
+    type PlanDraft,
     type PlotScale,
     readSetting,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
 import {
     type BarSegment,
     collectInstants,
     createBlankValues,
     findContinuousSegments,
-} from '../shared/series-math.ts';
+} from '../../../shared/core/series-math.ts';
 import type { PriceBar } from '../../../shared/core/price-bar.ts';
 
 const PERIOD_BARS: NumericParameter = {
@@ -37,8 +38,8 @@ const FLOODED = 80;
  * made by fewer and fewer contracts.
  */
 export class MoneyFlow implements Indicator {
-    readonly id = 'mfi';
-    readonly labelKey = 'indicator.mfi';
+    readonly label = 'indicator.mfi';
+    readonly about = 'indicator.mfi.help';
     readonly scale: PlotScale = { kind: 'fixed', low: 0, high: 100 };
     readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS];
 
@@ -48,8 +49,8 @@ export class MoneyFlow implements Indicator {
      * @param settings - The reader's parameter values.
      * @returns One period plus the bar its first comparison needs.
      */
-    resolveWarmupBars(settings: IndicatorSettings): number {
-        return readSetting(settings, PERIOD_BARS) + 1;
+    resolveSources(settings: IndicatorSettings): SourceRequest {
+        return { warmupBars: readSetting(settings, PERIOD_BARS) + 1 };
     }
 
     /**
@@ -58,7 +59,7 @@ export class MoneyFlow implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns One bounded line, with the two conventional thresholds marked.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const periodBars = readSetting(input.settings, PERIOD_BARS);
         const value = createBlankValues(bars.length);
@@ -68,12 +69,8 @@ export class MoneyFlow implements Indicator {
         }
 
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: String(periodBars),
-            scale: this.scale,
             series: [{
-                labelKey: this.labelKey,
+                label: this.label,
                 tone: 'cyan',
                 shape: 'line',
                 atMs: collectInstants(bars),
@@ -83,7 +80,6 @@ export class MoneyFlow implements Indicator {
                 { value: FLOODED, tone: 'muted', isDashed: true },
                 { value: DRAINED, tone: 'muted', isDashed: true },
             ],
-            hasConverged: input.warmupBarCount >= this.resolveWarmupBars(input.settings),
         };
     }
 }

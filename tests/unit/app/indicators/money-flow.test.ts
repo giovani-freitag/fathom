@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
 import { BAR_INTERVAL_MS, buildBar, buildWindow } from '../../../mocks/price-bars.ts';
 import { MONEY_FLOW } from '../../../../src/app/indicators/money-flow/money-flow.ts';
 import type { PriceBar } from '../../../../src/shared/core/price-bar.ts';
@@ -7,7 +6,7 @@ import type { PriceBar } from '../../../../src/shared/core/price-bar.ts';
 const SETTINGS = { periodBars: 14 };
 
 function computeOver(bars: readonly PriceBar[]) {
-    return MONEY_FLOW.compute({ bars: buildWindow(bars), warmupBarCount: 60, higher: NO_HIGHER_BARS, settings: SETTINGS });
+    return MONEY_FLOW.compute({ bars: buildWindow(bars), sessions: {}, settings: SETTINGS });
 }
 
 /** The last value of the one series that is not blank. */

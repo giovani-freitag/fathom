@@ -1,19 +1,22 @@
-import { Combine, Eye, EyeOff, Settings2, Split, X } from 'lucide-react';
+import { Code2, Combine, Eye, EyeOff, Settings2, Split, X, TriangleAlert, Pencil } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { findChartLayer } from '../../indicators/indicator-catalogue.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
 import { findLayerContribution, isLayerTunable } from '../../indicators/layer-contributions.ts';
+import { isAddonId } from '../../addons/addon-registry.ts';
 import { groupPanedPlans, needsOwnBand } from '../../painting/pane-projector.ts';
 import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts';
 import type { DrawPlan } from '../../../shared/core/draw-plan.ts';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
 import type { ChartState } from '../../core/chart-controller.ts';
+import { translateFailure } from '../../i18n/translator.ts';
 import { ToneSwatch } from './tone-swatch.tsx';
 import { translateLabel } from '../../i18n/translator.ts';
 import { useChartSlice } from '../../react/use-chart-state.ts';
 import { useTranslate } from '../../react/use-appearance.ts';
 
 const readPlans = (state: ChartState): readonly DrawPlan[] => state.plans;
+const readFailures = (state: ChartState): ChartState['layerFailures'] => state.layerFailures;
 
 /**
  * Every action row's button, sized like the dock the panel opens from.
@@ -23,18 +26,20 @@ const readPlans = (state: ChartState): readonly DrawPlan[] => state.plans;
  * this panel sits over a surface that owns pan and zoom — a press that misses
  * does not do nothing, it moves the chart.
  */
-const LAYER_BUTTON_CLASSES =
+export const LAYER_BUTTON_CLASSES =
     'grid size-10 shrink-0 place-items-center rounded-md text-ink-500 transition-colors'
     + ' sm:size-8 hover:bg-abyss-700 hover:text-ink-100 disabled:opacity-30';
 
 /** Holds a slot open so the actions of every row line up in one column. */
 const LAYER_SLOT_CLASSES = 'size-10 shrink-0 sm:size-8';
 
-const ICON_SIZE_PX = 15;
+export const ICON_SIZE_PX = 15;
 
 interface LayerListProps {
     readonly controls: IndicatorControls;
     readonly onOpenSettings: (instanceId: string) => void;
+    /** Opens the editor on a reading this build could not rebuild. */
+    readonly onEditReading?: ((key?: string) => void) | undefined;
 }
 
 /**
@@ -45,8 +50,9 @@ interface LayerListProps {
  * they were about. A row is for what a layer *says*; this is for what a reader
  * does to it, and every control in it is the same size as every other.
  */
-export function LayerList({ controls, onOpenSettings }: LayerListProps): ReactElement | null {
+export function LayerList({ controls, onOpenSettings, onEditReading }: LayerListProps): ReactElement | null {
     const plans = useChartSlice(readPlans);
+    const failures = useChartSlice(readFailures);
     const translate = useTranslate();
     if (controls.added.length === 0) {
         return null;
@@ -64,6 +70,8 @@ export function LayerList({ controls, onOpenSettings }: LayerListProps): ReactEl
                     controls={controls}
                     onOpenSettings={onOpenSettings}
                     banding={resolveBanding(bands, planFor.get(added.instanceId) ?? null)}
+                    failure={translateFailure(translate, failures[added.instanceId])}
+                    {...onEditReading === undefined ? {} : { onEditReading }}
                 />
             ))}
         </ul>
@@ -77,11 +85,64 @@ interface Banding {
 }
 
 interface LayerRowProps {
+    /** Why it drew nothing, where it threw rather than drew. */
+    readonly failure: string | null;
+    /** Opens the editor on a reading this build could not rebuild. */
+    readonly onEditReading?: ((key?: string) => void) | undefined;
     readonly added: AddedIndicator;
     readonly controls: IndicatorControls;
     readonly onOpenSettings: (instanceId: string) => void;
     readonly banding: Banding | null;
 }
+
+/**
+ * A row for a layer the build can no longer find.
+ *
+ * Shown rather than skipped: a reading a reader wrote and then deleted leaves
+ * its selection behind, and a row that renders nothing is one they cannot see
+ * to remove. It drew nothing either way; the difference is whether they can
+ * tidy it up.
+ */
+function MissingLayerRow({ added, controls, onEditReading }: {
+    readonly added: AddedIndicator;
+    readonly controls: IndicatorControls;
+    readonly onEditReading?: ((key?: string) => void) | undefined;
+}): ReactElement {
+    const translate = useTranslate();
+    // Its source may still be on the shelf and only its build gone. Removing the
+    // selection is then the wrong repair: opening it and saving again is the
+    // right one, and it is the only one that keeps the work.
+    const key = added.indicatorId.replace(/^addon:/, '');
+    const canReopen = onEditReading !== undefined && isAddonId(added.indicatorId);
+
+    return (
+        <li className="flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-abyss-700/50">
+            <span className="size-2 shrink-0" />
+            <span
+                title={added.indicatorId}
+                className="min-w-0 flex-1 truncate text-xs italic text-ink-400"
+            >
+                {translate('indicators.missing')}
+            </span>
+            {canReopen && (
+                <LayerButton
+                    label={`${translate('indicators.edit')} ${added.indicatorId}`}
+                    onPress={() => { onEditReading(key); }}
+                >
+                    <Pencil size={ICON_SIZE_PX} />
+                </LayerButton>
+            )}
+
+            <LayerButton
+                label={translate('indicators.remove')}
+                onPress={() => { controls.remove(added.instanceId); }}
+            >
+                <X size={ICON_SIZE_PX} />
+            </LayerButton>
+        </li>
+    );
+}
+
 
 /**
  * One layer, named, with the four things a reader does to it.
@@ -91,11 +152,24 @@ interface LayerRowProps {
  * were the same height and the run of them read as ragged rather than as a
  * list. What each layer says belongs beside what it says it about.
  */
-function LayerRow({ added, controls, onOpenSettings, banding }: LayerRowProps): ReactElement | null {
+function LayerRow({
+    added,
+    controls,
+    onOpenSettings,
+    banding,
+    failure,
+    onEditReading,
+}: LayerRowProps): ReactElement | null {
     const translate = useTranslate();
     const layer = findChartLayer(added.indicatorId);
     if (layer === null) {
-        return null;
+        return (
+            <MissingLayerRow
+                added={added}
+                controls={controls}
+                {...onEditReading === undefined ? {} : { onEditReading }}
+            />
+        );
     }
 
 
@@ -115,11 +189,36 @@ function LayerRow({ added, controls, onOpenSettings, banding }: LayerRowProps): 
                 after the actions, and a name that does not fit is exactly the
                 one a reader opened this list to find. */}
             <span
-                title={translateLabel(translate, layer.labelKey)}
+                title={translateLabel(translate, layer.label)}
                 className={`min-w-0 flex-1 truncate text-xs ${isHidden ? 'text-ink-600 line-through decoration-ink-700' : 'text-ink-200'}`}
             >
-                {translateLabel(translate, layer.labelKey)}
+                {translateLabel(translate, layer.label)}
             </span>
+
+            {/* A reading that threw drew nothing, and the only sign of it was a
+                line quietly gone from the chart. This is the one list where a
+                reader looks to find out what happened to a layer. */}
+            {failure !== null && (
+                <TriangleAlert
+                    size={11}
+                    aria-label={translate('indicators.failed', { message: failure })}
+                    role="img"
+                    className="shrink-0 text-ask"
+                />
+            )}
+
+            {/* Which of these a reader wrote themselves, on the one list where
+                theirs and ours sit in the same column. Without it, a reading
+                that draws something surprising gives no clue whose arithmetic
+                to go and look at. */}
+            {isAddonId(added.indicatorId) && (
+                <Code2
+                    size={11}
+                    aria-label={translate('indicators.yours')}
+                    role="img"
+                    className="shrink-0 text-ink-500"
+                />
+            )}
 
             <LayerButton
                 label={translate(isHidden ? 'indicators.show' : 'indicators.hide')}
@@ -136,7 +235,7 @@ function LayerRow({ added, controls, onOpenSettings, banding }: LayerRowProps): 
 
             {/* Absent rather than dead for a layer with no knobs. A control
                 that can never be used still reads as one that could be. */}
-            {isLayerTunable(layer)
+            {isLayerTunable(added.indicatorId)
                 ? (
                     <LayerButton
                         label={translate('indicators.tune')}

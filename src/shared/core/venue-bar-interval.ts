@@ -6,10 +6,11 @@
  * publishes is a minute. Below that the only source of a bar is a recording of
  * the book, which is what the chart falls back to.
  *
- * The week is here without being a rung the chart draws. It is asked for by a
- * reading anchored to one, not by a reader choosing a bar width, and the two
- * lists were never the same list. The month is not, and cannot be: this is keyed
- * by a width in milliseconds and a month has no fixed one.
+ * The week and the two-hour are here without being rungs the chart draws. They
+ * are asked for by a reading anchored to one, not by a reader choosing a bar
+ * width, and the two lists were never the same list. The month is not, and
+ * cannot be: this is keyed by a width in milliseconds and a month has no fixed
+ * one.
  */
 const VENUE_INTERVALS: Readonly<Record<number, string>> = {
     60_000: '1m',
@@ -17,6 +18,7 @@ const VENUE_INTERVALS: Readonly<Record<number, string>> = {
     900_000: '15m',
     1_800_000: '30m',
     3_600_000: '1h',
+    7_200_000: '2h',
     14_400_000: '4h',
     86_400_000: '1d',
     604_800_000: '1w',

@@ -4,7 +4,6 @@ import { AVERAGE_TRUE_RANGE } from '../../../../src/app/indicators/average-true-
 import { BOLLINGER_BANDS } from '../../../../src/app/indicators/bollinger-bands/bollinger-bands.ts';
 import { EXPONENTIAL_AVERAGE } from '../../../../src/app/indicators/exponential-average/exponential-average.ts';
 import type { Indicator, IndicatorSettings } from '../../../../src/shared/core/draw-plan.ts';
-import { NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
 import { COMMODITY_CHANNEL } from '../../../../src/app/indicators/commodity-channel/commodity-channel.ts';
 import { DIRECTIONAL_MOVEMENT } from '../../../../src/app/indicators/directional-movement/directional-movement.ts';
 import { MONEY_FLOW } from '../../../../src/app/indicators/money-flow/money-flow.ts';
@@ -37,7 +36,7 @@ const BARS = buildWindow(CLOSES.map((close, index) => buildBar(index * 60_000, c
  * reference is one series, so they are compared where the reading actually is.
  */
 function merged(indicator: Indicator, settings: IndicatorSettings): number[] {
-    const plan = indicator.compute({ bars: BARS, warmupBarCount: 500, higher: NO_HIGHER_BARS, settings });
+    const plan = indicator.compute({ bars: BARS, sessions: {}, settings });
     const [first, second] = plan.series;
     return [...first!.value].map((value, index) => (Number.isNaN(value) ? second!.value[index]! : value));
 }
@@ -46,7 +45,7 @@ function merged(indicator: Indicator, settings: IndicatorSettings): number[] {
 const TOLERANCE = 1e-9;
 
 function ours(indicator: Indicator, settings: IndicatorSettings, seriesIndex = 0): number[] {
-    const plan = indicator.compute({ bars: BARS, warmupBarCount: 500, higher: NO_HIGHER_BARS, settings });
+    const plan = indicator.compute({ bars: BARS, sessions: {}, settings });
     return [...plan.series[seriesIndex]!.value];
 }
 
@@ -69,7 +68,7 @@ const WHIPSAW_BARS = buildWindow(WHIPSAW.map((close, index) => buildBar(index * 
 
 /** The one value a side-switching reading has on each bar of the jagged path. */
 function mergedOnWhipsaw(indicator: Indicator, settings: IndicatorSettings): number[] {
-    const plan = indicator.compute({ bars: WHIPSAW_BARS, warmupBarCount: 500, higher: NO_HIGHER_BARS, settings });
+    const plan = indicator.compute({ bars: WHIPSAW_BARS, sessions: {}, settings });
     const [first, second] = plan.series;
     return [...first!.value].map((value, index) => (Number.isNaN(value) ? second!.value[index]! : value));
 }
@@ -116,7 +115,7 @@ describe('agreement with the reference formulas', () => {
         const still = Array.from({ length: CLOSES.length }, () => 100);
         const bars = buildWindow(still.map((close, index) => buildBar(index * 60_000, close)));
 
-        const plan = RELATIVE_STRENGTH.compute({ bars, warmupBarCount: 500, higher: NO_HIGHER_BARS, settings: { periodBars: 14 } });
+        const plan = RELATIVE_STRENGTH.compute({ bars, sessions: {}, settings: { periodBars: 14 } });
 
         expect(plan.series[0]!.value.at(-1)).toBe(50);
         expect(widestGap([...plan.series[0]!.value], rsi(still, 14))).toBeLessThan(TOLERANCE);

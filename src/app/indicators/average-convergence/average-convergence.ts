@@ -1,20 +1,21 @@
 import {
-    type DrawPlan,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
-    type NumericParameter,
     type IndicatorSettings,
+    type NumericParameter,
+    type PlanDraft,
     type PlotScale,
     readSetting,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
-import { collectSource, SOURCE } from '../shared/bar-source.ts';
+import { collectSource, SOURCE } from '../../../shared/core/bar-source.ts';
 import {
     collectInstants,
     createBlankValues,
     fillExponential,
     findContinuousSegments,
-} from '../shared/series-math.ts';
+} from '../../../shared/core/series-math.ts';
 
 const FAST_BARS: NumericParameter = {
     name: 'fastBars',
@@ -44,8 +45,8 @@ const SIGNAL_BARS: NumericParameter = {
  * The distance between a fast and a slow average, and how fast that is changing.
  */
 export class AverageConvergence implements Indicator {
-    readonly id = 'macd';
-    readonly labelKey = 'indicator.macd';
+    readonly label = 'indicator.macd';
+    readonly about = 'indicator.macd.help';
     readonly scale: PlotScale = { kind: 'symmetric' };
     readonly parameters: readonly IndicatorParameter[] = [FAST_BARS, SLOW_BARS, SIGNAL_BARS, SOURCE];
 
@@ -53,12 +54,12 @@ export class AverageConvergence implements Indicator {
      * Bars needed before the window for both averages and the signal to settle.
      *
      * @param settings - The reader's parameter values.
-     * @returns The bar count.
+     * @returns The bar count, as the only source it declares.
      */
-    resolveWarmupBars(settings: IndicatorSettings): number {
+    resolveSources(settings: IndicatorSettings): SourceRequest {
         const slowBars = readSetting(settings, SLOW_BARS);
         const signalBars = readSetting(settings, SIGNAL_BARS);
-        return Math.ceil((slowBars + signalBars) * 2.3);
+        return { warmupBars: Math.ceil((slowBars + signalBars) * 2.3) };
     }
 
     /**
@@ -67,7 +68,7 @@ export class AverageConvergence implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns Two lines and a histogram that changes colour at nought.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const fastBars = readSetting(input.settings, FAST_BARS);
         const slowBars = readSetting(input.settings, SLOW_BARS);
@@ -99,13 +100,9 @@ export class AverageConvergence implements Indicator {
 
         const atMs = collectInstants(bars);
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: `${fastBars} · ${slowBars} · ${signalBars}`,
-            scale: this.scale,
             series: [
                 {
-                    labelKey: 'indicator.macd.gap',
+                    label: 'indicator.macd.gap',
                     tone: 'bid',
                     negativeTone: 'ask',
                     shape: 'histogram',
@@ -113,11 +110,10 @@ export class AverageConvergence implements Indicator {
                     atMs,
                     value: gap,
                 },
-                { labelKey: 'indicator.macd.difference', tone: 'phosphor', shape: 'line', atMs, value: difference },
-                { labelKey: 'indicator.macd.signal', tone: 'amber', shape: 'line', atMs, value: signal },
+                { label: 'indicator.macd.difference', tone: 'phosphor', shape: 'line', atMs, value: difference },
+                { label: 'indicator.macd.signal', tone: 'amber', shape: 'line', atMs, value: signal },
             ],
             levels: [{ value: 0, tone: 'muted' }],
-            hasConverged: input.warmupBarCount >= this.resolveWarmupBars(input.settings),
         };
     }
 }

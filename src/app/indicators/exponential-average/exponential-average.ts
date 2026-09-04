@@ -1,20 +1,21 @@
 import {
-    type DrawPlan,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
-    type NumericParameter,
     type IndicatorSettings,
+    type NumericParameter,
+    type PlanDraft,
     type PlotScale,
     readSetting,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
-import { collectSource, SOURCE } from '../shared/bar-source.ts';
+import { collectSource, SOURCE } from '../../../shared/core/bar-source.ts';
 import {
     collectInstants,
     createBlankValues,
     fillExponential,
     findContinuousSegments,
-} from '../shared/series-math.ts';
+} from '../../../shared/core/series-math.ts';
 
 const PERIOD_BARS: NumericParameter = {
     name: 'periodBars',
@@ -39,8 +40,8 @@ export function resolveWarmupBars(periodBars: number): number {
  * The exponential moving average of the bar close.
  */
 export class ExponentialAverage implements Indicator {
-    readonly id = 'ema';
-    readonly labelKey = 'indicator.ema';
+    readonly label = 'indicator.ema';
+    readonly about = 'indicator.ema.help';
     readonly scale: PlotScale = { kind: 'price' };
     readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS, SOURCE];
 
@@ -48,10 +49,10 @@ export class ExponentialAverage implements Indicator {
      * Bars needed before the window for the seed to have washed out.
      *
      * @param settings - The reader's parameter values.
-     * @returns The bar count.
+     * @returns The bar count, as the only source it declares.
      */
-    resolveWarmupBars(settings: IndicatorSettings): number {
-        return resolveWarmupBars(readSetting(settings, PERIOD_BARS));
+    resolveSources(settings: IndicatorSettings): SourceRequest {
+        return { warmupBars: resolveWarmupBars(readSetting(settings, PERIOD_BARS)) };
     }
 
     /**
@@ -60,7 +61,7 @@ export class ExponentialAverage implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns One line, restarting wherever the recording was interrupted.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const periodBars = readSetting(input.settings, PERIOD_BARS);
         const source = collectSource(bars, input.settings);
@@ -71,18 +72,13 @@ export class ExponentialAverage implements Indicator {
         }
 
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: String(periodBars),
-            scale: this.scale,
             series: [{
-                labelKey: this.labelKey,
+                label: this.label,
                 tone: 'phosphor',
                 shape: 'line',
                 atMs: collectInstants(bars),
                 value,
             }],
-            hasConverged: input.warmupBarCount >= resolveWarmupBars(periodBars),
         };
     }
 }

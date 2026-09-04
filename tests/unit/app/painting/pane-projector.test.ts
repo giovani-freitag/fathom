@@ -17,11 +17,11 @@ function buildPlan(scale: PlotScale, values: readonly number[], levels: readonly
     return {
         indicatorId: 'test',
         instanceId: `test-${minted}`,
-        labelKey: 'indicator.rsi',
+        label: 'indicator.rsi',
         parameterSummary: '14',
         scale,
         series: [{
-            labelKey: 'indicator.rsi',
+            label: 'indicator.rsi',
             tone: 'phosphor',
             shape: 'line',
             atMs: Float64Array.from(values.map((_, index) => index)),
@@ -210,7 +210,7 @@ describe('a band with nothing visible in it', () => {
         const plan: DrawPlan = {
             ...buildPlan({ kind: 'symmetric' }, [Number.NaN, 40], [0]),
             series: [{
-                labelKey: 'indicator.macd.gap',
+                label: 'indicator.macd.gap',
                 tone: 'bid',
                 shape: 'histogram',
                 baseline: 0,

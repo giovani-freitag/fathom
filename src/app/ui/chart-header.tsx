@@ -1,6 +1,7 @@
 import { BarIntervalControl, SpanControl } from './time-controls.tsx';
-import { type ChartDockProps, Divider, DrawingTools } from './chart-dock.tsx';
-import { Layers } from 'lucide-react';
+import { type ChartDockProps, DockButton, Divider, DrawingTools } from './chart-dock.tsx';
+import { ADDON_EDITOR_ID } from './panel-ids.ts';
+import { Code2, Layers } from 'lucide-react';
 import type { ReactElement, ReactNode } from 'react';
 import { CONTROL_BAR_CLASSES } from './control-shell.ts';
 import { DockPopover } from './dock-popover.tsx';
@@ -21,6 +22,9 @@ export interface ChartHeaderProps extends ChartDockProps {
      * about itself is one that cannot be drawn twice at two widths.
      */
     readonly hasRoomForPresets: boolean;
+    /** Opens the editor beside the chart, on a saved reading where named. */
+    readonly onWriteAReading: (key?: string) => void;
+    readonly isWritingAReading: boolean;
 }
 
 /**
@@ -77,8 +81,20 @@ export function ChartHeader(props: ChartHeaderProps): ReactElement {
                 label={translate('indicators.onTheChart')}
                 trigger={<Layers size={ICON_SIZE_PX} />}
             >
-                <LayerPanel controls={props.indicators} />
+                <LayerPanel controls={props.indicators} onEditReading={props.onWriteAReading} />
             </DockPopover>
+
+            {/* The dock's own shape, like its two neighbours: a bordered chip
+                among two bare glyphs read as a control from another bar. It is
+                a disclosure, so it says so rather than only looking pressed. */}
+            <DockButton
+                label={translate('editor.open')}
+                isActive={props.isWritingAReading}
+                onPress={() => { props.onWriteAReading(); }}
+                reveals={{ id: ADDON_EDITOR_ID, isOpen: props.isWritingAReading }}
+            >
+                <Code2 size={ICON_SIZE_PX} />
+            </DockButton>
 
             {props.settings}
         </header>

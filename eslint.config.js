@@ -5,7 +5,15 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-    { ignores: ['dist/**', 'coverage/**', 'node_modules/**'] },
+    // The published surface is generated, and held honest by an arch test
+    // rather than by this.
+    {
+        ignores: [
+            'dist/**', 'coverage/**', 'node_modules/**',
+            'packages/types/fathom.d.ts',
+            'docs/api/**', 'docs/.vitepress/cache/**', 'docs/.vitepress/dist/**',
+        ],
+    },
 
     js.configs.recommended,
     ...tseslint.configs.recommendedTypeChecked,
@@ -13,7 +21,11 @@ export default tseslint.config(
     {
         languageOptions: {
             parserOptions: {
-                projectService: true,
+                // The site's own config sits outside every tsconfig here, so
+                // the service is told about it by hand.
+                projectService: {
+                    allowDefaultProject: ['docs/.vitepress/config.ts', 'docs/.vitepress/theme/index.ts'],
+                },
                 tsconfigRootDir: import.meta.dirname,
             },
         },

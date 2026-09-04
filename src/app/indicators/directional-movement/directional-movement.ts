@@ -1,12 +1,13 @@
 import {
-    type DrawPlan,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
     type IndicatorSettings,
     type NumericParameter,
+    type PlanDraft,
     type PlotScale,
     readSetting,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
 import {
     type BarSegment,
@@ -15,7 +16,7 @@ import {
     createBlankValues,
     fillWilder,
     findContinuousSegments,
-} from '../shared/series-math.ts';
+} from '../../../shared/core/series-math.ts';
 import type { PriceBar } from '../../../shared/core/price-bar.ts';
 
 const PERIOD_BARS: NumericParameter = {
@@ -40,8 +41,8 @@ const TRENDING = 25;
  * looks like.
  */
 export class DirectionalMovement implements Indicator {
-    readonly id = 'adx';
-    readonly labelKey = 'indicator.adx';
+    readonly label = 'indicator.adx';
+    readonly about = 'indicator.adx.help';
     readonly scale: PlotScale = { kind: 'fixed', low: 0, high: 100 };
     readonly isSelfColoured = true;
     readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS];
@@ -52,8 +53,8 @@ export class DirectionalMovement implements Indicator {
      * @param settings - The reader's parameter values.
      * @returns The bar count, counting the strength line's second smoothing.
      */
-    resolveWarmupBars(settings: IndicatorSettings): number {
-        return readSetting(settings, PERIOD_BARS) * 5;
+    resolveSources(settings: IndicatorSettings): SourceRequest {
+        return { warmupBars: readSetting(settings, PERIOD_BARS) * 5 };
     }
 
     /**
@@ -62,7 +63,7 @@ export class DirectionalMovement implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns Three lines, with the conventional threshold marked.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const periodBars = readSetting(input.settings, PERIOD_BARS);
 
@@ -75,18 +76,12 @@ export class DirectionalMovement implements Indicator {
 
         const atMs = collectInstants(bars);
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: String(periodBars),
-            scale: this.scale,
-            isSelfColoured: this.isSelfColoured,
             series: [
-                { labelKey: this.labelKey, tone: 'ink', shape: 'line', atMs, value: strength, widthPx: 2 },
-                { labelKey: 'indicator.adx.upward', tone: 'bid', shape: 'line', atMs, value: upward },
-                { labelKey: 'indicator.adx.downward', tone: 'ask', shape: 'line', atMs, value: downward },
+                { label: this.label, tone: 'ink', shape: 'line', atMs, value: strength, widthPx: 2 },
+                { label: 'indicator.adx.upward', tone: 'bid', shape: 'line', atMs, value: upward },
+                { label: 'indicator.adx.downward', tone: 'ask', shape: 'line', atMs, value: downward },
             ],
             levels: [{ value: TRENDING, tone: 'muted', isDashed: true }],
-            hasConverged: input.warmupBarCount >= this.resolveWarmupBars(input.settings),
         };
     }
 }

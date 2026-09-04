@@ -1,13 +1,14 @@
 import {
     type ChoiceParameter,
-    type DrawPlan,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
+    type PlanDraft,
     type PlotScale,
     readChoice,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
-import { collectInstants, createBlankValues } from '../shared/series-math.ts';
+import { collectInstants, createBlankValues } from '../../../shared/core/series-math.ts';
 import type { PriceBar } from '../../../shared/core/price-bar.ts';
 
 const DAY_MS = 86_400_000;
@@ -34,8 +35,8 @@ const ANCHOR: ChoiceParameter = {
  * this does not.
  */
 export class VolumeWeightedAverage implements Indicator {
-    readonly id = 'vwap';
-    readonly labelKey = 'indicator.vwap';
+    readonly label = 'indicator.vwap';
+    readonly about = 'indicator.vwap.help';
     readonly scale: PlotScale = { kind: 'price' };
     readonly parameters: readonly IndicatorParameter[] = [ANCHOR];
 
@@ -47,8 +48,8 @@ export class VolumeWeightedAverage implements Indicator {
      *
      * @returns One, the smallest a window can be asked for.
      */
-    resolveWarmupBars(): number {
-        return 1;
+    resolveSources(): SourceRequest {
+        return { warmupBars: 1 };
     }
 
     /**
@@ -57,7 +58,7 @@ export class VolumeWeightedAverage implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns One line, restarting at each anchor.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const isSessionAnchored = readChoice(input.settings, ANCHOR) === 'session';
         const value = createBlankValues(bars.length);
@@ -87,12 +88,8 @@ export class VolumeWeightedAverage implements Indicator {
         }
 
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: '',
-            scale: this.scale,
             series: [{
-                labelKey: this.labelKey,
+                label: this.label,
                 tone: 'ink',
                 shape: 'line',
                 atMs: collectInstants(bars),

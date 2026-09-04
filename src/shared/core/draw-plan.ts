@@ -1,4 +1,4 @@
-import type { PriceBarWindow } from './price-bar.ts';
+import type { PriceBar, PriceBarWindow } from './price-bar.ts';
 
 /**
  * Colours an indicator may ask for, as tokens rather than CSS.
@@ -81,7 +81,7 @@ export interface PlotSeries {
      * written when it does not, so an addon can ship a label the host has never
      * heard of without shipping a translation for it.
      */
-    readonly labelKey: string;
+    readonly label: string;
     readonly tone: PlotTone;
     readonly shape: PlotShape;
     /** Instants, ascending. Same length as `value`. */
@@ -138,8 +138,14 @@ export type PlotScale =
 
 /**
  * What an indicator returns for one window.
+ *
+ * Only what the arithmetic produced; the host stamps on everything it already
+ * knew, so a name or a scale cannot have two answers.
  */
-export interface DrawPlan {
+export interface PlanDraft {
+    readonly series: readonly PlotSeries[];
+    readonly bands?: readonly PlotBand[];
+    readonly levels?: readonly PlotLevel[];
     /**
      * Whether each series is written at the end of its own line.
      *
@@ -151,6 +157,36 @@ export interface DrawPlan {
      * mean and its channel are told apart by where they are.
      */
     readonly namesItsSeries?: boolean;
+    /**
+     * Whether the output can be trusted at its left edge.
+     *
+     * Defaulted by the host to whether the warm-up asked for arrived. Declared
+     * here only where a reading converges on something else — an anchor to
+     * find, a session to see turn over.
+     */
+    readonly hasConverged?: boolean;
+    /**
+     * The knobs as the legend should show them.
+     *
+     * Defaulted by the host to the figures the reader turned. Declared here
+     * only where the useful summary is not those.
+     */
+    readonly parameterSummary?: string;
+    /**
+     * The axis this window's values belong on.
+     *
+     * Defaulted by the host to the one the indicator declared. Declared here
+     * only where the axis depends on how the reading was tuned.
+     */
+    readonly scale?: PlotScale;
+}
+
+/**
+ * A draft with everything the host knows stamped on.
+ *
+ * What the painters are given, and what a reader's controls reach.
+ */
+export interface DrawPlan extends PlanDraft {
     readonly indicatorId: string;
     /**
      * Which added copy produced it, stamped by the host rather than the author.
@@ -175,7 +211,7 @@ export interface DrawPlan {
      * showing the previous one.
      */
     readonly tuning?: string;
-    readonly labelKey: string;
+    readonly label: string;
     /** The parameters that produced it, as the legend shows them. */
     readonly parameterSummary: string;
     readonly scale: PlotScale;
@@ -187,16 +223,6 @@ export interface DrawPlan {
      * copy is identified by would say something untrue about the data.
      */
     readonly isSelfColoured?: boolean;
-    readonly series: readonly PlotSeries[];
-    readonly bands?: readonly PlotBand[];
-    readonly levels?: readonly PlotLevel[];
-    /**
-     * Whether the output can be trusted at its left edge.
-     *
-     * False when the archive could not supply the warm-up the indicator asked
-     * for: the first values are then seeded rather than converged, and they look
-     * exactly like converged ones.
-     */
     readonly hasConverged: boolean;
 }
 
@@ -205,6 +231,8 @@ export interface DrawPlan {
  */
 export interface NumericParameter {
     readonly name: string;
+    /** What the control is called. Absent falls back to a key built from the name. */
+    readonly label?: string;
     readonly kind: 'integer' | 'decimal';
     readonly defaultValue: number;
     readonly minimum: number;
@@ -224,6 +252,8 @@ export interface NumericParameter {
  */
 export interface ChoiceParameter {
     readonly name: string;
+    /** What the control is called. Absent falls back to a key built from the name. */
+    readonly label?: string;
     readonly kind: 'choice';
     readonly defaultValue: string;
     readonly choices: readonly string[];
@@ -234,6 +264,8 @@ export interface ChoiceParameter {
  */
 export interface ToggleParameter {
     readonly name: string;
+    /** What the control is called. Absent falls back to a key built from the name. */
+    readonly label?: string;
     readonly kind: 'toggle';
     readonly defaultValue: boolean;
 }
@@ -249,56 +281,117 @@ export interface Tunable {
 export type IndicatorSettings = Readonly<Record<string, number | string | boolean>>;
 
 /**
- * A coarser rung an indicator also reads, and how far back it needs it.
+ * A coarser session an indicator also reads, and how far back it needs them.
  *
- * The warm-up is counted in bars of the rung being asked for, not in bars of
- * the one being drawn. An average of fifty daily closes wants fifty days
- * whether it is drawn on a minute chart or an hourly one, and a warm-up
- * inherited from the drawn rung would fetch fifty minutes or four years.
+ * The reach is in sessions of the rung asked for, not bars of the one drawn:
+ * fifty daily closes is fifty days on a minute chart and on an hourly one.
  */
-export interface HigherBarRequest {
+export interface SessionRequest {
     readonly intervalMs: number;
-    /** Bars of that rung needed before the window opens. */
-    readonly warmupBars: number;
+    /** Settled sessions needed before the window opens. */
+    readonly reachingBack: number;
 }
 
 /**
- * The coarser windows an indicator asked for, keyed by the rung.
+ * Everything besides the drawn bars a reading needs, for the host to fetch.
  *
- * A lookup rather than a list, because an indicator that asked for two rungs
- * has to be able to tell them apart, and it already knows the numbers it asked
- * with. Missing rather than empty when the host could not supply one: a venue
- * publishes no candle for every rung, and a reading drawn from bars that were
- * never fetched would be a reading about nothing.
+ * One method rather than one per kind: it is one question, and the host merges
+ * every answer on the chart in a single pass.
  */
-export class HigherBars {
-    private readonly windows: ReadonlyMap<number, PriceBarWindow>;
-
-    constructor(windows: Iterable<PriceBarWindow> = []) {
-        this.windows = new Map([...windows].map((window) => [window.intervalMs, window]));
-    }
-
+export interface SourceRequest {
+    /** Bars before the drawn window, on the drawn rung. */
+    readonly warmupBars?: number;
     /**
-     * The window on one rung.
+     * Coarser sessions, keyed by the name `compute` reads them back under.
      *
-     * @param intervalMs - The rung, as it was asked for.
-     * @returns The bars, or null where the host had none to give.
+     * Named rather than keyed by the figure asked with, so declaring and
+     * looking one up is the same string.
      */
-    at(intervalMs: number): PriceBarWindow | null {
-        return this.windows.get(intervalMs) ?? null;
-    }
+    readonly sessions?: Readonly<Record<string, SessionRequest>>;
 }
 
-/** What an indicator that reads only the drawn rung is handed. */
-export const NO_HIGHER_BARS = new HigherBars();
+/**
+ * A coarser rung, aligned to the drawn bars and held back to what each knew.
+ *
+ * Aligned rather than handed over whole because there is then no index that
+ * reaches a session a drawn bar could not have seen.
+ */
+export interface SettledSessions {
+    /** False where no session had closed by any drawn bar. */
+    readonly hasAny: boolean;
+    /**
+     * One entry per drawn bar: the newest session that had closed by its open.
+     *
+     * Undefined at the left edge, before anything had settled.
+     */
+    readonly perBar: readonly (PriceBar | undefined)[];
+    /** 1 where a drawn bar is the first after the session turned over. */
+    readonly turnsOver: Uint8Array;
+    /**
+     * Every session that had settled, oldest first, back as far as was asked.
+     *
+     * `perBar` answers "what did this drawn bar know", which is one bar. This
+     * answers "what is there to work from", which is the run of them — and a
+     * mean over a coarser rung needs the run. Without it a fifty-period mean
+     * could only be built from the sessions that happened to turn over inside
+     * the drawn window, which on a minute chart is one day and no weeks.
+     *
+     * Reaches back by `reachingBack` sessions before the window opens. Nothing
+     * still forming is in here: the newest is the newest that had closed by the
+     * last drawn bar, so widening the window cannot change what an earlier bar
+     * was told.
+     */
+    readonly closed: readonly PriceBar[];
+    /**
+     * One entry per drawn bar: where in `closed` its own session sits.
+     *
+     * -1 before the first one settled. Carried rather than left to be searched
+     * for, because holding a figure computed over `closed` at each drawn bar is
+     * the whole point of having both, and matching the bars by identity is a
+     * scan per drawn bar.
+     */
+    readonly indexPerBar: Int32Array;
+}
+
+/** What a reading with no sessions declared is handed under any name. */
+export const NO_SESSIONS: SettledSessions = {
+    hasAny: false,
+    perBar: [],
+    turnsOver: new Uint8Array(0),
+    closed: [],
+    indexPerBar: new Int32Array(0),
+};
 
 export interface IndicatorInput {
     readonly bars: PriceBarWindow;
-    /** Bars at the front that exist only to seed the output. */
-    readonly warmupBarCount: number;
-    /** Coarser rungs, for an indicator that declared it reads any. */
-    readonly higher: HigherBars;
     readonly settings: IndicatorSettings;
+    /**
+     * The coarser sessions declared, by name.
+     *
+     * Plain data so the whole input survives being sent to a worker, which
+     * strips the prototype off anything carrying methods.
+     */
+    readonly sessions: Readonly<Record<string, SettledSessions>>;
+}
+
+/**
+ * A declared session, by name.
+ *
+ * @param input - What the reading was handed.
+ * @param name - The key the session was declared under.
+ * @returns The sessions, held back to what each drawn bar could know.
+ * @throws Error when nothing was declared under that name, which is louder
+ *     than the flat line an empty one would draw.
+ */
+export function readSessions(input: IndicatorInput, name: string): SettledSessions {
+    const found = input.sessions[name];
+    if (found === undefined) {
+        const declared = Object.keys(input.sessions);
+        const names = declared.length === 0 ? '(none)' : declared.join(', ');
+        throw new Error(`No session was declared under '${name}'. Declared: ${names}.`);
+    }
+
+    return found;
 }
 
 /**
@@ -320,28 +413,41 @@ export interface IndicatorInput {
  * added, tuned, hidden and removed the same way, from the same list.
  */
 export interface FieldLayer {
-    readonly id: string;
-    readonly labelKey: string;
+    readonly label: string;
+    /** One line for the palette. A phrase, or a key naming one. */
+    readonly about?: string;
     readonly parameters: readonly IndicatorParameter[];
 }
 
-export interface Indicator {
+/**
+ * Anything a reader can add, paired with the id it is stored and found under.
+ *
+ * On the entry rather than on the reading, so the catalogue is the one place a
+ * name is claimed and two readings cannot claim the same one.
+ */
+export interface Registered<T> {
     readonly id: string;
-    readonly labelKey: string;
-    readonly scale: PlotScale;
+    readonly layer: T;
+}
+
+export interface Indicator {
+    /**
+     * What the reading is called.
+     *
+     * A phrase, or a key naming one: unmatched keys render as written, so a
+     * reading can ship a name without shipping a translation.
+     */
+    readonly label: string;
+    /** One line for the palette. A phrase, or a key naming one. */
+    readonly about?: string;
+    /** Where it is drawn. Absent gives it a band of its own. */
+    readonly scale?: PlotScale;
     /** Whether what it draws is told by its colour, so a copy cannot be tinted. */
     readonly isSelfColoured?: boolean;
     readonly parameters: readonly IndicatorParameter[];
-    /** Bars it needs before the drawn window for its output to have converged. */
-    resolveWarmupBars(settings: IndicatorSettings): number;
-    /**
-     * Coarser rungs it also reads, for the host to fetch alongside.
-     *
-     * Absent on almost every reading, which is why it is optional: an indicator
-     * is a function of the bars it is drawn on until it says otherwise.
-     */
-    resolveHigherIntervals?(settings: IndicatorSettings): readonly HigherBarRequest[];
-    compute(input: IndicatorInput): DrawPlan;
+    /** Everything besides the drawn bars this reads. Absent means the bars alone. */
+    resolveSources?(settings: IndicatorSettings): SourceRequest;
+    compute(input: IndicatorInput): PlanDraft;
 }
 
 /**
@@ -364,10 +470,10 @@ export const PLOT_BUDGET = {
 /**
  * Whether a plan is within what the host will draw.
  *
- * @param plan - The plan to check.
+ * @param plan - The draft to check.
  * @returns True when every series fits the budget and every reference resolves.
  */
-export function isPlanWithinBudget(plan: DrawPlan): boolean {
+export function isPlanWithinBudget(plan: PlanDraft): boolean {
     if (plan.series.length > PLOT_BUDGET.maximumSeriesCount) {
         return false;
     }
@@ -422,6 +528,74 @@ export function readChoice(settings: IndicatorSettings, parameter: ChoiceParamet
     return typeof chosen === 'string' && parameter.choices.includes(chosen)
         ? chosen
         : parameter.defaultValue;
+}
+
+/**
+ * The bars a reading needs before the drawn window.
+ *
+ * @param indicator - The reading being asked.
+ * @param settings - Values the reader chose.
+ * @returns The count, or none where it declared no sources at all.
+ */
+export function resolveWarmupBars(indicator: Indicator, settings: IndicatorSettings): number {
+    return indicator.resolveSources?.(settings).warmupBars ?? 0;
+}
+
+/** What the host completes a draft with. */
+export interface PlanStamp {
+    /** The id the copy was added under. */
+    readonly indicatorId: string;
+    readonly indicator: Indicator;
+    readonly settings: IndicatorSettings;
+    /** Bars of warm-up the archive actually supplied. */
+    readonly warmupBarCount: number;
+}
+
+/**
+ * Completes a draft with everything the host already knew.
+ *
+ * @param stamp - Who asked, how it was tuned, and what warm-up arrived.
+ * @param draft - What the arithmetic produced.
+ * @returns The plan the painters are given.
+ */
+export function completePlan(stamp: PlanStamp, draft: PlanDraft): DrawPlan {
+    const { indicator, settings } = stamp;
+
+    return {
+        ...draft,
+        indicatorId: stamp.indicatorId,
+        label: indicator.label,
+        parameterSummary: draft.parameterSummary
+            ?? summariseParameters(indicator.parameters, settings),
+        scale: draft.scale ?? indicator.scale ?? { kind: 'auto' },
+        ...(indicator.isSelfColoured === true ? { isSelfColoured: true } : {}),
+        hasConverged: draft.hasConverged
+            ?? stamp.warmupBarCount >= resolveWarmupBars(indicator, settings),
+    };
+}
+
+/**
+ * The knobs a legend shows, for a plan that did not say.
+ *
+ * Figures only: a choice is usually what a reading is rather than how it was
+ * tuned, and the name already says it.
+ *
+ * @param parameters - The knobs the indicator declared.
+ * @param settings - Values the reader chose.
+ * @returns The figures, in declaration order, or an empty string where none.
+ */
+export function summariseParameters(
+    parameters: readonly IndicatorParameter[],
+    settings: IndicatorSettings,
+): string {
+    const figures: string[] = [];
+    for (const parameter of parameters) {
+        if (parameter.kind === 'integer' || parameter.kind === 'decimal') {
+            figures.push(String(readSetting(settings, parameter)));
+        }
+    }
+
+    return figures.join(' \u00b7 ');
 }
 
 /**

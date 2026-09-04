@@ -6,13 +6,13 @@ import { DONCHIAN_CHANNELS } from '../../../../src/app/indicators/donchian-chann
 import { RELATIVE_STRENGTH } from '../../../../src/app/indicators/relative-strength/relative-strength.ts';
 import { SIMPLE_AVERAGE } from '../../../../src/app/indicators/simple-average/simple-average.ts';
 import { STOCHASTIC_OSCILLATOR } from '../../../../src/app/indicators/stochastic-oscillator/stochastic-oscillator.ts';
-import { recolourPlan, NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
+import { completePlan, recolourPlan } from '../../../../src/shared/core/draw-plan.ts';
 import type { Indicator, IndicatorSettings } from '../../../../src/shared/core/draw-plan.ts';
 import { buildBar, buildRun, buildWindow } from '../../../mocks/price-bars.ts';
 import type { PriceBar } from '../../../../src/shared/core/price-bar.ts';
 
 function lastOf(indicator: Indicator, bars: readonly PriceBar[], settings: IndicatorSettings, seriesIndex = 0): number {
-    const plan = indicator.compute({ bars: buildWindow(bars), warmupBarCount: 500, higher: NO_HIGHER_BARS, settings });
+    const plan = indicator.compute({ bars: buildWindow(bars), sessions: {}, settings });
     return plan.series[seriesIndex]!.value.at(-1)!;
 }
 
@@ -135,28 +135,32 @@ describe('recolourPlan', () => {
         // MACD draws its histogram first so it sits beneath the lines. Reading
         // the first series as the identity would put the legend's mark on the
         // histogram and leave the line it names in another colour entirely.
-        const plan = AVERAGE_CONVERGENCE.compute({
+        const settings = { fastBars: 12, slowBars: 26, signalBars: 9 };
+        const plan = completePlan({
+            indicatorId: 'macd', indicator: AVERAGE_CONVERGENCE, settings, warmupBarCount: 500,
+        }, AVERAGE_CONVERGENCE.compute({
             bars: buildWindow(buildRun(200, (index) => 100 + index)),
-            warmupBarCount: 500,
-            higher: NO_HIGHER_BARS,
-            settings: { fastBars: 12, slowBars: 26, signalBars: 9 },
-        });
+            sessions: {},
+            settings,
+        }));
 
         const recoloured = recolourPlan(plan, 'violet');
 
-        const byLabel = new Map(recoloured.series.map((series) => [series.labelKey, series.tone]));
+        const byLabel = new Map(recoloured.series.map((series) => [series.label, series.tone]));
         expect(byLabel.get('indicator.macd.difference')).toBe('violet');
         expect(byLabel.get('indicator.macd.gap')).toBe('bid');
         expect(byLabel.get('indicator.macd.signal')).toBe('amber');
     });
 
     it('carries a band along with the line it belongs to', () => {
-        const plan = BOLLINGER_BANDS.compute({
+        const bollingerSettings = { periodBars: 20, deviations: 2 };
+        const plan = completePlan({
+            indicatorId: 'bollinger', indicator: BOLLINGER_BANDS, settings: bollingerSettings, warmupBarCount: 500,
+        }, BOLLINGER_BANDS.compute({
             bars: buildWindow(buildRun(60, (index) => 100 + Math.sin(index) * 5)),
-            warmupBarCount: 500,
-            higher: NO_HIGHER_BARS,
-            settings: { periodBars: 20, deviations: 2 },
-        });
+            sessions: {},
+            settings: bollingerSettings,
+        }));
 
         const recoloured = recolourPlan(plan, 'cyan');
 

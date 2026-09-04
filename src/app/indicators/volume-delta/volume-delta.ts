@@ -1,11 +1,11 @@
 import {
-    type DrawPlan,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
+    type PlanDraft,
     type PlotScale,
 } from '../../../shared/core/draw-plan.ts';
-import { collectInstants, createBlankValues } from '../shared/series-math.ts';
+import { collectInstants, createBlankValues } from '../../../shared/core/series-math.ts';
 
 /**
  * What the aggressors did in each bar, as one figure.
@@ -22,8 +22,8 @@ import { collectInstants, createBlankValues } from '../shared/series-math.ts';
  * reading, so the difference is what is drawn.
  */
 export class VolumeDelta implements Indicator {
-    readonly id = 'delta';
-    readonly labelKey = 'indicator.delta';
+    readonly label = 'indicator.delta';
+    readonly about = 'indicator.delta.help';
     // Symmetric so a bar bought and a bar sold of the same size are the same
     // height. Scaled to their own extents, an aggressive session would draw its
     // buying and its selling alike and the imbalance would be invisible.
@@ -34,21 +34,12 @@ export class VolumeDelta implements Indicator {
     readonly parameters: readonly IndicatorParameter[] = [];
 
     /**
-     * Bars needed before the window for the first drawn value to be true.
-     *
-     * @returns None: each bar is answered from itself.
-     */
-    resolveWarmupBars(): number {
-        return 0;
-    }
-
-    /**
      * Takes what was sold off what was bought, bar by bar.
      *
      * @param input - The bars and the parameters.
      * @returns One histogram, growing either side of nought.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const value = createBlankValues(bars.length);
 
@@ -59,13 +50,8 @@ export class VolumeDelta implements Indicator {
         }
 
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: '',
-            scale: this.scale,
-            isSelfColoured: this.isSelfColoured,
             series: [{
-                labelKey: this.labelKey,
+                label: this.label,
                 tone: 'bid',
                 negativeTone: 'ask',
                 shape: 'histogram',
@@ -74,7 +60,6 @@ export class VolumeDelta implements Indicator {
                 value,
             }],
             levels: [{ value: 0, tone: 'muted' }],
-            hasConverged: true,
         };
     }
 }

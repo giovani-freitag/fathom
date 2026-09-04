@@ -1,3 +1,4 @@
+import { PANEL_ADD_CLASSES } from '../control-shell.ts';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { type ReactElement, type ReactNode, useState } from 'react';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
@@ -12,6 +13,8 @@ import { useTranslate } from '../../react/use-appearance.ts';
 
 interface LayerPanelProps {
     readonly controls: IndicatorControls;
+    /** Opens the editor, on a saved reading where one is named. */
+    readonly onEditReading?: ((key?: string) => void) | undefined;
 }
 
 /** What the panel is showing: the list, the catalogue, or one layer's knobs. */
@@ -32,7 +35,7 @@ type PanelView = { readonly kind: 'list' } | { readonly kind: 'add' } | {
  * panel over rather than opening a second thing on top of it, because it
  * answers the same question the panel was already about.
  */
-export function LayerPanel({ controls }: LayerPanelProps): ReactElement {
+export function LayerPanel({ controls, onEditReading }: LayerPanelProps): ReactElement {
     const translate = useTranslate();
     const [view, setView] = useState<PanelView>({ kind: 'list' });
     const showList = (): void => { setView({ kind: 'list' }); };
@@ -48,6 +51,7 @@ export function LayerPanel({ controls }: LayerPanelProps): ReactElement {
                     }}
                     isFull={controls.isFull}
                     addedCounts={controls.addedCounts}
+                    {...onEditReading === undefined ? {} : { onEdit: onEditReading }}
                 />
             </PanelStep>
         );
@@ -65,6 +69,7 @@ export function LayerPanel({ controls }: LayerPanelProps): ReactElement {
         <div className="flex w-72 flex-col gap-2">
             <LayerList
                 controls={controls}
+                {...onEditReading === undefined ? {} : { onEditReading }}
                 onOpenSettings={(instanceId) => { setView({ kind: 'tune', instanceId }); }}
             />
 
@@ -72,7 +77,7 @@ export function LayerPanel({ controls }: LayerPanelProps): ReactElement {
                 type="button"
                 disabled={controls.isFull}
                 onClick={() => { setView({ kind: 'add' }); }}
-                className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-hairline px-3 py-2 text-xs font-semibold text-ink-400 transition-colors hover:border-hairline-bright hover:text-ink-100 disabled:opacity-40"
+                className={PANEL_ADD_CLASSES}
             >
                 <Plus className="size-4" />
                 {translate('indicators.add')}
@@ -141,7 +146,7 @@ export function LayerKnobs({ controls, instanceId, action }: LayerKnobsProps): R
         <div className="flex w-72 flex-col gap-3">
             <div className="flex min-h-6 items-center justify-between gap-2">
                 <span className="text-xs font-semibold text-ink-100">
-                    {translateLabel(translate, layer.labelKey)}
+                    {translateLabel(translate, layer.label)}
                 </span>
                 {action}
             </div>

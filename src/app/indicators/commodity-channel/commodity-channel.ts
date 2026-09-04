@@ -1,19 +1,20 @@
 import {
-    type DrawPlan,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
     type IndicatorSettings,
     type NumericParameter,
+    type PlanDraft,
     type PlotScale,
     readSetting,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
 import {
     type BarSegment,
     collectInstants,
     createBlankValues,
     findContinuousSegments,
-} from '../shared/series-math.ts';
+} from '../../../shared/core/series-math.ts';
 import type { PriceBar } from '../../../shared/core/price-bar.ts';
 
 const PERIOD_BARS: NumericParameter = {
@@ -46,8 +47,8 @@ const STRETCHED = 100;
  * would.
  */
 export class CommodityChannel implements Indicator {
-    readonly id = 'cci';
-    readonly labelKey = 'indicator.cci';
+    readonly label = 'indicator.cci';
+    readonly about = 'indicator.cci.help';
     readonly scale: PlotScale = { kind: 'symmetric' };
     readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS];
 
@@ -57,8 +58,8 @@ export class CommodityChannel implements Indicator {
      * @param settings - The reader's parameter values.
      * @returns The window it averages over.
      */
-    resolveWarmupBars(settings: IndicatorSettings): number {
-        return readSetting(settings, PERIOD_BARS);
+    resolveSources(settings: IndicatorSettings): SourceRequest {
+        return { warmupBars: readSetting(settings, PERIOD_BARS) };
     }
 
     /**
@@ -67,7 +68,7 @@ export class CommodityChannel implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns One line, with the two conventional thresholds marked.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const periodBars = readSetting(input.settings, PERIOD_BARS);
         const value = createBlankValues(bars.length);
@@ -77,12 +78,8 @@ export class CommodityChannel implements Indicator {
         }
 
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: String(periodBars),
-            scale: this.scale,
             series: [{
-                labelKey: this.labelKey,
+                label: this.label,
                 tone: 'violet',
                 shape: 'line',
                 atMs: collectInstants(bars),
@@ -93,7 +90,6 @@ export class CommodityChannel implements Indicator {
                 { value: 0, tone: 'muted', isDashed: true },
                 { value: -STRETCHED, tone: 'muted', isDashed: true },
             ],
-            hasConverged: input.warmupBarCount >= this.resolveWarmupBars(input.settings),
         };
     }
 }

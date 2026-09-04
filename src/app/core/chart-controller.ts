@@ -1,5 +1,8 @@
+import { UNSAVED_ADDON_ID } from '../addons/addon-registry.ts';
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
-import type { DrawPlan } from '../../shared/core/draw-plan.ts';
+import type { DrawPlan, Indicator } from '../../shared/core/draw-plan.ts';
+import { refusalFor } from './budget-refusal.ts';
+import type { LayerFailure } from './budget-refusal.ts';
 import type { LiveMessage } from '../../shared/core/live-message.ts';
 import type { TranslationKey } from '../i18n/dictionaries/en.ts';
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
@@ -35,13 +38,14 @@ import {
 import { describeBand, type LoadedWindow, type WindowLoadRequest, type WindowSource, WindowLoader } from './window-loader.ts';
 import {
     findIndicator,
-    resolveRequiredHigherBars,
+    resolveRequiredSessions,
     resolveRequiredWarmupBars,
 } from '../indicators/indicator-catalogue.ts';
 import { type BarIntervalMs, TARGET_BAR_COUNT } from './bar-interval.ts';
 import { type LayerSettings, resolveFieldSettings } from '../indicators/field-layers.ts';
 import { type AddedIndicator, resolveBandKey } from '../../shared/core/indicator-selection.ts';
-import { isPlanWithinBudget, recolourPlan } from '../../shared/core/draw-plan.ts';
+import { completePlan, isPlanWithinBudget, recolourPlan } from '../../shared/core/draw-plan.ts';
+import { collectSessions } from '../../shared/core/settled-sessions.ts';
 
 /** How often the instrument listing and its coverage are re-read. */
 /** Bars of clear space kept after the newest one. */
@@ -100,6 +104,13 @@ export interface ChartState {
     readonly addedIndicators: readonly AddedIndicator[];
     /** What the indicators produced for the window on screen. */
     readonly plans: readonly DrawPlan[];
+    /**
+     * Why a reading drew nothing, by the copy it belongs to.
+     *
+     * Only ever the message the engine gave, never a sentence: a reader's own
+     * script throws in their own words, and whoever shows this frames it.
+     */
+    readonly layerFailures: Readonly<Record<string, LayerFailure>>;
     /**
      * The added layer whose settings are open, or null while none are.
      *
@@ -443,37 +454,9 @@ export class ChartController {
      * indicator to a worker costs more in copying the bars across than the
      * arithmetic it was meant to move off the thread.
      */
-    private computePlans(state: ChartState): readonly DrawPlan[] {
-        const plans: DrawPlan[] = [];
-        for (const entry of state.addedIndicators) {
-            const indicator = findIndicator(entry.indicatorId);
-            // A hidden indicator produces nothing, so it takes no band and costs
-            // no arithmetic. What it keeps is how it was tuned.
-            if (indicator === null || entry.isHidden === true) {
-                continue;
-            }
-            const plan = indicator.compute({
-                bars: state.dataset.bars,
-                warmupBarCount: state.dataset.bars.warmupBarsReturned,
-                higher: state.dataset.higher,
-                settings: entry.settings,
-            });
-            // Rejected whole rather than clipped. A plan over budget is a bug in
-            // whoever produced it, and drawing part of one shows the reader a
-            // claim its author never made.
-            if (isPlanWithinBudget(plan)) {
-                plans.push({
-                    ...recolourPlan(plan, entry.tone),
-                    instanceId: entry.instanceId,
-                    bandKey: resolveBandKey(entry),
-                    tuning: describeTuning(entry),
-                });
-            }
-        }
-
-        return plans;
+    private computePlans(state: ChartState): Pick<ChartState, 'plans' | 'layerFailures'> {
+        return computePlanSet(state);
     }
-
 
     /**
      * Revises the set of indicators on the chart.
@@ -494,7 +477,7 @@ export class ChartController {
             // The cuts decide what the depth map is built from, so moving one is
             // a reason to rebuild it rather than only to repaint.
             const recutState = hasMovedACut(state, next) ? { ...next, dataset: recut(next) } : next;
-            return { ...recutState, plans: this.computePlans(recutState) };
+            return { ...recutState, ...this.computePlans(recutState) };
         });
         this.persistPreferences();
 
@@ -547,7 +530,7 @@ export class ChartController {
             frameIntervalMs: instrument?.frameIntervalMs ?? state.dataset.sampleIntervalMs,
             priceGroupSize: resolveTradePriceGroupSize(state.viewport, state.dataset.priceBucketSize),
             warmupBars: resolveRequiredWarmupBars(state.addedIndicators),
-            higherBars: resolveRequiredHigherBars(state.addedIndicators),
+            sessions: resolveRequiredSessions(state.addedIndicators),
             barIntervalMs: state.barIntervalMs,
             sources: resolveWindowSources(state),
             // Held back until the axis has been framed on the book: before
@@ -611,7 +594,7 @@ export class ChartController {
                 dataset,
                 viewport: this.framePriceRange(current.viewport, dataset),
             };
-            return { ...next, plans: this.computePlans(next) };
+            return { ...next, ...this.computePlans(next) };
         });
 
         if (wasFramingPrice && !this.needsPriceFraming) {
@@ -684,7 +667,7 @@ export class ChartController {
                 return state;
             }
             const next = { ...state, dataset, viewport: this.advanceViewport(state, dataset) };
-            return { ...next, plans: this.computePlans(next) };
+            return { ...next, ...this.computePlans(next) };
         });
     }
 
@@ -788,7 +771,13 @@ export class ChartController {
         this.config.preferences.write({
             instrumentSymbol: state.instrumentSymbol ?? 'BTCUSDT',
             visibleSpanMs: state.viewport.toMs - state.viewport.fromMs,
-            addedIndicators: state.addedIndicators,
+            // The preview a reader is typing is not a layer they chose. Written
+            // out, closing the tab with the editor open left a selection naming
+            // a reading that never existed, and nothing on the next chart could
+            // say what it had been.
+            addedIndicators: state.addedIndicators.filter(
+                (entry) => entry.indicatorId !== UNSAVED_ADDON_ID,
+            ),
             barIntervalMs: state.barIntervalMs,
         });
     }
@@ -890,6 +879,7 @@ function buildInitialState(preferences: ViewerPreferences): ChartState {
         ...resolveFieldSettings(preferences.addedIndicators),
         addedIndicators: preferences.addedIndicators,
         plans: [],
+        layerFailures: {},
         pickedInstanceId: null,
     };
 }
@@ -922,4 +912,105 @@ function recut(state: ChartState): ChartDataset {
         saturationPercentile: state.depthSaturationPercentile,
         viewport: state.viewport,
     });
+}
+
+/**
+ * Runs every reading on the chart over the window on screen.
+ *
+ * Exported so a harness runs the same arithmetic the chart does: held in two
+ * places, the drawn plans and the asserted ones drift apart without either
+ * being wrong on its own.
+ *
+ * @param state - The chart as it stands.
+ * @returns What was drawn, and why anything was not.
+ */
+export function computePlanSet(state: ChartState): Pick<ChartState, 'plans' | 'layerFailures'> {
+    const plans: DrawPlan[] = [];
+    const layerFailures: Record<string, LayerFailure> = {};
+    for (const entry of state.addedIndicators) {
+        const indicator = findIndicator(entry.indicatorId);
+        // A hidden indicator produces nothing, so it takes no band and costs no
+        // arithmetic. What it keeps is how it was tuned.
+        if (indicator === null || entry.isHidden === true) {
+            continue;
+        }
+        const outcome = runOne(state, entry, indicator);
+        if (typeof outcome === 'string' || (outcome !== null && 'key' in outcome)) {
+            layerFailures[entry.instanceId] = outcome;
+            continue;
+        }
+        if (outcome !== null) {
+            plans.push(outcome);
+        }
+    }
+
+    return { plans, layerFailures };
+}
+
+/**
+ * Runs one reading, and lets it fail without taking the chart with it.
+ *
+ * Caught because a reader's own script runs through here: a reading that throws
+ * is one drawing gone, and the alternative is a blank chart with every other
+ * layer on it lost to somebody else's arithmetic.
+ *
+ * @param state - The chart as it stands.
+ * @param entry - The copy being drawn.
+ * @param indicator - What draws it.
+ * @returns The plan, null where it produced none, or why it threw.
+ */
+function runOne(
+    state: ChartState,
+    entry: AddedIndicator,
+    indicator: Indicator,
+): DrawPlan | LayerFailure | null {
+    const warmupBarCount = state.dataset.bars.warmupBarsReturned;
+    try {
+        const draft = indicator.compute({
+            bars: state.dataset.bars,
+            settings: entry.settings,
+            sessions: collectSessions(
+                state.dataset.bars.bars,
+                state.dataset.higher,
+                indicator.resolveSources?.(entry.settings).sessions,
+            ),
+        });
+        // Rejected whole rather than clipped. A plan over budget is a bug in
+        // whoever produced it, and drawing part of one shows the reader a claim
+        // its author never made.
+        //
+        // Said rather than dropped: a reading a reader wrote is told it is
+        // being drawn by the panel that compiled it, and a rejection nobody
+        // reports leaves them looking at a chart with nothing on it and no
+        // reason anywhere.
+        if (!isPlanWithinBudget(draft)) {
+            return refusalFor(draft);
+        }
+        const plan = completePlan(
+            { indicatorId: entry.indicatorId, indicator, settings: entry.settings, warmupBarCount },
+            draft,
+        );
+
+        return {
+            ...recolourPlan(plan, entry.tone),
+            instanceId: entry.instanceId,
+            bandKey: resolveBandKey(entry),
+            tuning: describeTuning(entry),
+        };
+    } catch (error) {
+        return describeThrown(error);
+    }
+}
+
+/**
+ * What a reading threw, as the engine put it.
+ *
+ * Not framed in a sentence: whoever shows this to a reader has a dictionary,
+ * and this file does not.
+ *
+ * @param error - Whatever came out of it.
+ * @returns The message, or the thrown value as text.
+ */
+function describeThrown(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
 }

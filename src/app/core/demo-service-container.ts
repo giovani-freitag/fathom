@@ -11,6 +11,7 @@ import { BrowserRecordingControl } from '../../database/browser/browser-recordin
 import { DEMO_CATALOGUE } from '../../workers/browser/demo-collector-configuration.ts';
 import { IndexedDbLiquidityArchive } from '../../database/browser/indexed-db-liquidity-archive.ts';
 import { IndexedDbService } from '../../database/browser/indexed-db-service.ts';
+import { AddonLibraryService } from '../services/addon-library/addon-library-service.ts';
 import { PreferencesService } from '../services/preferences-service.ts';
 import { WorkerLiveFeedService } from '../services/worker-live-feed-service.ts';
 import type { ServiceContainer } from './service-container.ts';
@@ -41,6 +42,13 @@ export interface DemoServiceContainer extends ServiceContainer {
  * @param config - The browser's storage and where collector events go.
  * @returns Every service the tree needs, plus the collector's handle.
  */
+/** What a container with nowhere to keep things writes into. */
+const NO_STORAGE = {
+    getItem: (): string | null => null,
+    setItem: (): void => undefined,
+    removeItem: (): void => undefined,
+};
+
 export function createDemoServiceContainer(
     config: DemoServiceContainerConfig,
 ): DemoServiceContainer {
@@ -50,6 +58,10 @@ export function createDemoServiceContainer(
     const preferences = new PreferencesService({
         storage: config.storage,
         openingSpanMs: DEMO_VISIBLE_SPAN_MS,
+    });
+    const addons = new AddonLibraryService({
+        storage: config.storage ?? NO_STORAGE,
+        now: () => Date.now(),
     });
 
     // The tail runs inside the collector, so the page asks it to follow a
@@ -99,6 +111,7 @@ export function createDemoServiceContainer(
             newId: () => crypto.randomUUID(),
         }),
         appearance: new AppearanceController({ preferences, host: config.appearanceHost }),
+        addons,
     };
 }
 

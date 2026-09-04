@@ -45,7 +45,6 @@ be running before you need the data.
 - 📊 **Depth ladder** — resting size and traded volume per price, beside the chart
 - 🎚️ **Two-cut colour map** — mute the background churn so real walls stand alone
 - 🔭 **Bands that hold up zoomed out** — over days, prices fold into rows you can still follow
-- 🕳️ **Honest gaps** — stretches that were not recorded are drawn as holes, never smoothed
 - ✏️ **Mark it up** — levels, trend lines, zones and retracements, pinned to time and price rather than pixels
 - 📏 **Measure a move** — drag a stretch and read it in money and in percent
 - 🎯 **Press what you mean** — a mark or a plotted line opens its own settings where you pressed it
@@ -179,5 +178,7 @@ they fold needs afterwards.
 - [Architecture](docs/architecture.md) — the two registrations, and how a frame reaches the screen
 - [Data model](docs/data-model.md) — schema, grids, and what each column means
 - [Operations](docs/operations.md) — running it as a service, reading its log, disk, sharing it
+- [The guide](https://giovani-freitag.github.io/fathom/guide/) — writing a reading, the API reference, the architecture and every decision, as a site
+- [fathom-example-addons](https://github.com/giovani-freitag/fathom-example-addons) — worked examples, checked against this surface on every push
 - [Decisions](docs/adr/) — why the design is what it is, with the measurements behind it
 - [Demo](demo/) — the browser-only build, published to GitHub Pages on every release

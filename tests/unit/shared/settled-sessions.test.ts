@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { holdLastClosed } from '../../../../../src/app/indicators/shared/higher-timeframe.ts';
-import type { PriceBar } from '../../../../../src/shared/core/price-bar.ts';
-import { buildBar, buildRun } from '../../../../mocks/price-bars.ts';
+import { holdLastClosed } from '../../../src/shared/core/settled-sessions.ts';
+import type { PriceBar } from '../../../src/shared/core/price-bar.ts';
+import { buildBar, buildRun } from '../../mocks/price-bars.ts';
 
 const DAY_MS = 86_400_000;
 

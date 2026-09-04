@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
+import { completePlan} from '../../../../src/shared/core/draw-plan.ts';
 import { BAR_INTERVAL_MS, buildBar, buildRun, buildWindow } from '../../../mocks/price-bars.ts';
 import { SUPERTREND } from '../../../../src/app/indicators/supertrend/supertrend.ts';
 import type { PriceBar } from '../../../../src/shared/core/price-bar.ts';
@@ -7,7 +7,10 @@ import type { PriceBar } from '../../../../src/shared/core/price-bar.ts';
 const SETTINGS = { periodBars: 5, multiplier: 3 };
 
 function computeOver(bars: readonly PriceBar[], settings = SETTINGS) {
-    return SUPERTREND.compute({ bars: buildWindow(bars), warmupBarCount: 60, higher: NO_HIGHER_BARS, settings });
+    return completePlan(
+        { indicatorId: 'supertrend', indicator: SUPERTREND, settings, warmupBarCount: 60 },
+        SUPERTREND.compute({ bars: buildWindow(bars), sessions: {}, settings }),
+    );
 }
 
 /** The last value of a series that is not blank. */
@@ -113,12 +116,14 @@ describe('Supertrend', () => {
     });
 
     it('says it has not converged on a window shorter than its smoothing', () => {
-        const plan = SUPERTREND.compute({
-            bars: buildWindow([buildBar(0, 100)]),
-            warmupBarCount: 1,
-            higher: NO_HIGHER_BARS,
-            settings: SETTINGS,
-        });
+        const plan = completePlan(
+            { indicatorId: 'supertrend', indicator: SUPERTREND, settings: SETTINGS, warmupBarCount: 1 },
+            SUPERTREND.compute({
+                bars: buildWindow([buildBar(0, 100)]),
+                sessions: {},
+                settings: SETTINGS,
+            }),
+        );
 
         expect(plan.hasConverged).toBe(false);
     });

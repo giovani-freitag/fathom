@@ -87,7 +87,7 @@ export function DrawingProperties({ controls }: DrawingPropertiesProps): ReactEl
                     onChange={(event) => {
                         controls.restyleSelected({ label: event.target.value });
                     }}
-                    className={`${CONTROL_INPUT_CLASSES} px-2 text-xs placeholder:text-ink-600`}
+                    className={`${CONTROL_INPUT_CLASSES} px-2 text-xs placeholder:text-ink-500`}
                 />
             </Field>
 

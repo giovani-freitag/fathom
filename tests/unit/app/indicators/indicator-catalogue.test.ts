@@ -4,10 +4,11 @@ import {
     findChartLayer,
     INDICATOR_CATALOGUE,
     readLayerDefaults,
-    resolveRequiredHigherBars,
+    resolveRequiredSessions,
 } from '../../../../src/app/indicators/indicator-catalogue.ts';
 import { resolveFieldSettings } from '../../../../src/app/indicators/field-layers.ts';
-import { isPlanWithinBudget, NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
+import { isPlanWithinBudget } from '../../../../src/shared/core/draw-plan.ts';
+import { collectSessions } from '../../../../src/shared/core/settled-sessions.ts';
 import type { Indicator } from '../../../../src/shared/core/draw-plan.ts';
 import { BAR_INTERVAL_MS, buildRun, buildWindow } from '../../../mocks/price-bars.ts';
 
@@ -15,11 +16,15 @@ import { BAR_INTERVAL_MS, buildRun, buildWindow } from '../../../mocks/price-bar
 const RUN_LENGTH = 200;
 
 function computeOver(indicator: Indicator, bars: ReturnType<typeof buildRun>) {
+    const settings = readLayerDefaults(indicator);
+    const window = buildWindow(bars);
+
+    // Declared but never supplied, which is what a chart on an instrument the
+    // venue publishes no daily candle for hands over.
     return indicator.compute({
-        bars: buildWindow(bars),
-        warmupBarCount: 0,
-        higher: NO_HIGHER_BARS,
-        settings: readLayerDefaults(indicator),
+        bars: window,
+        settings,
+        sessions: collectSessions(window.bars, new Map(), indicator.resolveSources?.(settings).sessions),
     });
 }
 
@@ -29,7 +34,7 @@ function wander(index: number): number {
 }
 
 describe('every shipped indicator', () => {
-    it.each(INDICATOR_CATALOGUE.map((indicator) => [indicator.id, indicator] as const))(
+    it.each(INDICATOR_CATALOGUE.map((entry) => [entry.id, entry.layer] as const))(
         '%s draws a plan the host will accept',
         (_id, indicator) => {
             const bars = buildRun(RUN_LENGTH, wander);
@@ -41,7 +46,7 @@ describe('every shipped indicator', () => {
         },
     );
 
-    it.each(INDICATOR_CATALOGUE.map((indicator) => [indicator.id, indicator] as const))(
+    it.each(INDICATOR_CATALOGUE.map((entry) => [entry.id, entry.layer] as const))(
         '%s reads nothing across a hole in the recording',
         (_id, indicator) => {
             // The strongest statement of the rule: what is drawn after a gap must
@@ -60,8 +65,8 @@ describe('every shipped indicator', () => {
 
     it.each(
         INDICATOR_CATALOGUE
-            .filter((indicator) => indicator.scale.kind === 'fixed')
-            .map((indicator) => [indicator.id, indicator] as const),
+            .filter((entry) => entry.layer.scale?.kind === 'fixed')
+            .map((entry) => [entry.id, entry.layer] as const),
     )('%s stays inside the bounds it declared', (_id, indicator) => {
         const scale = indicator.scale as { low: number; high: number };
 
@@ -72,7 +77,7 @@ describe('every shipped indicator', () => {
         expect(Math.max(...values)).toBeLessThanOrEqual(scale.high);
     });
 
-    it.each(INDICATOR_CATALOGUE.map((indicator) => [indicator.id, indicator] as const))(
+    it.each(INDICATOR_CATALOGUE.map((entry) => [entry.id, entry.layer] as const))(
         '%s clamps a setting from outside its declared range',
         (_id, indicator) => {
             // Settings survive in storage past the control that produced them, so
@@ -81,11 +86,11 @@ describe('every shipped indicator', () => {
                 indicator.parameters.map((parameter) => [parameter.name, -1_000]),
             );
 
+            const window = buildWindow(buildRun(RUN_LENGTH, wander));
             const plan = indicator.compute({
-                bars: buildWindow(buildRun(RUN_LENGTH, wander)),
-                warmupBarCount: 0,
-                higher: NO_HIGHER_BARS,
+                bars: window,
                 settings: wild,
+                sessions: collectSessions(window.bars, new Map(), indicator.resolveSources?.(wild).sessions),
             });
 
             const values = plan.series.flatMap((series) => [...series.value]);
@@ -102,7 +107,7 @@ describe('every shipped indicator', () => {
     it('plots against the same instants the bars closed at', () => {
         const bars = buildRun(20, wander);
 
-        const plan = computeOver(INDICATOR_CATALOGUE[0]!, bars);
+        const plan = computeOver(INDICATOR_CATALOGUE[0]!.layer, bars);
 
         expect(plan.series[0]?.atMs[0]).toBe(bars[0]!.openedAtMs + BAR_INTERVAL_MS);
     });
@@ -112,15 +117,15 @@ describe('what a reader can put on the chart', () => {
     it('offers the host layers beside the indicators, in one list', () => {
         // Choosing what to look at is one decision. The two halves differ in how
         // they are drawn, which is the host's problem rather than the reader's.
-        const offered = CHART_LAYERS.map((layer) => layer.id);
+        const offered = CHART_LAYERS.map((entry) => entry.id);
 
         expect(offered.slice(0, 2)).toEqual(['depth', 'candles']);
         expect(offered).toContain('rsi');
     });
 
     it('finds either half under the id a stored selection names', () => {
-        expect(findChartLayer('depth')?.id).toBe('depth');
-        expect(findChartLayer('rsi')?.id).toBe('rsi');
+        expect(findChartLayer('depth')?.label).toBe('layer.depth');
+        expect(findChartLayer('rsi')?.label).toBe('indicator.rsi');
         expect(findChartLayer('nothing-like-that')).toBeNull();
     });
 
@@ -181,10 +186,10 @@ describe('what a reader can put on the chart', () => {
     it('leaves how much traded off the book, since a bar carries its own', () => {
         // Volume is drawn from the bars the candles are drawn from, so it is an
         // indicator of its own and survives a chart with no book on it.
-        const book = CHART_LAYERS.find((layer) => layer.id === 'depth');
+        const book = CHART_LAYERS.find((entry) => entry.id === 'depth')?.layer;
 
         expect(book?.parameters.map((parameter) => parameter.name)).not.toContain('showVolume');
-        expect(INDICATOR_CATALOGUE.map((indicator) => indicator.id)).toContain('volume');
+        expect(INDICATOR_CATALOGUE.map((entry) => entry.id)).toContain('volume');
     });
 
     it('draws none of them once the book itself is not drawn', () => {
@@ -229,20 +234,20 @@ describe('the coarser rungs a chart between them reads', () => {
     }
 
     it('asks for nothing when nothing on the chart reads another rung', () => {
-        expect(resolveRequiredHigherBars([addCopy('rsi'), addCopy('cvd')])).toEqual([]);
+        expect(resolveRequiredSessions([addCopy('rsi'), addCopy('cvd')])).toEqual([]);
     });
 
     it('asks once for a rung two copies both read', () => {
         // Two sets of pivots anchored to the same session is one fetch. Asked
         // for per copy, adding a second would cost a round trip to draw bars
         // the first one already has.
-        const wanted = resolveRequiredHigherBars([addCopy('pivots'), addCopy('pivots')]);
+        const wanted = resolveRequiredSessions([addCopy('pivots'), addCopy('pivots')]);
 
         expect(wanted.map((one) => one.intervalMs)).toEqual([86_400_000]);
     });
 
     it('keeps two rungs apart when copies disagree about the session', () => {
-        const wanted = resolveRequiredHigherBars([
+        const wanted = resolveRequiredSessions([
             addCopy('pivots'),
             addCopy('pivots', { pivotPeriod: 'weekly' }),
         ]);
@@ -253,12 +258,12 @@ describe('the coarser rungs a chart between them reads', () => {
     it('carries how far back a rung has to reach, not only which rung', () => {
         // A rung fetched over the drawn window alone opens with nothing settled
         // behind it, and the reading is blank down the whole left edge.
-        const wanted = resolveRequiredHigherBars([addCopy('pivots')]);
+        const wanted = resolveRequiredSessions([addCopy('pivots')]);
 
-        expect(wanted).toEqual([{ intervalMs: 86_400_000, warmupBars: 2 }]);
+        expect(wanted).toEqual([{ intervalMs: 86_400_000, reachingBack: 2 }]);
     });
 
     it('ignores a stored selection naming an indicator this build dropped', () => {
-        expect(resolveRequiredHigherBars([addCopy('nothing-like-that')])).toEqual([]);
+        expect(resolveRequiredSessions([addCopy('nothing-like-that')])).toEqual([]);
     });
 });

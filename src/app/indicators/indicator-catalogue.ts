@@ -1,11 +1,14 @@
 import type {
     FieldLayer,
-    HigherBarRequest,
+    SessionRequest,
     Indicator,
     IndicatorSettings,
     PlotTone,
+    Registered,
 } from '../../shared/core/draw-plan.ts';
+import { resolveWarmupBars } from '../../shared/core/draw-plan.ts';
 import { type AddedIndicator, chooseInstanceTone } from '../../shared/core/indicator-selection.ts';
+import { findAddon, listAddons } from '../addons/addon-registry.ts';
 import { AVERAGE_CONVERGENCE } from './average-convergence/average-convergence.ts';
 import { FIELD_LAYERS, findFieldLayer } from './field-layers.ts';
 import { AVERAGE_TRUE_RANGE } from './average-true-range/average-true-range.ts';
@@ -24,7 +27,7 @@ import { EXPONENTIAL_AVERAGE } from './exponential-average/exponential-average.t
 import { RELATIVE_STRENGTH } from './relative-strength/relative-strength.ts';
 import { SIMPLE_AVERAGE } from './simple-average/simple-average.ts';
 import { STOCHASTIC_OSCILLATOR } from './stochastic-oscillator/stochastic-oscillator.ts';
-import { VOLUME } from './volume/volume.ts';
+import { VOLUME, VOLUME_ID } from './volume/volume.ts';
 import { VOLUME_WEIGHTED_AVERAGE } from './volume-weighted-average/volume-weighted-average.ts';
 
 /**
@@ -34,28 +37,27 @@ import { VOLUME_WEIGHTED_AVERAGE } from './volume-weighted-average/volume-weight
  * reader makes when choosing, and it is the one that decides whether adding it
  * changes the shape of the screen.
  */
-export const INDICATOR_CATALOGUE: readonly Indicator[] = [
-    VOLUME,
-    SIMPLE_AVERAGE,
-    VOLUME_WEIGHTED_AVERAGE,
-    PIVOT_POINTS,
-    EXPONENTIAL_AVERAGE,
-    BOLLINGER_BANDS,
-    DONCHIAN_CHANNELS,
-    KELTNER_CHANNELS,
-    SUPERTREND,
-    PARABOLIC_STOP,
-    RELATIVE_STRENGTH,
-    STOCHASTIC_OSCILLATOR,
-    AVERAGE_CONVERGENCE,
-    AVERAGE_TRUE_RANGE,
-    DIRECTIONAL_MOVEMENT,
-    MONEY_FLOW,
-    COMMODITY_CHANNEL,
-    VOLUME_DELTA,
-    CUMULATIVE_DELTA,
+export const INDICATOR_CATALOGUE: readonly Registered<Indicator>[] = [
+    { id: VOLUME_ID, layer: VOLUME },
+    { id: 'sma', layer: SIMPLE_AVERAGE },
+    { id: 'vwap', layer: VOLUME_WEIGHTED_AVERAGE },
+    { id: 'pivots', layer: PIVOT_POINTS },
+    { id: 'ema', layer: EXPONENTIAL_AVERAGE },
+    { id: 'bollinger', layer: BOLLINGER_BANDS },
+    { id: 'donchian', layer: DONCHIAN_CHANNELS },
+    { id: 'keltner', layer: KELTNER_CHANNELS },
+    { id: 'supertrend', layer: SUPERTREND },
+    { id: 'psar', layer: PARABOLIC_STOP },
+    { id: 'rsi', layer: RELATIVE_STRENGTH },
+    { id: 'stochastic', layer: STOCHASTIC_OSCILLATOR },
+    { id: 'macd', layer: AVERAGE_CONVERGENCE },
+    { id: 'atr', layer: AVERAGE_TRUE_RANGE },
+    { id: 'adx', layer: DIRECTIONAL_MOVEMENT },
+    { id: 'mfi', layer: MONEY_FLOW },
+    { id: 'cci', layer: COMMODITY_CHANNEL },
+    { id: 'delta', layer: VOLUME_DELTA },
+    { id: 'cvd', layer: CUMULATIVE_DELTA },
 ];
-
 /**
  * Everything a reader can put on the chart, indicators and host layers alike.
  *
@@ -63,10 +65,22 @@ export const INDICATOR_CATALOGUE: readonly Indicator[] = [
  * differ in how they are drawn, which is the host's problem rather than the
  * reader's.
  */
-export const CHART_LAYERS: readonly (Indicator | FieldLayer)[] = [
+export const CHART_LAYERS: readonly Registered<Indicator | FieldLayer>[] = [
     ...FIELD_LAYERS,
     ...INDICATOR_CATALOGUE,
 ];
+
+/**
+ * Everything on offer right now, ours and whatever the reader has loaded.
+ *
+ * A function rather than a list because what a reader has written changes while
+ * the page is open, and the palette has to see it appear.
+ *
+ * @returns The shipped layers, then the reader's own.
+ */
+export function listOfferedLayers(): readonly Registered<Indicator | FieldLayer>[] {
+    return [...CHART_LAYERS, ...listAddons()];
+}
 
 /**
  * Looks up anything the reader may have added, by id.
@@ -75,13 +89,13 @@ export const CHART_LAYERS: readonly (Indicator | FieldLayer)[] = [
  * @returns The indicator or layer, or null when the build no longer ships it.
  */
 export function findChartLayer(layerId: string): Indicator | FieldLayer | null {
-    return CHART_LAYERS.find((layer) => layer.id === layerId) ?? null;
+    return CHART_LAYERS.find((entry) => entry.id === layerId)?.layer ?? findAddon(layerId);
 }
 
 /**
  * The starting parameters for anything newly added.
  *
- * @param layer - What is being added.
+ * @param layerId - The id being added.
  * @returns Its declared defaults, by parameter name.
  */
 export function readLayerDefaults(layer: Indicator | FieldLayer): IndicatorSettings {
@@ -96,10 +110,11 @@ export function readLayerDefaults(layer: Indicator | FieldLayer): IndicatorSetti
  * Looks an indicator up by the id a stored selection refers to.
  *
  * @param indicatorId - The id to find.
- * @returns The indicator, or null when the build no longer ships it.
+ * @returns The reading, ours or the reader's own, or null where neither has it.
  */
 export function findIndicator(indicatorId: string): Indicator | null {
-    return INDICATOR_CATALOGUE.find((indicator) => indicator.id === indicatorId) ?? null;
+    return INDICATOR_CATALOGUE.find((entry) => entry.id === indicatorId)?.layer
+        ?? findAddon(indicatorId);
 }
 
 /**
@@ -112,7 +127,7 @@ export function findIndicator(indicatorId: string): Indicator | null {
  * @returns Bars to read before the window, and never fewer than one.
  */
 /**
- * The coarser rungs everything on the chart between them reads.
+ * The coarser sessions everything on the chart between them reads.
  *
  * Merged rather than listed per indicator: two copies of a reading anchored to
  * the same session are one fetch, and the deeper warm-up covers the shallower.
@@ -120,19 +135,19 @@ export function findIndicator(indicatorId: string): Indicator | null {
  * @param added - What the reader has put on the chart.
  * @returns One request per rung, or none where nothing reads another.
  */
-export function resolveRequiredHigherBars(
+export function resolveRequiredSessions(
     added: readonly AddedIndicator[],
-): readonly HigherBarRequest[] {
+): readonly SessionRequest[] {
     const deepest = new Map<number, number>();
     for (const entry of added) {
-        const indicator = findIndicator(entry.indicatorId);
-        for (const request of indicator?.resolveHigherIntervals?.(entry.settings) ?? []) {
+        const sources = findIndicator(entry.indicatorId)?.resolveSources?.(entry.settings);
+        for (const request of Object.values(sources?.sessions ?? {})) {
             const held = deepest.get(request.intervalMs) ?? 0;
-            deepest.set(request.intervalMs, Math.max(held, request.warmupBars));
+            deepest.set(request.intervalMs, Math.max(held, request.reachingBack));
         }
     }
 
-    return [...deepest].map(([intervalMs, warmupBars]) => ({ intervalMs, warmupBars }));
+    return [...deepest].map(([intervalMs, reachingBack]) => ({ intervalMs, reachingBack }));
 }
 
 export function resolveRequiredWarmupBars(added: readonly AddedIndicator[]): number {
@@ -140,7 +155,7 @@ export function resolveRequiredWarmupBars(added: readonly AddedIndicator[]): num
     for (const entry of added) {
         const indicator = findIndicator(entry.indicatorId);
         if (indicator !== null) {
-            deepest = Math.max(deepest, indicator.resolveWarmupBars(entry.settings));
+            deepest = Math.max(deepest, resolveWarmupBars(indicator, entry.settings));
         }
     }
     return deepest;
@@ -154,15 +169,12 @@ export function resolveRequiredWarmupBars(added: readonly AddedIndicator[]): num
  * it reserves nothing. Reserving one would spend an identity colour on a layer
  * that never shows it, and hand the reader's first indicator whatever was left.
  *
- * @param layer - What is being added.
+ * @param layerId - The id being added.
  * @param added - What is already on the chart.
  * @returns The tone to draw it in.
  */
-export function chooseLayerTone(
-    layer: Indicator | FieldLayer,
-    added: readonly AddedIndicator[],
-): PlotTone {
-    return findFieldLayer(layer.id) === null ? chooseInstanceTone(added) : 'muted';
+export function chooseLayerTone(layerId: string, added: readonly AddedIndicator[]): PlotTone {
+    return findFieldLayer(layerId) === null ? chooseInstanceTone(added) : 'muted';
 }
 
 /**
@@ -172,4 +184,7 @@ export function chooseLayerTone(
  * than the price and its volume asks the reader to assemble the ordinary case
  * by hand before they can read anything at all.
  */
-export const OPENING_LAYERS: readonly (Indicator | FieldLayer)[] = [...FIELD_LAYERS, VOLUME];
+export const OPENING_LAYERS: readonly Registered<Indicator | FieldLayer>[] = [
+    ...FIELD_LAYERS,
+    { id: VOLUME_ID, layer: VOLUME },
+];

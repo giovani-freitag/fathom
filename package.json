@@ -29,8 +29,16 @@
     "database:logs": "docker compose logs -f timescaledb",
     "migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
     "build:demo": "vite build --config vite.demo.config.ts",
-    "dev:demo": "vite --config vite.demo.config.ts"
+    "dev:demo": "vite --config vite.demo.config.ts",
+    "build:addon-types": "node scripts/build-addon-types.mjs && node scripts/build-addon-types.mjs --dts packages/types/fathom.d.ts",
+    "build:api": "typedoc",
+    "build:guide": "npm run build:api && vitepress build docs",
+    "dev:guide": "npm run build:api && vitepress dev docs"
   },
+  "types": "packages/types/fathom.d.ts",
+  "files": [
+    "packages/types"
+  ],
   "dependencies": {
     "@fastify/compress": "^9.2.0",
     "@fastify/cookie": "^11.1.2",
@@ -44,6 +52,7 @@
     "@sinclair/typebox": "^0.34.52",
     "fastify": "^5.12.1",
     "lucide-react": "^1.34.0",
+    "monaco-editor": "^0.52.2",
     "pg": "^8.16.3",
     "pino": "^10.3.1",
     "pino-roll": "^4.0.0",
@@ -70,10 +79,15 @@
     "eslint-plugin-react-refresh": "^0.5.4",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^30.0.1",
+    "mermaid": "^11.17.2",
     "tailwindcss": "^4.3.3",
+    "typedoc": "^0.28.20",
+    "typedoc-plugin-markdown": "^4.13.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.68.0",
     "vite": "^8.2.2",
+    "vitepress": "^1.6.4",
+    "vitepress-plugin-mermaid": "^2.0.17",
     "vitest": "^4.1.11"
   }
 }

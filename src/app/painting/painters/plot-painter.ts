@@ -172,7 +172,7 @@ export class PlotPainter {
         // Tuning included, so two copies of one reading in the same band are
         // told apart by what makes them different rather than by their colour.
         const named = band
-            .map((plan) => [translateLabel(paint.translate, plan.labelKey), plan.parameterSummary]
+            .map((plan) => [translateLabel(paint.translate, plan.label), plan.parameterSummary]
                 .filter((part) => part !== '')
                 .join(' '))
             .join(' · ');
@@ -214,7 +214,7 @@ export class PlotPainter {
             }
             context.fillStyle = resolveToneColour(series.tone);
             context.fillText(
-                translateLabel(paint.translate, series.labelKey),
+                translateLabel(paint.translate, series.label),
                 layout.plotWidth - SERIES_NAME_INSET_PX,
                 y,
             );

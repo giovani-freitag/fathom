@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { HigherBars, isPlanWithinBudget } from '../../../../src/shared/core/draw-plan.ts';
+import { isPlanWithinBudget } from '../../../../src/shared/core/draw-plan.ts';
+import { collectSessions } from '../../../../src/shared/core/settled-sessions.ts';
 import { PIVOT_POINTS } from '../../../../src/app/indicators/pivot-points/pivot-points.ts';
 import type { PriceBar, PriceBarWindow } from '../../../../src/shared/core/price-bar.ts';
 import { buildBar, buildRun, buildWindow } from '../../../mocks/price-bars.ts';
@@ -33,11 +34,13 @@ function computeOver(
     settings: Record<string, string> = {},
     barCount = 3,
 ) {
+    const bars = buildWindow(buildRun(barCount, () => 100));
+    const supplied = new Map([[DAY_MS, buildSessions(sessions)]]);
+
     return PIVOT_POINTS.compute({
-        bars: buildWindow(buildRun(barCount, () => 100)),
-        warmupBarCount: 0,
-        higher: new HigherBars([buildSessions(sessions)]),
+        bars,
         settings,
+        sessions: collectSessions(bars.bars, supplied, PIVOT_POINTS.resolveSources(settings).sessions),
     });
 }
 
@@ -94,34 +97,40 @@ describe('PivotPoints', () => {
     });
 
     it('draws nothing when the host could not fetch the rung at all', () => {
+        const bars = buildWindow(buildRun(3, () => 100));
+
         const plan = PIVOT_POINTS.compute({
-            bars: buildWindow(buildRun(3, () => 100)),
-            warmupBarCount: 0,
-            higher: new HigherBars(),
+            bars,
             settings: {},
+            sessions: collectSessions(bars.bars, new Map(), PIVOT_POINTS.resolveSources({}).sessions),
         });
 
         expect(plan.hasConverged).toBe(false);
     });
 
     it('asks for the daily rung, with a session in hand before the window opens', () => {
-        expect(PIVOT_POINTS.resolveHigherIntervals({})).toEqual([
-            { intervalMs: DAY_MS, warmupBars: 2 },
-        ]);
+        expect(PIVOT_POINTS.resolveSources({}).sessions).toEqual({
+            session: { intervalMs: DAY_MS, reachingBack: 2 },
+        });
     });
 
     it('asks for the weekly rung instead when anchored to a week', () => {
-        expect(PIVOT_POINTS.resolveHigherIntervals({ pivotPeriod: 'weekly' })[0]?.intervalMs)
-            .toBe(604_800_000);
+        const declared = PIVOT_POINTS.resolveSources({ pivotPeriod: 'weekly' }).sessions;
+
+        expect(declared?.['session']?.intervalMs).toBe(604_800_000);
     });
 
     it('reads the rung it asked for, not whichever one arrived', () => {
         // Handed a weekly window while set to daily, it has nothing to draw:
         // the levels a week settled on are not the levels a day settled on.
+        const bars = buildWindow(buildRun(3, () => 100));
         const plan = PIVOT_POINTS.compute({
-            bars: buildWindow(buildRun(3, () => 100)),
-            warmupBarCount: 0,
-            higher: new HigherBars([buildSessions([YESTERDAY], 604_800_000)]),
+            bars,
+            sessions: collectSessions(
+                bars.bars,
+                new Map([[604_800_000, buildSessions([YESTERDAY], 604_800_000)]]),
+                PIVOT_POINTS.resolveSources({}).sessions,
+            ),
             settings: {},
         });
 
@@ -144,11 +153,15 @@ describe('PivotPoints', () => {
             closedAtMs: openedAtMs + DAY_MS - 1,
         };
 
+        const bars = buildWindow([buildBar(openedAtMs + DAY_MS, 77_300)]);
         const plan = PIVOT_POINTS.compute({
-            bars: buildWindow([buildBar(openedAtMs + DAY_MS, 77_300)]),
-            warmupBarCount: 0,
-            higher: new HigherBars([buildSessions([session])]),
+            bars,
             settings: {},
+            sessions: collectSessions(
+                bars.bars,
+                new Map([[DAY_MS, buildSessions([session])]]),
+                PIVOT_POINTS.resolveSources({}).sessions,
+            ),
         });
 
         expect(plan.series.map((one) => Number(one.value[0]!.toFixed(2)))).toEqual([
@@ -159,7 +172,7 @@ describe('PivotPoints', () => {
     it('needs nothing before the window, what it reads being on another rung', () => {
         // Warm-up buys bars of the drawn rung, and no number of minutes brings
         // a closed day any closer. The depth this needs is declared on the rung.
-        expect(PIVOT_POINTS.resolveWarmupBars()).toBe(0);
+        expect(PIVOT_POINTS.resolveSources({}).warmupBars).toBeUndefined();
     });
 
     it('keeps support and resistance apart in colour when a copy is tinted', () => {

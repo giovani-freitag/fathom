@@ -1,4 +1,4 @@
-import {
+import { Code2,
     Coins,
     Layers,
     Lock,
@@ -20,6 +20,7 @@ import {
     CONTROL_RESTING_CLASSES,
     CONTROL_BAR_CLASSES,
 } from './control-shell.ts';
+import { ADDON_EDITOR_ID } from './panel-ids.ts';
 import { DockPopover } from './dock-popover.tsx';
 import { DRAWING_KINDS, type DrawingKind } from '../../shared/core/drawing.ts';
 import type { DrawingControls } from '../react/use-drawings.ts';
@@ -61,6 +62,14 @@ export interface ChartDockProps {
     readonly instrumentSymbol: string | null;
     readonly onInstrumentSelect: (instrumentSymbol: string) => void;
     readonly time: TimeControls;
+    /**
+     * Opens the editor, where this build offers one.
+     *
+     * Optional because the dock is also the phone's whole chrome, and a build
+     * that does not carry an editor should not carry a control for it.
+     */
+    readonly onWriteAReading?: ((key?: string) => void) | undefined;
+    readonly isWritingAReading?: boolean | undefined;
 }
 
 /** Everything the two time questions need, asked in one place. */
@@ -137,8 +146,27 @@ export function ChartDock(props: ChartDockProps): ReactElement {
                             label={translate('indicators.onTheChart')}
                             trigger={<Layers size={ICON_SIZE_PX} />}
                         >
-                            <LayerPanel controls={props.indicators} />
+                            <LayerPanel
+                                controls={props.indicators}
+                                {...props.onWriteAReading === undefined
+                                    ? {}
+                                    : { onEditReading: props.onWriteAReading }}
+                            />
                         </DockPopover>
+
+                        {props.onWriteAReading !== undefined && (
+                            <DockButton
+                                label={translate('editor.open')}
+                                isActive={props.isWritingAReading === true}
+                                onPress={() => { props.onWriteAReading?.(); }}
+                                reveals={{
+                                    id: ADDON_EDITOR_ID,
+                                    isOpen: props.isWritingAReading === true,
+                                }}
+                            >
+                                <Code2 size={ICON_SIZE_PX} />
+                            </DockButton>
+                        )}
 
                         <Divider />
                     </>
@@ -269,6 +297,14 @@ export interface DockButtonProps {
     readonly onPress: () => void;
     readonly children: ReactElement;
     readonly isDisabled?: boolean;
+    /**
+     * What it opens, where it opens something.
+     *
+     * A control that shows a panel is a disclosure, and saying so is the only
+     * way a reader who cannot see the colour learns that pressing it did
+     * anything at all.
+     */
+    readonly reveals?: { readonly id: string; readonly isOpen: boolean };
 }
 
 /**
@@ -280,13 +316,16 @@ export function DockButton({
     onPress,
     children,
     isDisabled = false,
+    reveals,
 }: DockButtonProps): ReactElement {
     return (
         <button
             type="button"
             aria-label={label}
             title={label}
-            aria-pressed={isActive}
+            {...reveals === undefined
+                ? { 'aria-pressed': isActive }
+                : { 'aria-expanded': reveals.isOpen, 'aria-controls': reveals.id }}
             disabled={isDisabled}
             onClick={onPress}
             className={`${CONTROL_BUTTON_CLASSES} ${isActive ? CONTROL_ACTIVE_CLASSES : CONTROL_RESTING_CLASSES} disabled:opacity-30`}

@@ -1,14 +1,15 @@
 import {
-    type DrawPlan,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
-    type NumericParameter,
     type IndicatorSettings,
+    type NumericParameter,
+    type PlanDraft,
     type PlotScale,
     readSetting,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
-import { collectInstants, createBlankValues, findContinuousSegments } from '../shared/series-math.ts';
+import { collectInstants, createBlankValues, findContinuousSegments } from '../../../shared/core/series-math.ts';
 
 const PERIOD_BARS: NumericParameter = {
     name: 'periodBars',
@@ -22,8 +23,8 @@ const PERIOD_BARS: NumericParameter = {
  * The highest and lowest the price has been over a fixed number of bars.
  */
 export class DonchianChannels implements Indicator {
-    readonly id = 'donchian';
-    readonly labelKey = 'indicator.donchian';
+    readonly label = 'indicator.donchian';
+    readonly about = 'indicator.donchian.help';
     readonly scale: PlotScale = { kind: 'price' };
     readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS];
 
@@ -31,10 +32,10 @@ export class DonchianChannels implements Indicator {
      * Bars needed before the window for the first channel to span a full period.
      *
      * @param settings - The reader's parameter values.
-     * @returns The bar count.
+     * @returns The bar count, as the only source it declares.
      */
-    resolveWarmupBars(settings: IndicatorSettings): number {
-        return readSetting(settings, PERIOD_BARS);
+    resolveSources(settings: IndicatorSettings): SourceRequest {
+        return { warmupBars: readSetting(settings, PERIOD_BARS) };
     }
 
     /**
@@ -43,7 +44,7 @@ export class DonchianChannels implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns Two edges, a midline, and the region between the edges.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const periodBars = readSetting(input.settings, PERIOD_BARS);
 
@@ -67,17 +68,12 @@ export class DonchianChannels implements Indicator {
 
         const atMs = collectInstants(bars);
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: String(periodBars),
-            scale: this.scale,
             series: [
-                { labelKey: 'indicator.donchian.upper', tone: 'ask', shape: 'line', atMs, value: upper },
-                { labelKey: 'indicator.donchian.lower', tone: 'bid', shape: 'line', atMs, value: lower },
-                { labelKey: 'indicator.donchian.middle', tone: 'muted', shape: 'line', atMs, value: middle, isDashed: true },
+                { label: 'indicator.donchian.upper', tone: 'ask', shape: 'line', atMs, value: upper },
+                { label: 'indicator.donchian.lower', tone: 'bid', shape: 'line', atMs, value: lower },
+                { label: 'indicator.donchian.middle', tone: 'muted', shape: 'line', atMs, value: middle, isDashed: true },
             ],
             bands: [{ tone: 'muted', upperSeriesIndex: 0, lowerSeriesIndex: 1 }],
-            hasConverged: input.warmupBarCount >= periodBars,
         };
     }
 }

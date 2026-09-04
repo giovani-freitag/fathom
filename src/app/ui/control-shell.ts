@@ -81,3 +81,31 @@ export const CONTROL_BAR_CLASSES =
 /** The shell every panel that opens over the chart shares. */
 export const FLOATING_CARD_CLASSES =
     `pointer-events-auto rounded-xl ${FLOATING_SURFACE_CLASSES} p-3 shadow-2xl shadow-black/50`;
+
+/**
+ * The way to add one more of something, wherever the offer is made.
+ *
+ * Dashed because it is an outline waiting to be filled rather than a control
+ * that does something to what is already there. Written once because it was
+ * written three ways in one popover, at two radii and two borders.
+ */
+export const PANEL_ADD_CLASSES =
+    'flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-hairline'
+    + ' px-3 py-2 text-xs font-semibold text-ink-400 transition-colors'
+    + ' hover:border-hairline-bright hover:text-ink-100 disabled:opacity-40';
+
+/**
+ * What a panel calls itself, wherever one opens.
+ *
+ * Written once because it is the first thing read in every panel, and three
+ * spellings of it is three panels that look like they came from three places.
+ */
+/**
+ * What is behind anything that takes over the screen.
+ *
+ * The same wash under every one of them: a dialog that dims the chart more
+ * than the one before it reads as a different kind of interruption.
+ */
+export const OVERLAY_CLASSES = 'fixed inset-0 z-40 bg-black/25';
+
+export const PANEL_TITLE_CLASSES = 'text-sm font-semibold tracking-wide text-ink-100';

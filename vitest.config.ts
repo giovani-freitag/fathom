@@ -1,5 +1,10 @@
 import { defineConfig } from 'vitest/config';
+import { fileURLToPath } from 'node:url';
 import { readReleaseDefines } from './scripts/release-notes.ts';
+
+/** Monaco reaches Node through no entry point of its own, so a test gets these. */
+const MONACO = fileURLToPath(new URL('./tests/mocks/monaco-editor.ts', import.meta.url));
+const MONACO_WORKER = fileURLToPath(new URL('./tests/mocks/monaco-worker.ts', import.meta.url));
 
 /** How long one test may take before it is called stuck. */
 const TEST_TIMEOUT_MS = 20_000;
@@ -25,6 +30,17 @@ export default defineConfig({
                 // render the panel that reads it rather than mock around it.
                 // Declared per project: the projects do not inherit it.
                 define: readReleaseDefines(),
+                // A test that touches the editor service gets models and
+                // nothing else; one that does not is unaffected either way.
+                resolve: {
+                    alias: [
+                        // A regular expression because the `?worker` suffix is
+                        // part of the specifier, and a plain key is matched
+                        // against the specifier with its query already gone.
+                        { find: /^monaco-editor\/esm\/.*\?worker$/, replacement: MONACO_WORKER },
+                        { find: /^monaco-editor$/, replacement: MONACO },
+                    ],
+                },
                 test: {
                     testTimeout: TEST_TIMEOUT_MS,
                     // The browser half, which needs a DOM to draw into.

@@ -1,5 +1,5 @@
 import { type Drawing, isDrawing } from '../../shared/core/drawing.ts';
-import { VOLUME } from '../indicators/volume/volume.ts';
+import { VOLUME, VOLUME_ID } from '../indicators/volume/volume.ts';
 import { chooseLayerTone, OPENING_LAYERS, readLayerDefaults } from '../indicators/indicator-catalogue.ts';
 import { PLOT_TONES } from '../../shared/core/draw-plan.ts';
 import {
@@ -178,8 +178,8 @@ function buildDefaultLayers(): readonly AddedIndicator[] {
         added = withIndicatorAdded({
             added,
             indicatorId: layer.id,
-            settings: readLayerDefaults(layer),
-            tone: chooseLayerTone(layer, added),
+            settings: readLayerDefaults(layer.layer),
+            tone: chooseLayerTone(layer.id, added),
         });
     }
     return added;
@@ -205,9 +205,9 @@ function liftVolumeOutOfTheBook(stored: readonly AddedIndicator[]): readonly Add
     }
     return withIndicatorAdded({
         added: carried,
-        indicatorId: VOLUME.id,
+        indicatorId: VOLUME_ID,
         settings: { ...readLayerDefaults(VOLUME), volumeMode: String(book.settings['volumeMode'] ?? 'total') },
-        tone: chooseLayerTone(VOLUME, carried),
+        tone: chooseLayerTone(VOLUME_ID, carried),
     });
 }
 
@@ -271,8 +271,8 @@ function migrateLayers(
         carried = withIndicatorAdded({
             added: carried,
             indicatorId: layer.id,
-            settings: { ...readLayerDefaults(layer), ...(layer.id === 'depth' ? readLegacyDepth(legacy) : {}) },
-            tone: chooseLayerTone(layer, carried),
+            settings: { ...readLayerDefaults(layer.layer), ...(layer.id === 'depth' ? readLegacyDepth(legacy) : {}) },
+            tone: chooseLayerTone(layer.id, carried),
         });
     }
     // The document's own list, not the merged one: merging over the defaults

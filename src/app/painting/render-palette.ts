@@ -72,7 +72,7 @@ const LIGHT_PALETTE: RenderPalette = {
     inkPrimary: '#0b1620',
     inkMuted: '#64788c',
     axisLabel: '#4f6376',
-    phosphor: '#0a9683',
+    phosphor: '#087a6b',
     bid: '#0d9670',
     ask: '#d32741',
     amber: '#a86a00',
@@ -84,7 +84,7 @@ const LIGHT_PALETTE: RenderPalette = {
     profileSell: 'rgba(211, 39, 65, 0.42)',
     profileEdge: 'rgba(11, 22, 32, 0.3)',
     profileBackdrop: 'rgba(255, 255, 255, 0.92)',
-    crosshair: 'rgba(10, 150, 131, 0.65)',
+    crosshair: 'rgba(8, 122, 107, 0.65)',
 };
 
 /*
@@ -93,6 +93,20 @@ const LIGHT_PALETTE: RenderPalette = {
  * it through every private helper for a value that changes twice a session.
  */
 export const RENDER_PALETTE: RenderPalette = { ...DARK_PALETTE };
+
+/**
+ * The palette a theme paints in, whether or not it is the one in force.
+ *
+ * For anything that has to paint in a theme rather than in the theme: the
+ * in-page editor carries its own two, and a third hand-written copy of these
+ * colours is a third thing to keep in step.
+ *
+ * @param theme - The theme to read.
+ * @returns The colours that theme paints with.
+ */
+export function readPaletteFor(theme: ResolvedTheme): RenderPalette {
+    return theme === 'light' ? LIGHT_PALETTE : DARK_PALETTE;
+}
 
 /**
  * Re-points the shared palette at a theme.

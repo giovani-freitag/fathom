@@ -36,6 +36,11 @@ jobs:
       - run: npm ci
       - run: npm run verify
       - run: npm run build:demo
+      # The guide goes out under the demo, so one Pages site carries both and a
+      # link from the chart to the docs never leaves the origin it was served
+      # from.
+      - run: npm run build:guide
+      - run: mv docs/.vitepress/dist dist/demo/guide
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist/demo

@@ -1,12 +1,13 @@
 import {
-    type DrawPlan,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
     type IndicatorSettings,
     type NumericParameter,
+    type PlanDraft,
     type PlotScale,
     readSetting,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
 import {
     type BarSegment,
@@ -15,7 +16,7 @@ import {
     createBlankValues,
     fillWilder,
     findContinuousSegments,
-} from '../shared/series-math.ts';
+} from '../../../shared/core/series-math.ts';
 import type { PriceBar } from '../../../shared/core/price-bar.ts';
 
 const PERIOD_BARS: NumericParameter = {
@@ -46,8 +47,8 @@ const MULTIPLIER: NumericParameter = {
  * overlap rather than as one that changes colour.
  */
 export class Supertrend implements Indicator {
-    readonly id = 'supertrend';
-    readonly labelKey = 'indicator.supertrend';
+    readonly label = 'indicator.supertrend';
+    readonly about = 'indicator.supertrend.help';
     readonly scale: PlotScale = { kind: 'price' };
     readonly isSelfColoured = true;
     readonly parameters: readonly IndicatorParameter[] = [PERIOD_BARS, MULTIPLIER];
@@ -56,10 +57,10 @@ export class Supertrend implements Indicator {
      * Bars needed before the window for the range it is scaled by to have settled.
      *
      * @param settings - The reader's parameter values.
-     * @returns The bar count.
+     * @returns The bar count, as the only source it declares.
      */
-    resolveWarmupBars(settings: IndicatorSettings): number {
-        return readSetting(settings, PERIOD_BARS) * 3;
+    resolveSources(settings: IndicatorSettings): SourceRequest {
+        return { warmupBars: readSetting(settings, PERIOD_BARS) * 3 };
     }
 
     /**
@@ -68,7 +69,7 @@ export class Supertrend implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns Two lines, one for each side the stop can be on.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const periodBars = readSetting(input.settings, PERIOD_BARS);
         const multiplier = readSetting(input.settings, MULTIPLIER);
@@ -81,16 +82,10 @@ export class Supertrend implements Indicator {
 
         const atMs = collectInstants(bars);
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: `${String(periodBars)}·${String(multiplier)}`,
-            scale: this.scale,
-            isSelfColoured: this.isSelfColoured,
             series: [
-                { labelKey: 'indicator.supertrend.rising', tone: 'bid', shape: 'line', atMs, value: rising, widthPx: 2 },
-                { labelKey: 'indicator.supertrend.falling', tone: 'ask', shape: 'line', atMs, value: falling, widthPx: 2 },
+                { label: 'indicator.supertrend.rising', tone: 'bid', shape: 'line', atMs, value: rising, widthPx: 2 },
+                { label: 'indicator.supertrend.falling', tone: 'ask', shape: 'line', atMs, value: falling, widthPx: 2 },
             ],
-            hasConverged: input.warmupBarCount >= this.resolveWarmupBars(input.settings),
         };
     }
 }

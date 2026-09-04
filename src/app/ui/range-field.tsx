@@ -50,7 +50,7 @@ export function RangeField({
                 </Slider.Track>
                 <Slider.Thumb
                     aria-label={handleLabel}
-                    className="block size-4 rounded-full border-2 border-phosphor bg-abyss-900 outline-none focus-visible:ring-2 focus-visible:ring-phosphor/50"
+                    className="block size-4 rounded-full border-2 border-phosphor bg-abyss-900 outline-none focus-visible:ring-2 focus-visible:ring-phosphor"
                 />
             </Slider.Root>
         </label>

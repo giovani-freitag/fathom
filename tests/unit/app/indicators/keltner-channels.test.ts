@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
+import { completePlan } from '../../../../src/shared/core/draw-plan.ts';
 import { KELTNER_CHANNELS } from '../../../../src/app/indicators/keltner-channels/keltner-channels.ts';
 import { buildRun, buildWindow } from '../../../mocks/price-bars.ts';
 
@@ -9,8 +9,7 @@ const SETTINGS = { periodBars: 5, rangeBars: 5, multiplier: 2, source: 'close' }
 function computeOver(length: number, settings: Record<string, number | string> = SETTINGS) {
     return KELTNER_CHANNELS.compute({
         bars: buildWindow(buildRun(length, (index) => 100 + index)),
-        warmupBarCount: 60,
-        higher: NO_HIGHER_BARS,
+        sessions: {},
         settings,
     });
 }
@@ -55,12 +54,14 @@ describe('KeltnerChannels', () => {
     });
 
     it('says it has not converged on a window shorter than its smoothing', () => {
-        const plan = KELTNER_CHANNELS.compute({
-            bars: buildWindow(buildRun(60, (index) => 100 + index)),
-            warmupBarCount: 0,
-            higher: NO_HIGHER_BARS,
-            settings: SETTINGS,
-        });
+        const plan = completePlan(
+            { indicatorId: 'keltner', indicator: KELTNER_CHANNELS, settings: SETTINGS, warmupBarCount: 0 },
+            KELTNER_CHANNELS.compute({
+                bars: buildWindow(buildRun(60, (index) => 100 + index)),
+                sessions: {},
+                settings: SETTINGS,
+            }),
+        );
 
         expect(plan.hasConverged).toBe(false);
     });
@@ -74,7 +75,7 @@ describe('KeltnerChannels', () => {
 
         const widthOf = (bars: typeof steady): number => {
             const plan = KELTNER_CHANNELS.compute({
-                bars: buildWindow(bars), warmupBarCount: 60, higher: NO_HIGHER_BARS, settings: SETTINGS,
+                bars: buildWindow(bars), sessions: {}, settings: SETTINGS,
             });
             return lastReal(plan.series[0]!.value) - lastReal(plan.series[2]!.value);
         };

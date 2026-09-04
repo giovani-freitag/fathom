@@ -67,9 +67,12 @@ const SHOW_GAPS: ToggleParameter = { name: 'showGaps', kind: 'toggle', defaultVa
  * How much traded does not, though it was recorded alongside. A bar carries its
  * own volume, so that reading needs no book and is an indicator of its own.
  */
+/** The id this layer is stored and found under. */
+export const BOOK_LAYER_ID = 'depth';
+
 export const BOOK_LAYER: FieldLayer = {
-    id: 'depth',
-    labelKey: 'layer.depth',
+    label: 'layer.depth',
+    about: 'layer.depth.help',
     parameters: [
         COLOUR_GAIN,
         FLOOR_PERCENTILE,

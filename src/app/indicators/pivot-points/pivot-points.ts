@@ -1,24 +1,27 @@
 import {
     type ChoiceParameter,
-    type DrawPlan,
-    type HigherBarRequest,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
     type IndicatorSettings,
+    type PlanDraft,
     type PlotScale,
     type PlotSeries,
     readChoice,
+    readSessions,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
-import { collectInstants, createBlankValues } from '../shared/series-math.ts';
-import { holdLastClosed } from '../shared/higher-timeframe.ts';
+import { collectInstants, createBlankValues } from '../../../shared/core/series-math.ts';
 import type { PriceBar } from '../../../shared/core/price-bar.ts';
 
 const DAY_MS = 86_400_000;
 const WEEK_MS = 604_800_000;
 
-/** Coarse bars fetched before the window: the one in force, and one spare. */
-const HIGHER_WARMUP_BARS = 2;
+/** Sessions fetched before the window: the one in force, and one spare. */
+const SESSIONS_REACHED_BACK = 2;
+
+/** The name the session is declared and read back under, so both cannot drift. */
+const SESSION = 'session';
 
 const PERIOD: ChoiceParameter = {
     name: 'pivotPeriod',
@@ -59,8 +62,8 @@ interface PivotSet {
  * heat map shows what they left resting there.
  */
 export class PivotPoints implements Indicator {
-    readonly id = 'pivots';
-    readonly labelKey = 'indicator.pivots';
+    readonly label = 'indicator.pivots';
+    readonly about = 'indicator.pivots.help';
     readonly scale: PlotScale = { kind: 'price' };
     // Above the centre and below it are different claims, so a copy tinted to
     // one colour would draw support and resistance alike.
@@ -68,22 +71,20 @@ export class PivotPoints implements Indicator {
     readonly parameters: readonly IndicatorParameter[] = [PERIOD, FORMULA];
 
     /**
-     * Bars needed before the drawn window.
-     *
-     * @returns None: what this reads is on another rung entirely.
-     */
-    resolveWarmupBars(): number {
-        return 0;
-    }
-
-    /**
-     * The coarser rung this is computed from.
+     * The coarser session this is computed from.
      *
      * @param settings - The reader's parameter values.
-     * @returns The one rung, with enough before the window to have a settled bar at its left edge.
+     * @returns The one session, reaching back far enough to have settled at the left edge.
      */
-    resolveHigherIntervals(settings: IndicatorSettings): readonly HigherBarRequest[] {
-        return [{ intervalMs: resolvePeriodMs(settings), warmupBars: HIGHER_WARMUP_BARS }];
+    resolveSources(settings: IndicatorSettings): SourceRequest {
+        return {
+            sessions: {
+                [SESSION]: {
+                    intervalMs: resolvePeriodMs(settings),
+                    reachingBack: SESSIONS_REACHED_BACK,
+                },
+            },
+        };
     }
 
     /**
@@ -92,22 +93,18 @@ export class PivotPoints implements Indicator {
      * @param input - The drawn bars, the coarser rung, and the parameters.
      * @returns Seven stepped lines, blank until a session has closed.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
-        const higher = input.higher.at(resolvePeriodMs(input.settings));
-        const held = holdLastClosed(bars, higher?.bars ?? []);
+        const session = readSessions(input, SESSION);
         const isFibonacci = readChoice(input.settings, FORMULA) === 'fibonacci';
 
         const lines = Array.from({ length: 7 }, () => createBlankValues(bars.length));
-        let previous: PriceBar | undefined;
         let didDrawAny = false;
 
-        for (const [index, settled] of held.entries()) {
+        for (const [index, settled] of session.perBar.entries()) {
             // A bar the session turned over on is left blank, so the lines break
             // between sessions instead of drawing a ramp from one to the next.
-            const isTurnover = index > 0 && settled !== previous;
-            previous = settled;
-            if (settled === undefined || isTurnover) {
+            if (settled === undefined || session.turnsOver[index] === 1) {
                 continue;
             }
             const set = isFibonacci ? spaceByFibonacci(settled) : spaceByReflection(settled);
@@ -119,17 +116,13 @@ export class PivotPoints implements Indicator {
 
         const atMs = collectInstants(bars);
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
             parameterSummary: `${readChoice(input.settings, PERIOD)} · ${readChoice(input.settings, FORMULA)}`,
-            scale: this.scale,
-            isSelfColoured: this.isSelfColoured,
             // Seven lines in three colours, two of them necessarily alike.
             // Unnamed they say "some above and some below", where the
             // reading is that price is testing R2 rather than R3.
             namesItsSeries: true,
-            series: LINE_LABELS.map((labelKey, line): PlotSeries => ({
-                labelKey,
+            series: LINE_LABELS.map((label, line): PlotSeries => ({
+                label,
                 tone: LINE_TONES[line]!,
                 shape: 'line',
                 atMs,

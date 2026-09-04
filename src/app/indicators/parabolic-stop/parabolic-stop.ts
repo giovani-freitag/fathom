@@ -1,19 +1,20 @@
 import {
-    type DrawPlan,
     type Indicator,
     type IndicatorInput,
     type IndicatorParameter,
     type IndicatorSettings,
     type NumericParameter,
+    type PlanDraft,
     type PlotScale,
     readSetting,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
 import {
     type BarSegment,
     collectInstants,
     createBlankValues,
     findContinuousSegments,
-} from '../shared/series-math.ts';
+} from '../../../shared/core/series-math.ts';
 import type { PriceBar } from '../../../shared/core/price-bar.ts';
 
 const STEP: NumericParameter = {
@@ -44,8 +45,8 @@ const MAXIMUM_STEP: NumericParameter = {
  * other side.
  */
 export class ParabolicStop implements Indicator {
-    readonly id = 'psar';
-    readonly labelKey = 'indicator.psar';
+    readonly label = 'indicator.psar';
+    readonly about = 'indicator.psar.help';
     readonly scale: PlotScale = { kind: 'price' };
     readonly isSelfColoured = true;
     readonly parameters: readonly IndicatorParameter[] = [STEP, MAXIMUM_STEP];
@@ -56,10 +57,10 @@ export class ParabolicStop implements Indicator {
      * @param settings - The reader's parameter values.
      * @returns How many bars it takes to reach the fastest step twice over.
      */
-    resolveWarmupBars(settings: IndicatorSettings): number {
+    resolveSources(settings: IndicatorSettings): SourceRequest {
         const step = readSetting(settings, STEP);
         const maximumStep = readSetting(settings, MAXIMUM_STEP);
-        return Math.ceil(maximumStep / step) * 2;
+        return { warmupBars: Math.ceil(maximumStep / step) * 2 };
     }
 
     /**
@@ -68,7 +69,7 @@ export class ParabolicStop implements Indicator {
      * @param input - The bars, the warm-up count, and the parameters.
      * @returns Two sets of marks, one for each side the stop can be on.
      */
-    compute(input: IndicatorInput): DrawPlan {
+    compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const step = readSetting(input.settings, STEP);
         const maximumStep = readSetting(input.settings, MAXIMUM_STEP);
@@ -81,16 +82,10 @@ export class ParabolicStop implements Indicator {
 
         const atMs = collectInstants(bars);
         return {
-            indicatorId: this.id,
-            labelKey: this.labelKey,
-            parameterSummary: `${String(step)}·${String(maximumStep)}`,
-            scale: this.scale,
-            isSelfColoured: this.isSelfColoured,
             series: [
-                { labelKey: 'indicator.psar.rising', tone: 'bid', shape: 'dot', atMs, value: rising },
-                { labelKey: 'indicator.psar.falling', tone: 'ask', shape: 'dot', atMs, value: falling },
+                { label: 'indicator.psar.rising', tone: 'bid', shape: 'dot', atMs, value: rising },
+                { label: 'indicator.psar.falling', tone: 'ask', shape: 'dot', atMs, value: falling },
             ],
-            hasConverged: input.warmupBarCount >= this.resolveWarmupBars(input.settings),
         };
     }
 }

@@ -1,15 +1,14 @@
 import { render, type RenderResult } from '@testing-library/react';
 import type { ReactElement } from 'react';
-import { type AddedIndicator, resolveBandKey } from '../../src/shared/core/indicator-selection.ts';
+import type { AddedIndicator } from '../../src/shared/core/indicator-selection.ts';
 import type { AppearanceState } from '../../src/app/core/appearance-controller.ts';
-import type { ChartState } from '../../src/app/core/chart-controller.ts';
+import { AddonLibraryService } from '../../src/app/services/addon-library/addon-library-service.ts';
+import { type ChartState, computePlanSet } from '../../src/app/core/chart-controller.ts';
 import { createCursorStore } from '../../src/app/core/cursor-store.ts';
 import type { DrawPlan } from '../../src/shared/core/draw-plan.ts';
 import { EMPTY_DATASET } from '../../src/app/core/chart-dataset.ts';
-import { findIndicator } from '../../src/app/indicators/indicator-catalogue.ts';
 import { KernelProvider } from '../../src/app/react/kernel-provider.tsx';
 import { ObservableStore } from '../../src/app/core/observable-store.ts';
-import { recolourPlan, NO_HIGHER_BARS } from '../../src/shared/core/draw-plan.ts';
 import type { ServiceContainer } from '../../src/app/core/service-container.ts';
 import { buildRun, buildWindow } from './price-bars.ts';
 
@@ -24,12 +23,30 @@ const APPEARANCE: AppearanceState = {
     gridChoice: 'price',
 };
 
+let shelfClock = 0;
+
+/** Storage each kernel owns, so one test's readings never reach another. */
+function buildShelf(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
+    // Keyed, because the shelf and the draft are two of them: one slot handed
+    // the draft back whenever the shelf was read.
+    const held = new Map<string, string>();
+    return {
+        getItem: (key) => held.get(key) ?? null,
+        setItem: (key, value) => { held.set(key, value); },
+        removeItem: (key) => { held.delete(key); },
+    };
+}
+
 /** Enough bars that every shipped indicator has something to say. */
 const BARS = buildWindow(buildRun(300, (index) => 100 + Math.sin(index / 8) * 12));
 
 export interface IndicatorKernel {
     readonly container: ServiceContainer;
     readonly readAdded: () => readonly AddedIndicator[];
+    /** The plans the chart currently holds, as the painters would be given them. */
+    readonly readPlans: () => readonly DrawPlan[];
+    /** Why a reading drew nothing, by the copy it belongs to. */
+    readonly readFailures: () => ChartState['layerFailures'];
     readonly moveCursorTo: (atMs: number | null) => void;
     /** Puts the chart in a state a test wants the interface to react to. */
     readonly setState: (revise: (state: ChartState) => ChartState) => void;
@@ -70,6 +87,9 @@ export function createIndicatorKernel(added: readonly AddedIndicator[] = []): In
                 appearance.update((state) => ({ ...state, isLegendCollapsed }));
             },
         },
+        // The real service over storage a test owns, so what a reading is filed
+        // under is decided by the code the application runs.
+        addons: new AddonLibraryService({ storage: buildShelf(), now: () => (shelfClock += 1) }),
         chart: {
             store,
             refreshInstruments: () => Promise.resolve(),
@@ -85,6 +105,8 @@ export function createIndicatorKernel(added: readonly AddedIndicator[] = []): In
     return {
         container,
         readAdded: () => store.read().addedIndicators,
+        readPlans: () => store.read().plans,
+        readFailures: () => store.read().layerFailures,
         moveCursorTo: (atMs) => { cursor.update(() => ({ atMs })); },
         setState: (revise) => { store.update(revise); },
     };
@@ -104,28 +126,18 @@ export function renderWithKernel(kernel: IndicatorKernel, element: ReactElement)
 export const BAR_INSTANTS = BARS.bars.map((bar) => bar.closedAtMs);
 
 function buildState(added: readonly AddedIndicator[]): ChartState {
-    return {
+    const bare = {
         addedIndicators: added,
-        plans: added.flatMap(toPlan),
+        plans: [],
+        layerFailures: {},
         dataset: { ...EMPTY_DATASET, bars: BARS },
         instruments: [],
         instrumentSymbol: 'BTCUSDT',
         isVolumeProfileVisible: false,
         pickedInstanceId: null,
     } as unknown as ChartState;
-}
 
-function toPlan(entry: AddedIndicator): DrawPlan[] {
-    const indicator = findIndicator(entry.indicatorId);
-    // Mirrors the controller: a hidden indicator produces nothing, so it takes
-    // no band and no arithmetic.
-    if (indicator === null || entry.isHidden === true) {
-        return [];
-    }
-    const plan = indicator.compute({ bars: BARS, warmupBarCount: 300, higher: NO_HIGHER_BARS, settings: entry.settings });
-    return [{
-        ...recolourPlan(plan, entry.tone),
-        instanceId: entry.instanceId,
-        bandKey: resolveBandKey(entry),
-    }];
+    // The chart's own arithmetic, not a copy of it: a mock that computes plans
+    // its own way renders a chart the application never draws.
+    return { ...bare, ...computePlanSet(bare) };
 }

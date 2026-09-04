@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
 import { BAR_INTERVAL_MS, buildBar, buildRun, buildWindow } from '../../../mocks/price-bars.ts';
 import { PARABOLIC_STOP } from '../../../../src/app/indicators/parabolic-stop/parabolic-stop.ts';
 import type { PriceBar } from '../../../../src/shared/core/price-bar.ts';
@@ -7,7 +6,7 @@ import type { PriceBar } from '../../../../src/shared/core/price-bar.ts';
 const SETTINGS = { step: 0.02, maximumStep: 0.2 };
 
 function computeOver(bars: readonly PriceBar[], settings = SETTINGS) {
-    return PARABOLIC_STOP.compute({ bars: buildWindow(bars), warmupBarCount: 60, higher: NO_HIGHER_BARS, settings });
+    return PARABOLIC_STOP.compute({ bars: buildWindow(bars), sessions: {}, settings });
 }
 
 /** How many of a series' values were drawn at all. */

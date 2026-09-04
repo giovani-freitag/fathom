@@ -31,9 +31,12 @@ const STYLE: ChoiceParameter = {
  * thing somebody wants, and because a bar is fetched whether or not any book
  * was ever recorded.
  */
+/** The id this layer is stored and found under. */
+export const CANDLES_LAYER_ID = 'candles';
+
 export const CANDLES_LAYER: FieldLayer = {
-    id: 'candles',
-    labelKey: 'layer.candles',
+    label: 'layer.candles',
+    about: 'layer.candles.help',
     parameters: [STYLE],
 };
 

@@ -112,11 +112,11 @@ describe('GapPainter and how loud a mark about missing data may be', () => {
             dataset: { gaps: [buildGap(1_200_000, 1_400_000)] },
             plans: [{
                 indicatorId: 'cvd',
-                labelKey: 'indicator.cvd',
+                label: 'indicator.cvd',
                 parameterSummary: '',
                 scale: { kind: 'auto' },
                 series: [{
-                    labelKey: 'indicator.cvd',
+                    label: 'indicator.cvd',
                     tone: 'ink',
                     shape: 'line',
                     atMs: Float64Array.from([1_200_000]),

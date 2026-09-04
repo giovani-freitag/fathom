@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { NO_HIGHER_BARS } from '../../../../src/shared/core/draw-plan.ts';
 import { CUMULATIVE_DELTA } from '../../../../src/app/indicators/cumulative-delta/cumulative-delta.ts';
 import { buildRun, buildWindow } from '../../../mocks/price-bars.ts';
 
@@ -12,8 +11,7 @@ function computeOver(flows: readonly [number, number][]) {
     }));
     return CUMULATIVE_DELTA.compute({
         bars: buildWindow(bars),
-        warmupBarCount: 0,
-        higher: NO_HIGHER_BARS,
+        sessions: {},
         settings: {},
     });
 }
@@ -32,7 +30,7 @@ describe('CumulativeDelta', () => {
     });
 
     it('needs nothing before the window, which is why it can start there', () => {
-        expect(CUMULATIVE_DELTA.resolveWarmupBars()).toBe(0);
+        expect((CUMULATIVE_DELTA as { resolveSources?: unknown }).resolveSources).toBeUndefined();
     });
 
     it('marks the line the aggression changes hands on', () => {
@@ -55,8 +53,7 @@ describe('CumulativeDelta', () => {
 
         const plan = CUMULATIVE_DELTA.compute({
             bars: buildWindow(bars),
-            warmupBarCount: 0,
-            higher: NO_HIGHER_BARS,
+            sessions: {},
             settings: {},
         });
 

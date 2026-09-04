@@ -1,5 +1,6 @@
 import { AppearanceController, type AppearanceHost } from '../../../src/app/core/appearance-controller.ts';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { DEFAULT_LOCALE, inWords, speakIn } from '../../../src/shared/core/reading-words.ts';
 import { PreferencesService } from '../../../src/app/services/preferences-service.ts';
 
 interface HostHandles {
@@ -61,6 +62,36 @@ describe('AppearanceController', () => {
         });
 
         expect(controller.store.read().locale).toBe('pt-BR');
+    });
+
+    it('puts the readings a reader wrote into that language too', () => {
+        // They name themselves, and a reading naming itself in Portuguese
+        // beside an interface in English is a page in two languages.
+        speakIn(DEFAULT_LOCALE);
+        const { host } = createHost(true, ['en']);
+        const controller = new AppearanceController({
+            preferences: new PreferencesService({ storage }),
+            host,
+        });
+
+        controller.selectLocale('pt-BR');
+
+        expect(inWords({ en: 'Mean', 'pt-BR': 'Média' })).toBe('Média');
+        speakIn(DEFAULT_LOCALE);
+    });
+
+    it('starts them in the language it opened in, before anything is chosen', () => {
+        speakIn('pt-BR');
+        const { host } = createHost(true, ['en']);
+        const controller = new AppearanceController({
+            preferences: new PreferencesService({ storage }),
+            host,
+        });
+
+        controller.start();
+
+        expect(inWords({ en: 'Mean', 'pt-BR': 'Média' })).toBe('Mean');
+        controller.dispose();
     });
 
     it('reopens in the language the reader chose, whatever the host asks for', () => {
