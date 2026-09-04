@@ -18,5 +18,9 @@
     "outputFileStrategy": "modules",
     "excludeInternal": true,
     "skipErrorChecking": true,
-    "tsconfig": "packages/types/tsconfig.json"
+    "tsconfig": "packages/types/tsconfig.json",
+    "entryFileName": "index",
+    "name": "API reference",
+    "disableSources": true,
+    "hideGenerator": true
 }

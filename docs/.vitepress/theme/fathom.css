@@ -1,9 +1,45 @@
 /*
- * The chart's palette, so the guide and the thing it is about are plainly the
- * same piece of software. Dark only: Fathom's own light theme exists for a
- * screen somebody is reading prices off, which this is not.
+ * The chart's own two palettes, so the guide and the thing it is about are
+ * plainly the same software — and so a reader who has the chart in light can
+ * read the docs in light.
+ *
+ * Light lives on `:root` and dark on `.dark`, which is the split VitePress
+ * itself uses. Set on `:root` alone, the dark values applied to both and the
+ * light theme changed nothing but the scrollbar.
  */
+
 :root {
+    --vp-c-brand-1: #087a6b;
+    --vp-c-brand-2: #0d9670;
+    --vp-c-brand-3: #0a8a7a;
+    --vp-c-brand-soft: rgb(8 122 107 / 12%);
+
+    --vp-c-bg: #ffffff;
+    --vp-c-bg-alt: #f2f6fa;
+    --vp-c-bg-elv: #ffffff;
+    --vp-c-bg-soft: #f2f6fa;
+
+    --vp-c-divider: #d2dbe5;
+    --vp-c-gutter: #d2dbe5;
+    --vp-c-border: #adbccc;
+
+    --vp-c-text-1: #0b1620;
+    --vp-c-text-2: #3a4c5e;
+    --vp-c-text-3: #5d7186;
+
+    --vp-code-block-bg: #f2f6fa;
+    --vp-code-copy-code-bg: #e9eff6;
+
+    --vp-button-brand-bg: #087a6b;
+    --vp-button-brand-hover-bg: #0a8a7a;
+    --vp-button-brand-active-bg: #0d9670;
+    --vp-button-brand-text: #ffffff;
+
+    /* The chart's own monospace, which its numbers are drawn in. */
+    --vp-font-family-mono: 'Azeret Mono', ui-monospace, 'SF Mono', monospace;
+}
+
+.dark {
     --vp-c-brand-1: #35e0c4;
     --vp-c-brand-2: #2bd4a8;
     --vp-c-brand-3: #1c7a6c;
@@ -16,6 +52,7 @@
 
     --vp-c-divider: #1b2836;
     --vp-c-gutter: #1b2836;
+    --vp-c-border: #2a3d50;
 
     --vp-c-text-1: #dce7f1;
     --vp-c-text-2: #9db0c2;
@@ -24,23 +61,114 @@
     --vp-code-block-bg: #05080c;
     --vp-code-copy-code-bg: #0a1019;
 
-    --vp-home-hero-name-color: transparent;
-    --vp-home-hero-name-background: linear-gradient(120deg, #35e0c4, #2bd4a8 40%, #0f6fb5);
-    --vp-home-hero-image-background-image: linear-gradient(-45deg, #35e0c4 30%, #0f6fb5);
-    --vp-home-hero-image-filter: blur(56px);
-
     --vp-button-brand-bg: #1c7a6c;
     --vp-button-brand-hover-bg: #2bd4a8;
     --vp-button-brand-active-bg: #35e0c4;
     --vp-button-brand-text: #05080c;
 }
 
-/* The one typeface the chart draws its own numbers in. */
+/*
+ * The mark on its own, with no lamp behind it. The default hero puts a blurred
+ * blob under the image, which around a dark rounded tile reads as a smudge
+ * rather than as a glow.
+ */
 :root {
-    --vp-font-family-mono: 'Azeret Mono', ui-monospace, 'SF Mono', monospace;
+    --vp-home-hero-image-background-image: none;
+    --vp-home-hero-image-filter: none;
+}
+
+.VPHero .VPImage {
+    border-radius: 22%;
+}
+
+/* Only where there is a ground to cast onto. On the abyss it is a smudge. */
+:root:not(.dark) .VPHero .VPImage {
+    box-shadow: 0 18px 48px rgb(11 22 32 / 18%);
+}
+
+:root {
+    --vp-home-hero-name-color: transparent;
+    --vp-home-hero-name-background: linear-gradient(120deg, #0d9670, #087a6b 55%, #0f6fb5);
+}
+
+.dark {
+    --vp-home-hero-name-background: linear-gradient(120deg, #35e0c4, #2bd4a8 40%, #0f6fb5);
 }
 
 /* A reference page is long; give its headings room to be scanned. */
 .vp-doc h3 {
     margin-top: 2rem;
+}
+
+/*
+ * A diagram is data, not decoration: let it use the width it needs, and let it
+ * follow the theme.
+ *
+ * Mermaid writes a stylesheet into the SVG itself, keyed by that diagram's own
+ * generated id — a selector nothing here can out-specify. Hence `!important`,
+ * which is the only thing that reaches past it. Set through mermaid's own
+ * configuration instead, the colours would be chosen once at render and the
+ * diagram would stay in one theme while the reader switched to the other.
+ */
+.vp-doc .mermaid {
+    display: flex;
+    justify-content: flex-start;
+    margin: 1.75rem 0;
+    overflow-x: auto;
+}
+
+/* A flex item shrinks by default, which is how a diagram drawn at the size it
+   needs ends up squeezed into the column anyway and unreadable. */
+.vp-doc .mermaid > svg {
+    flex: 0 0 auto;
+    max-width: none;
+    height: auto;
+}
+
+.vp-doc .mermaid .node rect,
+.vp-doc .mermaid .node circle,
+.vp-doc .mermaid .node polygon,
+.vp-doc .mermaid .node path,
+.vp-doc .mermaid .label-container {
+    fill: var(--vp-c-bg-soft) !important;
+    stroke: var(--vp-c-border) !important;
+}
+
+.vp-doc .mermaid .cluster rect {
+    fill: var(--vp-c-bg-alt) !important;
+    stroke: var(--vp-c-divider) !important;
+}
+
+.vp-doc .mermaid .nodeLabel,
+.vp-doc .mermaid .cluster-label,
+.vp-doc .mermaid .label,
+.vp-doc .mermaid text {
+    fill: var(--vp-c-text-1) !important;
+    color: var(--vp-c-text-1) !important;
+}
+
+.vp-doc .mermaid .edgeLabel,
+.vp-doc .mermaid .edgeLabel p,
+.vp-doc .mermaid .edgeLabel rect,
+.vp-doc .mermaid .labelBkg {
+    background: var(--vp-c-bg) !important;
+    fill: var(--vp-c-bg) !important;
+    color: var(--vp-c-text-2) !important;
+}
+
+.vp-doc .mermaid .edgeLabel .nodeLabel,
+.vp-doc .mermaid .edgeLabel span {
+    color: var(--vp-c-text-2) !important;
+    fill: var(--vp-c-text-2) !important;
+}
+
+.vp-doc .mermaid .edgePath .path,
+.vp-doc .mermaid .flowchart-link {
+    stroke: var(--vp-c-text-3) !important;
+}
+
+.vp-doc .mermaid .marker,
+.vp-doc .mermaid .arrowMarkerPath {
+    fill: var(--vp-c-text-3) !important;
+    stroke: var(--vp-c-text-3) !important;
 }
