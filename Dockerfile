@@ -9,7 +9,10 @@
 # project cannot recreate, and a recording that lives inside an application
 # image is a recording that a rebuild throws away.
 
-FROM node:22-alpine AS build
+# The same Node the project is tested on. Built on 22, `npm ci --omit=dev`
+# refuses the tree: Radix declares `@types/react` as a peer, and that npm walks
+# into a peer whose only home is a dev dependency it was told to leave out.
+FROM node:24-alpine AS build
 WORKDIR /app
 
 # The lockfile alone first, so a change to the source does not refetch the
@@ -20,7 +23,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:22-alpine AS runtime
+FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
