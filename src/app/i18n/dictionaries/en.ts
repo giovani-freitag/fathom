@@ -167,7 +167,7 @@ export const EN_DICTIONARY = {
     'editor.export': 'Export as a file',
     'editor.fault': 'Line {line}: {message}',
     'editor.faults': 'What is wrong with this reading',
-    'editor.help': 'Worked examples',
+    'editor.help': 'How to write one',
     'editor.import': 'Open a file',
     'confirm.cancel': 'Keep it',
     'editor.deleteTitle': 'Delete this reading?',

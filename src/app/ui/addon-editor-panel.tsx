@@ -59,7 +59,7 @@ const UNSAVED_CHOICE = 'unsaved';
 const FILE_NOTICE_MS = 5_000;
 
 /** Where the worked examples live, since a reader cannot go and find them. */
-const COOKBOOK_URL = 'https://github.com/giovani-freitag/fathom/blob/main/docs/indicator-cookbook.md';
+const COOKBOOK_URL = 'https://github.com/giovani-freitag/fathom/blob/main/docs/writing-a-reading.md';
 
 /**
  * The editor this panel runs on.

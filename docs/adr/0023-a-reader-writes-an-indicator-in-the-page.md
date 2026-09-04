@@ -87,3 +87,41 @@ translator covering a third of it produces readings that are subtly wrong rather
 than visibly broken — which on a chart about liquidity is the worst outcome
 available. What a shared contract does make cheap is translating one by hand,
 which is the honest version of the same idea.
+
+## What the surface settled on, and what it cost
+
+1. **A class implementing `Indicator`** — rather than `extends`. `implements`
+   needs no base class to import, so an addon and a shipped reading are the same
+   shape rather than one being a subclass of the other's machinery. The editor
+   completes from the first keystroke either way, off the `.d.ts` the barrel is
+   generated into.
+
+2. **A fluent plot builder that returns the plan object.** Not a translation:
+   `tests/unit/shared/plot-builder.test.ts` asserts the built draft equals the
+   hand-written one. Anything the builder does not cover is reachable by writing
+   the object, in the same file, with no round trip.
+
+3. **The arithmetic as functions, not as methods on `bars`.** Reversed from the
+   recommendation. A collection type would have to be constructed on both sides
+   of a worker boundary, and it is the surface most likely to grow without limit;
+   plain functions over a plain array cost an import and nothing else.
+
+4. **One `resolveSources`, returning what it reads by name.** Warm-up and coarser
+   sessions were the same question — what must be in hand before this can run —
+   and merging them cost nothing. Sessions arrive already held back to what each
+   drawn bar could know, which is the piece that matters most.
+
+5. **One barrel, `fathom`.** Nothing outside it is public and nothing inside it
+   is promised across versions. A script that stops running after an upgrade
+   reports the engine's own error and is reprocessed.
+
+### Still open
+
+- **The book, the executions and the gaps.** An addon still reaches only the
+  bars and the sessions — the one dataset this project alone has is not on the
+  surface. The design exists; nothing is built.
+- **Where it runs.** Inline, on the main thread, like the shipped readings. A
+  runaway loop in a reader's script takes the tab with it; a worker would not,
+  and would cost a two-phase `computePlans`.
+- **More than one at a time.** The editor holds one draft. The registry takes
+  any number.
