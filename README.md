@@ -179,7 +179,7 @@ they fold needs afterwards.
 - [Architecture](docs/architecture.md) — the two registrations, and how a frame reaches the screen
 - [Data model](docs/data-model.md) — schema, grids, and what each column means
 - [Operations](docs/operations.md) — running it as a service, reading its log, disk, sharing it
-- [Writing a reading](docs/writing-a-reading.md) — the guide a reader writes an indicator from, basics to limits
-- [fathom-readings](https://github.com/giovani-freitag/fathom-readings) — worked examples, checked against this surface on every push
+- [The guide](https://giovani-freitag.github.io/fathom/guide/) — writing a reading, the API reference, the architecture and every decision, as a site
+- [fathom-addons](https://github.com/giovani-freitag/fathom-addons) — worked examples, checked against this surface on every push
 - [Decisions](docs/adr/) — why the design is what it is, with the measurements behind it
 - [Demo](demo/) — the browser-only build, published to GitHub Pages on every release

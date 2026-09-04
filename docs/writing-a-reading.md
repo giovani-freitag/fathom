@@ -7,22 +7,8 @@ the editor, and never leaves your browser.
 This guide goes from the smallest reading that works to the parts you will reach
 for last. Every example here compiles.
 
-- [1. The smallest reading that works](#1-the-smallest-reading-that-works)
-- [2. The five parts](#2-the-five-parts)
-- [3. What you are given](#3-what-you-are-given)
-- [4. Drawing](#4-drawing)
-- [5. Knobs the reader can turn](#5-knobs-the-reader-can-turn)
-- [6. What the chart must fetch first](#6-what-the-chart-must-fetch-first)
-- [7. A coarser session](#7-a-coarser-session)
-- [8. More than one file](#8-more-than-one-file)
-- [9. Two languages](#9-two-languages)
-- [10. Seeing what actually arrived](#10-seeing-what-actually-arrived)
-- [11. Sharing one](#11-sharing-one)
-- [12. Everything on the surface](#12-everything-on-the-surface)
-- [13. What a reading cannot do](#13-what-a-reading-cannot-do)
-
 Worked examples you can open in one press:
-[github.com/giovani-freitag/fathom-readings](https://github.com/giovani-freitag/fathom-readings)
+[github.com/giovani-freitag/fathom-addons](https://github.com/giovani-freitag/fathom-addons)
 — checked against this surface on every push, so nothing there is a snippet
 that used to work.
 
