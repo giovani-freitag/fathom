@@ -44,7 +44,7 @@ You can also bring one in from a GitHub repository or an npm package. Fathom
 lists what is there, and where it came from, before it fetches a byte.
 
 - [Write one →](/writing-a-reading)
-- [Worked examples ↗](https://github.com/giovani-freitag/fathom-addons)
+- [Worked examples](https://github.com/giovani-freitag/fathom-addons)
 
 ## Where it runs
 

@@ -53,7 +53,7 @@ export default withMermaid({
             { text: 'Write an indicator', link: '/writing-a-reading' },
             { text: 'API', link: '/api/' },
             { text: 'How it works', link: '/architecture' },
-            { text: 'Open the chart ↗', link: 'https://giovani-freitag.github.io/fathom/' },
+            { text: 'Open the chart', link: 'https://giovani-freitag.github.io/fathom/' },
         ],
 
         sidebar: [
@@ -70,7 +70,7 @@ export default withMermaid({
                     { text: 'The guide', link: '/writing-a-reading' },
                     { text: 'API reference', link: '/api/' },
                     {
-                        text: 'Worked examples ↗',
+                        text: 'Worked examples',
                         link: 'https://github.com/giovani-freitag/fathom-addons',
                     },
                 ],
