@@ -35,6 +35,10 @@
     "build:guide": "npm run build:api && vitepress build docs",
     "dev:guide": "npm run build:api && vitepress dev docs"
   },
+  "types": "packages/types/fathom.d.ts",
+  "files": [
+    "packages/types"
+  ],
   "dependencies": {
     "@fastify/compress": "^9.2.0",
     "@fastify/cookie": "^11.1.2",
