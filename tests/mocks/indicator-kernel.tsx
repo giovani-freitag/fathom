@@ -46,7 +46,7 @@ export interface IndicatorKernel {
     /** The plans the chart currently holds, as the painters would be given them. */
     readonly readPlans: () => readonly DrawPlan[];
     /** Why a reading drew nothing, by the copy it belongs to. */
-    readonly readFailures: () => Readonly<Record<string, string>>;
+    readonly readFailures: () => ChartState['layerFailures'];
     readonly moveCursorTo: (atMs: number | null) => void;
     /** Puts the chart in a state a test wants the interface to react to. */
     readonly setState: (revise: (state: ChartState) => ChartState) => void;

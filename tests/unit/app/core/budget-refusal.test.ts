@@ -1,19 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { refusalFor } from '../../../../src/app/core/budget-refusal.ts';
 import { PLOT_BUDGET } from '../../../../src/shared/core/draw-plan.ts';
-import type { PlanDraft } from '../../../../src/shared/core/draw-plan.ts';
+import type { PlanDraft, PlotSeries } from '../../../../src/shared/core/draw-plan.ts';
 
-const seriesOf = (bars: number, values = bars) => ({
-    atMs: Array.from({ length: bars }, (_, at) => at),
-    value: Array.from({ length: values }, () => 1),
+const seriesOf = (bars: number, values = bars): PlotSeries => ({
     label: 'A line',
+    tone: 'phosphor',
+    shape: 'line',
+    atMs: new Float64Array(bars),
+    value: new Float64Array(values),
 });
 
-const draftOf = (series: ReturnType<typeof seriesOf>[], bands?: PlanDraft['bands']): PlanDraft => ({
+const draftOf = (series: readonly PlotSeries[], bands?: PlanDraft['bands']): PlanDraft => ({
     series,
-    scale: { kind: 'ownBand' },
+    scale: { kind: 'price' },
     ...bands === undefined ? {} : { bands },
-}) as PlanDraft;
+});
+
+/** A band naming a series the plan does not have, which is the last cause left. */
+const outOfRangeBand = (): PlanDraft['bands'] => (
+    [{ upperSeriesIndex: 0, lowerSeriesIndex: 9, tone: 'phosphor' }]
+);
 
 describe('why a plan the host refused was refused', () => {
     it('names how many series were drawn and how many are allowed', () => {
@@ -43,15 +50,11 @@ describe('why a plan the host refused was refused', () => {
         // The four causes are checked in order, and a plan that passed the
         // first three failed on the only one left. Reported as a band without
         // that reasoning, a plan with ten series would be blamed on shading.
-        const band = [{ upperSeriesIndex: 0, lowerSeriesIndex: 9 }] as PlanDraft['bands'];
-
-        expect(refusalFor(draftOf([seriesOf(4)], band)).key).toBe('budget.band');
+        expect(refusalFor(draftOf([seriesOf(4)], outOfRangeBand())).key).toBe('budget.band');
     });
 
     it('does not blame a band while a series is malformed', () => {
-        const band = [{ upperSeriesIndex: 0, lowerSeriesIndex: 9 }] as PlanDraft['bands'];
-
-        expect(refusalFor(draftOf([seriesOf(4, 3)], band)).key).toBe('budget.uneven');
+        expect(refusalFor(draftOf([seriesOf(4, 3)], outOfRangeBand())).key).toBe('budget.uneven');
     });
 
     it('has something to say about a plan with no series at all', () => {
