@@ -15,8 +15,8 @@ import {
     Download,
     FilePlus2,
     Loader,
-    Plus,
     Save,
+    SquarePen,
     TriangleAlert,
     Trash2,
     Undo2,
@@ -474,9 +474,6 @@ function EditorToolbar({ editor, translate, onBringIn, onAddFile, isWide }: Edit
             <PanelAction label={translate('editor.save')} onPress={() => { void editor.save(); }}>
                 <Save className="size-4" />
             </PanelAction>
-            <PanelAction label={translate('editor.new')} onPress={editor.startAnew}>
-                <Plus className="size-4" />
-            </PanelAction>
             {/* Here rather than in the strip, because the strip is not there at
                 all until a reading has a second file to name. */}
             <PanelAction label={translate('files.add')} onPress={onAddFile}>
@@ -484,6 +481,14 @@ function EditorToolbar({ editor, translate, onBringIn, onAddFile, isWide }: Edit
             </PanelAction>
 
             <Divider />
+            {/* Beside the picker, not beside "add a file". The two used to sit
+                together under a plus each, and nothing but the tooltip said
+                that one made a whole new reading and the other a file inside
+                this one. Grouped by what they act on, the pair here is "which
+                reading" and the pair before it is "what is in it". */}
+            <PanelAction label={translate('editor.new')} onPress={editor.startAnew}>
+                <SquarePen className="size-4" />
+            </PanelAction>
             <div className="w-36 shrink-0">
                 <Select
                     value={editor.openKey ?? UNSAVED_CHOICE}
