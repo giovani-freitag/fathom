@@ -298,8 +298,12 @@ resolves — there is no npm here, and nothing is fetched. Each file runs once
 however many others ask for it, and two files that import each other get what
 the other has exported so far rather than looping.
 
+A file taken out of a reading is offered back for a few seconds, the same as a
+deleted reading is — the cross beside a tab asks nothing, and undoes.
+
 A reading of one file still exports as a `.ts`. One of several exports as a
-`.fathom.json` holding all of them, which is also what it opens from.
+`.fathom.json` holding all of them, which is also what it opens from. A bundle
+with no `main.ts` is refused rather than half-opened.
 
 ### Bringing one in from a repository or a package
 
@@ -315,8 +319,13 @@ npm/@someone/reading@1.2.0
 An address copied out of GitHub or npm works too. It takes the `.ts` and `.tsx`
 files under the folder you named — up to forty of them and 512 kB, entry
 `main.ts` or `index.ts`, `.d.ts` left out — and opens them as one reading. It
-does not save it: what arrives is a draft like any other, and saving it is
+does not save it: what arrives is a draft, marked unsaved, and filing it is
 still yours to do.
+
+Named without a version, it settles on the newest tag and shows you which —
+and fetches from that one, so a branch that moves between the look and the
+press cannot. Every file is checked against the size and the hash the listing
+gave; one that does not match stops the import rather than opening quietly.
 
 Nothing is resolved from npm's dependency graph. A package whose code imports
 anything but `'fathom'` and its own files will not build, and the editor says
@@ -324,7 +333,8 @@ which import it could not find.
 
 > Whatever you bring in is somebody else's code, and it runs in the page as
 > soon as it opens — the same way your own does. The editor shows you the file
-> list and where it came from before any of it is fetched.
+> list and where it came from before any of it is fetched, and fetches from
+> exactly what it showed you.
 
 ---
 
