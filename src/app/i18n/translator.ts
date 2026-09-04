@@ -56,6 +56,26 @@ function interpolate(phrase: string, values?: TranslationValues): string {
  *     that built the key out of something more readable than the key is.
  * @returns The text to draw.
  */
+/**
+ * Why a layer drew nothing, in the reader's language.
+ *
+ * A reading's own thrown message passes through as its author wrote it; the
+ * chart's own refusals arrive as a key and are rendered here.
+ *
+ * @param translate - The renderer for the reader's language.
+ * @param failure - What the chart reported, or null where nothing did.
+ * @returns The sentence to show, or null.
+ */
+export function translateFailure(
+    translate: Translate,
+    failure: string | { readonly key: TranslationKey; readonly values: TranslationValues } | undefined,
+): string | null {
+    if (failure === undefined) {
+        return null;
+    }
+    return typeof failure === 'string' ? failure : translate(failure.key, failure.values);
+}
+
 export function translateLabel(translate: Translate, labelKey: string, otherwise?: string): string {
     if (isTranslationKey(labelKey)) {
         return translate(labelKey);

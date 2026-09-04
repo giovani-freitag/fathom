@@ -150,6 +150,22 @@ describe('opening the editor', () => {
         expect(result.current.isUnsaved).toBe(false);
     });
 
+    it('reports what is wrong now, not what the last reading threw', async () => {
+        // The throw and the faults are two different reports, and the panel
+        // shows one. A throw from a reading since replaced sat over the faults
+        // of the one in the editor, so the reason it would not build was hidden
+        // behind a message about code nobody could see.
+        const { factory, faultFrom, type } = buildFakeEditor();
+        const { result } = renderEditor(factory);
+        await waitFor(() => { expect(result.current.status?.kind).toBe('ready'); });
+
+        faultFrom();
+        act(() => { type(sourceNamed('Since replaced')); });
+
+        await waitFor(() => { expect(result.current.status?.kind).toBe('faulted'); });
+        expect(result.current.drawFailure).toBeNull();
+    });
+
     it('says so when the compiler itself never answers', async () => {
         // Left uncaught, the panel sat on "Starting…" for the rest of the
         // session and the only trace was a rejection in the console.
@@ -198,6 +214,25 @@ describe('opening the editor', () => {
 
         expect(kernel.readAdded().map((entry) => entry.indicatorId))
             .toEqual([`${ADDON_ID_PREFIX}my-mean`]);
+    });
+
+    it('draws a second reading in a colour the first one is not using', async () => {
+        // Every reading was put on the chart in the one colour. A reader with
+        // two of them had two lines they could not tell apart, and a legend
+        // whose dot said the same thing about both.
+        const first = buildFakeEditor();
+        const { kernel, result, unmount } = renderEditor(first.factory);
+        await act(async () => { await result.current.save(); });
+        unmount();
+
+        const second = buildFakeEditor();
+        act(() => { second.type(sourceNamed('My other mean')); });
+        const later = renderEditor(second.factory, undefined, kernel);
+        act(() => { later.result.current.rename('My other mean'); });
+        await act(async () => { await later.result.current.save(); });
+
+        const tones = kernel.readAdded().map((entry) => entry.tone);
+        expect(new Set(tones).size).toBe(tones.length);
     });
 
     it('draws what it opened with, without being asked', () => {

@@ -3,7 +3,8 @@ import { type AddonBuild, buildAddon } from '../addons/addon-runtime.ts';
 import type { CompileResult, SourceFault } from '../services/addon-editor/addon-editor-service.ts';
 import type { SavedReading } from '../services/addon-library/addon-library-service.ts';
 import { ADDON_ID_PREFIX, forgetAddon, registerAddon, UNSAVED_ADDON_ID } from '../addons/addon-registry.ts';
-import { readLayerDefaults } from '../indicators/indicator-catalogue.ts';
+import { chooseLayerTone, readLayerDefaults } from '../indicators/indicator-catalogue.ts';
+import { translateFailure } from '../i18n/translator.ts';
 import { useAppearance, useTranslate } from './use-appearance.ts';
 import { useChartSlice } from './use-chart-state.ts';
 import { useKernel } from './kernel-context.ts';
@@ -28,6 +29,8 @@ export interface DiscardedWork {
     readonly key: string | null;
     /** True where it also left the shelf, and undoing has to put it back. */
     readonly wasDeleted: boolean;
+    /** True where it is still on the shelf, so nothing was actually lost. */
+    readonly wasFiled: boolean;
 }
 
 /** What the panel shows about the script as it stands. */
@@ -169,10 +172,11 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
     const [lastDiscarded, setLastDiscarded] = useState<DiscardedWork | null>(null);
     // The reading may throw while the chart draws it rather than while it is
     // built, and that is the failure a compiler cannot warn about.
-    const drawFailure = useChartSlice((state) => {
-        const drawn = state.addedIndicators.find((entry) => entry.indicatorId === liveId(openKey));
-        return drawn === undefined ? null : state.layerFailures[drawn.instanceId] ?? null;
+    const drawn = useChartSlice((state) => {
+        const found = state.addedIndicators.find((entry) => entry.indicatorId === liveId(openKey));
+        return found === undefined ? undefined : state.layerFailures[found.instanceId];
     });
+    const drawFailure = translateFailure(translate, drawn);
     const serviceRef = useRef<SourceEditor | null>(null);
     const compiledRef = useRef<ReadingFiles>({});
     const rebuildRef = useRef<() => Promise<void>>(() => Promise.resolve());
@@ -207,7 +211,11 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
                     added: current,
                     indicatorId: id,
                     settings: readLayerDefaults(build.indicator),
-                    tone: 'phosphor',
+                    // Chosen against what is already drawn rather than fixed.
+                    // Every reading in the one colour, a reader with two of
+                    // them has two lines they cannot tell apart, and the
+                    // legend's dot says the same thing about both.
+                    tone: chooseLayerTone(id, current),
                     isRepeatable: false,
                 })
         ));
@@ -301,6 +309,8 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
     const openKeyOnTeardown = useRef<string | null>(null);
     const openKeyRef = useRef<string | null>(null);
     const nameRef = useRef(untitled);
+    const isUnsavedRef = useRef(false);
+    useEffect(() => { isUnsavedRef.current = isUnsaved; }, [isUnsaved]);
     useEffect(() => { openKeyOnTeardown.current = openKey; openKeyRef.current = openKey; }, [openKey]);
     useEffect(() => { nameRef.current = name; }, [name]);
 
@@ -392,6 +402,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
                 compiled: compiledRef.current,
                 key: openKeyRef.current,
                 wasDeleted: false,
+                wasFiled: openKeyRef.current !== null && !isUnsavedRef.current,
             });
         }
         service.replaceFiles(files);
@@ -429,7 +440,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
             );
             setSaved(library.list());
         }
-        setLastDiscarded({ name, files: held, compiled: compiledRef.current, key: openKey, wasDeleted: true });
+        setLastDiscarded({ name, files: held, compiled: compiledRef.current, key: openKey, wasDeleted: true, wasFiled: false });
         load(starter, null, null, 'keep');
     }, [kernel, library, load, name, openKey, starter]);
 

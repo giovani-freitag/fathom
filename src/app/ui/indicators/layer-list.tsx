@@ -9,13 +9,14 @@ import type { AddedIndicator } from '../../../shared/core/indicator-selection.ts
 import type { DrawPlan } from '../../../shared/core/draw-plan.ts';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
 import type { ChartState } from '../../core/chart-controller.ts';
+import { translateFailure } from '../../i18n/translator.ts';
 import { ToneSwatch } from './tone-swatch.tsx';
 import { translateLabel } from '../../i18n/translator.ts';
 import { useChartSlice } from '../../react/use-chart-state.ts';
 import { useTranslate } from '../../react/use-appearance.ts';
 
 const readPlans = (state: ChartState): readonly DrawPlan[] => state.plans;
-const readFailures = (state: ChartState): Readonly<Record<string, string>> => state.layerFailures;
+const readFailures = (state: ChartState): ChartState['layerFailures'] => state.layerFailures;
 
 /**
  * Every action row's button, sized like the dock the panel opens from.
@@ -69,7 +70,7 @@ export function LayerList({ controls, onOpenSettings, onEditReading }: LayerList
                     controls={controls}
                     onOpenSettings={onOpenSettings}
                     banding={resolveBanding(bands, planFor.get(added.instanceId) ?? null)}
-                    failure={failures[added.instanceId] ?? null}
+                    failure={translateFailure(translate, failures[added.instanceId])}
                     {...onEditReading === undefined ? {} : { onEditReading }}
                 />
             ))}

@@ -178,8 +178,10 @@ volume uses.
     .converged(false)            // see §7
 ```
 
-**Budget:** at most 8 series and 8192 points each. `isPlanWithinBudget` checks a
-plan if you want to know before the chart does.
+**Budget:** at most 8 series and 8192 points each. A plan over it is refused
+whole rather than clipped, and the editor's footer says which limit it went past
+— but only while the reading is open, so `isPlanWithinBudget` is still there to
+check a plan before the chart does.
 
 ---
 

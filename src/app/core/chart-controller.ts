@@ -1,6 +1,8 @@
 import { UNSAVED_ADDON_ID } from '../addons/addon-registry.ts';
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
 import type { DrawPlan, Indicator } from '../../shared/core/draw-plan.ts';
+import { refusalFor } from './budget-refusal.ts';
+import type { LayerFailure } from './budget-refusal.ts';
 import type { LiveMessage } from '../../shared/core/live-message.ts';
 import type { TranslationKey } from '../i18n/dictionaries/en.ts';
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
@@ -108,7 +110,7 @@ export interface ChartState {
      * Only ever the message the engine gave, never a sentence: a reader's own
      * script throws in their own words, and whoever shows this frames it.
      */
-    readonly layerFailures: Readonly<Record<string, string>>;
+    readonly layerFailures: Readonly<Record<string, LayerFailure>>;
     /**
      * The added layer whose settings are open, or null while none are.
      *
@@ -924,7 +926,7 @@ function recut(state: ChartState): ChartDataset {
  */
 export function computePlanSet(state: ChartState): Pick<ChartState, 'plans' | 'layerFailures'> {
     const plans: DrawPlan[] = [];
-    const layerFailures: Record<string, string> = {};
+    const layerFailures: Record<string, LayerFailure> = {};
     for (const entry of state.addedIndicators) {
         const indicator = findIndicator(entry.indicatorId);
         // A hidden indicator produces nothing, so it takes no band and costs no
@@ -933,7 +935,7 @@ export function computePlanSet(state: ChartState): Pick<ChartState, 'plans' | 'l
             continue;
         }
         const outcome = runOne(state, entry, indicator);
-        if (typeof outcome === 'string') {
+        if (typeof outcome === 'string' || (outcome !== null && 'key' in outcome)) {
             layerFailures[entry.instanceId] = outcome;
             continue;
         }
@@ -961,7 +963,7 @@ function runOne(
     state: ChartState,
     entry: AddedIndicator,
     indicator: Indicator,
-): DrawPlan | string | null {
+): DrawPlan | LayerFailure | null {
     const warmupBarCount = state.dataset.bars.warmupBarsReturned;
     try {
         const draft = indicator.compute({
@@ -976,8 +978,13 @@ function runOne(
         // Rejected whole rather than clipped. A plan over budget is a bug in
         // whoever produced it, and drawing part of one shows the reader a claim
         // its author never made.
+        //
+        // Said rather than dropped: a reading a reader wrote is told it is
+        // being drawn by the panel that compiled it, and a rejection nobody
+        // reports leaves them looking at a chart with nothing on it and no
+        // reason anywhere.
         if (!isPlanWithinBudget(draft)) {
-            return null;
+            return refusalFor(draft);
         }
         const plan = completePlan(
             { indicatorId: entry.indicatorId, indicator, settings: entry.settings, warmupBarCount },

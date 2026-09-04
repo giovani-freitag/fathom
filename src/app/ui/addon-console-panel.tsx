@@ -5,12 +5,15 @@ import { type AddonLogLine, addonLog, clearAddonLog } from '../addons/addon-cons
 import type { TranslationKey } from '../i18n/dictionaries/en.ts';
 import type { Translate } from '../i18n/translator.ts';
 import { useStore } from '../react/use-store.ts';
+import { namesTheSource } from './console-attribution.ts';
 
 /** How close to the foot still counts as following along. */
 const AT_THE_FOOT_PX = 24;
 
 interface AddonConsolePanelProps {
     readonly translate: Translate;
+    /** What the reading in the editor calls itself, so its own lines stay bare. */
+    readonly openName: string;
     /** Where the keyboard lands on leaving the editor, which sits above this. */
     readonly triggerRef?: RefObject<HTMLButtonElement | null>;
 }
@@ -21,7 +24,7 @@ interface AddonConsolePanelProps {
  * Shut by default and reopened by hand: a reading that draws is the point, and
  * the console is what a reader opens when the drawing is not what they expected.
  */
-export function AddonConsolePanel({ translate, triggerRef }: AddonConsolePanelProps): ReactElement {
+export function AddonConsolePanel({ translate, openName, triggerRef }: AddonConsolePanelProps): ReactElement {
     const lines = useStore(addonLog);
     const [isOpen, setIsOpen] = useState(false);
     const ownTrigger = useRef<HTMLButtonElement>(null);
@@ -57,7 +60,7 @@ export function AddonConsolePanel({ translate, triggerRef }: AddonConsolePanelPr
                 )}
             </div>
             <Collapsible.Content>
-                <LogList lines={lines} translate={translate} />
+                <LogList lines={lines} openName={openName} translate={translate} />
             </Collapsible.Content>
         </Collapsible.Root>
     );
@@ -65,6 +68,7 @@ export function AddonConsolePanel({ translate, triggerRef }: AddonConsolePanelPr
 
 interface LogListProps {
     readonly lines: readonly AddonLogLine[];
+    readonly openName: string;
     readonly translate: Translate;
 }
 
@@ -81,12 +85,10 @@ const MARKS = {
     error: { tone: 'text-ask', said: 'console.failed' },
 } as const satisfies Record<AddonLogLine['level'], { readonly tone: string; readonly said: TranslationKey }>;
 
-function LogList({ lines, translate }: LogListProps): ReactElement {
+function LogList({ lines, openName, translate }: LogListProps): ReactElement {
     const scroller = useRef<HTMLDivElement>(null);
     const wasAtTheFoot = useRef(true);
-    // Named only where more than one reading is printing. With a single one the
-    // name is on every line and tells the reader nothing they do not know.
-    const isShared = new Set(lines.map((line) => line.from)).size > 1;
+    const isShared = namesTheSource(lines, openName);
 
     // Kept at the foot only for a reader who was already there. Scrolling back
     // to read a line and being dragged away from it on the next redraw is the

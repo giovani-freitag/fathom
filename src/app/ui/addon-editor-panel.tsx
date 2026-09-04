@@ -34,6 +34,7 @@ import { AddonEditorService } from '../services/addon-editor/addon-editor-servic
 import type { Choice } from './choice.ts';
 import { AddonConsolePanel } from './addon-console-panel.tsx';
 import { ConfirmDialog } from './confirm-dialog.tsx';
+import { reportOn, sayOfDiscarded } from './editor-report.ts';
 import { ImportReadingDialog } from './import-reading-dialog.tsx';
 import { ReadingImportService } from '../services/reading-import/reading-import-service.ts';
 import { type FileNotice, READING_FILE_PANEL_ID, ReadingFileStrip } from './reading-file-strip.tsx';
@@ -209,7 +210,7 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
                 aria-label={translate('files.shown', { path: editor.shownFile })}
                 className="min-h-24 flex-1"
             />
-            <AddonConsolePanel translate={translate} triggerRef={consoleRef} />
+            <AddonConsolePanel translate={translate} openName={editor.name} triggerRef={consoleRef} />
 
 
             {/* The words on their own, out of sight, and the visible footer
@@ -239,7 +240,7 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
                             <footer className="flex items-center gap-3 border-t border-hairline px-4 py-2.5 text-xs text-ink-300">
                                 <span className="min-w-0 flex-1 truncate">
                                     {translate(
-                                        editor.lastDiscarded.wasDeleted ? 'indicators.removed' : 'editor.replaced',
+                                        sayOfDiscarded(editor.lastDiscarded),
                                         { name: editor.lastDiscarded.name },
                                     )}
                                 </span>
@@ -347,24 +348,25 @@ function spokenStatus(request: SpokenStatusRequest): string {
         return fileSaid.text;
     }
     if (discarded !== null) {
-        return translate(
-            discarded.wasDeleted ? 'indicators.removed' : 'editor.replaced',
-            { name: discarded.name },
-        );
+        return translate(sayOfDiscarded(discarded), { name: discarded.name });
     }
-    if (drawFailure !== null) {
-        return translate('editor.threw', { message: drawFailure });
+
+    // The same decision the footer is drawn from, so what is read out and what
+    // is on screen cannot say two different things.
+    const report = reportOn(status, drawFailure);
+    if (report.kind === 'threw') {
+        return translate('editor.threw', { message: report.message });
     }
-    if (status === null) {
+    if (report.kind === 'starting') {
         return translate('editor.starting');
     }
-    if (status.kind === 'ready') {
-        return translate('editor.drawing', { name: status.label });
+    if (report.kind === 'drawing') {
+        return translate('editor.drawing', { name: report.label });
     }
-    if (status.kind === 'broken') {
-        return status.message;
+    if (report.kind === 'broken') {
+        return report.message;
     }
-    return status.faults
+    return report.faults.faults
         .map((fault) => translate('editor.fault', { line: fault.line, message: fault.message }))
         .join(' ');
 }
@@ -586,13 +588,13 @@ interface EditorStatusLineProps {
 }
 
 function EditorStatusLine({ status, drawFailure, translate }: EditorStatusLineProps): ReactElement {
-    // A reading that built and then threw while the chart drew it: the compiler
-    // saw nothing wrong, so this is the only place it can be said.
-    if (drawFailure !== null) {
-        return <FaultList translate={translate} lines={[translate('editor.threw', { message: drawFailure })]} />;
+    const report = reportOn(status, drawFailure);
+
+    if (report.kind === 'threw') {
+        return <FaultList translate={translate} lines={[translate('editor.threw', { message: report.message })]} />;
     }
 
-    if (status === null) {
+    if (report.kind === 'starting') {
         return (
             <footer className="border-t border-hairline px-4 py-2.5 text-xs text-ink-500">
                 {translate('editor.starting')}
@@ -600,26 +602,28 @@ function EditorStatusLine({ status, drawFailure, translate }: EditorStatusLinePr
         );
     }
 
-    if (status.kind === 'ready') {
+    if (report.kind === 'drawing') {
         return (
             <footer className="flex items-center gap-2 border-t border-hairline px-4 py-2.5 text-xs text-phosphor">
                 <CircleCheck className="size-3.5 shrink-0" />
                 <span className="truncate">
-                    {translate('editor.drawing', { name: status.label })}
+                    {translate('editor.drawing', { name: report.label })}
                 </span>
             </footer>
         );
     }
 
+    if (report.kind === 'broken') {
+        return <FaultList translate={translate} lines={[report.message]} />;
+    }
+
     return (
         <FaultList
             translate={translate}
-            lines={status.kind === 'broken'
-                ? [status.message]
-                : status.faults.map((one) => translate('editor.fault', {
-                    line: String(one.line),
-                    message: one.message,
-                }))}
+            lines={report.faults.faults.map((one) => translate('editor.fault', {
+                line: String(one.line),
+                message: one.message,
+            }))}
         />
     );
 }
