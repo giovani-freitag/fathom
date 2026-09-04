@@ -6,6 +6,7 @@ import { useTranslate } from '../react/use-appearance.ts';
 import type { TranslationKey } from '../i18n/dictionaries/en.ts';
 import type { Translate } from '../i18n/translator.ts';
 import { ControlButton } from './control-button.tsx';
+import { EditorPlaceholder } from './editor-placeholder.tsx';
 import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
 import type { ChartState } from '../core/chart-controller.ts';
 import { ChartSurface } from './chart-surface.tsx';
@@ -241,7 +242,7 @@ export function HeatmapPage(): ReactElement {
                     the editor took every unsaved keystroke with it — and a drag
                     of the window edge is not a decision to discard work. */}
                 {editing !== null && (
-                    <Suspense fallback={<aside className="w-full max-w-[45%] border-l border-hairline bg-abyss-850 md:w-[38rem]" />}>
+                    <Suspense fallback={<EditorPlaceholder />}>
                         <AddonEditorPanel
                             key={editing.key ?? 'new'}
                             openKey={editing.key}

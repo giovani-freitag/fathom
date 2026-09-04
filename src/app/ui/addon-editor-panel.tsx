@@ -44,6 +44,7 @@ import { ADDON_EDITOR_ID } from './panel-ids.ts';
 import type { Translate } from '../i18n/translator.ts';
 import { useIsViewportAtLeast } from '../react/use-viewport-width.ts';
 import { usePanelSize } from '../react/use-panel-size.ts';
+import { EDITOR_SHELL_CLASSES, RAIL, SHEET } from './editor-shell.ts';
 
 import { STARTER_FILES } from './starter-reading.ts';
 import { useTranslate } from '../react/use-appearance.ts';
@@ -87,12 +88,7 @@ interface AddonEditorPanelProps {
 export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): ReactElement {
     const translate = useTranslate();
     const isWide = useIsViewportAtLeast('lg');
-    // Two sizes, one per shape. A width dragged on a desk means nothing to a
-    // sheet on a phone, and remembering one as the other would open every
-    // phone at the width of somebody's monitor.
-    const size = usePanelSize(isWide
-        ? { slot: 'fathom.addons.railWidth', growsAlong: 'width', openingRatio: 0.32, smallest: 0.2, largest: 0.6 }
-        : { slot: 'fathom.addons.sheetHeight', growsAlong: 'height', openingRatio: 0.6, smallest: 0.25, largest: 0.85 });
+    const size = usePanelSize(isWide ? RAIL : SHEET);
     // What the file strip last had to say — a refusal, or a change that worked.
     const [fileSaid, setFileSaid] = useState<FileNotice | null>(null);
     const [isBringingIn, setIsBringingIn] = useState(false);
@@ -149,16 +145,11 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
     }, [discardedName]);
 
     return (
-        // A sheet from the bottom on a phone, a rail beside the chart on a
-        // desk. A phone is held by its lower half and a rail on the right is a
-        // regrip away, which is the reasoning the drawing controls already
-        // follow — and half a narrow screen is not a chart worth checking
-        // against anyway.
         <aside
             id={ADDON_EDITOR_ID}
             aria-label={translate('editor.title')}
             style={{ [isWide ? 'width' : 'height']: `${size.sizePx}px` }}
-            className="fixed inset-x-0 bottom-0 z-40 flex min-w-0 flex-col rounded-t-xl border-t border-hairline bg-abyss-850 shadow-2xl shadow-black/80 lg:relative lg:inset-auto lg:h-auto lg:rounded-none lg:border-l lg:border-t-0"
+            className={EDITOR_SHELL_CLASSES}
         >
             <PanelGrip size={size} isWide={isWide} translate={translate} />
             <EditorTitleRow
