@@ -30,12 +30,8 @@
     "migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
     "build:demo": "vite build --config vite.demo.config.ts",
     "dev:demo": "vite --config vite.demo.config.ts",
-    "build:addon-types": "node scripts/build-addon-types.mjs && node scripts/build-addon-types.mjs --dts types/fathom.d.ts"
+    "build:addon-types": "node scripts/build-addon-types.mjs && node scripts/build-addon-types.mjs --dts packages/types/fathom.d.ts"
   },
-  "types": "types/fathom.d.ts",
-  "files": [
-    "types"
-  ],
   "dependencies": {
     "@fastify/compress": "^9.2.0",
     "@fastify/cookie": "^11.1.2",

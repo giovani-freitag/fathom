@@ -1,0 +1,26 @@
+{
+    "name": "@giovani-freitag/fathom",
+    "version": "0.0.0",
+    "description": "The surface a Fathom reading is written against. Types only, no runtime.",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/giovani-freitag/fathom.git",
+        "directory": "packages/types"
+    },
+    "homepage": "https://github.com/giovani-freitag/fathom/blob/main/docs/writing-a-reading.md",
+    "keywords": ["fathom", "indicators", "trading", "types"],
+    "types": "./fathom.d.ts",
+    "exports": {
+        ".": {
+            "types": "./fathom.d.ts"
+        }
+    },
+    "files": [
+        "fathom.d.ts"
+    ],
+    "sideEffects": false,
+    "publishConfig": {
+        "access": "public"
+    }
+}

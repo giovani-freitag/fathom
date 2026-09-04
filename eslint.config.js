@@ -5,9 +5,9 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-    // `types/` is generated for anything that depends on this repository, and
-    // is held honest by an arch test rather than by this.
-    { ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'types/**'] },
+    // The published surface is generated, and held honest by an arch test
+    // rather than by this.
+    { ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'packages/types/fathom.d.ts'] },
 
     js.configs.recommended,
     ...tseslint.configs.recommendedTypeChecked,

@@ -8,8 +8,8 @@ import { ADDON_SURFACE_TYPES } from '../../src/app/addons/addon-surface.generate
 const ROOT = join(import.meta.dirname, '../..');
 const GENERATED = join(ROOT, 'src', 'app', 'addons', 'addon-surface.generated.ts');
 
-/** What a repository of readings resolves `'fathom'` to, by depending on this one. */
-const PUBLISHED = join(ROOT, 'types', 'fathom.d.ts');
+/** What a repository of readings resolves `'fathom'` to, by depending on the package. */
+const PUBLISHED = join(ROOT, 'packages', 'types', 'fathom.d.ts');
 
 /**
  * An addon written the way the cookbook says to write one.

@@ -1,0 +1,33 @@
+name: publish-types
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+# The surface a reading is written against, published so a repository of them
+# can depend on it rather than keep a copy by hand. Types only, no runtime.
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      # Regenerated rather than trusted: what is published has to be what the
+      # editor compiles against, on the commit being released.
+      - run: npm run build:addon-types
+      - run: git diff --exit-code packages/types/fathom.d.ts
+      - name: Take the version from the tag
+        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}"
+        working-directory: packages/types
+      - run: npm publish --provenance
+        working-directory: packages/types
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
