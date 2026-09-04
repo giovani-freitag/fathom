@@ -4,12 +4,14 @@ import {
     type RefObject,
     useCallback,
     useEffect,
+    useMemo,
     useRef,
     useState,
 } from 'react';
 import {
     CircleCheck,
     CircleQuestionMark,
+    CloudDownload,
     Download,
     Loader,
     Plus,
@@ -26,6 +28,8 @@ import { AddonEditorService } from '../services/addon-editor/addon-editor-servic
 import type { Choice } from './choice.ts';
 import { AddonConsolePanel } from './addon-console-panel.tsx';
 import { ConfirmDialog } from './confirm-dialog.tsx';
+import { ImportReadingDialog } from './import-reading-dialog.tsx';
+import { ReadingImportService } from '../services/reading-import/reading-import-service.ts';
 import { ReadingFileStrip } from './reading-file-strip.tsx';
 import { Divider } from './chart-dock.tsx';
 import { Select } from './select.tsx';
@@ -80,6 +84,8 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
         ? { slot: 'fathom.addons.railWidth', growsAlong: 'width', openingRatio: 0.32, smallest: 0.2, largest: 0.6 }
         : { slot: 'fathom.addons.sheetHeight', growsAlong: 'height', openingRatio: 0.6, smallest: 0.25, largest: 0.85 });
     const [fileRefusal, setFileRefusal] = useState<string | null>(null);
+    const [isBringingIn, setIsBringingIn] = useState(false);
+    const importer = useMemo(() => new ReadingImportService({ fetch: globalThis.fetch.bind(globalThis) }), []);
     const closeRef = useRef<HTMLButtonElement>(null);
     const undoRef = useRef<HTMLButtonElement>(null);
     const returnFocusTo = useRef<Element | null>(null);
@@ -123,7 +129,20 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
             className="fixed inset-x-0 bottom-0 z-40 flex min-w-0 flex-col rounded-t-xl border-t border-hairline bg-abyss-850 shadow-2xl shadow-black/80 lg:relative lg:inset-auto lg:h-auto lg:rounded-none lg:border-l lg:border-t-0"
         >
             <PanelGrip size={size} isWide={isWide} translate={translate} />
-            <EditorToolbar editor={editor} translate={translate} onClose={onClose} closeRef={closeRef} />
+            <EditorToolbar
+                editor={editor}
+                translate={translate}
+                onClose={onClose}
+                closeRef={closeRef}
+                onBringIn={() => { setIsBringingIn(true); }}
+            />
+            <ImportReadingDialog
+                isOpen={isBringingIn}
+                onOpenChange={setIsBringingIn}
+                onLook={(typed) => importer.look(typed)}
+                onTake={(typed, found) => importer.take(typed, found)}
+                onOpened={editor.openBroughtIn}
+            />
             <ReadingFileStrip
                 files={editor.files}
                 shownFile={editor.shownFile}
@@ -219,9 +238,11 @@ interface EditorToolbarProps {
     readonly translate: Translate;
     readonly onClose: () => void;
     readonly closeRef: RefObject<HTMLButtonElement | null>;
+    /** Opens the way in from a repository or a package. */
+    readonly onBringIn: () => void;
 }
 
-function EditorToolbar({ editor, translate, onClose, closeRef }: EditorToolbarProps): ReactElement {
+function EditorToolbar({ editor, translate, onClose, closeRef, onBringIn }: EditorToolbarProps): ReactElement {
     const fileRef = useRef<HTMLInputElement>(null);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const { importFile } = editor;
@@ -297,10 +318,13 @@ function EditorToolbar({ editor, translate, onClose, closeRef }: EditorToolbarPr
                 <PanelAction label={translate('editor.import')} onPress={() => { fileRef.current?.click(); }}>
                     <Upload className="size-4" />
                 </PanelAction>
+                <PanelAction label={translate('import.title')} onPress={onBringIn}>
+                    <CloudDownload className="size-4" />
+                </PanelAction>
                 <input
                     ref={fileRef}
                     type="file"
-                    accept=".ts,.js,text/plain"
+                    accept=".ts,.tsx,.json,text/plain"
                     className="hidden"
                     onChange={handleFileChosen}
                 />

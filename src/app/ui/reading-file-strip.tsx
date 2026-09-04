@@ -53,7 +53,10 @@ export function ReadingFileStrip({
             role="tablist"
             aria-label={translate('files.title')}
             aria-orientation="horizontal"
-            className="flex shrink-0 flex-wrap items-center gap-1 border-b border-hairline px-2 py-1.5"
+            // Capped and scrolled: a reading brought in from a repository can
+            // be twenty files, and a strip that grows with them takes the
+            // panel over before a line of code is read.
+            className="flex max-h-24 shrink-0 flex-wrap items-center gap-1 overflow-y-auto border-b border-hairline px-2 py-1.5"
         >
             {files.map((path) => (
                 typing?.renaming === path

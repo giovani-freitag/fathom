@@ -1,4 +1,4 @@
-import { FLOATING_SURFACE_CLASSES, PANEL_TITLE_CLASSES } from './control-shell.ts';
+import { FLOATING_SURFACE_CLASSES, OVERLAY_CLASSES, PANEL_TITLE_CLASSES } from './control-shell.ts';
 import { CONTROL_BUTTON_CLASSES, CONTROL_RESTING_CLASSES } from './control-shell.ts';
 import { PanelSection } from './panel-section.tsx';
 import { Menu, X } from 'lucide-react';
@@ -53,7 +53,7 @@ function SettingsDrawerShell({
             </Dialog.Trigger>
 
             <Dialog.Portal>
-                <Dialog.Overlay className="fixed inset-0 z-40 bg-black/25" />
+                <Dialog.Overlay className={OVERLAY_CLASSES} />
                 {/*
                     A drawer against the right edge, on every size. It is capped
                     to the viewport and scrolls inside: grown past it, the panel

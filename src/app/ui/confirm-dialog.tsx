@@ -1,6 +1,11 @@
 import { AlertDialog } from 'radix-ui';
 import type { ReactElement } from 'react';
-import { CONTROL_CHIP_CLASSES, CONTROL_OFFERED_CLASSES, PANEL_TITLE_CLASSES } from './control-shell.ts';
+import {
+    CONTROL_CHIP_CLASSES,
+    CONTROL_OFFERED_CLASSES,
+    OVERLAY_CLASSES,
+    PANEL_TITLE_CLASSES,
+} from './control-shell.ts';
 import { useTranslate } from '../react/use-appearance.ts';
 
 interface ConfirmDialogProps {
@@ -35,7 +40,7 @@ export function ConfirmDialog({
     return (
         <AlertDialog.Root open={isOpen} onOpenChange={onOpenChange}>
             <AlertDialog.Portal>
-                <AlertDialog.Overlay className="fixed inset-0 z-40 bg-black/25" />
+                <AlertDialog.Overlay className={OVERLAY_CLASSES} />
                 <AlertDialog.Content className="fixed left-1/2 top-1/2 z-50 w-[22rem] max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-hairline bg-abyss-850 p-4 shadow-2xl shadow-black/80">
                     <AlertDialog.Title className={PANEL_TITLE_CLASSES}>
                         {title}

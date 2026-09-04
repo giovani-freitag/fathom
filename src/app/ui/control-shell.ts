@@ -100,4 +100,12 @@ export const PANEL_ADD_CLASSES =
  * Written once because it is the first thing read in every panel, and three
  * spellings of it is three panels that look like they came from three places.
  */
+/**
+ * What is behind anything that takes over the screen.
+ *
+ * The same wash under every one of them: a dialog that dims the chart more
+ * than the one before it reads as a different kind of interruption.
+ */
+export const OVERLAY_CLASSES = 'fixed inset-0 z-40 bg-black/25';
+
 export const PANEL_TITLE_CLASSES = 'text-sm font-semibold tracking-wide text-ink-100';

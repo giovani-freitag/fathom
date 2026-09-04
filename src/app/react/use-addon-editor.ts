@@ -59,6 +59,8 @@ export interface AddonEditorControls {
     /** Hands the reader the open script as a file. */
     readonly exportFile: () => void;
     readonly importFile: (file: File) => Promise<void>;
+    /** Opens a reading brought in from a repository or a package. */
+    readonly openBroughtIn: (files: ReadingFiles, name: string) => void;
     /** The paths in the open reading, and which one is shown. */
     readonly files: readonly string[];
     readonly shownFile: string;
@@ -460,6 +462,10 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         load(bundle.files, null, bundle.name ?? file.name.replace(BUNDLE_SUFFIX, ''));
     }, [importNotBundleMessage, importNotTextMessage, importTooLargeMessage, load]);
 
+    const openBroughtIn = useCallback((brought: ReadingFiles, called: string): void => {
+        load(brought, null, called);
+    }, [load]);
+
     // Mirrored into state because the files live in the editor, which is not
     // React's, and a list nothing re-renders is a list that never changes.
     const [files, setFiles] = useState<readonly string[]>([ENTRY_FILE]);
@@ -516,6 +522,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         undoDiscard,
         exportFile,
         importFile,
+        openBroughtIn,
         files,
         shownFile,
         showFile,
