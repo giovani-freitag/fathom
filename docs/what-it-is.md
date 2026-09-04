@@ -17,8 +17,7 @@ depth, and nothing reconstructs it from trades — an hour that was not recorded
 is gone for good.
 
 That single fact shapes the whole design: the collector is the part that must
-not stop, the recording is what a stretch of chart is made of, and a gap is
-drawn as a hole rather than smoothed over.
+not stop, and a stretch of chart is only ever made of what it recorded.
 
 ## What is on the chart
 
@@ -30,7 +29,6 @@ drawn as a hole rather than smoothed over.
 | 📊 **Depth ladder** | Resting size and traded volume per price, beside the chart |
 | 🎚️ **Two-cut colour map** | Mute the background churn so real walls stand alone |
 | 🔭 **Bands that hold up zoomed out** | Over days, prices fold into rows you can still follow |
-| 🕳️ **Honest gaps** | Stretches that were not recorded are holes, never smoothed |
 | ✏️ **Marks and measures** | Levels, trend lines, zones and retracements, pinned to time and price |
 | 📱 **Touch first** | One finger pans, two pinch both axes, the axes are scale handles |
 | ⚡ **Live tail** | A WebSocket appends each new second without refetching the window |

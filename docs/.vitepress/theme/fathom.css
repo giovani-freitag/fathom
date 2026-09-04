@@ -95,6 +95,24 @@
     --vp-home-hero-name-background: linear-gradient(120deg, #35e0c4, #2bd4a8 40%, #0f6fb5);
 }
 
+/*
+ * A hero mark large enough to be a mark.
+ *
+ * The default sizes it for a logo with a wordmark beside it; this one is a
+ * single glyph, and at that size it reads as an afterthought in the corner.
+ */
+.VPHero .VPImage {
+    width: 260px;
+    height: 260px;
+}
+
+@media (max-width: 959px) {
+    .VPHero .VPImage {
+        width: 192px;
+        height: 192px;
+    }
+}
+
 /* A reference page is long; give its headings room to be scanned. */
 .vp-doc h3 {
     margin-top: 2rem;

@@ -45,7 +45,6 @@ be running before you need the data.
 - 📊 **Depth ladder** — resting size and traded volume per price, beside the chart
 - 🎚️ **Two-cut colour map** — mute the background churn so real walls stand alone
 - 🔭 **Bands that hold up zoomed out** — over days, prices fold into rows you can still follow
-- 🕳️ **Honest gaps** — stretches that were not recorded are drawn as holes, never smoothed
 - ✏️ **Mark it up** — levels, trend lines, zones and retracements, pinned to time and price rather than pixels
 - 📏 **Measure a move** — drag a stretch and read it in money and in percent
 - 🎯 **Press what you mean** — a mark or a plotted line opens its own settings where you pressed it

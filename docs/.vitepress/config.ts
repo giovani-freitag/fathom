@@ -97,7 +97,13 @@ export default withMermaid({
             text: 'Edit this page',
         },
 
-        footer: { message: 'MIT', copyright: 'Fathom' },
+        footer: {
+            message: 'An order book is only ever recorded, never recovered. '
+                + '<a href="https://github.com/giovani-freitag/fathom">Source</a> · '
+                + '<a href="https://giovani-freitag.github.io/fathom/">Chart</a> · '
+                + '<a href="https://github.com/giovani-freitag/fathom-addons">Addons</a>',
+            copyright: 'MIT',
+        },
     },
 
     // Only what CSS cannot reach. The colours live in the stylesheet instead,

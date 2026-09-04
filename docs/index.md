@@ -31,12 +31,12 @@ features:
       recorded is gone, which is why Fathom exists to be running first.
     link: /what-it-is
     linkText: What it records
-  - icon: 📉
-    title: Honest about what it does not have
+  - icon: 🫧
+    title: Who crossed the spread
     details: >
-      A stretch nobody recorded is drawn as a hole, never smoothed over. A bar
-      built from fewer frames than it should have been says so. Nothing on the
-      chart is inferred quietly.
+      Trades sized by volume and coloured by the side that took liquidity, over
+      a depth ladder of resting size per price. You see the wall and the thing
+      that ate it in the same frame.
     link: /data-model
     linkText: The data model
   - icon: ✏️
