@@ -634,6 +634,18 @@ describe('opening a bundle somebody handed over', () => {
         expect(buffer()).toBe('the entry');
     });
 
+    it('is called what it was brought in as, not what it replaced', async () => {
+        // The name is set by the caller and then read back after a compile.
+        // Read out of the render before that call, the reading was named after
+        // the one it had just replaced.
+        const bundle = JSON.stringify({ fathom: 1, name: 'Theirs', files: { 'main.ts': sourceNamed('Their label') } });
+
+        const { result } = await importText(bundle);
+
+        await waitFor(() => { expect(result.current.status?.kind).toBe('ready'); });
+        expect(result.current.name).toBe('Theirs');
+    });
+
     it('says it is unsaved, because it is on no shelf', async () => {
         // The one signal a reader has about whether it is safe to close the
         // panel. Work that came from a file has never been filed anywhere.

@@ -68,6 +68,15 @@ const AT_ONCE = 6;
 const BEFORE_ASKING_AGAIN_MS = 400;
 
 /**
+ * What a repository with no release is read at.
+ *
+ * jsDelivr indexes a repository by its tags, and most repositories have none —
+ * asked for one, it answers with an empty list of versions, which read as a
+ * repository with nothing in it. A branch is a ref it serves just as happily.
+ */
+const DEFAULT_BRANCHES = ['main', 'master'];
+
+/**
  * What a name and a version may be made of.
  *
  * Everything else, a backslash above all: a browser reads one as a separator
@@ -103,8 +112,8 @@ export class ReadingImportService {
      * @throws Error naming what is wrong, in words a reader can act on.
      */
     async look(typed: string): Promise<FoundReading> {
-        const at = await this.settleVersion(readSpec(typed));
-        const found = withEntry(withinFolder(await this.readListing(at), at.folder));
+        const { at, listing } = await this.findListing(readSpec(typed));
+        const found = withEntry(withinFolder(listing, at.folder));
 
         if (found.length === 0) {
             throw new Error(`Nothing at ${describe(at)} is a TypeScript file this could open.`);
@@ -149,16 +158,18 @@ export class ReadingImportService {
     }
 
     /**
-     * A version, where the reader named none.
+     * The files at a spec, and the ref they were actually listed at.
      *
-     * The listing needs one — asked without, jsDelivr answers with an index of
-     * versions and no files at all, which read as a repository with nothing in
-     * it. Settling it here also pins the look and the fetch to one ref, so a
-     * branch that moves between them cannot.
+     * The listing needs a ref — asked without one, jsDelivr answers with an
+     * index of versions rather than any files. Settling it here also pins the
+     * look and the fetch to one ref, so a branch that moves between them
+     * cannot.
      */
-    private async settleVersion(spec: ReadingSpec): Promise<ReadingSpec> {
+    private async findListing(
+        spec: ReadingSpec,
+    ): Promise<{ readonly at: ReadingSpec; readonly listing: readonly FoundFile[] }> {
         if (spec.version !== null) {
-            return spec;
+            return { at: spec, listing: await this.readListing(spec) };
         }
 
         const held = await this.readJson(`${LISTING}/${spec.host}/${spec.name}`, spec) as {
@@ -166,10 +177,22 @@ export class ReadingImportService {
             versions?: readonly { version?: unknown }[];
         };
         const newest = held.tags?.['latest'] ?? held.versions?.[0]?.version;
-        if (typeof newest !== 'string') {
+        if (typeof newest === 'string') {
+            const at = { ...spec, version: newest };
+            return { at, listing: await this.readListing(at) };
+        }
+        if (spec.host !== 'gh') {
             throw new Error(`${describe(spec)} has no released version to open.`);
         }
-        return { ...spec, version: newest };
+
+        for (const branch of DEFAULT_BRANCHES) {
+            const at = { ...spec, version: branch };
+            const listing = await this.readListing(at).catch(() => []);
+            if (listing.length > 0) {
+                return { at, listing };
+            }
+        }
+        throw new Error(`${describe(spec)} has no release and no branch this could read.`);
     }
 
     private async readListing(spec: ReadingSpec): Promise<readonly FoundFile[]> {

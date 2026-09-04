@@ -191,9 +191,25 @@ export class AddonEditorService {
      */
     replaceFiles(files: ReadingFiles): void {
         const wanted = Object.keys(files).length === 0 ? { [ENTRY_FILE]: '' } : files;
-        this.forgetAll();
+
+        // Kept and rewritten where a path survives, rather than thrown away and
+        // built again at the same address. A model taken down and put back
+        // under the URI it had is a model the language service goes on holding
+        // the old text of — so a reading opened whole compiled as the one it
+        // replaced, and only a keystroke put it right.
+        for (const path of [...this.models.keys()]) {
+            if (wanted[path] === undefined) {
+                this.forget(path);
+                this.models.delete(path);
+            }
+        }
         for (const [path, source] of Object.entries(wanted)) {
-            this.models.set(path, this.buildModel(path, source));
+            const held = this.models.get(path);
+            if (held === undefined) {
+                this.models.set(path, this.buildModel(path, source));
+            } else {
+                held.setValue(source);
+            }
         }
         this.showFile(wanted[this.shown] === undefined ? ENTRY_FILE : this.shown);
     }
@@ -312,7 +328,11 @@ export class AddonEditorService {
             return { files: {}, compiled: {}, faults: [] };
         }
 
-        const worker = await this.reachWorker(entry.uri);
+        // Every model, not just the entry: what `getWorker` guarantees is that
+        // the models it was handed have reached the worker. Named alone, the
+        // entry was in step and the rest were whatever the worker last saw — so
+        // a reading opened whole compiled as the one it replaced.
+        const worker = await this.reachWorker([...this.models.values()].map((model) => model.uri));
         const found = await Promise.all(
             [...this.models].map(async ([path, model]) => ({
                 path,
@@ -343,19 +363,19 @@ export class AddonEditorService {
      * every first compile of a freshly opened editor.
      */
     private async reachWorker(
-        uri: monaco.Uri,
+        uris: readonly monaco.Uri[],
     ): Promise<monaco.languages.typescript.TypeScriptWorker> {
         for (let attempt = 1; attempt < REGISTRATION_TRIES; attempt += 1) {
             try {
                 const getWorker = await monaco.languages.typescript.getTypeScriptWorker();
-                return await getWorker(uri);
+                return await getWorker(...uris);
             } catch {
                 await delay(REGISTRATION_WAIT_MS);
             }
         }
 
         const getWorker = await monaco.languages.typescript.getTypeScriptWorker();
-        return getWorker(uri);
+        return getWorker(...uris);
     }
 
     /**

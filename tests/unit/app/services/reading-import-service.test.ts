@@ -4,7 +4,8 @@ import { describe as describeSpec, readSpec, ReadingImportService } from '../../
 
 const VERSIONS = JSON.stringify({ tags: { latest: '1.0.0' }, versions: [{ version: '1.0.0' }] });
 
-const AT = 'https://cdn.jsdelivr.net/gh/someone/readings@1.0.0';
+/** What jsDelivr answers about a repository nobody has ever tagged. */
+const UNRELEASED = JSON.stringify({ tags: {}, versions: [] });
 
 /** What a listing says about one file, taken from the file itself. */
 function entryFor(path: string, source: string, size?: number) {
@@ -22,7 +23,7 @@ function entryFor(path: string, source: string, size?: number) {
  * two disagreeing is the failure this service exists to catch, and a double
  * that cannot disagree cannot catch it.
  */
-function buildNetwork(content: Record<string, string>, sizes: Record<string, number> = {}) {
+function buildNetwork(content: Record<string, string>, sizes: Record<string, number> = {}, ref = '1.0.0') {
     const asked: string[] = [];
     const listing = Object.entries(content).map(([path, source]) => entryFor(path, source, sizes[path]));
 
@@ -30,12 +31,16 @@ function buildNetwork(content: Record<string, string>, sizes: Record<string, num
         const url = input as string;
         asked.push(url);
         if (url.startsWith('https://data.jsdelivr.com')) {
+            if (!url.includes('@')) {
+                return Promise.resolve(new Response(ref === '1.0.0' ? VERSIONS : UNRELEASED, { status: 200 }));
+            }
             return Promise.resolve(new Response(
-                url.includes('@') ? JSON.stringify({ files: listing }) : VERSIONS,
+                url.includes(`@${ref}`) ? JSON.stringify({ files: listing }) : JSON.stringify({ files: [] }),
                 { status: 200 },
             ));
         }
-        const held = Object.entries(content).find(([path]) => url === `${AT}/${path}`);
+        const held = Object.entries(content)
+            .find(([path]) => url === `https://cdn.jsdelivr.net/gh/someone/readings@${ref}/${path}`);
         return Promise.resolve(held === undefined
             ? new Response('no', { status: 404 })
             : new Response(held[1], { status: 200 }));
@@ -53,8 +58,8 @@ function filesNamed(...paths: readonly string[]): Record<string, string> {
     return Object.fromEntries(paths.map((path) => [path, `// ${path}`]));
 }
 
-function serviceFor(content: Record<string, string>, sizes?: Record<string, number>) {
-    const { fetched, asked } = buildNetwork(content, sizes);
+function serviceFor(content: Record<string, string>, sizes?: Record<string, number>, ref?: string) {
+    const { fetched, asked } = buildNetwork(content, sizes, ref);
     return { service: new ReadingImportService({ fetch: fetched, digest }), asked };
 }
 
@@ -137,6 +142,16 @@ describe('looking at a reading before running it', () => {
 
         expect(found.at.version).toBe('1.0.0');
         expect(found.from).toBe('gh/someone/readings@1.0.0');
+    });
+
+    it('reads a repository nobody has tagged, at the branch it lives on', async () => {
+        // jsDelivr indexes a repository by its tags, and most have none. Read
+        // as an empty list of versions, every such repository looked empty.
+        const { service } = serviceFor(filesNamed('main.ts'), {}, 'main');
+
+        const found = await service.look('gh/someone/readings');
+
+        expect(found.at.version).toBe('main');
     });
 
     it('reads an index.ts as the entry, since that is where anything else starts', async () => {

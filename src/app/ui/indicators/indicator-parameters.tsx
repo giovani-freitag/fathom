@@ -189,9 +189,12 @@ function ChoiceField({ parameter, label, value, onChange }: ChoiceFieldProps): R
                 value={value}
                 label={label}
                 onSelect={onChange}
+                // The key first, then the choice as it stands. A reading a
+                // reader wrote has no dictionary to add to, and the key it
+                // would have used showed on screen as `rung.day`.
                 choices={parameter.choices.map((choice) => ({
                     value: choice,
-                    label: translateLabel(translate, `${parameter.name}.${choice}`),
+                    label: translateLabel(translate, `${parameter.name}.${choice}`, choice),
                 }))}
             />
         </div>

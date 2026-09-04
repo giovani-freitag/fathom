@@ -180,6 +180,10 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
     const leaveRef = useRef<() => void>(() => undefined);
     const themeRef = useRef(resolvedTheme);
 
+    // Read through a ref because `publish` runs after an await, and the render
+    // it was built in is the one before the caller said the reading now has a
+    // name: opening one filed it under the label of the reading it replaced.
+    const isNamedByHandRef = useRef(false);
     const publish = useCallback((key: string, build: AddonBuild): void => {
         const service = serviceRef.current;
         if (build.kind === 'failed') {
@@ -191,7 +195,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         service?.showRuntimeFault(null);
         const id = registerAddon(key, build.indicator);
         setStatus({ kind: 'ready', label: build.indicator.label });
-        if (!isNamedByHand) {
+        if (!isNamedByHandRef.current) {
             setName(build.indicator.label);
         }
         kernel.chart.updateIndicators((current) => (
@@ -207,7 +211,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
                     isRepeatable: false,
                 })
         ));
-    }, [isNamedByHand, kernel]);
+    }, [kernel]);
 
     const rebuild = useCallback(async (underKey: string | null, isEdit = true): Promise<void> => {
         const service = serviceRef.current;
@@ -393,6 +397,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         service.replaceFiles(files);
         library.rememberDraft({ key, files });
         setOpenKey(key);
+        isNamedByHandRef.current = called !== null;
         setIsNamedByHand(called !== null);
         setName(called ?? untitled);
         setIsUnsaved(!isFiled);
@@ -570,7 +575,12 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         status,
         isRunning,
         name,
-        rename: (called) => { setName(called); setIsNamedByHand(true); setIsUnsaved(true); },
+        rename: (called) => {
+            setName(called);
+            isNamedByHandRef.current = true;
+            setIsNamedByHand(true);
+            setIsUnsaved(true);
+        },
         isUnsaved,
         saved,
         save,

@@ -52,10 +52,15 @@ function interpolate(phrase: string, values?: TranslationValues): string {
  *
  * @param translate - The renderer for the language in force.
  * @param labelKey - A catalogue key, or the label itself.
+ * @param otherwise - What to draw where the key names nothing, for a caller
+ *     that built the key out of something more readable than the key is.
  * @returns The text to draw.
  */
-export function translateLabel(translate: Translate, labelKey: string): string {
-    return isTranslationKey(labelKey) ? translate(labelKey) : labelKey;
+export function translateLabel(translate: Translate, labelKey: string, otherwise?: string): string {
+    if (isTranslationKey(labelKey)) {
+        return translate(labelKey);
+    }
+    return otherwise ?? labelKey;
 }
 
 function isTranslationKey(candidate: string): candidate is TranslationKey {
