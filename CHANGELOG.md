@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/giovani-freitag/fathom/compare/v0.14.0...v0.15.0) (2026-09-04)
+
+
+### Features
+
+* put the guide one press from the chart, not only from the editor ([8bdd9cc](https://github.com/giovani-freitag/fathom/commit/8bdd9ccf3f3e9b02863e796f1338cf4679ffa96c))
+
 ## [0.14.0](https://github.com/giovani-freitag/fathom/compare/v0.13.0...v0.14.0) (2026-09-04)
 
 
