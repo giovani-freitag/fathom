@@ -89,7 +89,9 @@ function buildFakeEditor(settleMs = 0) {
     const factory: EditorFactory = (config) => {
         onChange = config.onChange;
         onSave = config.onSave;
-        return editor;
+        // A fresh reference each time, as the real one is: what tells a live
+        // editor from one that has been replaced is its identity.
+        return { ...editor };
     };
     return {
         factory,
@@ -154,6 +156,20 @@ describe('opening the editor', () => {
         act(() => { type(STARTER[ENTRY_FILE]); });
 
         await waitFor(() => { expect(result.current.status?.kind).toBe('broken'); });
+    });
+
+    it('stops showing faults about a script the editor no longer holds', async () => {
+        // A compile that lands after the editor went away was left on screen,
+        // faults and all, about code nobody could see any more.
+        const { factory, faultFrom, type } = buildFakeEditor(30);
+        const { result } = renderEditor(factory);
+        await waitFor(() => { expect(result.current.status?.kind).toBe('ready'); });
+        faultFrom();
+        act(() => { type('broken'); });
+
+        act(() => { result.current.mountInto(null); });
+
+        await waitFor(() => { expect(result.current.status).toBeNull(); });
     });
 
     it('takes its preview off the chart when it closes unsaved', async () => {

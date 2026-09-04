@@ -153,7 +153,10 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
                 onRemove={editor.removeFile}
                 onRefuse={setFileRefusal}
             />
-            <div ref={mountInto} className="min-h-0 flex-1" />
+            {/* A floor under it, because everything else here can grow: the
+                console, the file strip and a list of faults together had left
+                the editor one line tall on a phone. */}
+            <div ref={mountInto} className="min-h-24 flex-1" />
             <AddonConsolePanel translate={translate} />
 
             {/* One region present in every state rather than one per state: a
@@ -454,7 +457,7 @@ function FaultList({ lines, translate }: FaultListProps): ReactElement {
         <footer
             tabIndex={0}
             aria-label={translate('editor.faults')}
-            className="max-h-32 overflow-y-auto border-t border-hairline px-4 py-2.5 text-xs text-ask outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-phosphor/50"
+            className="max-h-20 overflow-y-auto border-t border-hairline px-4 py-2.5 text-xs text-ask outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-phosphor/50 lg:max-h-32"
         >
             <div className="flex items-start gap-2">
                 <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />

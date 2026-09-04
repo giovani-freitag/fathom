@@ -99,7 +99,7 @@ function LogList({ lines, translate }: LogListProps): ReactElement {
                 wasAtTheFoot.current
                     = node.scrollHeight - node.scrollTop - node.clientHeight < AT_THE_FOOT_PX;
             }}
-            className="max-h-40 overflow-y-auto border-t border-hairline/60 px-3 py-2"
+            className="max-h-24 overflow-y-auto border-t border-hairline/60 px-3 py-2 lg:max-h-40"
         >
             <ol className="space-y-0.5 font-mono text-[0.6875rem] leading-relaxed">
                 {lines.map((line, index) => (

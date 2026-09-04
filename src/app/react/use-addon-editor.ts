@@ -222,8 +222,11 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
             // The editor may have been taken down while the compiler worked —
             // a remount, a close. What it answered belongs to an editor that is
             // no longer there, and publishing it puts an empty reading on the
-            // chart over whatever the live one has just built.
+            // chart over whatever the live one has just built. What was on
+            // screen goes with it: a fault list about code nobody can see any
+            // more is worse than saying nothing until the next build lands.
             if (serviceRef.current !== service) {
+                setStatus(null);
                 return;
             }
             if (faults.length > 0) {
