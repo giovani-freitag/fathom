@@ -47,7 +47,8 @@ import { usePanelSize } from '../react/use-panel-size.ts';
 import { EDITOR_SHELL_CLASSES, RAIL, SHEET } from './editor-shell.ts';
 
 import { STARTER_FILES } from './starter-reading.ts';
-import { useTranslate } from '../react/use-appearance.ts';
+import { useAppearance, useTranslate } from '../react/use-appearance.ts';
+import type { Locale } from '../../shared/core/reading-words.ts';
 
 /**
  * What the menu shows while the open reading has never been saved.
@@ -61,7 +62,16 @@ const UNSAVED_CHOICE = 'unsaved';
 const FILE_NOTICE_MS = 5_000;
 
 /** Where the worked examples live, since a reader cannot go and find them. */
-const COOKBOOK_URL = 'https://giovani-freitag.github.io/fathom/guide/writing-a-reading';
+/**
+ * The guide, in the language the chart is being read in.
+ *
+ * Both languages sit under a folder of their own, so neither is the one you get
+ * by not asking — which means this has to ask.
+ */
+const GUIDE_URLS: Readonly<Record<Locale, string>> = {
+    en: 'https://giovani-freitag.github.io/fathom/guide/en/writing-a-reading',
+    'pt-BR': 'https://giovani-freitag.github.io/fathom/guide/pt-BR/writing-a-reading',
+};
 
 /**
  * The editor this panel runs on.
@@ -432,6 +442,7 @@ interface EditorToolbarProps {
 }
 
 function EditorToolbar({ editor, translate, onBringIn, onAddFile, isWide }: EditorToolbarProps): ReactElement {
+    const { locale } = useAppearance();
     const fileRef = useRef<HTMLInputElement>(null);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const { importFile } = editor;
@@ -511,7 +522,7 @@ function EditorToolbar({ editor, translate, onBringIn, onAddFile, isWide }: Edit
                 onChange={handleFileChosen}
             />
             <a
-                href={COOKBOOK_URL}
+                href={GUIDE_URLS[locale]}
                 target="_blank"
                 rel="noreferrer"
                 aria-label={translate('editor.help')}

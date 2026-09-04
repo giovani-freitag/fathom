@@ -99,5 +99,5 @@ npm run dev:demo
 **O gráfico só cobre o tempo em que o coletor esteve rodando.** Não há histórico
 para carregar e nada pelo que esperar. Deixe no ar.
 
-[Como é montado →](/architecture) · [O que ele grava →](/data-model) ·
-[Rodando como serviço →](/operations)
+[Como é montado →](/en/architecture) · [O que ele grava →](/en/data-model) ·
+[Rodando como serviço →](/en/operations)

@@ -506,4 +506,4 @@ Dito sem rodeio, porque descobrir tentando é pior.
 ---
 
 O desenho por trás de tudo isto — o que foi decidido e o que custou — está no
-[ADR 23](/adr/0023-a-reader-writes-an-indicator-in-the-page).
+[ADR 23](/en/adr/0023-a-reader-writes-an-indicator-in-the-page).

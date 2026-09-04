@@ -19,15 +19,15 @@ const DOCS = join(dirname(fileURLToPath(import.meta.url)), '..');
  * lands every time something is settled.
  */
 function decisions() {
-    return readdirSync(join(DOCS, 'adr'))
+    return readdirSync(join(DOCS, 'en', 'adr'))
         .filter((name) => name.endsWith('.md'))
         .sort()
-        .map((name) => ({ text: titleOf(name), link: `/adr/${name.replace(/\.md$/, '')}` }));
+        .map((name) => ({ text: titleOf(name), link: `/en/adr/${name.replace(/\.md$/, '')}` }));
 }
 
 /** A record's own heading, so the list reads as its author wrote it. */
 function titleOf(name: string): string {
-    const held = readFileSync(join(DOCS, 'adr', name), 'utf8');
+    const held = readFileSync(join(DOCS, 'en', 'adr', name), 'utf8');
     return /^#\s+(.+)$/m.exec(held)?.[1] ?? name.replace(/\.md$/, '');
 }
 
@@ -73,7 +73,7 @@ function navigationIn(language: Language) {
     // Only the pages that exist in both. The deeper three and the decision
     // records are written once, in English, and both languages link to the same
     // page rather than to a translation that is not there.
-    const at = (path: string): string => (language === 'en' ? path : `/${language}${path}`);
+    const at = (path: string): string => `/${language}${path}`;
 
     return {
         logo: '/brand.svg',
@@ -83,7 +83,7 @@ function navigationIn(language: Language) {
             { text: said.whatItIs, link: at('/what-it-is') },
             { text: said.writeOne, link: at('/writing-a-reading') },
             { text: 'API', link: '/api/' },
-            { text: said.howItWorks, link: '/architecture' },
+            { text: said.howItWorks, link: '/en/architecture' },
             { text: said.openTheChart, link: 'https://giovani-freitag.github.io/fathom/' },
         ],
 
@@ -106,9 +106,9 @@ function navigationIn(language: Language) {
             {
                 text: said.howItWorks,
                 items: [
-                    { text: said.architecture, link: '/architecture' },
-                    { text: said.dataModel, link: '/data-model' },
-                    { text: said.operations, link: '/operations' },
+                    { text: said.architecture, link: '/en/architecture' },
+                    { text: said.dataModel, link: '/en/data-model' },
+                    { text: said.operations, link: '/en/operations' },
                 ],
             },
             { text: said.decisions, collapsed: true, items: decisions() },
@@ -145,8 +145,16 @@ export default withMermaid({
         ['meta', { name: 'theme-color', content: '#087a6b' }],
     ],
 
+    // Neither language at the root. One of them served from `/` and the other
+    // from a folder makes the first read as the real one and the second as a
+    // translation of it; both in a folder makes them two of the same thing.
+    // `/` sends a reader to English, which is only which one is the default.
     locales: {
-        root: { label: 'English', lang: 'en' },
+        en: {
+            label: 'English',
+            lang: 'en',
+            themeConfig: navigationIn('en'),
+        },
         'pt-BR': {
             label: 'Português',
             lang: 'pt-BR',
@@ -154,8 +162,6 @@ export default withMermaid({
             themeConfig: navigationIn('pt-BR'),
         },
     },
-
-    themeConfig: navigationIn('en'),
 
     // Only what CSS cannot reach. The colours live in the stylesheet instead,
     // because a diagram configured here is drawn once and cannot follow a

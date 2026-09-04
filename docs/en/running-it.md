@@ -100,5 +100,5 @@ npm run dev:demo
 **The chart only ever covers time the collector was running.** There is no
 history to load and nothing to wait for. Leave it up.
 
-[How it is put together →](/architecture) · [What it writes →](/data-model) ·
-[Running it as a service →](/operations)
+[How it is put together →](/en/architecture) · [What it writes →](/en/data-model) ·
+[Running it as a service →](/en/operations)

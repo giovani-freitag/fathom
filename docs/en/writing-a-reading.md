@@ -493,4 +493,4 @@ Stated plainly, because finding out by trying is worse.
 ---
 
 The design behind all of this — what was decided and what it cost — is in
-[ADR 23](adr/0023-a-reader-writes-an-indicator-in-the-page.md).
+[ADR 23](/en/adr/0023-a-reader-writes-an-indicator-in-the-page.md).

@@ -43,7 +43,7 @@ compiles as you type and draws on the chart beside the editor.
 You can also bring one in from a GitHub repository or an npm package. Fathom
 lists what is there, and where it came from, before it fetches a byte.
 
-- [Write one →](/writing-a-reading)
+- [Write one →](/en/writing-a-reading)
 - [Worked examples](https://github.com/giovani-freitag/fathom-example-addons)
 
 ## Where it runs
@@ -57,4 +57,4 @@ Two ways, from the same code:
   [live demo](https://giovani-freitag.github.io/fathom/) is: no server, no
   account, and a recording that lives in the tab.
 
-[Run it →](/running-it)
+[Run it →](/en/running-it)
