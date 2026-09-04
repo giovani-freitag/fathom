@@ -27,13 +27,12 @@ function readSchemaFields(path: string, name: string): string[] {
 }
 
 /**
- * Depth frames are left out on purpose: they answer as a binary window rather
- * than as JSON, so nothing whitelists their fields. What guards them is the
- * codec's own round trip.
+ * Every field the gateway serialises, against the type it came from.
  *
- * Bars are left out because they do not come from here. A venue publishes
- * candles for every past day and a recording only ever holds the days it ran
- * for, so the chart asks the venue and this gateway never serialises one.
+ * Depth frames are absent because they answer as a binary window rather than as
+ * JSON, so nothing whitelists their fields — the codec's own round trip guards
+ * those. Bars are absent because they never come from here: a venue publishes
+ * candles for every past day and a recording holds only the days it ran for.
  */
 describe('what the gateway is allowed to say', () => {
     it('serialises every field an execution cluster carries', () => {

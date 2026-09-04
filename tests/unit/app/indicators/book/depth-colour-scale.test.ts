@@ -80,9 +80,10 @@ describe('resolveSaturationQuantity', () => {
 });
 
 /**
- * Percentiles measured over 194,882 depth buckets of BTCUSDT, so a change to the
- * response curve is judged against the book it has to draw rather than against
- * taste.
+ * Percentiles over 194,882 depth buckets of BTCUSDT.
+ *
+ * Measured rather than chosen, so a change to the response curve is judged
+ * against the book it has to draw rather than against taste.
  */
 const MEASURED_DEPTH = {
     tenthPercentile: 7.4,

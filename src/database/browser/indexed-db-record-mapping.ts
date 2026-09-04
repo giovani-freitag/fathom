@@ -42,6 +42,18 @@ export interface InstrumentRecord {
     readonly registeredAtMs: number;
 }
 
+/**
+ * A frame as the store keys it.
+ *
+ * The instrument and the bucket size are carried on the row rather than in the
+ * frame: the store holds every instrument in one place, and a row that cannot
+ * say which one it belongs to cannot be read back.
+ *
+ * @param instrumentSymbol - Which market the frame was recorded from.
+ * @param priceBucketSize - The ladder step the quantities are counted on.
+ * @param frame - The frame itself.
+ * @returns The row to write.
+ */
 export function toFrameRecord(
     instrumentSymbol: string,
     priceBucketSize: number,
@@ -60,6 +72,12 @@ export function toFrameRecord(
     };
 }
 
+/**
+ * A frame back out of the row it was written as.
+ *
+ * @param record - The row, as the store returned it.
+ * @returns The frame.
+ */
 export function toLiquidityFrame(record: FrameRecord): LiquidityFrame {
     return {
         capturedAtMs: record.capturedAtMs,
@@ -70,6 +88,14 @@ export function toLiquidityFrame(record: FrameRecord): LiquidityFrame {
     };
 }
 
+/**
+ * An execution bucket as the store keys it.
+ *
+ * @param instrumentSymbol - Which market it was recorded from.
+ * @param priceBucketSize - The ladder step its price index counts in.
+ * @param cluster - The bucket itself.
+ * @returns The row to write.
+ */
 export function toTradeClusterRecord(
     instrumentSymbol: string,
     priceBucketSize: number,
@@ -78,6 +104,12 @@ export function toTradeClusterRecord(
     return { instrumentSymbol, priceBucketSize, ...cluster };
 }
 
+/**
+ * An execution bucket back out of its row.
+ *
+ * @param record - The row, as the store returned it.
+ * @returns The bucket.
+ */
 export function toTradeCluster(record: TradeClusterRecord): TradeCluster {
     return {
         executedAtMs: record.executedAtMs,
@@ -89,6 +121,12 @@ export function toTradeCluster(record: TradeClusterRecord): TradeCluster {
     };
 }
 
+/**
+ * A stretch nothing was recorded through, back out of its row.
+ *
+ * @param record - The row, as the store returned it.
+ * @returns The gap.
+ */
 export function toRecordingGap(record: GapRecord): RecordingGap {
     return {
         gapStartedAtMs: record.gapStartedAtMs,

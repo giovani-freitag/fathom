@@ -36,12 +36,6 @@ export interface DemoServiceContainer extends ServiceContainer {
     readonly database: IndexedDbService;
 }
 
-/**
- * The second registration: the page is its own collector and its own archive.
- *
- * @param config - The browser's storage and where collector events go.
- * @returns Every service the tree needs, plus the collector's handle.
- */
 /** What a container with nowhere to keep things writes into. */
 const NO_STORAGE = {
     getItem: (): string | null => null,
@@ -49,6 +43,12 @@ const NO_STORAGE = {
     removeItem: (): void => undefined,
 };
 
+/**
+ * The second registration: the page is its own collector and its own archive.
+ *
+ * @param config - The browser's storage and where collector events go.
+ * @returns Every service the tree needs, plus the collector's handle.
+ */
 export function createDemoServiceContainer(
     config: DemoServiceContainerConfig,
 ): DemoServiceContainer {

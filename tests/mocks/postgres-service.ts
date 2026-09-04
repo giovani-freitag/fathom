@@ -12,8 +12,9 @@ export interface PostgresServiceMock {
 }
 
 /**
- * Exposes both query methods as spies so a test can capture the statement and
- * the bound values, which is where the behaviour worth asserting lives.
+ * A Postgres service whose queries are spies.
+ *
+ * @returns The double, with the statement and its bound values capturable.
  */
 export function createPostgresServiceMock(): PostgresServiceMock {
     const selectRows: SelectRowsSpy = vi.fn(() => Promise.resolve<unknown[]>([]));

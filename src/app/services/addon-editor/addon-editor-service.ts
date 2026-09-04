@@ -365,14 +365,18 @@ export class AddonEditorService {
     }
 
     /**
-     * Monaco registers its TypeScript service when a file of that language
-     * first appears, and the registration lands turns after the model that
-     * triggered it. Asked before then, it refuses rather than waiting, which is
-     * every first compile of a freshly opened editor.
+     * The TypeScript worker for a reading's files.
+     *
+     * @param uris - Every model the compile has to see, not only the entry.
+     * @returns The worker, once Monaco has registered its language service.
+     * @throws Whatever Monaco last refused with, once the tries run out.
      */
     private async reachWorker(
         uris: readonly monaco.Uri[],
     ): Promise<monaco.languages.typescript.TypeScriptWorker> {
+        // Monaco registers the service turns after the model that triggered it,
+        // and refuses rather than waiting until it has — which is every first
+        // compile of a freshly opened editor.
         for (let attempt = 1; attempt < REGISTRATION_TRIES; attempt += 1) {
             try {
                 const getWorker = await monaco.languages.typescript.getTypeScriptWorker();

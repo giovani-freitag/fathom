@@ -102,11 +102,6 @@ export function clampViewport(viewport: ChartViewport, bounds: ViewportBounds): 
     // A span wider than the whole allowed range has nowhere to sit: pushing its
     // start back to the earliest would push its end past the clock, and the
     // chart would show empty future instead of what it was asked for.
-    //
-    // It used to be floored at a minute as well, so an archive seconds old did
-    // not open on seconds of slabs. That floor is gone with the reason for it:
-    // the range now reaches back to where candles are published rather than to
-    // the first frame recorded, so it is never seconds wide.
     const availableSpanMs = bounds.latestMs - bounds.earliestMs;
     const requestedSpanMs = viewport.toMs - viewport.fromMs;
     const spanMs = Math.min(

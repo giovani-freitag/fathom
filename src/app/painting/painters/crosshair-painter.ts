@@ -42,8 +42,10 @@ interface ReadoutPaint {
 }
 
 /**
- * One price bucket of one frame, named because the pair of figures that find it
- * are both numbers: a bucket index and the price it stands for.
+ * One price bucket of one frame.
+ *
+ * Named rather than passed as a pair, because the two figures that find it are
+ * both numbers and nothing at a call site would say which was which.
  */
 interface RestingBucket {
     readonly paint: PaintContext;

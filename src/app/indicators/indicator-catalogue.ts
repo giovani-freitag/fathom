@@ -150,6 +150,15 @@ export function resolveRequiredSessions(
     return [...deepest].map(([intervalMs, reachingBack]) => ({ intervalMs, reachingBack }));
 }
 
+/**
+ * The deepest warm-up any layer on the chart asked for.
+ *
+ * One figure for the whole chart, because the window is fetched once and every
+ * layer reads the same bars out of it.
+ *
+ * @param added - Every layer on the chart, tuned as the reader tuned it.
+ * @returns Bars to fetch before the drawn window, at least one.
+ */
 export function resolveRequiredWarmupBars(added: readonly AddedIndicator[]): number {
     let deepest = 1;
     for (const entry of added) {

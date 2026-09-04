@@ -103,6 +103,12 @@ export interface IndicatorRetune {
     readonly value: number | string | boolean;
 }
 
+/**
+ * The set with one more layer on it.
+ *
+ * @param request - What to add, and what is already there.
+ * @returns The new set, or the one given where the copy would be refused.
+ */
 export function withIndicatorAdded(request: IndicatorAddition): readonly AddedIndicator[] {
     const { added, indicatorId, settings, tone } = request;
     const isRepeatable = request.isRepeatable ?? true;

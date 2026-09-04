@@ -2,8 +2,13 @@ import { vi } from 'vitest';
 import type { DepthDiff, DepthSnapshot } from '../../src/workers/core/depth-types.ts';
 
 /**
- * A ladder whose span covers 99 to 101, so a merge test can tell "inside the
- * ladder" from "deeper than the ladder ever reached".
+ * A ladder spanning 99 to 101.
+ *
+ * Narrow on purpose, so a merge test can tell a price inside the ladder from
+ * one deeper than it ever reached.
+ *
+ * @param lastUpdateId - The update the ladder is current as of.
+ * @returns The snapshot.
  */
 export function buildSnapshot(lastUpdateId: number): DepthSnapshot {
     return {
@@ -29,8 +34,10 @@ export interface SnapshotSourceMock {
 }
 
 /**
- * A snapshot source whose answers each test tunes, so one shared shape covers
- * the happy path, the stale ladder, and the failing endpoint.
+ * A snapshot source each test tunes for itself.
+ *
+ * @param lastUpdateId - What the ladder is current as of, where it answers.
+ * @returns The double, answering with one snapshot until told otherwise.
  */
 export function createSnapshotSource(lastUpdateId = 100): SnapshotSourceMock {
     return {

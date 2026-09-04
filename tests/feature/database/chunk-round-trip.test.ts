@@ -22,9 +22,10 @@ const NEAR_BUCKET = 7_750;
 const NEAR_ROWS = 40;
 
 /**
- * A stretch shaped the way the book is: full around the price, and a handful of
- * lone walls a long way off — including one past a square's edge, so a frame
- * has to be gathered from more than one square to come back whole.
+ * A recording shaped the way a book is.
+ *
+ * @param count - How many frames to build.
+ * @returns The frames, oldest first.
  */
 function buildRecording(count: number): LiquidityFrame[] {
     return Array.from({ length: count }, (_, offset) => {
@@ -34,7 +35,8 @@ function buildRecording(count: number): LiquidityFrame[] {
         for (let row = 0; row < NEAR_ROWS; row += 1) {
             held.set(base + row, 1 + (row % 5) * 0.7 + Math.abs(Math.sin(offset / 4 + row)) * 2);
         }
-        // Two blocks below and one above the square the price sits in.
+        // Lone walls a long way off, one of them past a square's edge — so a
+        // frame has to be gathered from more than one square to come back whole.
         held.set(3_000, 41.25);
         held.set(ROWS_PER_CHUNK * 14 + 7, 87.5);
         held.set(12_000, 6.5);

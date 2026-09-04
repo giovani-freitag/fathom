@@ -6,10 +6,7 @@ import { CHART_LAYERS, findChartLayer } from '../../src/app/indicators/indicator
 const ROOT = join(import.meta.dirname, '../..');
 const ADDONS = join('src', 'app', 'indicators');
 
-/**
- * The way in: what the build ships, what it opens with, what it paints with,
- * and what it puts in the shell. Everything else about a layer is its own.
- */
+/** Where a layer may be named from outside itself. */
 const REGISTRIES = new Set([
     'indicator-catalogue.ts',
     'field-layers.ts',

@@ -46,9 +46,6 @@ const readIsDepthVisible = (state: ChartState): boolean => state.isDepthVisible;
 const readSampleIntervalMs = (state: ChartState): number => state.dataset.sampleIntervalMs;
 
 /**
- * The whole product: one chart, and just enough chrome to explain it.
- */
-/**
  * Fetched only once a reader opens it.
  *
  * The editor carries a compiler, which is several times the weight of the chart
@@ -59,6 +56,11 @@ const AddonEditorPanel = lazy(async () => {
     return { default: loaded.AddonEditorPanel };
 });
 
+/**
+ * The whole product: one chart, and just enough chrome to explain it.
+ *
+ * @returns The page.
+ */
 export function HeatmapPage(): ReactElement {
     const kernel = useKernel();
     // Sliced rather than read whole: a drag rewrites the viewport many times a

@@ -76,6 +76,14 @@ export function translateFailure(
     return typeof failure === 'string' ? failure : translate(failure.key, failure.values);
 }
 
+/**
+ * A label the dictionary may or may not know.
+ *
+ * @param translate - The renderer for the reader's language.
+ * @param labelKey - What the layer called itself, key or plain words.
+ * @param otherwise - Shown when the key is unknown. Defaults to the key.
+ * @returns The rendered label, or the words as they were written.
+ */
 export function translateLabel(translate: Translate, labelKey: string, otherwise?: string): string {
     if (isTranslationKey(labelKey)) {
         return translate(labelKey);

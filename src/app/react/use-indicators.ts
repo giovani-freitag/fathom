@@ -38,15 +38,15 @@ export interface IndicatorControls {
     readonly forgetRemoval: () => void;
 }
 
-/**
- * The set of indicators on the chart, and the three things a reader does to it.
- *
- * @returns The set and the operations over it.
- */
 /* Declared once each, so the subscription is the same one on every render. */
 const readAddedIndicators = (state: ChartState): readonly AddedIndicator[] => state.addedIndicators;
 const readPickedInstanceId = (state: ChartState): string | null => state.pickedInstanceId;
 
+/**
+ * The set of indicators on the chart, and what a reader does to it.
+ *
+ * @returns The set and the operations over it.
+ */
 export function useIndicators(): IndicatorControls {
     const kernel = useKernel();
     // Sliced, not read whole: this is held by the page, and following the

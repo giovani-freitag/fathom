@@ -381,6 +381,13 @@ export function appendGap(dataset: ChartDataset, gap: RecordingGap): ChartDatase
  */
 // The live tail bins on the stored price grid while a wide window is loaded on
 // a coarser one, so an arrival has to be re-binned or it lands off the grid.
+/**
+ * The dataset with newer executions folded into it.
+ *
+ * @param dataset - What the chart holds.
+ * @param clusters - The buckets that arrived, oldest first.
+ * @returns The dataset, or the one given where nothing arrived.
+ */
 export function appendClusters(
     dataset: ChartDataset,
     clusters: readonly TradeCluster[],

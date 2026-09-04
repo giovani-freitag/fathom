@@ -975,15 +975,14 @@ function runOne(
                 indicator.resolveSources?.(entry.settings).sessions,
             ),
         });
-        // Rejected whole rather than clipped. A plan over budget is a bug in
+        // Rejected whole rather than clipped: a plan over budget is a bug in
         // whoever produced it, and drawing part of one shows the reader a claim
         // its author never made.
-        //
-        // Said rather than dropped: a reading a reader wrote is told it is
-        // being drawn by the panel that compiled it, and a rejection nobody
-        // reports leaves them looking at a chart with nothing on it and no
-        // reason anywhere.
         if (!isPlanWithinBudget(draft)) {
+            // Said rather than dropped. The panel that compiled the reading is
+            // telling its author it is being drawn, and a rejection nobody
+            // reports leaves them looking at an empty chart with no reason
+            // anywhere on it.
             return refusalFor(draft);
         }
         const plan = completePlan(

@@ -24,8 +24,10 @@ const FAR_BUCKET = 15_400;
 const FAR_QUANTITY = 900;
 
 /**
- * A stretch shaped the way the book is: dense around the price, with one wall
- * standing far above it — the thing a band around the price cannot hold.
+ * A recording shaped the way a book is.
+ *
+ * @param count - How many frames to build.
+ * @returns The frames, oldest first.
  */
 function buildRecording(count: number): LiquidityFrame[] {
     return Array.from({ length: count }, (_, offset) => {
@@ -33,6 +35,8 @@ function buildRecording(count: number): LiquidityFrame[] {
         for (let row = 0; row < NEAR_ROWS; row += 1) {
             held.set(NEAR_BUCKET + row, 1 + (row % 4) * 0.5);
         }
+        // One wall standing far above the price, which is the thing a band
+        // around the price cannot hold.
         held.set(FAR_BUCKET, FAR_QUANTITY);
 
         const touch = NEAR_BUCKET + NEAR_ROWS;
