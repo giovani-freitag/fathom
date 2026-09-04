@@ -11,7 +11,8 @@ import { useKernel } from './kernel-context.ts';
 import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
 import type { Indicator } from '../../shared/core/draw-plan.ts';
 import { withIndicatorAdded } from '../../shared/core/indicator-selection.ts';
-import { ENTRY_FILE, isLegalPath, type ReadingFiles } from '../../shared/core/reading-files.ts';
+import { ENTRY_FILE, type ReadingFiles } from '../../shared/core/reading-files.ts';
+import { readBundle } from '../addons/reading-bundle.ts';
 
 /**
  * Work that has just left the editor, and can still be had back.
@@ -157,6 +158,10 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
     const compilerLostMessage = translate('editor.compilerLost');
     const importNotTextMessage = translate('editor.notText');
     const importNotBundleMessage = translate('editor.notBundle');
+    const importBadPathMessage = useCallback(
+        (path: string) => translate('editor.badPath', { path }),
+        [translate],
+    );
     const editorLabel = translate('editor.code');
     const [status, setStatus] = useState<EditorStatus | null>(null);
     const [isRunning, setIsRunning] = useState(false);
@@ -495,16 +500,26 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
             return;
         }
         const bundle = readBundle(text);
-        if (file.name.endsWith('.json') && bundle === null) {
-            setStatus({ kind: 'broken', message: importNotBundleMessage });
+        if (bundle.kind === 'illegalPath') {
+            setStatus({ kind: 'broken', message: importBadPathMessage(bundle.path) });
             return;
         }
-        if (bundle === null) {
+        if (bundle.kind === 'notOurs') {
+            if (file.name.endsWith('.json')) {
+                setStatus({ kind: 'broken', message: importNotBundleMessage });
+                return;
+            }
             load({ [ENTRY_FILE]: text }, null, file.name.replace(/\.[jt]sx?$/, ''), 'offer', false);
             return;
         }
         load(bundle.files, null, bundle.name ?? file.name.replace(BUNDLE_SUFFIX, ''), 'offer', false);
-    }, [importNotBundleMessage, importNotTextMessage, importTooLargeMessage, load]);
+    }, [
+        importBadPathMessage,
+        importNotBundleMessage,
+        importNotTextMessage,
+        importTooLargeMessage,
+        load,
+    ]);
 
     const openBroughtIn = useCallback((brought: ReadingFiles, called: string): void => {
         load(brought, null, called, 'offer', false);
@@ -627,36 +642,6 @@ function isSameWork(one: ReadingFiles, other: ReadingFiles): boolean {
     const paths = Object.keys(one);
     return paths.length === Object.keys(other).length
         && paths.every((path) => one[path] === other[path]);
-}
-
-/**
- * A reading out of an exported bundle.
- *
- * @param text - What was in the file.
- * @returns The reading, or null where the file is not one of ours.
- */
-function readBundle(text: string): { readonly name?: string; readonly files: ReadingFiles } | null {
-    try {
-        const parsed = JSON.parse(text) as { fathom?: unknown; name?: unknown; files?: unknown };
-        const files = parsed.files;
-        if (parsed.fathom !== 1 || typeof files !== 'object' || files === null) {
-            return null;
-        }
-        // Paths checked as the editor checks them, and an entry insisted on:
-        // a bundle is a file anybody can hand-edit, and one with no `main.ts`
-        // left the editor showing a buffer nothing could see or save.
-        const held = Object.entries(files)
-            .filter(([path, source]) => typeof source === 'string' && isLegalPath(path));
-        if (!held.some(([path]) => path === ENTRY_FILE)) {
-            return null;
-        }
-        return {
-            ...(typeof parsed.name === 'string' ? { name: parsed.name } : {}),
-            files: Object.fromEntries(held),
-        };
-    } catch {
-        return null;
-    }
 }
 
 /** Runs a change to the reading's files, answering with what it refused over. */

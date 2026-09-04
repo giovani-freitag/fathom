@@ -155,6 +155,7 @@ export const EN_DICTIONARY = {
     'editor.tooLarge': 'That file is too large to be a reading. Nothing was opened.',
     'editor.notText': 'That file is not text. Nothing was opened.',
     'editor.notBundle': 'That file is not a reading exported from here. Nothing was opened.',
+    'editor.badPath': 'That bundle holds a file Fathom will not open: {path}. Nothing was opened.',
     'editor.unsaved': 'unsaved',
     'editor.replaced': '{name} closed without being saved',
     'editor.closed': '{name} closed, and is still on the shelf',

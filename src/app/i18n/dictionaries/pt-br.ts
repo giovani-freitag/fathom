@@ -157,6 +157,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'editor.tooLarge': 'Esse arquivo é grande demais para ser uma leitura. Nada foi aberto.',
     'editor.notText': 'Esse arquivo não é texto. Nada foi aberto.',
     'editor.notBundle': 'Esse arquivo não é uma leitura exportada daqui. Nada foi aberto.',
+    'editor.badPath': 'Esse pacote tem um arquivo que o Fathom não abre: {path}. Nada foi aberto.',
     'editor.unsaved': 'não salvo',
     'editor.replaced': '{name} saiu sem ser salva',
     'editor.closed': '{name} foi fechada, e continua na estante',
