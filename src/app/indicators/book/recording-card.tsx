@@ -7,7 +7,7 @@ import { ConfirmDialog } from '../../ui/confirm-dialog.tsx';
 import { Trash2 } from 'lucide-react';
 import { type GridChoice, offerGrids } from '../../markets/recordable.ts';
 import { ListingCard, SearchField } from '../../ui/markets/listing-card.tsx';
-import { ListingRefusal } from '../../ui/markets/listing-refusal.tsx';
+import { ListingBody, ListingFooting } from '../../ui/markets/listing-body.tsx';
 import { Select } from '../../ui/select.tsx';
 import { useIsViewportAtLeast } from '../../react/use-viewport-width.ts';
 import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
@@ -198,82 +198,68 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
                     )}
                 </div>
             )}
-            footing={narrowed !== null && narrowed.matched > narrowed.shown.length
-                ? (
-                    <p className="shrink-0 border-t border-hairline px-3 py-2 text-[11px] text-ink-500">
-                        {props.translate('markets.shownOf', {
-                            shown: String(narrowed.shown.length),
-                            matched: String(narrowed.matched),
-                        })}
-                    </p>
-                )
-                : null}
+            footing={(
+                <ListingFooting
+                    listing={listing ?? { kind: 'unread' }}
+                    shown={narrowed?.shown.length ?? 0}
+                    matched={narrowed?.matched ?? 0}
+                    isAsking={false}
+                    translate={props.translate}
+                />
+            )}
         >
-            {listing?.kind === 'refused'
-                ? (
-                    // A venue that refused and a venue still answering read the
-                    // same from here, and saying "asking" about a request that
-                    // already failed and will never be sent again leaves the
-                    // reader waiting on nothing until they reload the page.
-                    <ListingRefusal
-                        said={listing.said ?? props.translate('markets.noConnector')}
-                        retryLabel={props.translate('markets.retry')}
-                        onRetry={() => { void markets.readListing(venue); }}
-                    />
-                )
-                : narrowed === null
-                    ? (
-                        <p
-                            role="status"
-                            className="min-h-0 flex-1 px-3 py-4 text-xs leading-snug text-ink-500"
-                        >
-                            {props.translate('markets.reading')}
-                        </p>
-                    )
-                    : (
-                        <ul
-                            aria-label={props.translate('recording.pickerTitle')}
-                            className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
-                        >
-                            {GROUPS.map((group) => ({ said: group.said, rows: shown[group.of] }))
-                                .filter((group) => group.rows.length > 0).map((group) => (
-                                    <li key={group.said}>
-                                        <p className="sticky top-0 z-10 bg-abyss-800/95 px-3 py-1 field-label">
-                                            {props.translate(group.said)}
-                                        </p>
-                                        <ul>
-                                            {group.rows.map((row) => (
-                                                <PairRow
-                                                    key={row.instrument.symbol}
-                                                    instrument={row.instrument}
-                                                    contract={row.contract}
-                                                    lastPrice={state.prices[`${venue}/${row.instrument.symbol}`] ?? null}
-                                                    isOpen={chosen === row.instrument.symbol}
-                                                    isSaving={props.isSaving}
-                                                    translate={props.translate}
-                                                    onOpen={() => {
-                                                        setChosen(chosen === row.instrument.symbol
-                                                            ? null
-                                                            : row.instrument.symbol);
-                                                        void markets.readLastPrice(venue, row.instrument.symbol);
-                                                    }}
-                                                    onRecord={(priceBucketSize) => {
-                                                        props.onRecord(venue, row.instrument, priceBucketSize);
-                                                        setChosen(null);
-                                                    }}
-                                                    onToggle={(isEnabled) => {
-                                                        if (row.contract !== null) {
-                                                            props.onToggle(row.contract, isEnabled);
-                                                        }
-                                                    }}
-                                                    onRemove={() => { setDropping(row.contract); }}
-                                                />
-                                            ))}
-                                        </ul>
-                                    </li>
-                                ))}
-                        </ul>
-                    )}
+            <ListingBody
+                listing={listing ?? { kind: 'unread' }}
+                rowCount={shown.recording.length + shown.paused.length + shown.offered.length}
+                query={query}
+                emptySaid={props.translate('markets.noPairs')}
+                translate={props.translate}
+                onRetry={() => { void markets.readListing(venue); }}
+            >
+                <ul
+                    aria-label={props.translate('recording.pickerTitle')}
+                    className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+                >
+                    {GROUPS.map((group) => ({ said: group.said, rows: shown[group.of] }))
+                        .filter((group) => group.rows.length > 0).map((group) => (
+                            <li key={group.said}>
+                                <p className="sticky top-0 z-10 bg-abyss-800/95 px-3 py-1 field-label">
+                                    {props.translate(group.said)}
+                                </p>
+                                <ul>
+                                    {group.rows.map((row) => (
+                                        <PairRow
+                                            key={row.instrument.symbol}
+                                            instrument={row.instrument}
+                                            contract={row.contract}
+                                            lastPrice={state.prices[`${venue}/${row.instrument.symbol}`] ?? null}
+                                            isOpen={chosen === row.instrument.symbol}
+                                            isSaving={props.isSaving}
+                                            translate={props.translate}
+                                            onOpen={() => {
+                                                setChosen(chosen === row.instrument.symbol
+                                                    ? null
+                                                    : row.instrument.symbol);
+                                                void markets.readLastPrice(venue, row.instrument.symbol);
+                                            }}
+                                            onRecord={(priceBucketSize) => {
+                                                props.onRecord(venue, row.instrument, priceBucketSize);
+                                                setChosen(null);
+                                            }}
+                                            onToggle={(isEnabled) => {
+                                                if (row.contract !== null) {
+                                                    props.onToggle(row.contract, isEnabled);
+                                                }
+                                            }}
+                                            onRemove={() => { setDropping(row.contract); }}
+                                        />
+                                    ))}
+                                </ul>
+                            </li>
+                        ))}
+                </ul>
+            </ListingBody>
+
             <ConfirmDialog
                 isOpen={dropping !== null}
                 onOpenChange={(isOpen) => { if (!isOpen) { setDropping(null); } }}

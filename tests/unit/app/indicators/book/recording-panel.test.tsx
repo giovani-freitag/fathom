@@ -353,6 +353,35 @@ describe('what else could be recorded', () => {
         expect(await screen.findByText('Switched off')).toBeDefined();
     });
 
+    it('says it is asking while the venue answers, rather than drawing an empty card', async () => {
+        // A listing is written `reading` with no rows on the same tick it is
+        // asked for, so a card that only tests the kind of the listing draws
+        // three groups of nothing for as long as the venue takes — which reads
+        // as a venue that trades nothing, or as a card that broke.
+        const recording = {
+            listContracts: () => Promise.resolve([]),
+            readBudget: () => Promise.resolve(budget),
+            saveContract: vi.fn().mockResolvedValue(undefined),
+            removeContract: vi.fn().mockResolvedValue(undefined),
+            setBudget: vi.fn().mockResolvedValue(undefined),
+            pruneToBudget: vi.fn().mockResolvedValue(0),
+        } as unknown as RecordingControl;
+
+        renderWithKernel(
+            createIndicatorKernel([], () => new Promise(() => undefined)),
+            (
+                <RecordingPanel
+                    recording={recording}
+                    onContractsChanged={() => undefined}
+                    translate={buildTranslate('en')}
+                />
+            ),
+        );
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+
+        expect(await screen.findByText(/Asking the venue/)).toBeDefined();
+    });
+
     it('says a venue refused and offers to ask again, rather than asking for ever', async () => {
         // A refusal and an answer that has not arrived read the same from here,
         // and the request is never sent a second time: without this the card

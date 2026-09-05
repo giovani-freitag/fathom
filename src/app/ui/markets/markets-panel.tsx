@@ -6,7 +6,7 @@ import {
 } from '../control-shell.ts';
 import { ListingCard, SearchField } from './listing-card.tsx';
 import { FAVOURITES_ID, findTagsHolding, type MarketPair } from '../../../shared/core/pair-tags.ts';
-import { ListingRefusal } from './listing-refusal.tsx';
+import { ListingBody, ListingFooting, Said } from './listing-body.tsx';
 import { MarketsRail, type Showing } from './markets-rail.tsx';
 import { labelOf } from '../../markets/tag-names.ts';
 import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
@@ -266,7 +266,7 @@ export function MarketsPanel({
                 </div>
             )}
             footing={(
-                <Footing
+                <ListingFooting
                     listing={listing}
                     shown={narrowed?.shown.length ?? 0}
                     matched={narrowed?.matched ?? 0}
@@ -308,58 +308,10 @@ export function MarketsPanel({
     );
 }
 
-interface FootingProps {
-    readonly listing: Listing;
-    readonly shown: number;
-    readonly matched: number;
-    /** True while the venue is being asked about what was typed. */
-    readonly isAsking: boolean;
-    readonly translate: Translate;
-}
-
-/**
- * The line under the listing: what it is still doing, or what it left out.
- *
- * Two things a reader cannot work out from the rows themselves — that more are
- * coming, and that more matched than fitted — and one strip at the bottom for
- * both, rather than a spinner where the rows should be.
- */
-function Footing({ listing, shown, matched, isAsking, translate }: FootingProps): ReactElement | null {
-    const said = readFooting({ listing, shown, matched, isAsking, translate });
-    if (said === null) {
-        return null;
-    }
-
-    return (
-        <p className="shrink-0 border-t border-hairline px-3 py-2 text-[11px] text-ink-500">{said}</p>
-    );
-}
-
-/**
- * Which of those two it is, in the order that matters to a reader.
- */
-function readFooting({ listing, shown, matched, isAsking, translate }: FootingProps): string | null {
-    if (isAsking) {
-        return translate('markets.askingVenue');
-    }
-    if (listing.kind === 'reading' && listing.instruments.length > 0) {
-        return listing.total === null
-            ? translate('markets.readingSome', { read: String(listing.instruments.length) })
-            : translate('markets.readingOf', {
-                read: String(listing.instruments.length),
-                total: String(listing.total),
-            });
-    }
-    return matched > shown
-        ? translate('markets.shownOf', { shown: String(shown), matched: String(matched) })
-        : null;
-}
-
 interface BodyProps {
     readonly showing: Showing;
     readonly listing: Listing;
     readonly rowCount: number;
-    /** What the reader has typed, which they cannot see being read yet. */
     readonly query: string;
     readonly translate: Translate;
     readonly onRetry: () => void;
@@ -369,47 +321,26 @@ interface BodyProps {
 /**
  * The table, or the one sentence that stands in for it.
  *
- * Every state the listing can be in answers here rather than inside the table,
- * so the table only ever draws rows.
+ * A tag is not a listing: it holds what the reader put in it, so it is never
+ * unread, never refused, and empty for a reason of its own. That is the whole
+ * of what this adds to the shared body.
  */
 function Body({ showing, listing, rowCount, query, translate, onRetry, children }: BodyProps): ReactElement {
-    // Only until the first page lands: after that the rows are the answer, and
-    // the line under them says the rest is still coming.
-    const isEmptyStill = listing.kind === 'unread'
-        || (listing.kind === 'reading' && listing.instruments.length === 0);
-    if (showing.kind === 'venue' && isEmptyStill) {
-        // Typing into a listing that has not arrived looks like typing into a
-        // box that is not listening, and a venue serving its whole listing in
-        // one answer leaves several seconds of exactly that.
-        return <Said said={translate(query.trim() === '' ? 'markets.reading' : 'markets.readingBeforeSearch')} />;
+    if (showing.kind === 'tag') {
+        return rowCount === 0 ? <Said said={translate('markets.emptyTag')} /> : children;
     }
 
-    if (showing.kind === 'venue' && listing.kind === 'refused') {
-        return (
-            <ListingRefusal
-                said={listing.said ?? translate('markets.noConnector')}
-                retryLabel={translate('markets.retry')}
-                onRetry={onRetry}
-            />
-        );
-    }
-
-    if (rowCount === 0) {
-        return (
-            <Said said={translate(showing.kind === 'tag' ? 'markets.emptyTag' : 'markets.noPairs')} />
-        );
-    }
-
-    return children;
-}
-
-/** One sentence where the table would have been. */
-function Said({ said }: { readonly said: string }): ReactElement {
-    // Announced, because it stands where the list would be and says what
-    // happened to it. Focus stays on the venue that was tapped, so without this
-    // a reader hears nothing at all between asking and the rows arriving.
     return (
-        <p role="status" className="min-h-0 flex-1 px-3 py-4 text-xs leading-snug text-ink-500">{said}</p>
+        <ListingBody
+            listing={listing}
+            rowCount={rowCount}
+            query={query}
+            emptySaid={translate('markets.noPairs')}
+            translate={translate}
+            onRetry={onRetry}
+        >
+            {children}
+        </ListingBody>
     );
 }
 
