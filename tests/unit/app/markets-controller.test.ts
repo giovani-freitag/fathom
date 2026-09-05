@@ -280,3 +280,28 @@ describe('installing a venue a reader brought', () => {
         expect(refused).toContain('ships with');
     });
 });
+
+describe('the last price a grid is chosen against', () => {
+    it('asks once while the answer is on its way, however often the row is pressed', async () => {
+        // The row that asks is the one a reader presses repeatedly, because
+        // pressing it is how the grid chooser opens. The answer is cached once
+        // it lands, but nothing stopped the presses before that from each
+        // sending a request of their own.
+        let answered = 0;
+        const fetch = vi.fn(() => {
+            answered += 1;
+            return Promise.resolve(new Response(JSON.stringify([
+                [NOW_MS - 60_000, '1', '2', '0.5', '1.5', '10', NOW_MS, '15', 3, '5', '7', '0'],
+            ])));
+        }) as unknown as typeof globalThis.fetch;
+        const controller = buildController(fetch);
+
+        await Promise.all([
+            controller.readLastPrice(FIRST_VENUE, 'BTCUSDT'),
+            controller.readLastPrice(FIRST_VENUE, 'BTCUSDT'),
+            controller.readLastPrice(FIRST_VENUE, 'BTCUSDT'),
+        ]);
+
+        expect(answered).toBe(1);
+    });
+});

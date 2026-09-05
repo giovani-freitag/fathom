@@ -107,6 +107,15 @@ export class MarketsController {
     private readonly config: MarketsControllerConfig;
     private readonly inFlight = new Map<string, AbortController>();
     private searching: AbortController | null = null;
+    /**
+     * Pairs whose last price is already being asked for.
+     *
+     * The answer is cached once it lands, but until then nothing stopped a
+     * second press of the same row from asking again — and the row that
+     * asks is the one a reader taps repeatedly, because it is how the grid
+     * chooser opens.
+     */
+    private readonly pricing = new Set<string>();
 
     constructor(config: MarketsControllerConfig) {
         this.config = config;
@@ -285,6 +294,11 @@ export class MarketsController {
             return;
         }
 
+        if (this.pricing.has(at)) {
+            return;
+        }
+        this.pricing.add(at);
+
         const toMs = this.config.readNowMs();
         const asked = {
             symbol,
@@ -306,6 +320,8 @@ export class MarketsController {
         } catch {
             // A price nobody answered is a grid chosen from the tick instead,
             // which is what the picker does when it has no price at all.
+        } finally {
+            this.pricing.delete(at);
         }
     }
 

@@ -32,45 +32,51 @@ export function BookPanel({ state }: BookPanelProps): ReactElement {
     // A step in takes the panel, rather than sitting under everything the panel
     // already said. On a phone the readings above it are the whole screen, and
     // a listing that starts below them is a listing nobody scrolls to.
-    if (isPicking) {
-        return <RecordingSection translate={translate} isPicking onPickingChange={setIsPicking} />;
-    }
-
+    //
+    // Hidden rather than returned from early: the recording section has to stay
+    // in the same place in the tree either way, or React unmounts it on the way
+    // in and mounts it again on the way out — which re-reads the contracts and
+    // the storage budget every time a reader opens the listing and closes it.
     return (
         <>
-            {/* Beside the switches it is about: hiding a layer and stopping a
+            {!isPicking && (
+                <>
+                    {/* Beside the switches it is about: hiding a layer and stopping a
                 recording are two different things, and the control that does
                 the first sits directly above this line. */}
-            <p className="panel-note">{translate('settings.recordingIsGlobal')}</p>
+                    <p className="panel-note">{translate('settings.recordingIsGlobal')}</p>
 
-            <PanelSection
-                title={translate('settings.drawn')}
-                {...(state.instrumentSymbol === null ? {} : { summary: state.instrumentSymbol })}
-            >
-                <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
-                    <Stat isLead term={translate('settings.recordedSoFar')}>
-                        {formatDuration(resolveRecordedSpanMs(state.instruments, state.instrumentSymbol), translate)}
-                    </Stat>
-                    <Stat term={translate('settings.resolution')}>
-                        {translate('settings.perColumn', { value: formatDuration(state.dataset.sampleIntervalMs, translate) })}
-                    </Stat>
-                    <Stat term={translate('settings.priceBand')}>
-                        {translate('settings.perRow', { value: state.dataset.priceBucketSize })}
-                    </Stat>
-                    <Stat term={translate('settings.columnsLoaded')}>
-                        {formatFixed(state.dataset.frames.length, 0)}
-                    </Stat>
-                    <Stat term={translate('settings.gapsInWindow')}>
-                        {formatFixed(state.dataset.gaps.length, 0)}
-                    </Stat>
-                </dl>
+                    <PanelSection
+                        title={translate('settings.drawn')}
+                        {...(state.instrumentSymbol === null ? {} : { summary: state.instrumentSymbol })}
+                    >
+                        <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
+                            <Stat isLead term={translate('settings.recordedSoFar')}>
+                                {formatDuration(resolveRecordedSpanMs(state.instruments, state.instrumentSymbol), translate)}
+                            </Stat>
+                            <Stat term={translate('settings.resolution')}>
+                                {translate('settings.perColumn', { value: formatDuration(state.dataset.sampleIntervalMs, translate) })}
+                            </Stat>
+                            <Stat term={translate('settings.priceBand')}>
+                                {translate('settings.perRow', { value: state.dataset.priceBucketSize })}
+                            </Stat>
+                            <Stat term={translate('settings.columnsLoaded')}>
+                                {formatFixed(state.dataset.frames.length, 0)}
+                            </Stat>
+                            <Stat term={translate('settings.gapsInWindow')}>
+                                {formatFixed(state.dataset.gaps.length, 0)}
+                            </Stat>
+                        </dl>
 
-                {/* Under the figure it explains: "recorded so far" is the one
+                        {/* Under the figure it explains: "recorded so far" is the one
                     number here that is not about the venue's own history. */}
-                <p className="panel-note">{translate('settings.backfillNote')}</p>
-            </PanelSection>
+                        <p className="panel-note">{translate('settings.backfillNote')}</p>
+                    </PanelSection>
 
-            <RecordingSection translate={translate} isPicking={false} onPickingChange={setIsPicking} />
+                </>
+            )}
+
+            <RecordingSection translate={translate} isPicking={isPicking} onPickingChange={setIsPicking} />
         </>
     );
 }

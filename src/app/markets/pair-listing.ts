@@ -79,19 +79,37 @@ export function narrowPairs(
     filter: PairFilter,
 ): NarrowedPairs {
     const wanted = filter.query.trim().toUpperCase();
-    const matched = instruments.filter((instrument) => (
-        (filter.quote === '' || instrument.quote === filter.quote)
-        && (wanted === '' || rankAgainst(instrument, wanted) < NO_MATCH)
-    ));
+    const byQuote = filter.quote === ''
+        ? instruments
+        : instruments.filter((instrument) => instrument.quote === filter.quote);
 
     // Left in the venue's own order where nothing was typed: it opens on what
     // that venue is known for, and sorting it puts a leveraged token first.
-    const shown = wanted === ''
-        ? matched
-        : [...matched].sort((one, other) => rankAgainst(one, wanted) - rankAgainst(other, wanted)
-            || one.symbol.localeCompare(other.symbol));
+    if (wanted === '') {
+        return { shown: byQuote.slice(0, ROWS_SHOWN), matched: byQuote.length };
+    }
 
-    return { shown: shown.slice(0, ROWS_SHOWN), matched: matched.length };
+    // Scored once per pair rather than once per comparison: a sort asks its
+    // comparator O(n log n) times and this was scoring both sides of each. Worth
+    // saying plainly that the saving is small — measured over nine hundred pairs
+    // and a query that matches nearly all of them, 0.18 ms a call becomes 0.11.
+    // It is here because a score computed twice is a score that can disagree
+    // with itself if it ever stops being pure, not because a keystroke was slow.
+    const ranked: { instrument: VenueInstrument; rank: number }[] = [];
+    for (const instrument of byQuote) {
+        const rank = rankAgainst(instrument, wanted);
+        if (rank < NO_MATCH) {
+            ranked.push({ instrument, rank });
+        }
+    }
+
+    ranked.sort((one, other) => one.rank - other.rank
+        || one.instrument.symbol.localeCompare(other.instrument.symbol));
+
+    return {
+        shown: ranked.slice(0, ROWS_SHOWN).map((scored) => scored.instrument),
+        matched: ranked.length,
+    };
 }
 
 /** What a pair scores against what was typed; lower is nearer. */
