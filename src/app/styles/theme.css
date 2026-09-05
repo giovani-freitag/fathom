@@ -129,6 +129,33 @@ body {
 }
 
 /*
+ * The browser's own colour control, made to look like the swatches beside it.
+ *
+ * A class because the shape it needs lives in vendor pseudo-elements that no
+ * utility can reach: left alone it draws a bevelled rectangle with a border and
+ * an inset swatch, in a row of flat circles.
+ */
+.colour-well {
+    -webkit-appearance: none;
+    appearance: none;
+    border: none;
+    padding: 0;
+    background: none;
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.colour-well::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.colour-well::-webkit-color-swatch,
+.colour-well::-moz-color-swatch {
+    border: none;
+    border-radius: 9999px;
+}
+
+/*
  * The sentence under a control that explains what it does.
  *
  * A class because the four of them had drifted into two readings of the same

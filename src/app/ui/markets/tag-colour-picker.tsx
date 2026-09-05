@@ -70,7 +70,7 @@ export function TagColourPicker({ colour, label, translate, onPick }: TagColourP
                                 aria-label={translate('markets.anyColour')}
                                 value={colour.startsWith('#') ? colour : OPENS_ON}
                                 onChange={(event) => { onPick(event.target.value as TagColour); }}
-                                className="size-4 cursor-pointer appearance-none border-0 bg-transparent p-0"
+                                className="colour-well size-4 cursor-pointer"
                             />
                         </label>
                     </div>
