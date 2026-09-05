@@ -25,7 +25,7 @@
 
 <p align="center">
   <a href="https://giovani-freitag.github.io/fathom/"><strong>Open the live demo →</strong></a><br>
-  <sub>Your browser becomes the collector. No backend, no signup.</sub>
+  <sub>Your browser becomes the collector. No install, no sign-up — and no history kept.</sub>
 </p>
 
 <p align="center">
@@ -148,11 +148,15 @@ npm run gateway                       # http://localhost:8787
 
 `npm run dev` serves the viewer with hot reload against a gateway already running.
 
-### Without a backend at all
+### The browser-only demo
 
 The same collector registers as a Web Worker and records into IndexedDB, which
-is what the [demo](https://giovani-freitag.github.io/fathom/) is: no server, no
-database, and a recording that lives in the tab.
+is what the [demo](https://giovani-freitag.github.io/fathom/) is.
+
+It is a demo and behaves like one: it records only while the tab is open, keeps
+a rolling window rather than a history, follows one contract at a time, and
+browser storage can be cleared out from under it. Use it to see what Fathom
+draws, not to keep anything.
 
 ```bash
 npm run dev:demo
