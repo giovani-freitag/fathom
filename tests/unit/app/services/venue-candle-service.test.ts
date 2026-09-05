@@ -148,3 +148,45 @@ describe('VenueCandleService', () => {
         expect(answered.urls).toHaveLength(1);
     });
 });
+
+/** A venue that publishes an open instant, a total, and nothing else. */
+function buildOpenOnlyService(): VenueCandleService {
+    return new VenueCandleService({
+        connector: {
+            ...BINANCE_CONNECTOR,
+            bars: {
+                planPage: () => ({ url: 'https://venue.example/candles' }),
+                readPage: () => [{
+                    openedAtMs: 1_000_000,
+                    closedAtMs: 1_000_000,
+                    openPrice: 99, highPrice: 101, lowPrice: 98, closePrice: 100,
+                    volume: 5, buyVolume: null, tradeCount: null,
+                }],
+            },
+        },
+        gateway: new VenueGateway({ fetch: () => Promise.resolve(new Response('[]')) }),
+        readNowMs: () => NOW_MS,
+    });
+}
+
+describe('a venue that names only where a candle opens', () => {
+    it('closes the bar where the next one starts', async () => {
+        // Most venues publish the open instant and nothing else, and a bar with
+        // no edge is one every later read has to guess the width of.
+        const window = await buildOpenOnlyService().fetchPriceBars(QUERY);
+
+        expect(window.bars[0]?.closedAtMs).toBe(1_000_000 + MINUTE_MS);
+    });
+
+    it('reads a venue that publishes no split as no split, not as an even one', async () => {
+        // Half each is a claim that buying and selling were even, and it reads
+        // exactly like the truth. Any reading that would divide by the split is
+        // out of reach on such a venue and never sees these figures.
+        const service = buildOpenOnlyService();
+
+        const window = await service.fetchPriceBars(QUERY);
+
+        expect(window.bars[0]?.buyVolume).toBe(0);
+        expect(window.bars[0]?.sellVolume).toBe(5);
+    });
+});

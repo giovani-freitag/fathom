@@ -21,6 +21,9 @@ const EXCHANGE_INFO = {
     ],
 };
 
+/** What a page of one-minute candles was asked for. */
+const ASKED = { symbol: 'BTCUSDT', widthMs: 60_000, fromMs: 1_700_000_000_000, toMs: 1_700_000_060_000, limit: 1_500 };
+
 /** One candle, in the tuple the venue actually sends. */
 const CANDLE = [
     1_700_000_000_000, '42000.0', '42500.0', '41900.0', '42400.0', '120.5',
@@ -58,7 +61,7 @@ describe('its listing', () => {
 
 describe('its candles', () => {
     it('reads the split the venue publishes, which most venues do not', () => {
-        const [bar] = BINANCE_CONNECTOR.bars!.readPage([CANDLE]);
+        const [bar] = BINANCE_CONNECTOR.bars!.readPage([CANDLE], ASKED);
 
         expect(bar?.volume).toBe(120.5);
         expect(bar?.buyVolume).toBe(70.25);
@@ -68,13 +71,13 @@ describe('its candles', () => {
         // The venue closes on the last millisecond it holds; the chart treats
         // the edge as the first it does not, and an off-by-one here folds one
         // bar's last print into the next bucket.
-        const [bar] = BINANCE_CONNECTOR.bars!.readPage([CANDLE]);
+        const [bar] = BINANCE_CONNECTOR.bars!.readPage([CANDLE], ASKED);
 
         expect(bar?.closedAtMs).toBe(1_700_000_060_000);
     });
 
     it('drops a candle short of the fields it is read by', () => {
-        expect(BINANCE_CONNECTOR.bars!.readPage([[1, '2', '3']])).toEqual([]);
+        expect(BINANCE_CONNECTOR.bars!.readPage([[1, '2', '3']], ASKED)).toEqual([]);
     });
 
     it('asks for the width by the name the venue gives it', () => {

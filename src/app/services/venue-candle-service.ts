@@ -93,16 +93,16 @@ export class VenueCandleService {
      */
     private async fetchPage(page: PageRequest, signal?: AbortSignal): Promise<PriceBar[]> {
         const reader = this.config.connector.bars!;
-        const plan = reader.planPage({
+        const asked = {
             symbol: page.request.query.symbol,
             widthMs: page.request.query.intervalMs,
             fromMs: page.request.fromMs,
             toMs: page.endMs,
             limit: page.perRequest,
-        });
+        };
 
-        const payload = await this.config.gateway.perform(plan, signal);
-        return reader.readPage(payload).map((bar) => this.toPriceBar(bar, page.request.query.intervalMs));
+        const payload = await this.config.gateway.perform(reader.planPage(asked), signal);
+        return reader.readPage(payload, asked).map((bar) => this.toPriceBar(bar, asked.widthMs));
     }
 
     /**
@@ -119,7 +119,9 @@ export class VenueCandleService {
 
         return {
             openedAtMs: bar.openedAtMs,
-            closedAtMs: bar.closedAtMs,
+            // The connector's own edge unless it left one at the open, which is
+            // how a venue that names only where a candle starts says so.
+            closedAtMs: bar.closedAtMs > bar.openedAtMs ? bar.closedAtMs : bar.openedAtMs + intervalMs,
             openPrice: bar.openPrice,
             highPrice: bar.highPrice,
             lowPrice: bar.lowPrice,
@@ -132,7 +134,7 @@ export class VenueCandleService {
             // through it is a different fact, drawn from the gap ledger.
             expectedFrames: 1,
             frameCount: 1,
-            isClosed: bar.closedAtMs <= this.config.readNowMs(),
+            isClosed: bar.openedAtMs + intervalMs <= this.config.readNowMs(),
             firstFrameAtMs: bar.openedAtMs,
             lastFrameAtMs: bar.openedAtMs + intervalMs,
         };

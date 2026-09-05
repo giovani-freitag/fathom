@@ -1205,7 +1205,14 @@ export interface TapeReader {
 /** How a venue's candles are asked for and read. */
 export interface BarReader {
     planPage: (request: BarPageRequest) => VenueRequest;
-    readPage: (payload: unknown) => readonly VenueBar[];
+    /**
+     * @param payload - The venue's answer, already parsed from JSON.
+     * @param request - What was asked for, handed back because most venues name
+     *                  only where a candle opens, and the width is what turns
+     *                  that into the first instant it does not hold.
+     * @returns The candles it carried, oldest first.
+     */
+    readPage: (payload: unknown, request: BarPageRequest) => readonly VenueBar[];
 }
 /**
  * Everything the engine needs to read one venue.
