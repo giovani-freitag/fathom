@@ -30,6 +30,11 @@ export function BookPanel({ state }: BookPanelProps): ReactElement {
 
     return (
         <>
+            {/* Beside the switches it is about: hiding a layer and stopping a
+                recording are two different things, and the control that does
+                the first sits directly above this line. */}
+            <p className="panel-note">{translate('settings.recordingIsGlobal')}</p>
+
             <PanelSection
                 title={translate('settings.drawn')}
                 {...(state.instrumentSymbol === null ? {} : { summary: state.instrumentSymbol })}
@@ -51,6 +56,10 @@ export function BookPanel({ state }: BookPanelProps): ReactElement {
                         {formatFixed(state.dataset.gaps.length, 0)}
                     </Stat>
                 </dl>
+
+                {/* Under the figure it explains: "recorded so far" is the one
+                    number here that is not about the venue's own history. */}
+                <p className="panel-note">{translate('settings.backfillNote')}</p>
             </PanelSection>
 
             <RecordingSection translate={translate} />

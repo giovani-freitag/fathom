@@ -43,28 +43,15 @@ describe('RecordingPanel', () => {
         budget = { maximumBytes: 10_737_418_240, usedBytes: 1_073_741_824, availableBytes: null };
     });
 
-    it('shows each contract with the switch in the state it is stored in', async () => {
+    it('counts what is being recorded rather than listing it twice', async () => {
+        // The rows live in the card that opens from here, where each carries
+        // its own switch. Written in both places they are two lists to keep in
+        // step, and this is the one that cannot show what is missing from it.
         renderPanel();
 
-        const btc = await screen.findByRole('switch', { name: 'Record BTCUSDT' });
-        expect(btc.getAttribute('data-state')).toBe('checked');
-        expect(screen.getByRole('switch', { name: 'Record ETHUSDT' }).getAttribute('data-state'))
-            .toBe('unchecked');
-    });
-
-    it('saves a contract that is switched on and says the listing moved', async () => {
-        // The picker upstream reads that listing, so it has to be told: a
-        // contract only reaches the registry once its collector has started.
-        renderPanel();
-
-        fireEvent.click(await screen.findByRole('switch', { name: 'Record ETHUSDT' }));
-
-        await waitFor(() => {
-            expect(saveContract).toHaveBeenCalledWith(expect.objectContaining({
-                instrumentSymbol: 'ETHUSDT', isEnabled: true,
-            }));
-        });
-        await waitFor(() => { expect(onContractsChanged).toHaveBeenCalled(); });
+        expect(await screen.findByText(/Recording 1 pairs on binance-futures/)).toBeDefined();
+        expect(screen.getByText(/1 switched off/)).toBeDefined();
+        expect(screen.queryByRole('switch', { name: 'Record BTCUSDT' })).toBeNull();
     });
 
     it('offers fixed ceilings when the host will not say how much room there is', async () => {
@@ -100,10 +87,10 @@ describe('RecordingPanel', () => {
     });
 
     it('names a failed change rather than quoting the driver at the reader', async () => {
-        saveContract.mockRejectedValue(new Error('The local archive aborted a transaction'));
+        setBudget.mockRejectedValue(new Error('The local archive aborted a transaction'));
         renderPanel();
 
-        fireEvent.click(await screen.findByRole('switch', { name: 'Record ETHUSDT' }));
+        fireEvent.keyDown(await screen.findByRole('slider', { name: 'Storage ceiling' }), { key: 'ArrowRight' });
 
         expect(await screen.findByText('That change could not be saved.')).toBeTruthy();
         expect(screen.queryByText(/aborted a transaction/)).toBeNull();
@@ -136,18 +123,34 @@ describe('what else could be recorded', () => {
         ));
     }
 
-    it('files each contract under the venue that publishes it', async () => {
-        // Two venues both list BTCUSDT. A row that says only the symbol is a
-        // row about whichever one the reader assumed.
+    it('names the venue in the count, because two of them list the same pair', async () => {
         renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
 
-        expect(await screen.findByText(FIRST_VENUE)).toBeDefined();
+        expect(await screen.findByText(new RegExp(FIRST_VENUE))).toBeDefined();
+    });
+
+    it('switches a contract off from the row it is listed on', async () => {
+        // The picker upstream reads that listing, so it has to be told: a
+        // contract only reaches the registry once its collector has started.
+        const saveContract = vi.fn<(contract: RecordedContract) => Promise<void>>()
+            .mockResolvedValue(undefined);
+        renderInKernel(saveContract);
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+
+        const listing = await screen.findByRole('list', { name: 'Record a pair' });
+        fireEvent.click(within(listing).getByRole('switch', { name: 'Record BTCUSDT' }));
+
+        await waitFor(() => {
+            expect(saveContract).toHaveBeenCalledWith(expect.objectContaining({
+                instrumentSymbol: 'BTCUSDT', isEnabled: false,
+            }));
+        });
     });
 
     it('offers the venues that publish a book, and names the ones that do not', async () => {
         renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
 
-        fireEvent.click(await screen.findByRole('button', { name: 'Record another pair' }));
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
 
         // The rail of the card that opens over the chart, which is the same
         // rail the contract picker has.
@@ -165,7 +168,7 @@ describe('what else could be recorded', () => {
         const saveContract = vi.fn<(contract: RecordedContract) => Promise<void>>()
             .mockResolvedValue(undefined);
         renderInKernel(saveContract);
-        fireEvent.click(await screen.findByRole('button', { name: 'Record another pair' }));
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
 
         fireEvent.click(await screen.findByRole('button', { name: /NANOUSDT/ }));
         fireEvent.click(await screen.findByRole('button', { name: '0.001 per row' }));
@@ -186,7 +189,7 @@ describe('what else could be recorded', () => {
         const saveContract = vi.fn<(contract: RecordedContract) => Promise<void>>()
             .mockResolvedValue(undefined);
         renderInKernel(saveContract);
-        fireEvent.click(await screen.findByRole('button', { name: 'Record another pair' }));
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
 
         const listing = await screen.findByRole('list', { name: 'Record a pair' });
         const said = within(listing).getAllByRole('listitem').map((row) => row.textContent);

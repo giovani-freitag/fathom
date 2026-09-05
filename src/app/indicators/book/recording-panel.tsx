@@ -4,7 +4,6 @@ import { listConnectors } from '../../../shared/venues/venue-registry.ts';
 import { PanelSection } from '../../ui/panel-section.tsx';
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { RecordingCard } from './recording-card.tsx';
-import { ToggleSwitch } from '../../ui/toggle-switch.tsx';
 import type { RecordedContract, RecordingControl, StorageBudget } from '../../../shared/core/recording-control.ts';
 import { formatFixed } from '../../core/formatting.ts';
 import { RangeField } from '../../ui/range-field.tsx';
@@ -96,45 +95,10 @@ export function RecordingPanel({ recording, onContractsChanged, translate }: Rec
                 {translate('recording.contractsHelp')}
             </p>
 
-            {/* Under the venue that publishes them, because two of them list
-                BTCUSDT and the row that says only the symbol is a row about
-                whichever one the reader assumed. */}
-            {venues.offered.map((venue) => (
-                <div key={venue} className="space-y-1.5">
-                    <h4 className="field-label">{venue}</h4>
-                    {state.contracts.filter((one) => one.venue === venue).length === 0
-                        ? <p className="panel-note">{translate('recording.nothingYet')}</p>
-                        : (
-                            <ul className="space-y-1.5">
-                                {state.contracts.filter((one) => one.venue === venue).map((instrument) => (
-                                    <li
-                                        key={`${instrument.venue}/${instrument.instrumentSymbol}`}
-                                        className="flex items-center justify-between gap-3"
-                                    >
-                                        <span className="numeric text-xs text-ink-200">
-                                            {instrument.instrumentSymbol}
-                                            <span className="ml-2 text-[10px] text-ink-600">
-                                                {translate('settings.perRow', { value: instrument.priceBucketSize })}
-                                            </span>
-                                        </span>
-                                        <ToggleSwitch
-                                            isOn={instrument.isEnabled}
-                                            isDisabled={isSaving}
-                                            onChange={(isEnabled) => {
-                                                void apply(
-                                                    recording.saveContract({ ...instrument, isEnabled }),
-                                                ).then(onContractsChanged);
-                                            }}
-                                            label={translate('recording.toggle', {
-                                                symbol: instrument.instrumentSymbol,
-                                            })}
-                                        />
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                </div>
-            ))}
+            {/* A count rather than the list itself: the list is in the card
+                that opens from here, where each pair carries its own switch,
+                and the same rows written twice are two places to keep in step. */}
+            <p className="text-xs text-ink-200">{summarise(state.contracts, translate)}</p>
 
             {/* Beside this rail rather than inside it: a venue lists a thousand
                 pairs, and the panel it would be listed in is three hundred
@@ -186,13 +150,35 @@ export function RecordingPanel({ recording, onContractsChanged, translate }: Rec
             {hasFailed && (
                 <p className="text-[11px] text-ask">{translate('recording.saveFailed')}</p>
             )}
-
-            {/* Both live here rather than beside the readings above: what they
-                warn about is the collector, which is what this section is. */}
-            <p className="panel-note">{translate('settings.recordingIsGlobal')}</p>
-            <p className="panel-note">{translate('settings.backfillNote')}</p>
         </PanelSection>
     );
+}
+
+/**
+ * What is being recorded, in one line.
+ *
+ * A count and the venues it is spread over. The rows themselves live in the
+ * card that opens from here — written in both places, they are two lists to
+ * keep in step, and the one in the panel is the one that cannot show what is
+ * missing from it.
+ *
+ * @param contracts - Every contract, recording or switched off.
+ * @param translate - The reader's dictionary.
+ * @returns The line to show.
+ */
+function summarise(contracts: readonly RecordedContract[], translate: Translate): string {
+    const venues = [...new Set(contracts.map((contract) => contract.venue))];
+    if (venues.length === 0) {
+        return translate('recording.noneYet');
+    }
+
+    const off = contracts.filter((contract) => !contract.isEnabled).length;
+    const said = translate('recording.onVenues', {
+        count: String(contracts.length - off),
+        venues: venues.join(', '),
+    });
+
+    return off === 0 ? said : `${said} · ${translate('recording.someOff', { count: String(off) })}`;
 }
 
 /**
