@@ -137,10 +137,16 @@ file exports.
 clamped against the declaration, and no figure is held to `min(declared,
 observed)`. The book grade is declared and not yet acted on — the mirror still
 requires the back reference Binance publishes, so a `ranged`, `stepped` or
-`unsequenced` venue is declared honestly and cannot yet be recorded. A connector
-can only describe a GET, which is the reason the KuCoin example declares no book:
-that venue hands out its socket through a POST for a short-lived URL, and a
-connector that describes requests rather than making them cannot ask for one.
+`unsequenced` venue is declared honestly and cannot yet be recorded. A connector describes a request rather than making
+one, and that shape has since had to grow twice: a venue that hands out its
+socket through a POST for a short-lived URL is described in two halves — the
+request that buys the ticket, and the stream built from what it answered — and a
+venue that serves its listing in pages says either how many there are, so the
+rest can be asked for at once, or where the next one is, so they can be walked.
+What the shape still cannot carry is a secret, so an endpoint that wants a
+signature is out of reach, and a snapshot that arrives on the socket rather than
+from a request: OKX publishes one of the best books there is and is declared
+`book: null` for that reason alone.
 And a connector a reader installs lives in their browser, so the server's
 collector cannot see it: a venue brought in this way gives the chart a listing
 and nothing more. Its candles would need the same server-side route the listing
