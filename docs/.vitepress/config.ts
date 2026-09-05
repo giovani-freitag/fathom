@@ -182,6 +182,16 @@ export default withMermaid({
         sequence: { useMaxWidth: false },
     },
 
+    // Mermaid reaches a CommonJS package to schedule its layout work, and a
+    // dev server that has not pre-bundled that package hands the browser a
+    // module with no default export — one uncaught error, and every page in the
+    // guide renders blank. The built site bundles it either way; this is only
+    // the dev server catching up.
+    vite: {
+        optimizeDeps: { include: ['mermaid', 'fastdom'] },
+        ssr: { noExternal: ['mermaid'] },
+    },
+
     ignoreDeadLinks: [
         // The reference is generated, and its anchors are TypeDoc's own.
         /^\/api/,
