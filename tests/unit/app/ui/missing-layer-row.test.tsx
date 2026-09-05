@@ -60,7 +60,7 @@ describe('a layer this build no longer has', () => {
         const removed: string[] = [];
         renderList(removed, [SHIPPED]);
 
-        fireEvent.click(screen.getAllByLabelText('Remove')[0]!);
+        fireEvent.click(screen.getAllByLabelText(/^Remove /)[0]!);
 
         expect(removed).toEqual(['gone-1']);
     });
@@ -94,7 +94,7 @@ describe('a reading whose build is gone but whose source is not', () => {
         renderList([]);
 
         expect(screen.queryByLabelText(/^Edit /)).toBeNull();
-        expect(screen.getAllByLabelText('Remove')).toHaveLength(1);
+        expect(screen.getAllByLabelText(/^Remove /)).toHaveLength(1);
     });
 });
 

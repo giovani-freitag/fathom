@@ -134,7 +134,7 @@ function MissingLayerRow({ added, controls, onEditReading }: {
             )}
 
             <LayerButton
-                label={translate('indicators.remove')}
+                label={translate('indicators.removeOne', { layer: added.indicatorId })}
                 onPress={() => { controls.remove(added.instanceId); }}
             >
                 <X size={ICON_SIZE_PX} />
@@ -221,7 +221,10 @@ function LayerRow({
             )}
 
             <LayerButton
-                label={translate(isHidden ? 'indicators.show' : 'indicators.hide')}
+                label={translate(isHidden ? 'indicators.showOne' : 'indicators.hideOne', {
+                    layer: translateLabel(translate, layer.label),
+                })}
+                isPressed={isHidden}
                 onPress={() => { controls.setVisibility(added.instanceId, !isHidden); }}
             >
                 {isHidden ? <EyeOff size={ICON_SIZE_PX} /> : <Eye size={ICON_SIZE_PX} />}
@@ -238,7 +241,9 @@ function LayerRow({
             {isLayerTunable(added.indicatorId)
                 ? (
                     <LayerButton
-                        label={translate('indicators.tune')}
+                        label={translate('indicators.tuneOne', {
+                            layer: translateLabel(translate, layer.label),
+                        })}
                         onPress={() => { onOpenSettings(added.instanceId); }}
                     >
                         <Settings2 size={ICON_SIZE_PX} />
@@ -247,7 +252,9 @@ function LayerRow({
                 : <span className={LAYER_SLOT_CLASSES} />}
 
             <LayerButton
-                label={translate('indicators.remove')}
+                label={translate('indicators.removeOne', {
+                    layer: translateLabel(translate, layer.label),
+                })}
                 isDisabled={!isRemovable}
                 isDestructive
                 onPress={() => { controls.remove(added.instanceId); }}
@@ -312,6 +319,8 @@ interface LayerButtonProps {
     readonly children: ReactElement;
     readonly isDisabled?: boolean;
     readonly isDestructive?: boolean;
+    /** Set where the button toggles something, so its state is announced. */
+    readonly isPressed?: boolean | undefined;
 }
 
 /**
@@ -323,12 +332,18 @@ function LayerButton({
     children,
     isDisabled = false,
     isDestructive = false,
+    isPressed,
 }: LayerButtonProps): ReactElement {
     return (
         <button
             type="button"
             aria-label={label}
             title={label}
+            // Said aloud where the button is a switch in disguise: the eye
+            // changes shape but its name changes too, and without this a reader
+            // hears "Hide Book" and "Show Book" with no sign which state either
+            // one describes.
+            {...isPressed === undefined ? {} : { 'aria-pressed': isPressed }}
             disabled={isDisabled}
             onClick={onPress}
             className={`${LAYER_BUTTON_CLASSES} ${isDestructive ? 'hover:text-ask' : ''}`}

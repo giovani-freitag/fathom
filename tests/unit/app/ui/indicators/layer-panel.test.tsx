@@ -74,7 +74,7 @@ describe('LayerPanel', () => {
     it('opens one layer onto its own knobs, not a drawer of every layer', () => {
         renderPanel([SMA]);
 
-        fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+        fireEvent.click(screen.getByRole('button', { name: / settings$/ }));
 
         expect(screen.getByRole('spinbutton', { name: 'Bars' })).toBeDefined();
     });
@@ -82,7 +82,7 @@ describe('LayerPanel', () => {
     it('keeps the recording controls with the book they are the instrument of', async () => {
         renderPanel([BOOK]);
 
-        fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+        fireEvent.click(screen.getByRole('button', { name: / settings$/ }));
 
         expect(await screen.findByText(/The collector runs whether or not/)).toBeDefined();
     });
@@ -90,14 +90,14 @@ describe('LayerPanel', () => {
     it('offers them once, not once per layer on the chart', async () => {
         renderPanel([BOOK, SMA]);
 
-        fireEvent.click(screen.getAllByRole('button', { name: 'Settings' })[0]!);
+        fireEvent.click(screen.getAllByRole('button', { name: / settings$/ })[0]!);
 
         expect(await screen.findAllByText(/The collector runs whether or not/)).toHaveLength(1);
     });
 
     it('retunes the copy whose knobs are open', () => {
         const kernel = renderPanel([SMA]);
-        fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+        fireEvent.click(screen.getByRole('button', { name: / settings$/ }));
 
         fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '50' } });
 
@@ -107,7 +107,7 @@ describe('LayerPanel', () => {
     it('carries what the book is made of, which nothing else does', () => {
         renderPanel([BOOK]);
 
-        fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+        fireEvent.click(screen.getByRole('button', { name: / settings$/ }));
 
         expect(screen.getByRole('slider', { name: 'Intensity' })).toBeDefined();
     });
@@ -123,7 +123,7 @@ describe('a layer whose colours are a reading', () => {
         // the chart is a control that lies about what it does.
         renderPanel([VOLUME]);
 
-        fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+        fireEvent.click(screen.getByRole('button', { name: / settings$/ }));
 
         expect(screen.queryByText('Colour')).toBeNull();
     });
@@ -131,7 +131,7 @@ describe('a layer whose colours are a reading', () => {
     it('still offers one to a layer drawn in the colour of its copy', () => {
         renderPanel([SMA]);
 
-        fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+        fireEvent.click(screen.getByRole('button', { name: / settings$/ }));
 
         expect(screen.queryByText('Colour')).not.toBeNull();
     });

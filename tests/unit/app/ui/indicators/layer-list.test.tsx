@@ -42,9 +42,19 @@ function renderList(added: readonly AddedIndicator[]): IndicatorKernel {
     return kernel;
 }
 
-/** Every control of one kind, in the order the layers are listed. */
-function controls(name: string): HTMLButtonElement[] {
-    return screen.getAllByRole<HTMLButtonElement>('button', { name });
+/**
+ * Every control of that kind, by the verb its name starts with.
+ *
+ * Matched within the name rather than against the whole of it: each button now
+ * carries the layer it acts on, which is the point of the name.
+ */
+function controls(verb: string): HTMLButtonElement[] {
+    return screen.getAllByRole<HTMLButtonElement>('button', { name: new RegExp(`^${verb} `) });
+}
+
+/** The settings control of each layer, which is named after the layer first. */
+function settingsControls(): HTMLButtonElement[] {
+    return screen.getAllByRole<HTMLButtonElement>('button', { name: / settings$/ });
 }
 
 describe('LayerList', () => {
@@ -83,7 +93,7 @@ describe('LayerList', () => {
         // to be here rather than in the catalogue.
         const kernel = renderList([SMA_FAST, { ...RSI, isHidden: true }]);
 
-        fireEvent.click(screen.getByRole('button', { name: 'Show' }));
+        fireEvent.click(screen.getByRole('button', { name: /^Show / }));
 
         expect(kernel.readAdded()[1]?.isHidden).toBe(false);
     });
@@ -99,7 +109,7 @@ describe('LayerList', () => {
     it('sends tuning somewhere with room for it, naming the copy that asked', () => {
         renderList([SMA_FAST, SMA_SLOW]);
 
-        fireEvent.click(controls('Settings')[1]!);
+        fireEvent.click(settingsControls()[1]!);
 
         expect(onOpenSettings).toHaveBeenCalledWith('sma-2');
     });
@@ -107,7 +117,7 @@ describe('LayerList', () => {
     it('offers a way into the knobs a host layer declares', () => {
         renderList([CANDLES]);
 
-        expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Settings' }).disabled).toBe(false);
+        expect(screen.getByRole<HTMLButtonElement>('button', { name: / settings$/ }).disabled).toBe(false);
     });
 
     it('will not take the book off, because a collector nobody can stop is worse', () => {
@@ -115,13 +125,13 @@ describe('LayerList', () => {
         // that stops the recording with it.
         renderList([BOOK]);
 
-        expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Remove' }).disabled).toBe(true);
+        expect(screen.getByRole<HTMLButtonElement>('button', { name: /^Remove / }).disabled).toBe(true);
     });
 
     it('still lets the book be hidden, which leaves the same chart behind', () => {
         renderList([BOOK]);
 
-        expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Hide' }).disabled).toBe(false);
+        expect(screen.getByRole<HTMLButtonElement>('button', { name: /^Hide / }).disabled).toBe(false);
     });
 
     it('says what a layer is, not what it reads', () => {
@@ -172,5 +182,27 @@ describe('LayerList and the controls it offers', () => {
 
         const named = screen.getAllByTitle(/relative strength|rsi/i);
         expect(named.length).toBeGreaterThan(0);
+    });
+});
+
+describe('what a layer control answers to', () => {
+    it('names the layer it acts on, so nine buttons are not all called the same', () => {
+        // A reader hearing "Hide", "Settings", "Remove" three times over has
+        // three verbs and no object, and cannot tell which layer is about to go.
+        renderList([SMA_FAST, RSI]);
+
+        const named = screen.getAllByRole('button')
+            .map((one) => one.getAttribute('aria-label') ?? '')
+            .filter((name) => /^(Hide|Show|Remove) |settings$/.test(name));
+
+        expect(new Set(named).size).toBe(named.length);
+        expect(named.some((name) => name.includes('SMA'))).toBe(true);
+    });
+
+    it('says aloud whether a layer is hidden, since the eye only changes shape', () => {
+        renderList([SMA_FAST, { ...RSI, isHidden: true }]);
+
+        expect(screen.getByRole('button', { name: /^Show / }).getAttribute('aria-pressed')).toBe('true');
+        expect(screen.getByRole('button', { name: /^Hide / }).getAttribute('aria-pressed')).toBe('false');
     });
 });

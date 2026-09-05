@@ -19,7 +19,7 @@ function Harness(): ReactElement {
 function renderOpen() {
     const kernel = createIndicatorKernel([SMA]);
     renderWithKernel(kernel, <Harness />);
-    fire.click(screen.getByRole('button', { name: 'Settings' }));
+    fire.click(screen.getByRole('button', { name: / settings$/ }));
     return kernel;
 }
 

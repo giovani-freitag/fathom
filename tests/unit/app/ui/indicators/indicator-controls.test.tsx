@@ -73,7 +73,7 @@ describe('RemovalNotice', () => {
     it('offers back what was just dismissed', () => {
         const kernel = createIndicatorKernel([EMA]);
         renderWithKernel(kernel, <OverlayHarness />);
-        fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+        fireEvent.click(screen.getByRole('button', { name: /^Remove / }));
 
         fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
 
@@ -84,7 +84,7 @@ describe('RemovalNotice', () => {
         const kernel = createIndicatorKernel([EMA]);
         renderWithKernel(kernel, <OverlayHarness />);
 
-        fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+        fireEvent.click(screen.getByRole('button', { name: /^Remove / }));
 
         expect(screen.getByText('EMA removed')).toBeDefined();
     });
@@ -94,7 +94,7 @@ describe('RemovalNotice', () => {
         try {
             const kernel = createIndicatorKernel([EMA]);
             renderWithKernel(kernel, <OverlayHarness />);
-            fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+            fireEvent.click(screen.getByRole('button', { name: /^Remove / }));
 
             act(() => { vi.advanceTimersByTime(8_000); });
 
@@ -111,7 +111,7 @@ describe('RemovalNotice', () => {
             { instanceId: 'depth-1', indicatorId: 'depth', settings: {}, tone: 'ink' },
         ]), <OverlayHarness />);
 
-        const remove = screen.getByRole<HTMLButtonElement>('button', { name: 'Remove' });
+        const remove = screen.getByRole<HTMLButtonElement>('button', { name: /^Remove / });
 
         expect(remove.disabled).toBe(true);
     });
@@ -131,7 +131,7 @@ describe('taking a host layer off', () => {
             { instanceId: 'candles-1', indicatorId: 'candles', settings: {}, tone: 'ink' },
         ]);
         renderWithKernel(kernel, <OverlayHarness />);
-        fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+        fireEvent.click(screen.getByRole('button', { name: /^Remove / }));
 
         fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
 
