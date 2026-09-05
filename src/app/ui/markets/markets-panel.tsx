@@ -1,12 +1,7 @@
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import {
-    CONTROL_CHIP_CLASSES,
-    CONTROL_CHOSEN_CLASSES,
-    CONTROL_OFFERED_CLASSES,
-} from '../control-shell.ts';
 import { ListingCard, SearchField } from './listing-card.tsx';
 import { FAVOURITES_ID, findTagsHolding, type MarketPair } from '../../../shared/core/pair-tags.ts';
-import { ListingBody, ListingFooting, Said } from './listing-body.tsx';
+import { ListingBody, ListingFooting, QuoteFilter, Said } from './listing-body.tsx';
 import { MarketsRail, type Showing } from './markets-rail.tsx';
 import { labelOf } from '../../markets/tag-names.ts';
 import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
@@ -255,14 +250,12 @@ export function MarketsPanel({
                             {showing.kind === 'tag' ? tagLabel : showing.venue}
                         </span>
                     )}
-                    {quotes.length > 0 && (
-                        <div className="ml-auto flex flex-wrap gap-1">
-                            <QuoteChip said={translate('markets.allQuotes')} isOn={quote === ''} onPress={() => { setQuote(''); }} />
-                            {quotes.map((one) => (
-                                <QuoteChip key={one} said={one} isOn={quote === one} onPress={() => { setQuote(one); }} />
-                            ))}
-                        </div>
-                    )}
+                    <QuoteFilter
+                        quotes={quotes}
+                        quote={quote}
+                        translate={translate}
+                        onPick={setQuote}
+                    />
                 </div>
             )}
             footing={(
@@ -341,28 +334,6 @@ function Body({ showing, listing, rowCount, query, translate, onRetry, children 
         >
             {children}
         </ListingBody>
-    );
-}
-
-interface QuoteChipProps {
-    readonly said: string;
-    readonly isOn: boolean;
-    readonly onPress: () => void;
-}
-
-/** One quote currency to narrow the listing by. */
-function QuoteChip({ said, isOn, onPress }: QuoteChipProps): ReactElement {
-    return (
-        <button
-            type="button"
-            aria-pressed={isOn}
-            onClick={onPress}
-            className={`${CONTROL_CHIP_CLASSES} h-7 justify-center px-2.5 ${
-                isOn ? CONTROL_CHOSEN_CLASSES : CONTROL_OFFERED_CLASSES
-            }`}
-        >
-            {said}
-        </button>
     );
 }
 

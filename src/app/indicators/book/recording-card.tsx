@@ -7,7 +7,7 @@ import { ConfirmDialog } from '../../ui/confirm-dialog.tsx';
 import { Trash2 } from 'lucide-react';
 import { type GridChoice, offerGrids } from '../../markets/recordable.ts';
 import { ListingCard, SearchField } from '../../ui/markets/listing-card.tsx';
-import { ListingBody, ListingFooting } from '../../ui/markets/listing-body.tsx';
+import { ListingBody, ListingFooting, QuoteFilter } from '../../ui/markets/listing-body.tsx';
 import { Select } from '../../ui/select.tsx';
 import { useIsViewportAtLeast } from '../../react/use-viewport-width.ts';
 import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
@@ -179,23 +179,12 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
             banner={(
                 <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
                     <span className="text-[11px] text-ink-500">{venue}</span>
-                    {quotes.length > 0 && (
-                        <div className="ml-auto flex flex-wrap gap-1">
-                            {['', ...quotes].map((one) => (
-                                <button
-                                    key={one === '' ? 'all' : one}
-                                    type="button"
-                                    aria-pressed={quote === one}
-                                    onClick={() => { setQuote(one); }}
-                                    className={`${CONTROL_CHIP_CLASSES} h-7 justify-center px-2.5 ${
-                                        quote === one ? 'border-phosphor/60 bg-phosphor/12 text-phosphor' : CONTROL_OFFERED_CLASSES
-                                    }`}
-                                >
-                                    {one === '' ? props.translate('markets.allQuotes') : one}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                    <QuoteFilter
+                        quotes={quotes}
+                        quote={quote}
+                        translate={props.translate}
+                        onPick={setQuote}
+                    />
                 </div>
             )}
             footing={(

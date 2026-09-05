@@ -1,3 +1,4 @@
+import { CONTROL_CHIP_CLASSES, CONTROL_CHOSEN_CLASSES, CONTROL_OFFERED_CLASSES } from '../control-shell.ts';
 import type { Listing } from '../../core/markets-controller.ts';
 import { ListingRefusal } from './listing-refusal.tsx';
 import type { ReactElement } from 'react';
@@ -116,4 +117,44 @@ function readFooting({ listing, shown, matched, isAsking, translate }: ListingFo
     return matched > shown
         ? translate('markets.shownOf', { shown: String(shown), matched: String(matched) })
         : null;
+}
+
+export interface QuoteFilterProps {
+    /** The quote currencies this venue actually lists, in its own order. */
+    readonly quotes: readonly string[];
+    /** Which is in force; the empty string is all of them. */
+    readonly quote: string;
+    readonly translate: Translate;
+    readonly onPick: (quote: string) => void;
+}
+
+/**
+ * The quote currencies a listing can be narrowed to.
+ *
+ * Written once because the second copy had already drifted: it spelled the
+ * chosen colours out by hand, in a file that imports the constant holding them
+ * three lines above.
+ */
+export function QuoteFilter({ quotes, quote, translate, onPick }: QuoteFilterProps): ReactElement | null {
+    if (quotes.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="ml-auto flex flex-wrap gap-1">
+            {['', ...quotes].map((one) => (
+                <button
+                    key={one === '' ? 'all' : one}
+                    type="button"
+                    aria-pressed={quote === one}
+                    onClick={() => { onPick(one); }}
+                    className={`${CONTROL_CHIP_CLASSES} h-7 justify-center px-2.5 ${
+                        quote === one ? CONTROL_CHOSEN_CLASSES : CONTROL_OFFERED_CLASSES
+                    }`}
+                >
+                    {one === '' ? translate('markets.allQuotes') : one}
+                </button>
+            ))}
+        </div>
+    );
 }
