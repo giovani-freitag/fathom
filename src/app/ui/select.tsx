@@ -62,12 +62,20 @@ export function Select({ value, choices, onSelect, label }: SelectProps): ReactE
                 {/* Never narrower than what was pressed: a menu that opens half
                     the width of its own trigger reads as belonging to something
                     else on the panel. */}
+                {/* Never taller than the room there is, and scrolled inside
+                    when the answers outrun it. Without the clamp the list is
+                    drawn at its full height wherever it opens: on a phone held
+                    sideways, and in a hand once a reader has made a few tags of
+                    their own, the last venues were painted below the bottom of
+                    the screen with nothing to scroll them back. */}
                 <RadixSelect.Content
                     position="popper"
                     sideOffset={6}
-                    className="z-50 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border border-hairline bg-abyss-800 shadow-2xl shadow-black/60"
+                    className={'z-50 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg'
+                        + ' border border-hairline bg-abyss-800 shadow-2xl shadow-black/60'
+                        + ' max-h-[var(--radix-select-content-available-height)]'}
                 >
-                    <RadixSelect.Viewport className="p-1">
+                    <RadixSelect.Viewport className="max-h-[inherit] overflow-y-auto p-1">
                         {groupsOf(choices).map(([group, held]) => (
                             <RadixSelect.Group key={group}>
                                 {group !== '' && (

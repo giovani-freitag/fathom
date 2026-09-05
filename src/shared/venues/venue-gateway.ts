@@ -10,25 +10,6 @@ const RESPONSE_BYTE_LIMIT = 8 * 1024 * 1024;
 /** Only these may be fetched: a connector must not reach a private network. */
 const ALLOWED_PROTOCOL = 'https:';
 
-/**
- * Pages one listing may be asked for before the engine stops asking.
- *
- * A connector that answers every page with another page is one whose listing
- * never returns, and the reader is looking at a spinner either way.
- */
-
-/**
- * Pages in the air at once, where the venue said how many there are.
- *
- * A listing is a reader waiting, so the pages go out together rather than one
- * after another. Bounded because a venue answering forty requests in one breath
- * is a venue that starts refusing them, and a rate limit costs the whole listing
- * rather than the page it landed on.
- *
- * A pool rather than a batch: the next page starts the moment a slot frees,
- * instead of every page waiting on the slowest of the five it was grouped with.
- */
-
 export interface VenueGatewayConfig {
     /** Injected so a test can answer without a network. */
     readonly fetch: typeof globalThis.fetch;
