@@ -239,8 +239,8 @@ da página.
 ## Instalando
 
 Salve. A corretora aparece entre as outras no seletor de contrato, e o Fathom já
-pergunta o que ela negocia. Marque um par com a estrela para guardar numa das
-suas listas.
+pergunta o que ela negocia. Marque um par para guardar ele em uma das suas
+tags.
 
 Seu conector é guardado como o código que você escreveu, então continua lá
 semana que vem — e assim você consegue ler o que instalou antes que rode de

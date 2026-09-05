@@ -10,14 +10,14 @@ import {
 } from '../../shared/core/indicator-selection.ts';
 import { BAR_INTERVALS_MS, type BarIntervalMs } from '../core/bar-interval.ts';
 import { type Locale, resolveLocale } from '../i18n/locale.ts';
-import { openingLists, readLists, type WatchList } from '../../shared/core/watch-lists.ts';
+import { openingTags, type PairTag, readTags } from '../../shared/core/pair-tags.ts';
 import { readStoredConnectors, type StoredConnector } from '../../shared/core/stored-connector.ts';
 import { GRID_CHOICES, type GridChoice, THEME_CHOICES, type ThemeChoice } from '../core/theme.ts';
 
 const STORAGE_KEY = 'fathom.preferences.v1';
 
 /** Bumped when a stored document has to be read differently than it was written. */
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 export interface ViewerPreferences {
     readonly schemaVersion: number;
@@ -42,8 +42,8 @@ export interface ViewerPreferences {
     readonly gridChoice: GridChoice;
     /** Every mark the reader has left, across every contract. */
     readonly drawings: readonly Drawing[];
-    /** The pairs the reader keeps, grouped the way they grouped them. */
-    readonly watchLists: readonly WatchList[];
+    /** The pairs the reader keeps, under the tags they filed them with. */
+    readonly pairTags: readonly PairTag[];
     /** Every connector the reader brought, by the source it was read from. */
     readonly connectorSources: readonly StoredConnector[];
 }
@@ -62,7 +62,7 @@ export const DEFAULT_PREFERENCES: ViewerPreferences = {
     // height of the stack.
     gridChoice: 'price',
     drawings: [],
-    watchLists: openingLists(),
+    pairTags: openingTags(),
     connectorSources: [],
 };
 
@@ -133,7 +133,10 @@ export class PreferencesService {
             // A mark of a kind this build no longer draws would be persisted for
             // ever and shown by nothing, so it is dropped on the way in.
             drawings: keepReadableDrawings(merged.drawings),
-            watchLists: readLists(merged.watchLists),
+            // Read from what lists were stored under as well, because a tag
+            // and a list differ by a colour and a word: dropping the older key
+            // would drop every pair a reader had kept before this build.
+            pairTags: readTags(raw.pairTags ?? (raw as { watchLists?: unknown }).watchLists),
             connectorSources: readStoredConnectors(merged.connectorSources),
         };
     }

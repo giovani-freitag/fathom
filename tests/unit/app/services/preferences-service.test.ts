@@ -204,3 +204,28 @@ describe('PreferencesService bands', () => {
         expect(added[0]?.bandKey).toBeUndefined();
     });
 });
+
+describe('PreferencesService tags', () => {
+    it('reads the lists a reader kept before tags as the tags they became', () => {
+        // The older key is what every reader on the previous build has. Read
+        // only the new one and they open the chart with nothing kept.
+        const read = readAppearance({
+            watchLists: [{ id: 'favourites', name: '', pairs: [{ venue: 'binance-futures', symbol: 'BTCUSDT' }] }],
+        });
+
+        expect(read.pairTags[0]?.pairs).toEqual([{ venue: 'binance-futures', symbol: 'BTCUSDT' }]);
+    });
+
+    it('prefers what was stored as tags over what was stored as lists', () => {
+        const read = readAppearance({
+            watchLists: [{ id: 'favourites', name: '', pairs: [{ venue: 'binance-futures', symbol: 'BTCUSDT' }] }],
+            pairTags: [{ id: 'favourites', label: '', tone: 'cyan', pairs: [] }],
+        });
+
+        expect(read.pairTags[0]?.pairs).toEqual([]);
+    });
+
+    it('opens on the one tag every reader starts with when storage held none', () => {
+        expect(readAppearance({}).pairTags).toEqual(DEFAULT_PREFERENCES.pairTags);
+    });
+});

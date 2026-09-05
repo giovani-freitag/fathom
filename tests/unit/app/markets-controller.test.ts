@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MarketsController } from '../../../src/app/core/markets-controller.ts';
 import { PreferencesService } from '../../../src/app/services/preferences-service.ts';
 import { VenueGateway } from '../../../src/shared/venues/venue-gateway.ts';
-import { FAVOURITES_ID } from '../../../src/shared/core/watch-lists.ts';
+import { FAVOURITES_ID } from '../../../src/shared/core/pair-tags.ts';
 import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 import { forgetConnector } from '../../../src/shared/venues/venue-registry.ts';
 import { buildConnector } from '../../mocks/venue-connectors.ts';
@@ -47,47 +47,47 @@ const EXCHANGE_INFO = {
 
 afterEach(() => { forgetConnector('kucoin'); });
 
-describe('the lists a reader keeps', () => {
+describe('the tags a reader keeps', () => {
     it('opens on the one every reader starts with', () => {
         const markets = buildController(answerWith(EXCHANGE_INFO));
 
-        expect(markets.store.read().openListId).toBe(FAVOURITES_ID);
+        expect(markets.store.read().openTagId).toBe(FAVOURITES_ID);
     });
 
     it('survives the page being closed', () => {
         const storage = buildStorage();
-        buildController(answerWith(EXCHANGE_INFO), storage).addPair(FAVOURITES_ID, BTC);
+        buildController(answerWith(EXCHANGE_INFO), storage).tagPair(FAVOURITES_ID, BTC);
 
         const reopened = buildController(answerWith(EXCHANGE_INFO), storage);
 
-        expect(reopened.store.read().lists[0]?.pairs).toEqual([BTC]);
+        expect(reopened.store.read().tags[0]?.pairs).toEqual([BTC]);
     });
 
-    it('opens a list it has just made, because that is where the next star goes', () => {
+    it('opens a tag it has just made, because that is where the next press files', () => {
         const markets = buildController(answerWith(EXCHANGE_INFO));
 
-        markets.addList('Shitcoins');
+        markets.addTag('Shitcoins');
 
-        expect(markets.store.read().openListId).not.toBe(FAVOURITES_ID);
-        expect(markets.store.read().lists).toHaveLength(2);
+        expect(markets.store.read().openTagId).not.toBe(FAVOURITES_ID);
+        expect(markets.store.read().tags).toHaveLength(2);
     });
 
-    it('stays where it was when the name was refused', () => {
+    it('stays where it was when the label was refused', () => {
         const markets = buildController(answerWith(EXCHANGE_INFO));
 
-        markets.addList('   ');
+        markets.addTag('   ');
 
-        expect(markets.store.read().openListId).toBe(FAVOURITES_ID);
+        expect(markets.store.read().openTagId).toBe(FAVOURITES_ID);
     });
 
-    it('falls back to the first list when the open one is removed', () => {
+    it('falls back to the first tag when the open one is removed', () => {
         const markets = buildController(answerWith(EXCHANGE_INFO));
-        markets.addList('Shitcoins');
-        const made = markets.store.read().openListId;
+        markets.addTag('Shitcoins');
+        const made = markets.store.read().openTagId;
 
-        markets.removeList(made);
+        markets.removeTag(made);
 
-        expect(markets.store.read().openListId).toBe(FAVOURITES_ID);
+        expect(markets.store.read().openTagId).toBe(FAVOURITES_ID);
     });
 });
 
@@ -191,15 +191,15 @@ describe('installing a venue a reader brought', () => {
     });
 
     it('leaves the pairs a reader kept from a venue they removed', () => {
-        // A venue removed by mistake is one press to put back. A list quietly
+        // A venue removed by mistake is one press to put back. A tag quietly
         // emptied by that press is not.
         const markets = buildController(answerWith({}));
         markets.installConnector('kucoin', buildConnector({ book: null, tape: null, bars: null }), SOURCE);
-        markets.addPair(FAVOURITES_ID, { venue: 'kucoin', symbol: 'BTC-USDC' });
+        markets.tagPair(FAVOURITES_ID, { venue: 'kucoin', symbol: 'BTC-USDC' });
 
         markets.removeConnector('kucoin');
 
-        expect(markets.store.read().lists[0]?.pairs).toEqual([{ venue: 'kucoin', symbol: 'BTC-USDC' }]);
+        expect(markets.store.read().tags[0]?.pairs).toEqual([{ venue: 'kucoin', symbol: 'BTC-USDC' }]);
     });
 
     it('will not take away the venue this build ships against', () => {

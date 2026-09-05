@@ -1,5 +1,5 @@
 import { MarketsButton } from './markets/markets-button.tsx';
-import type { WatchedPair } from '../../shared/core/watch-lists.ts';
+import type { MarketPair } from '../../shared/core/pair-tags.ts';
 import { Code2,
     Layers,
     Lock,
@@ -62,9 +62,9 @@ export interface ChartDockProps {
     readonly instrumentSymbol: string | null;
     readonly onInstrumentSelect: (instrumentSymbol: string) => void;
     /** The pair on the chart, venue included, or null before one is chosen. */
-    readonly openPair: WatchedPair | null;
+    readonly openPair: MarketPair | null;
     /** Puts a pair from a list on the chart. */
-    readonly onPairOpen: (pair: WatchedPair) => void;
+    readonly onPairOpen: (pair: MarketPair) => void;
     /** Opens the editor on the connector starter, where this build has one. */
     readonly onWriteAConnector?: (() => void) | undefined;
     readonly time: TimeControls;

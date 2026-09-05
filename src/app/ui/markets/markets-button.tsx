@@ -3,11 +3,11 @@ import { type ReactElement, useState } from 'react';
 import { DockPopover } from '../dock-popover.tsx';
 import { MarketsPanel } from './markets-panel.tsx';
 import { useTranslate } from '../../react/use-appearance.ts';
-import type { WatchedPair } from '../../../shared/core/watch-lists.ts';
+import type { MarketPair } from '../../../shared/core/pair-tags.ts';
 
 interface MarketsButtonProps {
-    readonly openPair: WatchedPair | null;
-    readonly onPairOpen: (pair: WatchedPair) => void;
+    readonly openPair: MarketPair | null;
+    readonly onPairOpen: (pair: MarketPair) => void;
     /** What the trigger shows: the symbol, however this bar shortens it. */
     readonly said: string;
     /** Which way the card opens; above, where a dock is under it, by default. */

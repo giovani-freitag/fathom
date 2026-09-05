@@ -237,7 +237,7 @@ drops. It owns that heartbeat timer too, for the reason at the top of the page.
 ## Installing it
 
 Save. The venue appears among the others in the contract picker, and Fathom asks
-it what it trades straight away. Star a pair to keep it in one of your lists.
+it what it trades straight away. Mark a pair to file it under one of your tags.
 
 Your connector is kept as the source you wrote, so it is still there next week —
 and so you can read what you installed before it runs again.

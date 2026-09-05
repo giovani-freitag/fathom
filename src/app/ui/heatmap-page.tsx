@@ -1,5 +1,5 @@
 import { useVenue } from '../react/use-venue.ts';
-import type { WatchedPair } from '../../shared/core/watch-lists.ts';
+import type { MarketPair } from '../../shared/core/pair-tags.ts';
 import { RefreshCw, TriangleAlert } from 'lucide-react';
 import { type ReactElement, lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useKernel } from '../react/kernel-context.ts';
@@ -111,7 +111,7 @@ export function HeatmapPage(): ReactElement {
         kernel.chart.selectInstrument(symbol);
     }, [kernel]);
 
-    const handlePairOpen = useCallback((pair: WatchedPair) => {
+    const handlePairOpen = useCallback((pair: MarketPair) => {
         kernel.chart.selectInstrument(pair.symbol);
     }, [kernel]);
 

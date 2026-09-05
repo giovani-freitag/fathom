@@ -1,27 +1,31 @@
 import type { ReactElement } from 'react';
-import { Plus, Star, Trash2 } from 'lucide-react';
-import { FAVOURITES_ID, type WatchList } from '../../../shared/core/watch-lists.ts';
+import { Plus, Trash2 } from 'lucide-react';
 import { CONTROL_CHOSEN_CLASSES, CONTROL_INPUT_CLASSES, SCROLLER_CLASSES } from '../control-shell.ts';
-import { nameOf } from '../../markets/list-names.ts';
+import { FAVOURITES_ID, nextTagTone, type PairTag } from '../../../shared/core/pair-tags.ts';
+import type { PlotTone } from '../../../shared/core/draw-plan.ts';
+import { labelOf } from '../../markets/tag-names.ts';
+import { TONE_LABEL_KEYS } from '../indicators/tone-labels.ts';
+import { ToneSwatch } from '../indicators/tone-swatch.tsx';
 import type { Translate } from '../../i18n/translator.ts';
 import { useState } from 'react';
 
 /** What the listing beside the rail is showing. */
 export type Showing =
-    | { readonly kind: 'list' }
+    | { readonly kind: 'tag' }
     | { readonly kind: 'venue'; readonly venue: string };
 
 interface MarketsRailProps {
-    readonly lists: readonly WatchList[];
+    readonly tags: readonly PairTag[];
     readonly venues: readonly string[];
-    /** Which list a star adds to, which is also a list the rail can be on. */
-    readonly openListId: string;
+    /** Which tag a press files under, which is also a tag the rail can be on. */
+    readonly openTagId: string;
     readonly showing: Showing;
     readonly translate: Translate;
-    readonly onOpenList: (listId: string) => void;
+    readonly onOpenTag: (tagId: string) => void;
     readonly onBrowse: (venue: string) => void;
-    readonly onAddList: (name: string) => void;
-    readonly onRemoveList: (listId: string) => void;
+    readonly onAddTag: (label: string) => void;
+    readonly onRemoveTag: (tagId: string) => void;
+    readonly onRecolourTag: (tagId: string, tone: PlotTone) => void;
     /** Takes a venue the reader brought back off. The shipped one has no such offer. */
     readonly onRemoveVenue: (venue: string) => void;
     /** Which venues the reader brought, and so may take away again. */
@@ -33,7 +37,7 @@ interface MarketsRailProps {
 /**
  * Everything a reader can point the listing at, down one side.
  *
- * Their lists and the venues in one rail rather than in two stacked panels: the
+ * Their tags and the venues in one rail rather than in two stacked panels: the
  * question is "which of these am I looking at", and answering it in two places
  * meant a reader who wanted a pair from a second venue had to find out that
  * browsing and keeping were different halves of the same card.
@@ -55,20 +59,22 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
             className={`flex shrink-0 gap-1 overflow-x-auto border-hairline p-2 ${SCROLLER_CLASSES}`
                 + ' lg:w-56 lg:flex-col lg:overflow-y-auto lg:border-r lg:[mask-image:none]'}
         >
-            <RailHeading said={translate('markets.yourLists')} />
-            {props.lists.map((list) => (
-                <RailRow
-                    key={list.id}
-                    said={nameOf(list, translate)}
-                    count={list.pairs.length}
-                    isOn={props.showing.kind === 'list' && props.openListId === list.id}
-                    isTarget={props.openListId === list.id}
-                    onPress={() => { props.onOpenList(list.id); }}
-                    {...list.id === FAVOURITES_ID
+            <RailHeading said={translate('markets.yourTags')} />
+            {props.tags.map((tag) => (
+                <TagRow
+                    key={tag.id}
+                    said={labelOf(tag, translate)}
+                    tone={tag.tone}
+                    count={tag.pairs.length}
+                    isOn={props.showing.kind === 'tag' && props.openTagId === tag.id}
+                    translate={translate}
+                    onPress={() => { props.onOpenTag(tag.id); }}
+                    onRecolour={() => { props.onRecolourTag(tag.id, nextTagTone(props.tags, tag.id)); }}
+                    {...tag.id === FAVOURITES_ID
                         ? {}
                         : {
-                            onRemove: () => { props.onRemoveList(list.id); },
-                            removeLabel: translate('markets.removeList'),
+                            onRemove: () => { props.onRemoveTag(tag.id); },
+                            removeLabel: translate('markets.removeTag'),
                         }}
                 />
             ))}
@@ -78,14 +84,14 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
                     <input
                         autoFocus
                         type="text"
-                        name="listName"
-                        aria-label={translate('markets.listName')}
-                        placeholder={translate('markets.listName')}
+                        name="tagLabel"
+                        aria-label={translate('markets.tagLabel')}
+                        placeholder={translate('markets.tagLabel')}
                         className={`${CONTROL_INPUT_CLASSES} h-9 w-36 shrink-0 px-2 lg:w-full`}
-                        onBlur={(event) => { props.onAddList(event.target.value); setIsNaming(false); }}
+                        onBlur={(event) => { props.onAddTag(event.target.value); setIsNaming(false); }}
                         onKeyDown={(event) => {
                             if (event.key === 'Enter') {
-                                props.onAddList(event.currentTarget.value);
+                                props.onAddTag(event.currentTarget.value);
                                 setIsNaming(false);
                             }
                             if (event.key === 'Escape') {
@@ -94,7 +100,7 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
                         }}
                     />
                 )
-                : <RailAdd said={translate('markets.newList')} onPress={() => { setIsNaming(true); }} />}
+                : <RailAdd said={translate('markets.newTag')} onPress={() => { setIsNaming(true); }} />}
 
             <RailHeading said={translate('markets.venues')} />
             {props.venues.map((venue) => (
@@ -102,7 +108,6 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
                     key={venue}
                     said={venue}
                     isOn={props.showing.kind === 'venue' && props.showing.venue === venue}
-                    isTarget={false}
                     onPress={() => { props.onBrowse(venue); }}
                     {...props.broughtVenues.has(venue)
                         ? {
@@ -132,28 +137,25 @@ interface RailRowProps {
     readonly count?: number;
     /** True where the listing is showing this one. */
     readonly isOn: boolean;
-    /** True where a star would add to this list, which outlives browsing away. */
-    readonly isTarget: boolean;
     readonly onPress: () => void;
     readonly onRemove?: (() => void) | undefined;
     readonly removeLabel?: string | undefined;
+    readonly children?: ReactElement | undefined;
 }
 
-function RailRow({ said, count, isOn, isTarget, onPress, onRemove, removeLabel }: RailRowProps): ReactElement {
+/** One target in the rail: a venue to browse, or a tag with its mark on it. */
+function RailRow({ said, count, isOn, onPress, onRemove, removeLabel, children }: RailRowProps): ReactElement {
     return (
         <div className={`group flex shrink-0 items-center rounded-lg ${isOn ? CONTROL_CHOSEN_CLASSES : ''}`}>
+            {children}
             <button
                 type="button"
                 aria-current={isOn}
                 onClick={onPress}
                 className={`flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5 text-left text-xs font-semibold transition-colors ${
                     isOn ? '' : 'text-ink-300 hover:bg-abyss-700 hover:text-ink-100'
-                }`}
+                } ${children === undefined ? '' : 'pl-1'}`}
             >
-                {/* Only on the list a star would add to. A reader browsing a
-                    venue has to be able to see where the next star lands
-                    without leaving the venue to check. */}
-                {isTarget && <Star size={12} className="shrink-0 fill-current" />}
                 <span className="truncate">{said}</span>
                 {count !== undefined && count > 0 && (
                     <span className="ml-auto shrink-0 rounded-full bg-current/15 px-1.5 text-[10px]">{count}</span>
@@ -173,6 +175,39 @@ function RailRow({ said, count, isOn, isTarget, onPress, onRemove, removeLabel }
     );
 }
 
+interface TagRowProps extends Omit<RailRowProps, 'children'> {
+    readonly tone: PlotTone;
+    readonly translate: Translate;
+    readonly onRecolour: () => void;
+}
+
+/**
+ * One tag in the rail, with the colour it marks its pairs in.
+ *
+ * The swatch is the control as well as the mark: pressing it moves the tag to
+ * the next colour in the same rotation the chart hands out to its own layers.
+ * A picker here would be a second card opened over the one the reader is
+ * already reading a listing in.
+ */
+function TagRow({ tone, translate, onRecolour, ...row }: TagRowProps): ReactElement {
+    return (
+        <RailRow {...row}>
+            <button
+                type="button"
+                onClick={onRecolour}
+                // Named by the colour it is in rather than by the colour it
+                // would move to, because the swatch is what a reader is being
+                // told about; where it goes next is what pressing it shows.
+                aria-label={`${translate('markets.recolourTag')} — ${translate(TONE_LABEL_KEYS[tone])}`}
+                title={translate('markets.recolourTag')}
+                className="grid size-7 shrink-0 place-items-center rounded transition-colors hover:bg-abyss-700"
+            >
+                <ToneSwatch tone={tone} className="size-2.5" />
+            </button>
+        </RailRow>
+    );
+}
+
 /** The dashed way to add one more, in the rail's own row shape. */
 function RailAdd({ said, onPress }: { readonly said: string; readonly onPress: () => void }): ReactElement {
     return (
@@ -186,4 +221,3 @@ function RailAdd({ said, onPress }: { readonly said: string; readonly onPress: (
         </button>
     );
 }
-

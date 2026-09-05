@@ -1,15 +1,21 @@
 import type { ReactElement } from 'react';
-import { Star } from 'lucide-react';
+import type { MarketPair } from '../../../shared/core/pair-tags.ts';
+import type { PlotTone } from '../../../shared/core/draw-plan.ts';
+import { ToneSwatch } from '../indicators/tone-swatch.tsx';
 import type { Translate } from '../../i18n/translator.ts';
-import type { WatchedPair } from '../../../shared/core/watch-lists.ts';
+
+/** How many of a pair's other tags are marked before the row runs out of room. */
+const MARKS_SHOWN = 3;
 
 /** One row of the listing, whichever half of the card it came from. */
 export interface PairRow {
-    readonly pair: WatchedPair;
+    readonly pair: MarketPair;
     readonly base: string;
     readonly quote: string;
-    /** True where a star would take it out rather than put it in. */
+    /** True where a press would take it out from under the open tag. */
     readonly isKept: boolean;
+    /** The colours of the other tags it carries, in the order they were made. */
+    readonly otherTones: readonly PlotTone[];
     /** False where nothing can be drawn for it, with `whyNot` saying why. */
     readonly isOpenable: boolean;
     readonly whyNot: string;
@@ -26,14 +32,17 @@ export interface PairRow {
 
 interface PairTableProps {
     readonly rows: readonly PairRow[];
-    /** True while a list is being shown, where rows can span venues. */
+    /** True while a tag is being shown, where rows can span venues. */
     readonly hasVenueColumn: boolean;
     /** Which pair the chart is on, so the table can say which. */
-    readonly open: WatchedPair | null;
-    readonly listName: string;
+    readonly open: MarketPair | null;
+    /** What the tag a press files under is called, for the row's own label. */
+    readonly tagLabel: string;
+    /** The colour that tag marks its pairs in. */
+    readonly tagTone: PlotTone;
     readonly translate: Translate;
-    readonly onOpen: (pair: WatchedPair) => void;
-    readonly onKeep: (pair: WatchedPair, isKept: boolean) => void;
+    readonly onOpen: (pair: MarketPair) => void;
+    readonly onKeep: (pair: MarketPair, isKept: boolean) => void;
 }
 
 /**
@@ -63,15 +72,18 @@ export function PairTable(props: PairTableProps): ReactElement {
                             aria-pressed={row.isKept}
                             aria-label={translate(row.isKept ? 'markets.removeFrom' : 'markets.addTo', {
                                 symbol: row.pair.symbol,
-                                list: props.listName,
+                                tag: props.tagLabel,
                             })}
                             onClick={() => { props.onKeep(row.pair, row.isKept); }}
-                            className="grid w-10 shrink-0 place-items-center transition-colors hover:bg-abyss-700"
+                            className="group grid w-10 shrink-0 place-items-center transition-colors hover:bg-abyss-700"
                         >
-                            <Star
-                                size={15}
-                                className={row.isKept ? 'fill-current text-phosphor' : 'text-ink-500'}
-                            />
+                            {/* The tag's own colour, filled where the pair
+                                carries it. Hollow it stays the same mark in the
+                                same place, so a reader running an eye down the
+                                column reads one shape rather than two. */}
+                            {row.isKept
+                                ? <ToneSwatch tone={props.tagTone} className="size-3" />
+                                : <span className="block size-3 rounded-full border border-ink-500 transition-colors group-hover:border-ink-300" />}
                         </button>
 
                         <button
@@ -90,7 +102,7 @@ export function PairTable(props: PairTableProps): ReactElement {
                             <span className="w-32 shrink-0 truncate text-sm font-semibold sm:w-40">
                                 {row.pair.symbol}
                             </span>
-                            {/* Absent on a kept pair: a list holds a venue and a
+                            {/* Absent on a kept pair: a tag holds a venue and a
                                 symbol, and nothing it knows says what the two
                                 assets were. Rendered anyway, it draws a lone
                                 slash in a column of them. */}
@@ -104,11 +116,25 @@ export function PairTable(props: PairTableProps): ReactElement {
                                     {row.pair.venue}
                                 </span>
                             )}
+                            {/* What else this pair is filed under. The colour is
+                                the whole of it: the labels are in the rail a
+                                finger away, and spelling them out here is the
+                                row wide enough to scroll again. */}
+                            {row.otherTones.length > 0 && (
+                                <span className="ml-auto flex shrink-0 items-center gap-1 pl-2">
+                                    {row.otherTones.slice(0, MARKS_SHOWN).map((tone) => (
+                                        <ToneSwatch key={tone} tone={tone} className="size-2" />
+                                    ))}
+                                </span>
+                            )}
                             {/* Last, where an empty cell costs nothing, and
                                 allowed to shrink: held at its own width, one
                                 long note pushed every row wider than the card
                                 and gave the whole list a sideways scroll. */}
-                            <span className="ml-auto min-w-0 truncate pl-2 text-[11px] text-ink-500">
+                            <span className={`min-w-0 truncate pl-2 text-[11px] text-ink-500 ${
+                                row.otherTones.length > 0 ? '' : 'ml-auto'
+                            }`}
+                            >
                                 {row.note}
                             </span>
                         </button>

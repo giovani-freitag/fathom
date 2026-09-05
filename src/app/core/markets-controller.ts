@@ -1,19 +1,21 @@
 import { ObservableStore } from './observable-store.ts';
 import {
     FAVOURITES_ID,
-    type WatchedPair,
-    type WatchList,
-    withListAdded,
-    withListRemoved,
-    withListRenamed,
-    withPairAdded,
-    withPairRemoved,
-} from '../../shared/core/watch-lists.ts';
+    type MarketPair,
+    type PairTag,
+    withPairTagged,
+    withPairUntagged,
+    withTagAdded,
+    withTagRecoloured,
+    withTagRelabelled,
+    withTagRemoved,
+} from '../../shared/core/pair-tags.ts';
 import { forgetConnector, listConnectors, registerConnector } from '../../shared/venues/venue-registry.ts';
 import type { PreferencesService } from '../services/preferences-service.ts';
 import type { ReadingFiles } from '../../shared/core/reading-files.ts';
 import type { StoredConnector } from '../../shared/core/stored-connector.ts';
 import type { VenueConnector, VenueInstrument } from '../../shared/core/venue-connector.ts';
+import type { PlotTone } from '../../shared/core/draw-plan.ts';
 import type { VenueGateway } from '../../shared/venues/venue-gateway.ts';
 import { VenueUnreachableError } from '../../shared/venues/venue-gateway.ts';
 
@@ -35,9 +37,9 @@ export type Listing =
     };
 
 export interface MarketsState {
-    readonly lists: readonly WatchList[];
-    /** Which list the picker is showing. */
-    readonly openListId: string;
+    readonly tags: readonly PairTag[];
+    /** Which tag the picker is showing, and which one a press files under. */
+    readonly openTagId: string;
     /** Every venue the chart can reach, shipped and brought alike. */
     readonly venues: readonly string[];
     /** Which venue is being browsed. */
@@ -57,9 +59,9 @@ export interface MarketsControllerConfig {
 /**
  * The pairs a reader keeps, and the venues they come from.
  *
- * One controller for both because they are one decision: a list holds pairs
- * from several venues, and a venue is worth adding precisely so that something
- * on it can go in a list.
+ * One controller for both because they are one decision: a tag holds pairs from
+ * several venues, and a venue is worth adding precisely so that something on it
+ * can be filed under a tag.
  */
 export class MarketsController {
     readonly store: ObservableStore<MarketsState>;
@@ -72,8 +74,8 @@ export class MarketsController {
         const stored = config.preferences.read();
 
         this.store = new ObservableStore<MarketsState>({ initialState: {
-            lists: stored.watchLists,
-            openListId: stored.watchLists[0]?.id ?? FAVOURITES_ID,
+            tags: stored.pairTags,
+            openTagId: stored.pairTags[0]?.id ?? FAVOURITES_ID,
             venues: listConnectors().map(([id]) => id),
             browsingVenue: listConnectors()[0]?.[0] ?? '',
             listings: {},
@@ -82,75 +84,85 @@ export class MarketsController {
     }
 
     /**
-     * Puts a pair in a list.
+     * Files a pair under a tag.
      *
-     * @param listId - Which list.
+     * @param tagId - Which tag.
      * @param pair - The venue and symbol being kept.
      */
-    addPair(listId: string, pair: WatchedPair): void {
-        this.writeLists(withPairAdded(this.store.read().lists, listId, pair));
+    tagPair(tagId: string, pair: MarketPair): void {
+        this.writeTags(withPairTagged(this.store.read().tags, tagId, pair));
     }
 
     /**
-     * Takes a pair out of a list.
+     * Takes a pair out from under a tag.
      *
-     * @param listId - Which list.
+     * @param tagId - Which tag.
      * @param pair - The venue and symbol being dropped.
      */
-    removePair(listId: string, pair: WatchedPair): void {
-        this.writeLists(withPairRemoved(this.store.read().lists, listId, pair));
+    untagPair(tagId: string, pair: MarketPair): void {
+        this.writeTags(withPairUntagged(this.store.read().tags, tagId, pair));
     }
 
     /**
-     * Makes a list and opens it.
+     * Makes a tag and opens it.
      *
-     * Opened as well as made, because a reader who has just named a list is
-     * about to put something in it, and leaving them on the previous one means
-     * the next thing they star goes somewhere they did not ask for.
+     * Opened as well as made, because a reader who has just named a tag is
+     * about to file something under it, and leaving them on the previous one
+     * means the next thing they press goes somewhere they did not ask for.
      *
-     * @param name - What the reader called it.
+     * @param label - What the reader called it.
      */
-    addList(name: string): void {
-        const held = this.store.read().lists;
-        const lists = withListAdded(held, name);
-        if (lists.length === held.length) {
+    addTag(label: string): void {
+        const held = this.store.read().tags;
+        const tags = withTagAdded(held, label);
+        if (tags.length === held.length) {
             return;
         }
 
-        this.writeLists(lists);
-        this.store.update((current) => ({ ...current, openListId: lists[lists.length - 1]!.id }));
+        this.writeTags(tags);
+        this.store.update((current) => ({ ...current, openTagId: tags[tags.length - 1]!.id }));
     }
 
     /**
-     * Removes a list and everything filed in it.
+     * Removes a tag, and with it every pair filed only under that tag.
      *
-     * @param listId - Which list.
+     * @param tagId - Which tag.
      */
-    removeList(listId: string): void {
-        const lists = withListRemoved(this.store.read().lists, listId);
-        this.writeLists(lists);
-        if (!lists.some((list) => list.id === this.store.read().openListId)) {
-            this.store.update((current) => ({ ...current, openListId: lists[0]?.id ?? FAVOURITES_ID }));
+    removeTag(tagId: string): void {
+        const tags = withTagRemoved(this.store.read().tags, tagId);
+        this.writeTags(tags);
+        if (!tags.some((tag) => tag.id === this.store.read().openTagId)) {
+            this.store.update((current) => ({ ...current, openTagId: tags[0]?.id ?? FAVOURITES_ID }));
         }
     }
 
     /**
-     * Renames a list.
+     * Relabels a tag.
      *
-     * @param listId - Which list.
-     * @param name - What to call it now.
+     * @param tagId - Which tag.
+     * @param label - What to call it now.
      */
-    renameList(listId: string, name: string): void {
-        this.writeLists(withListRenamed(this.store.read().lists, listId, name));
+    relabelTag(tagId: string, label: string): void {
+        this.writeTags(withTagRelabelled(this.store.read().tags, tagId, label));
     }
 
     /**
-     * Shows a different list.
+     * Marks a tag in a different colour.
      *
-     * @param listId - Which list to open.
+     * @param tagId - Which tag.
+     * @param tone - What to mark it in.
      */
-    openList(listId: string): void {
-        this.store.update((current) => ({ ...current, openListId: listId }));
+    recolourTag(tagId: string, tone: PlotTone): void {
+        this.writeTags(withTagRecoloured(this.store.read().tags, tagId, tone));
+    }
+
+    /**
+     * Shows a different tag.
+     *
+     * @param tagId - Which tag to open.
+     */
+    openTag(tagId: string): void {
+        this.store.update((current) => ({ ...current, openTagId: tagId }));
     }
 
     /**
@@ -246,7 +258,7 @@ export class MarketsController {
      * Takes a venue a reader brought back off the chart.
      *
      * The pairs they kept from it are left where they are. A venue removed by
-     * mistake is one press to put back, and a list quietly emptied by that press
+     * mistake is one press to put back, and a tag quietly emptied by that press
      * is not.
      *
      * @param connectorId - Which venue.
@@ -266,9 +278,9 @@ export class MarketsController {
         }));
     }
 
-    private writeLists(lists: readonly WatchList[]): void {
-        this.config.preferences.write({ watchLists: lists });
-        this.store.update((current) => ({ ...current, lists }));
+    private writeTags(tags: readonly PairTag[]): void {
+        this.config.preferences.write({ pairTags: tags });
+        this.store.update((current) => ({ ...current, tags }));
     }
 
     private writeListing(venue: string, listing: Listing): void {
