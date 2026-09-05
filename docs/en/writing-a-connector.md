@@ -26,31 +26,45 @@ just its own.
 
 ## The shape of a connector
 
-```ts
-import type { VenueBar, VenueConnector, VenueInstrument } from 'fathom';
+You write a connector as a class extending `Connector`.
 
-const REST = 'https://api.kucoin.com';
+```ts
+import { Connector } from 'fathom';
+import type { VenueInstrument } from 'fathom';
 
 /**
  * KuCoin spot, as far as a page can read it.
  */
-export default {
-    declaration: { book: null, tape: null, bars: null },
-    instruments: {
-        planInstruments: () => ({ url: `${REST}/api/v2/symbols` }),
+export default class KuCoin extends Connector {
+    // Kept in here because nothing outside this class uses it.
+    private static readonly REST = 'https://api.kucoin.com';
+
+    readonly declaration = { book: null, tape: null, bars: null };
+
+    readonly instruments = {
+        planInstruments: () => ({ url: KuCoin.REST + '/api/v2/symbols' }),
         readInstruments: (payload: unknown): VenueInstrument[] => [],
-    },
-    planStream: null,
-    book: null,
-    tape: null,
-    bars: null,
-} satisfies VenueConnector;
+    };
+
+    readonly planStream = null;
+    readonly book = null;
+    readonly tape = null;
+    readonly bars = null;
+}
 ```
 
-Six fields, and five of them may be `null`.
+Six members, and five of them may be `null`.
 
-There are no optional properties here, and that is deliberate. You have to type
-`null` to say no, and typing it is the moment you read what Fathom does instead.
+Every one is abstract on the base class, including those five. That is
+deliberate: you have to type `null` to say no, and typing it is the moment you
+read what Fathom does instead. Leave one out and the compiler asks for it.
+
+`Connector` also carries the two readings every connector ends up repeating:
+
+| | |
+|---|---|
+| `this.readNumber(field)` | A figure as a number, or `null` where it does not read as one. |
+| `this.requireList(payload, 'data')` | A list out of the venue's answer, or a refusal saying it sent none. |
 
 ## Declaring what the venue cannot do
 
@@ -95,44 +109,39 @@ it works. Press save, and either the pairs appear in the picker or the venue
 tells you why not.
 
 ```ts
-instruments: {
-    planInstruments: () => ({ url: `${REST}/api/v2/symbols` }),
-    readInstruments: (payload: unknown): VenueInstrument[] => {
-        const listed = (payload as { data?: unknown }).data;
-        if (!Array.isArray(listed)) {
-            throw new Error('The venue listed no symbols.');
-        }
-
-        return listed.map((one) => {
-            const entry = one as Record<string, unknown>;
+readonly instruments = {
+    planInstruments: () => ({ url: KuCoin.REST + '/api/v2/symbols' }),
+    readInstruments: (payload: unknown): VenueInstrument[] =>
+        this.requireList(payload, 'data').map((listing) => {
+            const entry = listing as Record<string, unknown>;
             return {
                 symbol: String(entry['symbol']),
                 base: String(entry['baseCurrency']),
                 quote: String(entry['quoteCurrency']),
-                priceStep: Number(entry['priceIncrement']),
+                priceStep: this.readNumber(entry['priceIncrement']) ?? 0,
                 isTrading: entry['enableTrading'] === true,
             };
-        });
-    },
-}
+        }),
+};
 ```
 
-`payload` is whatever the venue answered, already parsed from JSON. If it is not
-the shape you expected, throw with a sentence — the picker shows it to the
-reader.
+`payload` is whatever the venue answered, already parsed from JSON.
+`requireList` throws for you when there is no list where you said there is one.
+Anywhere else the shape surprises you, throw with a sentence of your own — the
+picker shows it to the reader.
 
 ## Reading candles
 
 ```ts
-bars: {
-    planPage: (request) => ({
-        url: `${REST}/api/v1/market/candles?type=1min`
-            + `&symbol=${encodeURIComponent(request.symbol)}`
-            + `&startAt=${String(Math.floor(request.fromMs / 1_000))}`
-            + `&endAt=${String(Math.floor(request.toMs / 1_000))}`,
+readonly bars = {
+    planPage: (request: BarPageRequest) => ({
+        url: KuCoin.REST + '/api/v1/market/candles?type=1min'
+            + '&symbol=' + encodeURIComponent(request.symbol)
+            + '&startAt=' + String(Math.floor(request.fromMs / 1_000))
+            + '&endAt=' + String(Math.floor(request.toMs / 1_000)),
     }),
-    readPage: (payload: unknown, request): VenueBar[] => [],
-}
+    readPage: (payload: unknown, request: BarPageRequest): VenueBar[] => [],
+};
 ```
 
 Three things catch everybody:

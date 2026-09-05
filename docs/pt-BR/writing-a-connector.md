@@ -26,32 +26,45 @@ travar — e isso pararia todas as outras gravações da máquina, não só a de
 
 ## A forma de um conector
 
-```ts
-import type { VenueBar, VenueConnector, VenueInstrument } from 'fathom';
+Você escreve um conector como uma classe que estende `Connector`.
 
-const REST = 'https://api.kucoin.com';
+```ts
+import { Connector } from 'fathom';
+import type { VenueInstrument } from 'fathom';
 
 /**
  * A KuCoin spot, até onde uma página consegue ler.
  */
-export default {
-    declaration: { book: null, tape: null, bars: null },
-    instruments: {
-        planInstruments: () => ({ url: `${REST}/api/v2/symbols` }),
+export default class KuCoin extends Connector {
+    // Fica aqui dentro porque nada fora desta classe usa.
+    private static readonly REST = 'https://api.kucoin.com';
+
+    readonly declaration = { book: null, tape: null, bars: null };
+
+    readonly instruments = {
+        planInstruments: () => ({ url: KuCoin.REST + '/api/v2/symbols' }),
         readInstruments: (payload: unknown): VenueInstrument[] => [],
-    },
-    planStream: null,
-    book: null,
-    tape: null,
-    bars: null,
-} satisfies VenueConnector;
+    };
+
+    readonly planStream = null;
+    readonly book = null;
+    readonly tape = null;
+    readonly bars = null;
+}
 ```
 
-Seis campos, e cinco deles podem ser `null`.
+Seis membros, e cinco deles podem ser `null`.
 
-Não existe propriedade opcional aqui, e isso é de propósito. Você precisa
-digitar `null` para dizer não, e digitar é o momento em que você lê o que o
-Fathom faz no lugar.
+Todos são abstratos na classe base, inclusive esses cinco. É de propósito: você
+precisa digitar `null` para dizer não, e digitar é o momento em que você lê o
+que o Fathom faz no lugar. Se esquecer um, o compilador cobra.
+
+O `Connector` também traz as duas leituras que todo conector acaba repetindo:
+
+| | |
+|---|---|
+| `this.readNumber(campo)` | Um número, ou `null` quando não dá para ler como um. |
+| `this.requireList(payload, 'data')` | Uma lista dentro da resposta, ou um erro dizendo que não veio nenhuma. |
 
 ## Declarando o que a corretora não faz
 
@@ -96,44 +109,39 @@ funciona. Aperte salvar, e ou os pares aparecem no seletor ou a corretora diz
 por que não.
 
 ```ts
-instruments: {
-    planInstruments: () => ({ url: `${REST}/api/v2/symbols` }),
-    readInstruments: (payload: unknown): VenueInstrument[] => {
-        const listed = (payload as { data?: unknown }).data;
-        if (!Array.isArray(listed)) {
-            throw new Error('A corretora não listou nenhum símbolo.');
-        }
-
-        return listed.map((one) => {
-            const entry = one as Record<string, unknown>;
+readonly instruments = {
+    planInstruments: () => ({ url: KuCoin.REST + '/api/v2/symbols' }),
+    readInstruments: (payload: unknown): VenueInstrument[] =>
+        this.requireList(payload, 'data').map((listing) => {
+            const entry = listing as Record<string, unknown>;
             return {
                 symbol: String(entry['symbol']),
                 base: String(entry['baseCurrency']),
                 quote: String(entry['quoteCurrency']),
-                priceStep: Number(entry['priceIncrement']),
+                priceStep: this.readNumber(entry['priceIncrement']) ?? 0,
                 isTrading: entry['enableTrading'] === true,
             };
-        });
-    },
-}
+        }),
+};
 ```
 
-`payload` é o que a corretora respondeu, já convertido de JSON. Se não for o
-formato que você esperava, lance um erro com uma frase — o seletor mostra ela
-para quem estiver lendo.
+`payload` é o que a corretora respondeu, já convertido de JSON. O `requireList`
+lança o erro por você quando não existe lista onde você disse que existe. Em
+qualquer outro ponto em que o formato te surpreender, lance um erro com uma
+frase sua — o seletor mostra ela para quem estiver lendo.
 
 ## Lendo candles
 
 ```ts
-bars: {
-    planPage: (request) => ({
-        url: `${REST}/api/v1/market/candles?type=1min`
-            + `&symbol=${encodeURIComponent(request.symbol)}`
-            + `&startAt=${String(Math.floor(request.fromMs / 1_000))}`
-            + `&endAt=${String(Math.floor(request.toMs / 1_000))}`,
+readonly bars = {
+    planPage: (request: BarPageRequest) => ({
+        url: KuCoin.REST + '/api/v1/market/candles?type=1min'
+            + '&symbol=' + encodeURIComponent(request.symbol)
+            + '&startAt=' + String(Math.floor(request.fromMs / 1_000))
+            + '&endAt=' + String(Math.floor(request.toMs / 1_000)),
     }),
-    readPage: (payload: unknown, request): VenueBar[] => [],
-}
+    readPage: (payload: unknown, request: BarPageRequest): VenueBar[] => [],
+};
 ```
 
 Três coisas pegam todo mundo:

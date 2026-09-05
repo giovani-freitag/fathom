@@ -64,6 +64,8 @@ export { BAR_SOURCES, collectSource, readBarSource, SOURCE } from './bar-source.
 
 export { holdLastClosed } from './settled-sessions.ts';
 
+export { Connector } from './venue-connector.ts';
+
 export type {
     BarPageRequest,
     BarReader,

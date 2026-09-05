@@ -55,7 +55,7 @@ describe('its listing', () => {
     });
 
     it('refuses an answer that lists nothing at all', () => {
-        expect(() => BINANCE_CONNECTOR.instruments.readInstruments({})).toThrow(/listed no symbols/);
+        expect(() => BINANCE_CONNECTOR.instruments.readInstruments({})).toThrow(/no list under .symbols./);
     });
 });
 

@@ -202,3 +202,55 @@ export function findContradictions(connector: VenueConnector): readonly string[]
     }
     return found;
 }
+
+/**
+ * What a connector is written as.
+ *
+ * Every member is abstract, including the four that may be `null`. A base class
+ * that defaulted them would undo the one rule the declaration is built on: an
+ * author has to type `null` to say no, and typing it is the moment they read
+ * what the engine does instead. Here the compiler is what asks.
+ *
+ * What it does carry is the two readings every connector repeats — a figure a
+ * venue sent as text, and a list that has to be somewhere in the answer.
+ */
+export abstract class Connector implements VenueConnector {
+    abstract readonly declaration: VenueDeclaration;
+    abstract readonly instruments: InstrumentReader;
+    abstract readonly planStream: ((symbol: string) => VenueStreamPlan) | null;
+    abstract readonly book: BookReader | null;
+    abstract readonly tape: TapeReader | null;
+    abstract readonly bars: BarReader | null;
+
+    /**
+     * A figure as a number, or null where it does not read as one.
+     *
+     * Null rather than NaN or zero: a price that reads as NaN is written as a
+     * real print and no later read can tell it from one, and zero is a real
+     * answer everywhere a venue publishes figures.
+     *
+     * @param field - Whatever arrived in that position.
+     * @returns The number, or null.
+     */
+    protected readNumber(field: unknown): number | null {
+        const value = Number(field);
+        return typeof field !== 'boolean' && field !== null && field !== ''
+            && Number.isFinite(value) ? value : null;
+    }
+
+    /**
+     * A list out of a venue's answer, or a refusal saying it sent none.
+     *
+     * @param payload - What the venue answered, already parsed from JSON.
+     * @param at - The field the list is under, or absent where it is the answer.
+     * @returns The entries, unread.
+     * @throws Error when there is no list where the connector said there is one.
+     */
+    protected requireList(payload: unknown, at?: string): readonly unknown[] {
+        const held = at === undefined ? payload : (payload as Record<string, unknown> | null)?.[at];
+        if (!Array.isArray(held)) {
+            throw new Error(`The venue answered with no list${at === undefined ? '' : ` under “${at}”`}.`);
+        }
+        return held;
+    }
+}

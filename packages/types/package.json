@@ -1,7 +1,7 @@
 {
     "name": "@giovani-freitag/fathom",
     "version": "0.0.0",
-    "description": "The surface a Fathom reading is written against. Types only, no runtime.",
+    "description": "The surface a Fathom addon is written against: the types, and the values an addon imports.",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -9,18 +9,28 @@
         "directory": "packages/types"
     },
     "homepage": "https://github.com/giovani-freitag/fathom/blob/main/docs/writing-a-reading.md",
-    "keywords": ["fathom", "indicators", "trading", "types"],
+    "keywords": [
+        "fathom",
+        "indicators",
+        "connectors",
+        "trading",
+        "types"
+    ],
     "types": "./fathom.d.ts",
     "exports": {
         ".": {
-            "types": "./fathom.d.ts"
+            "types": "./fathom.d.ts",
+            "default": "./fathom.js"
         }
     },
     "files": [
-        "fathom.d.ts"
+        "fathom.d.ts",
+        "fathom.js"
     ],
     "sideEffects": false,
     "publishConfig": {
         "access": "public"
-    }
+    },
+    "type": "module",
+    "module": "./fathom.js"
 }

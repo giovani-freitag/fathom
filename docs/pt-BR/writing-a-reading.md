@@ -507,7 +507,7 @@ Tipos: `Indicator`, `IndicatorInput`, `IndicatorSettings`, `PlanDraft`,
 `ToggleParameter`, `IndicatorParameter`, `Tunable`, `BarSource`,
 `BarCompleteness`, `BarSegment`, `SeriesFill`, `Words`, `Locale`, `DrawPlan`.
 
-Os tipos de conector estão na mesma superfície — veja
+A classe base de conector e seus tipos estão na mesma superfície — veja
 [Escrevendo um conector](/pt-BR/writing-a-connector).
 
 ## O que um indicador não pode fazer

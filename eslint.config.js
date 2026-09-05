@@ -10,7 +10,7 @@ export default tseslint.config(
     {
         ignores: [
             'dist/**', 'coverage/**', 'node_modules/**',
-            'packages/types/fathom.d.ts',
+            'packages/types/fathom.d.ts', 'packages/types/fathom.js',
             'docs/api/**', 'docs/.vitepress/cache/**', 'docs/.vitepress/dist/**',
         ],
     },

@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { pathToFileURL } from 'node:url';
 import { ADDON_SURFACE_TYPES } from '../../src/app/addons/addon-surface.generated.ts';
 
 const ROOT = join(import.meta.dirname, '../..');
@@ -10,6 +11,7 @@ const GENERATED = join(ROOT, 'src', 'app', 'addons', 'addon-surface.generated.ts
 
 /** What a repository of readings resolves `'fathom'` to, by depending on the package. */
 const PUBLISHED = join(ROOT, 'packages', 'types', 'fathom.d.ts');
+const PUBLISHED_RUNTIME = join(ROOT, 'packages', 'types', 'fathom.js');
 
 /**
  * An addon written the way the cookbook says to write one.
@@ -126,4 +128,36 @@ describe('the types the in-page editor is given', () => {
         expect(readFileSync(beside, 'utf8')).toBe(readFileSync(PUBLISHED, 'utf8'));
         rmSync(staging, { recursive: true, force: true });
     }, 60_000);
+});
+
+describe('the values an addon imports', () => {
+    it('are published beside the types, so a repository can run what it typechecks', async () => {
+        // Types alone are enough to compile an addon and not enough to test
+        // one: the surface exports values too, and an addon that imports the
+        // `Connector` it extends cannot be loaded outside Fathom without them.
+        const surface = await import(pathToFileURL(PUBLISHED_RUNTIME).href) as Record<string, unknown>;
+
+        expect(typeof surface['Connector']).toBe('function');
+        expect(typeof surface['Plot']).toBe('object');
+        expect(typeof surface['Params']).toBe('object');
+        expect(typeof surface['inWords']).toBe('function');
+    });
+
+    it('carry every value the surface declares, and no fewer', () => {
+        // Read off the barrel rather than listed here: a value added to the
+        // surface and left out of the bundle is an import that typechecks and
+        // throws.
+        const barrel = readFileSync(join(ROOT, 'src', 'shared', 'core', 'addon-api.ts'), 'utf8');
+        const exported = [...barrel.matchAll(/^export \{([^}]*)\}/gm)]
+            .flatMap((found) => found[1]!.split(','))
+            .map((one) => one.trim())
+            .filter((one) => one !== '' && !one.startsWith('type '));
+        const declared = [...barrel.matchAll(/^export const (\w+)/gm)].map((found) => found[1]!);
+
+        const bundled = readFileSync(PUBLISHED_RUNTIME, 'utf8');
+        const missing = [...exported, ...declared]
+            .filter((name) => !new RegExp(`\\b${name}\\b`).test(bundled));
+
+        expect(missing).toEqual([]);
+    });
 });

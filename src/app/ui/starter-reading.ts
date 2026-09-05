@@ -50,51 +50,47 @@ export const STARTER_FILES: ReadingFiles = { [ENTRY_FILE]: STARTER_MAIN };
 
 const STARTER_CONNECTOR = `// A connector says what a venue can do and how to read what it answers. It
 // never fetches anything itself: it describes a request, the engine performs it,
-// and the connector reads what came back. Nothing here leaves this browser.
-import type { VenueBar, VenueConnector, VenueInstrument } from 'fathom';
+// and the connector reads what came back.
+import { Connector } from 'fathom';
+import type { VenueInstrument } from 'fathom';
 
-// Replace these with the venue you are connecting to.
-const REST = 'https://api.example.com';
+export default class MyVenue extends Connector {
+    // Kept in here because nothing outside this class uses them.
+    private static readonly REST = 'https://api.example.com';
 
-export default {
     // What the venue can do. Every field is required, and every capability is
     // either described or null — writing null is how the chart is told to stop
     // offering the readings that would need it.
-    declaration: {
+    readonly declaration = {
         book: null,
         tape: null,
         bars: null,
-    },
+    };
 
     // Every venue lists what it trades; there is nothing to chart otherwise.
-    instruments: {
-        planInstruments: () => ({ url: REST + '/api/v1/symbols' }),
-        readInstruments: (payload: unknown): VenueInstrument[] => {
-            const listed = (payload as { data?: unknown }).data;
-            if (!Array.isArray(listed)) {
-                throw new Error('The venue listed no symbols.');
-            }
-            return listed.map((listing) => {
+    readonly instruments = {
+        planInstruments: () => ({ url: MyVenue.REST + '/api/v1/symbols' }),
+        readInstruments: (payload: unknown): VenueInstrument[] =>
+            this.requireList(payload, 'data').map((listing) => {
                 const entry = listing as Record<string, unknown>;
                 return {
                     symbol: String(entry['symbol']),
                     base: String(entry['baseCurrency']),
                     quote: String(entry['quoteCurrency']),
-                    priceStep: Number(entry['priceIncrement']),
+                    priceStep: this.readNumber(entry['priceIncrement']) ?? 0,
                     // False for a listing that exists but is halted or not open.
                     isTrading: entry['enableTrading'] === true,
                 };
-            });
-        },
-    },
+            }),
+    };
 
     // One socket carrying everything the venue streams, or null where it
-    // streams nothing. Fill this in once the listing works.
-    planStream: null,
-    book: null,
-    tape: null,
-    bars: null,
-} satisfies VenueConnector;
+    // streams nothing. Fill these in once the listing works.
+    readonly planStream = null;
+    readonly book = null;
+    readonly tape = null;
+    readonly bars = null;
+}
 `;
 
 /**
