@@ -147,7 +147,7 @@ Some venues hand you a few hundred pairs at a time. Say where the next page is,
 and Fathom keeps asking until you say there is none.
 
 ```ts
-continueInstruments(payload: unknown, read: number) {
+override continueInstruments(payload: unknown, read: number) {
     const total = this.readNumber((payload as Record<string, unknown>)['total']) ?? 0;
 
     return read < total
@@ -267,9 +267,9 @@ data will take them with it. Export anything you want to keep.
 
 ## More recipes
 
-Whole connectors for the shapes real exchanges come in — tuples, a live book, a
-socket that has to be spoken to, a book you only get a window of — are in the
-[cookbook](/en/connector-cookbook).
+Whole connectors for the shapes real exchanges come in — a listing that arrives
+in pages, candles as tuples, a live book, a socket you have to ask for first, a
+book you only get a window of — are in the [cookbook](/en/connector-cookbook).
 
 ## A worked one
 

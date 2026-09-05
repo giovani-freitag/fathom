@@ -1,21 +1,15 @@
 import type { ReactElement } from 'react';
-import type { MarketPair } from '../../../shared/core/pair-tags.ts';
-import type { PlotTone } from '../../../shared/core/draw-plan.ts';
-import { ToneSwatch } from '../indicators/tone-swatch.tsx';
+import type { MarketPair, PairTag } from '../../../shared/core/pair-tags.ts';
+import { PairTagMenu } from './pair-tag-menu.tsx';
 import type { Translate } from '../../i18n/translator.ts';
-
-/** How many of a pair's other tags are marked before the row runs out of room. */
-const MARKS_SHOWN = 3;
 
 /** One row of the listing, whichever half of the card it came from. */
 export interface PairRow {
     readonly pair: MarketPair;
     readonly base: string;
     readonly quote: string;
-    /** True where a press would take it out from under the open tag. */
-    readonly isKept: boolean;
-    /** The colours of the other tags it carries, in the order they were made. */
-    readonly otherTones: readonly PlotTone[];
+    /** Which tags it carries, which its own first cell both shows and changes. */
+    readonly held: ReadonlySet<string>;
     /** False where nothing can be drawn for it, with `whyNot` saying why. */
     readonly isOpenable: boolean;
     readonly whyNot: string;
@@ -36,13 +30,11 @@ interface PairTableProps {
     readonly hasVenueColumn: boolean;
     /** Which pair the chart is on, so the table can say which. */
     readonly open: MarketPair | null;
-    /** What the tag a press files under is called, for the row's own label. */
-    readonly tagLabel: string;
-    /** The colour that tag marks its pairs in. */
-    readonly tagTone: PlotTone;
+    /** Every tag there is, because any row may be filed under any of them. */
+    readonly tags: readonly PairTag[];
     readonly translate: Translate;
     readonly onOpen: (pair: MarketPair) => void;
-    readonly onKeep: (pair: MarketPair, isKept: boolean) => void;
+    readonly onKeep: (pair: MarketPair, tagId: string, isOn: boolean) => void;
 }
 
 /**
@@ -67,24 +59,13 @@ export function PairTable(props: PairTableProps): ReactElement {
                         key={`${row.pair.venue}/${row.pair.symbol}`}
                         className="flex items-stretch border-b border-hairline/40"
                     >
-                        <button
-                            type="button"
-                            aria-pressed={row.isKept}
-                            aria-label={translate(row.isKept ? 'markets.removeFrom' : 'markets.addTo', {
-                                symbol: row.pair.symbol,
-                                tag: props.tagLabel,
-                            })}
-                            onClick={() => { props.onKeep(row.pair, row.isKept); }}
-                            className="group grid w-10 shrink-0 place-items-center transition-colors hover:bg-abyss-700"
-                        >
-                            {/* The tag's own colour, filled where the pair
-                                carries it. Hollow it stays the same mark in the
-                                same place, so a reader running an eye down the
-                                column reads one shape rather than two. */}
-                            {row.isKept
-                                ? <ToneSwatch tone={props.tagTone} className="size-3" />
-                                : <span className="block size-3 rounded-full border border-ink-500 transition-colors group-hover:border-ink-300" />}
-                        </button>
+                        <PairTagMenu
+                            pair={row.pair}
+                            tags={props.tags}
+                            held={row.held}
+                            translate={translate}
+                            onToggle={(tagId, isOn) => { props.onKeep(row.pair, tagId, isOn); }}
+                        />
 
                         <button
                             type="button"
@@ -116,25 +97,11 @@ export function PairTable(props: PairTableProps): ReactElement {
                                     {row.pair.venue}
                                 </span>
                             )}
-                            {/* What else this pair is filed under. The colour is
-                                the whole of it: the labels are in the rail a
-                                finger away, and spelling them out here is the
-                                row wide enough to scroll again. */}
-                            {row.otherTones.length > 0 && (
-                                <span className="ml-auto flex shrink-0 items-center gap-1 pl-2">
-                                    {row.otherTones.slice(0, MARKS_SHOWN).map((tone) => (
-                                        <ToneSwatch key={tone} tone={tone} className="size-2" />
-                                    ))}
-                                </span>
-                            )}
                             {/* Last, where an empty cell costs nothing, and
                                 allowed to shrink: held at its own width, one
                                 long note pushed every row wider than the card
                                 and gave the whole list a sideways scroll. */}
-                            <span className={`min-w-0 truncate pl-2 text-[11px] text-ink-500 ${
-                                row.otherTones.length > 0 ? '' : 'ml-auto'
-                            }`}
-                            >
+                            <span className="ml-auto min-w-0 truncate pl-2 text-[11px] text-ink-500">
                                 {row.note}
                             </span>
                         </button>

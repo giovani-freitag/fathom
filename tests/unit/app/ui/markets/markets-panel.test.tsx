@@ -43,8 +43,21 @@ function renderPanel(): { opened: MarketPair[] } {
 async function browse(venue = FIRST_VENUE): Promise<void> {
     fireEvent.click(screen.getByRole('button', { name: venue }));
     await waitFor(() => {
-        expect(screen.getByRole('button', { name: /File BTCUSDT under/ })).toBeDefined();
+        expect(screen.getByRole('button', { name: 'Tags on BTCUSDT' })).toBeDefined();
     });
+}
+
+/**
+ * Opens one row's tag menu, the way a pointer does.
+ *
+ * On `pointerdown` rather than on a click, which is where the menu primitive
+ * listens — a click alone leaves it shut and every query after it empty.
+ */
+function openTags(symbol: string): void {
+    fireEvent.pointerDown(
+        screen.getByRole('button', { name: `Tags on ${symbol}` }),
+        { button: 0, ctrlKey: false },
+    );
 }
 
 /**
@@ -89,7 +102,7 @@ describe('the card a reader picks a contract on', () => {
 
         await browse();
 
-        expect(screen.getByRole('button', { name: /File NANOUSDT under/ })).toBeDefined();
+        expect(screen.getByRole('button', { name: 'Tags on NANOUSDT' })).toBeDefined();
     });
 });
 
@@ -101,7 +114,7 @@ describe('narrowing a venue listing', () => {
         fireEvent.change(screen.getByLabelText('Search pairs'), { target: { value: 'NANO' } });
 
         expect(screen.queryByRole('button', { name: /File BTCUSDT under/ })).toBeNull();
-        expect(screen.getByRole('button', { name: /File NANOUSDT under/ })).toBeDefined();
+        expect(screen.getByRole('button', { name: 'Tags on NANOUSDT' })).toBeDefined();
     });
 
     it('offers the venue\'s own quote currencies as chips', async () => {
@@ -119,55 +132,76 @@ describe('narrowing a venue listing', () => {
         fireEvent.click(screen.getByRole('button', { name: 'USDT' }));
 
         expect(screen.getByRole('button', { name: 'USDT' }).getAttribute('aria-pressed')).toBe('true');
-        expect(screen.getByRole('button', { name: /File BTCUSDT under/ })).toBeDefined();
+        expect(screen.getByRole('button', { name: 'Tags on BTCUSDT' })).toBeDefined();
     });
 });
 
 describe('keeping a pair', () => {
-    it('files it under the open tag', async () => {
+    it('files it under a tag named on the row itself', async () => {
         renderPanel();
         await browse();
 
-        fireEvent.click(screen.getByRole('button', { name: /File BTCUSDT under Favourites/ }));
+        openTags('BTCUSDT');
+        fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'File BTCUSDT under Favourites' }));
 
-        expect(screen.getByRole('button', { name: /Take BTCUSDT out of Favourites/ })).toBeDefined();
+        expect(screen.getByRole('menuitemcheckbox', { name: 'Take BTCUSDT out of Favourites' })).toBeDefined();
     });
 
-    it('goes under the tag the reader has open rather than always the first', async () => {
+    it('takes it out again from the same menu', async () => {
+        // The half a rail-chosen target could not do at all: a pair can only be
+        // taken out of the tag a reader is already looking at.
+        renderPanel();
+        await browse();
+        openTags('BTCUSDT');
+        fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'File BTCUSDT under Favourites' }));
+
+        fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Take BTCUSDT out of Favourites' }));
+
+        expect(railRow('Favourites').textContent).not.toContain('1');
+    });
+
+    it('offers every tag on every row, whichever one the rail is on', async () => {
         renderPanel();
         makeTag('Shitcoins');
         await browse();
 
-        fireEvent.click(screen.getByRole('button', { name: /File NANOUSDT under Shitcoins/ }));
+        openTags('NANOUSDT');
+        fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'File NANOUSDT under Shitcoins' }));
 
         expect(railRow('Shitcoins').textContent).toContain('1');
     });
 
-    it('says which tag the next press files under, even while browsing a venue', async () => {
-        // A reader who has walked away from their tags to a venue cannot see
-        // which one is selected without being told.
+    it('stays open while a pair is filed under a second tag', async () => {
+        // A pair under two tags is the case tags exist for, and a menu that
+        // shuts on the first one makes it two trips.
         renderPanel();
         makeTag('Shitcoins');
         await browse();
 
-        expect(screen.getByText(/Filing under Shitcoins/)).toBeDefined();
+        openTags('BTCUSDT');
+        fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'File BTCUSDT under Favourites' }));
+        fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'File BTCUSDT under Shitcoins' }));
+
+        expect(railRow('Favourites').textContent).toContain('1');
+        expect(railRow('Shitcoins').textContent).toContain('1');
     });
 
-    it('marks a pair with every other tag it carries, not only the open one', async () => {
+    it('marks the row with every tag the pair carries', async () => {
         // The whole of what a tag gives a list: one pair under two of them, and
-        // a reader who can see the second without opening it.
+        // a reader who can see both without opening anything.
         renderPanel();
         makeTag('Shitcoins');
         await browse();
-        fireEvent.click(screen.getByRole('button', { name: /File BTCUSDT under Shitcoins/ }));
-        fireEvent.click(railRow('Favourites'));
-        await browse();
+        openTags('BTCUSDT');
+        fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'File BTCUSDT under Favourites' }));
+        fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'File BTCUSDT under Shitcoins' }));
+        fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
 
-        const row = screen.getByRole('button', { name: /Open BTCUSDT on the chart/ });
-        expect(row.querySelectorAll('span.rounded-full')).toHaveLength(1);
+        const trigger = screen.getByRole('button', { name: 'Tags on BTCUSDT' });
+        expect(trigger.querySelectorAll('span.rounded-full')).toHaveLength(2);
     });
 
-    it('opens the tag it has just made, because that is where the next press files', () => {
+    it('opens the tag it has just made, because that is where a reader is heading', () => {
         renderPanel();
 
         makeTag('Shitcoins');
@@ -192,7 +226,9 @@ describe('what each half marks', () => {
     it('says why under a tag, where a reader kept the pair themselves', async () => {
         renderPanel();
         await browse();
-        fireEvent.click(screen.getByRole('button', { name: /File NANOUSDT under Favourites/ }));
+        openTags('NANOUSDT');
+        fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'File NANOUSDT under Favourites' }));
+        fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
         fireEvent.click(railRow('Favourites'));
 
         // Two words in the row, the whole sentence on the row's own label: one
@@ -207,7 +243,9 @@ describe('opening what is kept', () => {
     it('hands back the venue as well as the symbol', async () => {
         const { opened } = renderPanel();
         await browse();
-        fireEvent.click(screen.getByRole('button', { name: /File BTCUSDT under Favourites/ }));
+        openTags('BTCUSDT');
+        fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'File BTCUSDT under Favourites' }));
+        fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
         fireEvent.click(railRow('Favourites'));
 
         fireEvent.click(screen.getByRole('button', { name: /Open BTCUSDT on the chart/ }));
@@ -218,7 +256,9 @@ describe('opening what is kept', () => {
     it('will not open a pair nothing has recorded, and says why', async () => {
         const { opened } = renderPanel();
         await browse();
-        fireEvent.click(screen.getByRole('button', { name: /File NANOUSDT under Favourites/ }));
+        openTags('NANOUSDT');
+        fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'File NANOUSDT under Favourites' }));
+        fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
         fireEvent.click(railRow('Favourites'));
 
         const kept = screen.getByRole('button', { name: /NANOUSDT — Nothing recorded here yet/ });

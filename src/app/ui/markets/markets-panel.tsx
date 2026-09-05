@@ -11,7 +11,6 @@ import { MarketsRail, type Showing } from './markets-rail.tsx';
 import { labelOf } from '../../markets/tag-names.ts';
 import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
 import { PairTable, type PairRow } from './pair-table.tsx';
-import type { PlotTone } from '../../../shared/core/draw-plan.ts';
 import { ToneSwatch } from '../indicators/tone-swatch.tsx';
 import type { Listing } from '../../core/markets-controller.ts';
 import type { Translate } from '../../i18n/translator.ts';
@@ -116,13 +115,12 @@ export function MarketsPanel({
         [listing, query, quote],
     );
 
-    // Which of a pair's tags to mark on its row: every one but the tag being
-    // shown, whose colour the row already carries in its own first column.
-    const markOthers = useCallback((pair: MarketPair): readonly PlotTone[] => (
-        findTagsHolding(state.tags, pair)
-            .filter((tag) => tag.id !== openTag?.id)
-            .map((tag) => tag.tone)
-    ), [state.tags, openTag]);
+    // What a row is filed under, which its own first cell both shows and
+    // changes. Read per row rather than per tag: a pair carries several, and
+    // the row is where a reader is looking when they decide.
+    const heldBy = useCallback((pair: MarketPair): ReadonlySet<string> => (
+        new Set(findTagsHolding(state.tags, pair).map((tag) => tag.id))
+    ), [state.tags]);
 
     const rows: readonly PairRow[] = useMemo(() => {
         if (showing.kind === 'tag') {
@@ -132,8 +130,7 @@ export function MarketsPanel({
                     pair,
                     base: '',
                     quote: '',
-                    isKept: true,
-                    otherTones: markOthers(pair),
+                    held: heldBy(pair),
                     isOpenable,
                     whyNot: sayWhyNot(pair),
                     // Under a tag, what a reader wants to know is why the one
@@ -150,9 +147,7 @@ export function MarketsPanel({
                 pair,
                 base: instrument.base,
                 quote: instrument.quote,
-                isKept: findTagsHolding(state.tags, pair)
-                    .some((tag) => tag.id === (openTag?.id ?? FAVOURITES_ID)),
-                otherTones: markOthers(pair),
+                held: heldBy(pair),
                 isOpenable,
                 whyNot: sayWhyNot(pair),
                 // On a venue's own listing the reason is true of almost every
@@ -161,7 +156,7 @@ export function MarketsPanel({
                 note: markNote(instrument.isTrading, isOpenable, translate),
             };
         });
-    }, [showing, openTag, recorded, sayWhyNot, noteWhyNot, markOthers, narrowed, state.tags, query, translate]);
+    }, [showing, openTag, recorded, sayWhyNot, noteWhyNot, heldBy, narrowed, query, translate]);
 
     return (
         <div className="flex min-h-0 flex-1 flex-col">
@@ -198,12 +193,13 @@ export function MarketsPanel({
 
                 <section className="flex min-h-0 min-w-0 flex-1 flex-col">
                     <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
-                        {/* Which tag the next press files under, said out loud.
-                            A reader browsing a venue cannot see which of them is
-                            selected without it. */}
+                        {/* What is being looked at, which is the tag the rail is
+                            on or the venue being browsed. Filing is done on the
+                            row itself, so this says nothing about where a press
+                            would put anything. */}
                         <span className="flex items-center gap-1.5 text-[11px] text-ink-500">
-                            <ToneSwatch tone={tagTone} className="size-2" />
-                            {translate('markets.filingUnder', { tag: tagLabel })}
+                            {showing.kind === 'tag' && <ToneSwatch tone={tagTone} className="size-2" />}
+                            {showing.kind === 'tag' ? tagLabel : showing.venue}
                         </span>
                         {quotes.length > 0 && (
                             <div className="ml-auto flex flex-wrap gap-1">
@@ -230,16 +226,14 @@ export function MarketsPanel({
                             rows={rows}
                             hasVenueColumn={showing.kind === 'tag'}
                             open={open}
-                            tagLabel={tagLabel}
-                            tagTone={tagTone}
+                            tags={state.tags}
                             translate={translate}
                             onOpen={(pair) => { onOpen(pair); onClose(); }}
-                            onKeep={(pair, isKept) => {
-                                const tagId = openTag?.id ?? FAVOURITES_ID;
-                                if (isKept) {
-                                    markets.untagPair(tagId, pair);
-                                } else {
+                            onKeep={(pair, tagId, isOn) => {
+                                if (isOn) {
                                     markets.tagPair(tagId, pair);
+                                } else {
+                                    markets.untagPair(tagId, pair);
                                 }
                             }}
                         />

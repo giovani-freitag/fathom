@@ -262,7 +262,7 @@ export const EN_DICTIONARY = {
     'markets.title': 'Contracts',
     'markets.yourTags': 'Your tags',
     'markets.venues': 'Venues',
-    'markets.filingUnder': 'Filing under {tag}',
+    'markets.tagsFor': 'Tags on {symbol}',
     'markets.allQuotes': 'All',
     'markets.shownOf': 'Showing {shown} of {matched} — narrow the search to see the rest',
     'markets.pairsIn': '{count} pairs',

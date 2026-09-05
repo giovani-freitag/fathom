@@ -274,7 +274,19 @@ describe('a reader is asked to pick in one way', () => {
         // question asked of the reader, three shapes to learn.
         const rolled = sourceFiles
             .filter((path) => !path.endsWith('ui/select.tsx'))
-            .filter((path) => /<select|DropdownMenu\.|Select\.Root/.test(read(path)));
+            .filter((path) => /<select|Select\.Root/.test(read(path)));
+
+        expect(rolled).toEqual([]);
+    });
+
+    it('has one menu of many, written once', () => {
+        // A different question from the select's, and the reason the rule above
+        // stops short of it: a select answers "which one of these", and no
+        // amount of it answers "which of these, any number, and take that one
+        // back out". One shape for that question too.
+        const rolled = sourceFiles
+            .filter((path) => !path.endsWith('markets/pair-tag-menu.tsx'))
+            .filter((path) => /DropdownMenu\./.test(read(path)));
 
         expect(rolled).toEqual([]);
     });

@@ -79,6 +79,62 @@ export default class Simple extends Connector {
 
 Essa é uma corretora completa e instalável. Tudo abaixo é uma variação dela.
 
+## Uma listagem que chega em páginas
+
+Uma corretora com quatro mil pares raramente entrega todos de uma vez. Diga onde
+está a próxima página e o Fathom continua pedindo, para o seletor terminar com
+todos eles em vez de com os primeiros quinhentos.
+
+```ts
+import { Connector } from 'fathom';
+import type { VenueInstrument, VenueRequest } from 'fathom';
+
+export default class Paged extends Connector {
+    private static readonly REST = 'https://api.example.com';
+    private static readonly PER_PAGE = 500;
+
+    readonly declaration = { book: null, tape: null, bars: null };
+
+    planInstruments(): VenueRequest {
+        return { url: Paged.pageFrom(0) };
+    }
+
+    readInstruments(payload: unknown): VenueInstrument[] {
+        return this.requireList(payload, 'symbols').map((one) => {
+            const entry = one as Record<string, unknown>;
+            return {
+                symbol: String(entry['name']),
+                base: String(entry['base']),
+                quote: String(entry['quote']),
+                priceStep: this.readNumber(entry['tick']) ?? 0,
+                isTrading: entry['halted'] !== true,
+            };
+        });
+    }
+
+    override continueInstruments(payload: unknown, read: number): VenueRequest | null {
+        // Quantos a corretora diz que existem, contra quantos já chegaram. Uma
+        // corretora que não publica o total responde à mesma pergunta com uma
+        // página que veio curta.
+        const total = this.readNumber((payload as Record<string, unknown>)['total']) ?? 0;
+
+        return read < total ? { url: Paged.pageFrom(read) } : null;
+    }
+
+    /** Uma página, a partir de um deslocamento. */
+    private static pageFrom(offset: number): string {
+        return Paged.REST + '/symbols?limit=' + String(Paged.PER_PAGE)
+            + '&offset=' + String(offset);
+    }
+}
+```
+
+`read` é a contagem acumulada de todas as páginas até aqui, que é o cursor que a
+maioria das corretoras quer e a conferência para as que querem o próprio.
+Devolver `null` encerra a listagem; o Fathom também para na vigésima página, então
+uma corretora cuja resposta nunca diz que acabou para na conta dele, não pagina
+para sempre.
+
 ## Candles que chegam como tuplas
 
 Muitas corretoras mandam um array por candle em vez de um objeto. Nomeie as
@@ -289,6 +345,105 @@ O Fathom é dono desse temporizador. Um conector que segurasse um poderia manter
 o processo vivo depois que a gravação a que ele pertencia foi desligada, que é a
 razão inteira de um conector nunca segurar nada.
 
+## Um socket que você precisa pedir antes
+
+O formato chato, e comum: a URL do socket não é fixa. Você faz um `POST` pedindo
+uma, a corretora responde com um endereço válido pelos próximos minutos, e é
+nele que você conecta. Um conector nunca busca nada, então ele descreve as duas
+metades e o Fathom executa na ordem.
+
+```ts
+import { Connector } from 'fathom';
+import type { DepthDiff, DepthSnapshot, SerializedPriceLevel, VenueRequest } from 'fathom';
+
+export default class Ticketed extends Connector {
+    private static readonly REST = 'https://api.example.com';
+
+    readonly declaration = {
+        book: {
+            grade: 'linked' as const,
+            levelsPerSide: 'all' as const,
+            publishIntervalMs: 100,
+            clock: 'venue' as const,
+        },
+        tape: null,
+        bars: null,
+    };
+
+    planInstruments(): VenueRequest {
+        return { url: Ticketed.REST + '/symbols' };
+    }
+
+    readInstruments(): [] {
+        return [];
+    }
+
+    override planStreamTicket(): VenueRequest {
+        // Um método e um corpo, para a corretora que não responde a uma leitura
+        // simples. Tudo que uma requisição pode levar está aqui; uma chave não,
+        // porque não existe onde guardar uma no Fathom.
+        return {
+            url: Ticketed.REST + '/bullet-public',
+            method: 'POST',
+            body: JSON.stringify({ scope: 'level2' }),
+            headers: { 'content-type': 'application/json' },
+        };
+    }
+
+    override readStreamTicket(payload: unknown): string {
+        const data = (payload as Record<string, Record<string, unknown>>)['data'];
+
+        return String(data?.['endpoint']) + '?token=' + String(data?.['token']);
+    }
+
+    override planStream(symbol: string, ticket: string) {
+        return {
+            url: ticket,
+            greetings: [JSON.stringify({ type: 'subscribe', topic: '/market/level2:' + symbol })],
+            heartbeat: { everyMs: 20_000, send: JSON.stringify({ type: 'ping' }) },
+        };
+    }
+
+    override planSnapshot(symbol: string): VenueRequest {
+        return { url: Ticketed.REST + '/book?symbol=' + encodeURIComponent(symbol) };
+    }
+
+    override readSnapshot(payload: unknown): DepthSnapshot {
+        return {
+            lastUpdateId: this.readNumber((payload as Record<string, unknown>)['seq']) ?? 0,
+            bidLevels: this.requireList(payload, 'bids') as SerializedPriceLevel[],
+            askLevels: this.requireList(payload, 'asks') as SerializedPriceLevel[],
+        };
+    }
+
+    override readUpdate(payload: unknown): DepthDiff | null {
+        const message = payload as Record<string, unknown>;
+        const first = this.readNumber(message['from']);
+        const final = this.readNumber(message['to']);
+        if (first === null || final === null) {
+            return null;
+        }
+
+        return {
+            firstUpdateId: first,
+            finalUpdateId: final,
+            previousFinalUpdateId: first - 1,
+            bidLevels: this.requireList(message, 'b') as SerializedPriceLevel[],
+            askLevels: this.requireList(message, 'a') as SerializedPriceLevel[],
+        };
+    }
+}
+```
+
+Um bilhete novo é comprado toda vez que o socket abre, reconexão incluída. É
+esse o motivo da divisão: um endereço válido por cinco minutos não serve de nada
+para uma gravação que está de pé há seis horas, e a reconexão é exatamente
+quando um vencido seria usado.
+
+Deixe `planStreamTicket` de fora e o Fathom não pede nada, entrega um bilhete
+vazio ao `planStream` e conecta direto na URL que você nomeou — que é o caso
+comum, e por isso é assim que a classe base responde.
+
 ## Um livro do qual você só recebe uma janela
 
 A maioria das corretoras publica os poucos níveis mais próximos em vez do livro
@@ -340,17 +495,19 @@ equilibradas.
 Escrito aqui porque descobrir tentando é pior, e porque estas são as bordas em
 que uma corretora de verdade vai te parar.
 
-- **Uma requisição por listagem.** `planInstruments` devolve uma requisição só.
-  Uma corretora que pagina a lista de símbolos não dá para ler inteira — você
-  recebe a primeira página.
-- **Sem segredos.** `VenueRequest` carrega cabeçalhos, e não existe onde guardar
-  uma chave que pertence a um. Só funcionam endpoints que não pedem
-  autenticação.
-- **Só `GET`.** Sem método, sem corpo. Uma corretora que entrega o socket por um
-  `POST` não dá para transmitir.
-- **Sem uma segunda requisição antes da primeira.** Um conector não consegue
-  dizer "busque isto, e use a resposta para montar a próxima URL" — que é o
-  formato de todo socket protegido por token.
+- **Sem segredos.** Uma requisição carrega cabeçalhos, e não existe no Fathom
+  onde guardar a chave que iria em um deles. Só dá para ler endpoint que não
+  pede assinatura, o que é quase todo dado público e quase nada atrás de conta.
+- **Sem memória entre chamadas.** Um conector não segura nada: nem cursor, nem
+  relógio, nem a última mensagem. Tudo que um método precisa está no que ele
+  recebeu, e é por isso que `continueInstruments` recebe a contagem e o
+  `readBars` recebe a requisição.
+- **Vinte páginas por listagem.** Suficiente para toda corretora que apontaram
+  para isto, e um teto em vez de uma corrida para aquela cuja resposta nunca
+  termina.
+- **O grau declarado é registrado, não usado.** O espelho do Fathom ainda quer a
+  referência anterior que um livro `linked` publica, seja lá o que um conector
+  declare.
 
 Cada um desses é um limite de verdade, não um descuido esperando ser achado. Se
 um deles estiver no seu caminho, vale dizer: são as próximas coisas a mudar.

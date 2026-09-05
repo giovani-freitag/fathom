@@ -147,7 +147,7 @@ Algumas corretoras entregam algumas centenas de pares por vez. Diga onde está a
 próxima página, e o Fathom continua pedindo até você dizer que não há mais.
 
 ```ts
-continueInstruments(payload: unknown, read: number) {
+override continueInstruments(payload: unknown, read: number) {
     const total = this.readNumber((payload as Record<string, unknown>)['total']) ?? 0;
 
     return read < total
@@ -271,9 +271,10 @@ Limpar os dados do site leva eles junto. Exporte o que quiser manter.
 
 ## Mais receitas
 
-Conectores inteiros para os formatos em que as corretoras vêm — tuplas, um livro
-ao vivo, um socket com quem é preciso falar, um livro do qual você só recebe uma
-janela — estão no [livro de receitas](/pt-BR/connector-cookbook).
+Conectores inteiros para os formatos em que as corretoras vêm — uma listagem que
+chega em páginas, candles como tuplas, um livro ao vivo, um socket que você
+precisa pedir antes, um livro do qual você só recebe uma janela — estão no
+[livro de receitas](/pt-BR/connector-cookbook).
 
 ## Um exemplo pronto
 

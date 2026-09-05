@@ -49,3 +49,21 @@ beforeAll(() => {
         disconnect(): void { /* nothing is tracked */ }
     };
 });
+
+/**
+ * Gives jsdom the pointer plumbing the menu primitives open on.
+ *
+ * jsdom implements no pointer events and no capture, and a menu that opens on
+ * `pointerdown` never opens without them — which reads in a test as a component
+ * that renders nothing rather than as an environment missing an API.
+ */
+beforeAll(() => {
+    // Assigned rather than filled in where missing: the DOM types say every one
+    // of these exists, so a check against them reads as dead code to the linter
+    // and to anybody who trusts the types over jsdom.
+    globalThis.PointerEvent = class extends MouseEvent {} as typeof PointerEvent;
+    Element.prototype.hasPointerCapture = () => false;
+    Element.prototype.setPointerCapture = () => undefined;
+    Element.prototype.releasePointerCapture = () => undefined;
+    Element.prototype.scrollIntoView = () => undefined;
+});

@@ -264,7 +264,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'markets.title': 'Contratos',
     'markets.yourTags': 'Suas tags',
     'markets.venues': 'Corretoras',
-    'markets.filingUnder': 'Guardando em {tag}',
+    'markets.tagsFor': 'Tags de {symbol}',
     'markets.allQuotes': 'Todas',
     'markets.shownOf': 'Mostrando {shown} de {matched} — refine a busca para ver o resto',
     'markets.pairsIn': '{count} pares',

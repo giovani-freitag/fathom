@@ -78,6 +78,61 @@ export default class Simple extends Connector {
 
 That is a complete, installable venue. Everything below is a variation on it.
 
+## A listing that arrives in pages
+
+A venue with four thousand pairs rarely hands them over at once. Say where the
+next page is and Fathom keeps asking, so the picker ends up with all of them
+rather than with the first five hundred.
+
+```ts
+import { Connector } from 'fathom';
+import type { VenueInstrument, VenueRequest } from 'fathom';
+
+export default class Paged extends Connector {
+    private static readonly REST = 'https://api.example.com';
+    private static readonly PER_PAGE = 500;
+
+    readonly declaration = { book: null, tape: null, bars: null };
+
+    planInstruments(): VenueRequest {
+        return { url: Paged.pageFrom(0) };
+    }
+
+    readInstruments(payload: unknown): VenueInstrument[] {
+        return this.requireList(payload, 'symbols').map((one) => {
+            const entry = one as Record<string, unknown>;
+            return {
+                symbol: String(entry['name']),
+                base: String(entry['base']),
+                quote: String(entry['quote']),
+                priceStep: this.readNumber(entry['tick']) ?? 0,
+                isTrading: entry['halted'] !== true,
+            };
+        });
+    }
+
+    override continueInstruments(payload: unknown, read: number): VenueRequest | null {
+        // How many the venue says there are, against how many have arrived. A
+        // venue that publishes no total answers the same question with a page
+        // that came back short.
+        const total = this.readNumber((payload as Record<string, unknown>)['total']) ?? 0;
+
+        return read < total ? { url: Paged.pageFrom(read) } : null;
+    }
+
+    /** One page, from a given offset. */
+    private static pageFrom(offset: number): string {
+        return Paged.REST + '/symbols?limit=' + String(Paged.PER_PAGE)
+            + '&offset=' + String(offset);
+    }
+}
+```
+
+`read` is the running count across every page so far, which is the cursor most
+venues want and the sanity check for the ones that want their own. Return `null`
+and the listing is finished; Fathom also stops at twenty pages, so a venue whose
+answer never says it is done stops on Fathom's count rather than paging for ever.
+
 ## Candles that arrive as tuples
 
 Plenty of venues send an array per candle rather than an object. Name the
@@ -284,6 +339,105 @@ Fathom owns that timer. A connector holding one could keep the process alive
 after the recording it belonged to was torn down, which is the whole reason a
 connector never holds anything.
 
+## A socket you have to ask for first
+
+The awkward shape, and a common one: the socket URL is not fixed. You `POST` for
+one, the venue answers with an address good for the next few minutes, and you
+connect to that. A connector never fetches, so it describes both halves and
+Fathom performs them in order.
+
+```ts
+import { Connector } from 'fathom';
+import type { DepthDiff, DepthSnapshot, SerializedPriceLevel, VenueRequest } from 'fathom';
+
+export default class Ticketed extends Connector {
+    private static readonly REST = 'https://api.example.com';
+
+    readonly declaration = {
+        book: {
+            grade: 'linked' as const,
+            levelsPerSide: 'all' as const,
+            publishIntervalMs: 100,
+            clock: 'venue' as const,
+        },
+        tape: null,
+        bars: null,
+    };
+
+    planInstruments(): VenueRequest {
+        return { url: Ticketed.REST + '/symbols' };
+    }
+
+    readInstruments(): [] {
+        return [];
+    }
+
+    override planStreamTicket(): VenueRequest {
+        // A method and a body, for the venue that will not answer a plain read.
+        // Everything a request may carry is here; a key is not, because there
+        // is nowhere in Fathom to keep one.
+        return {
+            url: Ticketed.REST + '/bullet-public',
+            method: 'POST',
+            body: JSON.stringify({ scope: 'level2' }),
+            headers: { 'content-type': 'application/json' },
+        };
+    }
+
+    override readStreamTicket(payload: unknown): string {
+        const data = (payload as Record<string, Record<string, unknown>>)['data'];
+
+        return String(data?.['endpoint']) + '?token=' + String(data?.['token']);
+    }
+
+    override planStream(symbol: string, ticket: string) {
+        return {
+            url: ticket,
+            greetings: [JSON.stringify({ type: 'subscribe', topic: '/market/level2:' + symbol })],
+            heartbeat: { everyMs: 20_000, send: JSON.stringify({ type: 'ping' }) },
+        };
+    }
+
+    override planSnapshot(symbol: string): VenueRequest {
+        return { url: Ticketed.REST + '/book?symbol=' + encodeURIComponent(symbol) };
+    }
+
+    override readSnapshot(payload: unknown): DepthSnapshot {
+        return {
+            lastUpdateId: this.readNumber((payload as Record<string, unknown>)['seq']) ?? 0,
+            bidLevels: this.requireList(payload, 'bids') as SerializedPriceLevel[],
+            askLevels: this.requireList(payload, 'asks') as SerializedPriceLevel[],
+        };
+    }
+
+    override readUpdate(payload: unknown): DepthDiff | null {
+        const message = payload as Record<string, unknown>;
+        const first = this.readNumber(message['from']);
+        const final = this.readNumber(message['to']);
+        if (first === null || final === null) {
+            return null;
+        }
+
+        return {
+            firstUpdateId: first,
+            finalUpdateId: final,
+            previousFinalUpdateId: first - 1,
+            bidLevels: this.requireList(message, 'b') as SerializedPriceLevel[],
+            askLevels: this.requireList(message, 'a') as SerializedPriceLevel[],
+        };
+    }
+}
+```
+
+A fresh ticket is bought every time the socket opens, reconnects included. That
+is the point of the split: an address good for five minutes is worthless to a
+recording that has been running for six hours, and the reconnect is exactly when
+a stale one would be used.
+
+Leave `planStreamTicket` out and Fathom asks for nothing, hands `planStream` an
+empty ticket, and connects straight to the URL you name — which is the ordinary
+case, and why the base class answers it that way.
+
 ## A book you only get a window of
 
 Most venues publish the nearest few levels rather than the whole ladder. Say how
@@ -332,16 +486,16 @@ zero drawn across the whole chart, which reads exactly like balanced trading.
 Written down because finding out by trying is worse, and because these are the
 edges where a real venue will stop you.
 
-- **One request per listing.** `planInstruments` returns a single request. A
-  venue that pages its symbol list cannot be read whole — you get the first
-  page.
-- **No secrets.** `VenueRequest` carries headers, and there is nowhere to keep a
-  key that belongs in one. Only endpoints that need no authentication work.
-- **`GET` only.** No method, no body. A venue that hands out its socket through
-  a `POST` cannot be streamed from.
-- **No second request before the first.** A connector cannot say "fetch this,
-  then use the answer to build the next URL" — which is the shape of every
-  token-gated socket.
+- **No secrets.** A request carries headers, and there is nowhere in Fathom to
+  keep a key that belongs in one. Only endpoints that need no signature can be
+  read, which is most public data and almost nothing behind an account.
+- **No memory between calls.** A connector holds nothing: no cursor, no clock,
+  no last message. Everything a method needs is in what it was handed, which is
+  why `continueInstruments` is given the count and `readBars` the request.
+- **Twenty pages to a listing.** Enough for every venue anybody has pointed at
+  this, and a ceiling rather than a race for one whose answer never ends.
+- **The declared grade is recorded, not acted on.** Fathom's mirror still wants
+  the back reference a `linked` book publishes, whatever a connector declares.
 
 Each of those is a real limit, not an oversight waiting to be found. If one is
 in your way, it is worth saying so: they are the next things to change.
