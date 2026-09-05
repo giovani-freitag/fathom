@@ -122,6 +122,7 @@ export function ChartDock(props: ChartDockProps): ReactElement {
 
                         <DockPopover
                             label={translate('dock.time')}
+                            said={formatDuration(props.time.visibleSpanMs, translate)}
                             trigger={(
                                 <span className="px-1 text-xs font-semibold">
                                     {formatDuration(props.time.visibleSpanMs, translate)}

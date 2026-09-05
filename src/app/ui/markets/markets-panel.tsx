@@ -398,8 +398,11 @@ function Body({ showing, listing, rowCount, query, translate, onRetry, children 
 
 /** One sentence where the table would have been. */
 function Said({ said }: { readonly said: string }): ReactElement {
+    // Announced, because it stands where the list would be and says what
+    // happened to it. Focus stays on the venue that was tapped, so without this
+    // a reader hears nothing at all between asking and the rows arriving.
     return (
-        <p className="min-h-0 flex-1 px-3 py-4 text-xs leading-snug text-ink-500">{said}</p>
+        <p role="status" className="min-h-0 flex-1 px-3 py-4 text-xs leading-snug text-ink-500">{said}</p>
     );
 }
 

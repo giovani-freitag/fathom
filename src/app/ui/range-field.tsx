@@ -50,7 +50,16 @@ export function RangeField({
                 </Slider.Track>
                 <Slider.Thumb
                     aria-label={handleLabel}
-                    className="block size-4 rounded-full border-2 border-phosphor bg-abyss-900 outline-none focus-visible:ring-2 focus-visible:ring-phosphor"
+                    // What the screen says, rather than the number behind it: the
+                    // ceiling reads "10 GB" and the cut "40%", and a reader told
+                    // "1" and "0.4" has been handed the storage rather than the
+                    // reading.
+                    aria-valuetext={display}
+                    className={'relative block size-4 rounded-full border-2 border-phosphor bg-abyss-900'
+                        + ' outline-none focus-visible:ring-2 focus-visible:ring-phosphor'
+                        // Sixteen pixels is under four millimetres of glass, and
+                        // it is the only thing here that has to be dragged.
+                        + ' before:absolute before:-inset-3 before:content-[""] sm:before:inset-0'}
                 />
             </Slider.Root>
         </label>

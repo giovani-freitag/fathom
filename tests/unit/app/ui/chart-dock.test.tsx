@@ -91,9 +91,17 @@ function renderDock(overrides: Partial<DrawingControls> = {}): Pressed {
     return pressed;
 }
 
-/** One control of the dock, by the words it is announced with. */
+/**
+ * One control of the dock, by the words it is announced with.
+ *
+ * Matched within the name rather than against the whole of it: a control that
+ * shows a word carries that word at the front of its name, so a reader saying
+ * it out loud reaches the control.
+ */
 function control(label: keyof typeof EN_DICTIONARY): HTMLButtonElement {
-    return screen.getByRole<HTMLButtonElement>('button', { name: EN_DICTIONARY[label] });
+    return screen.getByRole<HTMLButtonElement>('button', {
+        name: new RegExp(EN_DICTIONARY[label]),
+    });
 }
 
 describe('ChartDock', () => {
@@ -105,6 +113,17 @@ describe('ChartDock', () => {
             control('dock.time'),
             control('indicators.onTheChart'),
         ]).toHaveLength(3);
+    });
+
+    it('answers to the word written on it, not only to what it is for', () => {
+        // A button showing BTC and called only "Contracts" is one voice control
+        // cannot reach: the spoken word has to be in the name it carries.
+        renderDock();
+
+        const name = control('markets.title').getAttribute('aria-label') ?? '';
+
+        expect(name.startsWith('BTC')).toBe(true);
+        expect(name).toContain(EN_DICTIONARY['markets.title']);
     });
 
     it('names the contract by its base asset, which is how a reader reads it', () => {

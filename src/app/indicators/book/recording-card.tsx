@@ -1,5 +1,6 @@
 import {
     CONTROL_CHIP_CLASSES,
+    CONTROL_CHOSEN_CLASSES,
     CONTROL_OFFERED_CLASSES,
 } from '../../ui/control-shell.ts';
 import { ConfirmDialog } from '../../ui/confirm-dialog.tsx';
@@ -192,7 +193,10 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
                 )
                 : narrowed === null
                     ? (
-                        <p className="min-h-0 flex-1 px-3 py-4 text-xs leading-snug text-ink-500">
+                        <p
+                            role="status"
+                            className="min-h-0 flex-1 px-3 py-4 text-xs leading-snug text-ink-500"
+                        >
                             {props.translate('markets.reading')}
                         </p>
                     )
@@ -279,17 +283,47 @@ function GridChip({ grid, isChosen, isSaving, translate, onPick }: {
         <button
             type="button"
             disabled={isSaving || isChosen}
+            aria-current={isChosen}
             aria-label={translate('settings.perRow', { value: grid.priceBucketSize })}
             onClick={onPick}
-            className={`${CONTROL_CHIP_CLASSES} numeric h-7 justify-center px-2.5 ${
-                isChosen || grid.isSuggested
-                    ? 'border-phosphor/60 bg-phosphor/12 text-phosphor'
-                    : CONTROL_OFFERED_CLASSES
-            }`}
+            className={`${CONTROL_CHIP_CLASSES} numeric h-11 justify-center px-2.5 sm:h-7 ${gridChipLook(
+                isChosen,
+                grid.isSuggested,
+            )}`}
         >
             {grid.priceBucketSize}
         </button>
     );
+}
+
+/**
+ * How a grid chip is painted, by whether it is the one in force.
+ *
+ * The two used to draw the same, and the one in force was the one drawn dim:
+ * it is disabled, because re-picking it does nothing, and the disabled fade sat
+ * on top of the chosen colour. So the bright chip was the value you were not
+ * on and the faded one was where you actually were.
+ */
+function gridChipLook(isChosen: boolean, isSuggested: boolean): string {
+    if (isChosen) {
+        return `${CONTROL_CHOSEN_CLASSES} disabled:opacity-100`;
+    }
+    return isSuggested ? 'border-phosphor/30 text-ink-100' : CONTROL_OFFERED_CLASSES;
+}
+
+/**
+ * The ladder a grid is picked from, with the grid in force always on it.
+ *
+ * The rungs are computed from the last price, which moves. A contract written
+ * at one figure and read back a month later was offered three others and no
+ * sign of its own, so the panel showed a value the list said did not exist.
+ */
+function withCurrentGrid(offered: readonly GridChoice[], inForce: number | null): readonly GridChoice[] {
+    if (inForce === null || offered.some((grid) => grid.priceBucketSize === inForce)) {
+        return offered;
+    }
+    return [...offered, { priceBucketSize: inForce, isSuggested: false }]
+        .sort((one, other) => one.priceBucketSize - other.priceBucketSize);
 }
 
 /**
@@ -342,7 +376,10 @@ interface PairRowProps {
  * belongs to which.
  */
 function PairRow(props: PairRowProps): ReactElement {
-    const grids = offerGrids(props.instrument, props.lastPrice);
+    const grids = withCurrentGrid(
+        offerGrids(props.instrument, props.lastPrice),
+        props.contract?.priceBucketSize ?? null,
+    );
 
     if (props.contract !== null) {
         const contract = props.contract;
@@ -362,7 +399,7 @@ function PairRow(props: PairRowProps): ReactElement {
                         aria-expanded={props.isOpen}
                         aria-label={props.translate('recording.regrid', { symbol: props.instrument.symbol })}
                         onClick={props.onOpen}
-                        className="numeric ml-auto shrink-0 rounded px-1.5 py-0.5 pl-2 text-[11px] text-ink-500 transition-colors hover:bg-abyss-700 hover:text-ink-200"
+                        className="numeric ml-auto flex min-h-11 shrink-0 items-center rounded px-1.5 py-0.5 pl-2 text-[11px] text-ink-500 transition-colors hover:bg-abyss-700 hover:text-ink-200 sm:min-h-0"
                     >
                         {props.translate('settings.perRow', { value: contract.priceBucketSize })}
                     </button>
@@ -380,7 +417,7 @@ function PairRow(props: PairRowProps): ReactElement {
                         disabled={props.isSaving}
                         aria-label={props.translate('recording.remove', { symbol: props.instrument.symbol })}
                         onClick={props.onRemove}
-                        className="grid size-7 shrink-0 place-items-center rounded text-ink-500 transition-colors hover:bg-abyss-700 hover:text-ask"
+                        className="grid size-11 shrink-0 place-items-center rounded text-ink-500 transition-colors hover:bg-abyss-700 hover:text-ask sm:size-7"
                     >
                         <Trash2 size={13} />
                     </button>
@@ -388,7 +425,7 @@ function PairRow(props: PairRowProps): ReactElement {
 
                 {props.isOpen && grids.length > 0 && (
                     <div className="border-t border-hairline/40 bg-abyss-900/40 px-3 py-2">
-                        <div className="flex flex-wrap items-center gap-1">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-1">
                             <span className="mr-1 text-[11px] text-ink-500">
                                 {props.translate('recording.gridPrompt')}
                             </span>
@@ -431,7 +468,7 @@ function PairRow(props: PairRowProps): ReactElement {
             </button>
 
             {props.isOpen && grids.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1 border-t border-hairline/40 bg-abyss-900/40 px-3 py-2">
+                <div className="flex flex-wrap items-center gap-2 border-t border-hairline/40 bg-abyss-900/40 px-3 py-2 sm:gap-1">
                     <span className="mr-1 text-[11px] text-ink-500">
                         {props.translate('recording.gridPrompt')}
                     </span>

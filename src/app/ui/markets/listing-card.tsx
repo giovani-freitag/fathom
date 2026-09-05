@@ -76,6 +76,13 @@ export function SearchField({
                 placeholder={label}
                 value={value}
                 onChange={(event) => { onChange(event.target.value); }}
+                // A ticker is not a sentence, and the phone keyboard that
+                // capitalises and corrects one turns "btc" into "Btc" on its way
+                // into a search that matches neither.
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                enterKeyHint="search"
                 className={`${CONTROL_INPUT_CLASSES} h-9 pl-8 pr-2`}
             />
         </>

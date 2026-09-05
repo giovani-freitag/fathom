@@ -190,3 +190,23 @@ body {
     --animate-accordion-down: accordion-down 180ms ease-out;
     --animate-accordion-up: accordion-up 160ms ease-in;
 }
+
+/*
+ * The edge of a strip that scrolls sideways, faded so the cut is visible.
+ *
+ * Written here rather than as an arbitrary Tailwind value because the value is
+ * long enough that it was split across two string literals in the source, and
+ * a class the scanner only ever sees half of is a class it never generates. The
+ * strip then scrolled with no cue at all: on a phone the toolbar holds fourteen
+ * controls in room for eight, and six of them were reachable only by a swipe
+ * nothing suggested.
+ */
+.edge-fade {
+    mask-image: linear-gradient(
+        to right,
+        transparent 0,
+        black 14px,
+        black calc(100% - 14px),
+        transparent 100%
+    );
+}

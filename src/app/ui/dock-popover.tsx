@@ -9,6 +9,8 @@ import {
 } from './control-shell.ts';
 
 interface DockPopoverProps {
+    /** The word written on the trigger, where it carries one. */
+    readonly said?: string | undefined;
     readonly label: string;
     /** What the button shows: a glyph, or the value it stands for. */
     readonly trigger: ReactNode;
@@ -49,7 +51,12 @@ export function DockPopover({
     title,
     side = 'top',
     isRoomy = false,
+    said,
 }: DockPopoverProps): ReactElement {
+    // A control whose name does not hold the word written on it is one voice
+    // control cannot reach: "tap BTC" finds nothing on a button called
+    // "Contracts". The visible word leads, so it is what a reader says.
+    const name = said === undefined || said === '' ? label : `${said} — ${label}`;
     return (
         <Popover.Root
             {...isOpen === undefined ? {} : { open: isOpen }}
@@ -58,8 +65,8 @@ export function DockPopover({
             <Popover.Trigger asChild>
                 <button
                     type="button"
-                    aria-label={label}
-                    title={title ?? label}
+                    aria-label={name}
+                    title={title ?? name}
                     className={`${CONTROL_BUTTON_CLASSES} ${isActive ? CONTROL_ACTIVE_CLASSES : CONTROL_RESTING_CLASSES}`}
                 >
                     {trigger}

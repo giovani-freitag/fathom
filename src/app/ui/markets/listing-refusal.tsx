@@ -19,7 +19,7 @@ export interface ListingRefusalProps {
 export function ListingRefusal({ said, retryLabel, onRetry }: ListingRefusalProps): ReactElement {
     return (
         <div className="flex min-h-0 flex-1 flex-col items-start gap-3 px-3 py-4">
-            <p className="text-xs leading-snug text-amber">{said}</p>
+            <p role="alert" className="text-xs leading-snug text-amber">{said}</p>
             <button
                 type="button"
                 onClick={onRetry}

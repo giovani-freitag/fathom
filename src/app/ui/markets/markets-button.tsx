@@ -43,6 +43,7 @@ export function MarketsButton({
             isOpen={isOpen}
             onOpenChange={setIsOpen}
             label={translate('markets.title')}
+            said={said}
             trigger={(
                 <span className="flex items-center gap-1 px-1 text-xs font-semibold">
                     <Coins size={iconSizePx} />

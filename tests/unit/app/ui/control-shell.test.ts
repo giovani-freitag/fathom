@@ -69,12 +69,22 @@ describe('a bar of controls that does not fit', () => {
         // The two decisions travel together or the bar lies: six of thirteen
         // tools sat off the edge of a phone behind a row that looked complete.
         const hidesTheScrollbar = CONTROL_BAR_CLASSES.includes('scrollbar-width:none');
-        const fadesItsEdges = CONTROL_BAR_CLASSES.includes('mask-image');
 
-        expect(hidesTheScrollbar && !fadesItsEdges).toBe(false);
+        expect(hidesTheScrollbar && !CONTROL_BAR_CLASSES.includes('edge-fade')).toBe(false);
     });
 
-    it('fades only the edges, so a control in the middle is drawn in full', () => {
-        expect(CONTROL_BAR_CLASSES).toContain('to_right,transparent_0,black_');
+    it('fades its edges with a rule that is actually written down', () => {
+        // This used to read the gradient out of the class string, and passed
+        // while nothing was faded at all: the value was long enough to be split
+        // across two literals in the source, and Tailwind scans the source
+        // rather than the string the source builds. So it generated no rule,
+        // and the assertion never knew. Naming a class is only half the claim —
+        // the other half is that something defines it.
+        const styles = readFileSync(join(import.meta.dirname, '../../../../src/app/styles/theme.css'), 'utf8');
+        const rule = styles.split('.edge-fade {')[1]?.split('}')[0] ?? '';
+
+        expect(CONTROL_BAR_CLASSES).toContain('edge-fade');
+        expect(rule).toContain('mask-image');
+        expect(rule).toContain('transparent');
     });
 });

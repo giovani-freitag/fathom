@@ -38,7 +38,12 @@ export const CONTROL_OFFERED_CLASSES =
  * thirty-six, in panels that open one above the other.
  */
 export const CONTROL_INPUT_CLASSES =
-    `${CONTROL_HEIGHT} w-full rounded-lg border border-hairline bg-abyss-900 text-sm text-ink-100`
+    `${CONTROL_HEIGHT} w-full rounded-lg border border-hairline bg-abyss-900 text-ink-100`
+    // Sixteen pixels on a phone, because Safari on iOS zooms the page whenever
+    // a focused field is smaller than that — and what it zooms away is the
+    // chart the field was opened over. Fourteen from the first breakpoint up,
+    // which is where every other control is sized.
+    + ' text-base sm:text-sm'
     + ' outline-none transition-colors focus:border-phosphor/60';
 
 /** A control that is only a glyph, square at that height. */
@@ -78,10 +83,7 @@ export const FLOATING_SURFACE_CLASSES = 'border border-hairline bg-abyss-800/95 
  * The fade is the whole of it: a control cut by a fade reads as one that
  * continues, and a control cut by the frame reads as the last one.
  */
-export const SCROLLER_CLASSES =
-    '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-    + ' [mask-image:linear-gradient(to_right,transparent_0,black_14px,'
-    + 'black_calc(100%-14px),transparent_100%)]';
+export const SCROLLER_CLASSES = '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden edge-fade';
 
 export const CONTROL_BAR_CLASSES =
     `flex shrink-0 items-center gap-2 px-3 py-2 max-w-full overflow-x-auto ${SCROLLER_CLASSES}`;
