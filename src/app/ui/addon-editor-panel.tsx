@@ -93,6 +93,10 @@ interface AddonEditorPanelProps {
  * does to the chart, and a panel that covers it hides the answer.
  */
 export function AddonEditorPanel({ onClose, openKey, starter = 'reading' }: AddonEditorPanelProps): ReactElement {
+    // What the reader asked for, which is what the panel calls itself. Which
+    // it turns out to be comes from what the file exports, and is said by the
+    // line along the foot once it has been built.
+    const isConnector = starter === 'connector';
     const translate = useTranslate();
     const isWide = useIsViewportAtLeast('lg');
     const size = usePanelSize(isWide ? RAIL : SHEET);
@@ -114,6 +118,7 @@ export function AddonEditorPanel({ onClose, openKey, starter = 'reading' }: Addo
 
     const { mountInto, status, drawFailure, ...editor } = useAddonEditor({
         starter: starter === 'connector' ? STARTER_CONNECTOR_FILES : STARTER_FILES,
+        isResumable: starter !== 'connector',
         openOn: openKey,
         buildEditor,
         // Monaco eats Tab, so escape is the way out of it. Forward, onto the
@@ -154,7 +159,7 @@ export function AddonEditorPanel({ onClose, openKey, starter = 'reading' }: Addo
     return (
         <aside
             id={ADDON_EDITOR_ID}
-            aria-label={translate('editor.title')}
+            aria-label={translate(isConnector ? 'editor.titleConnector' : 'editor.title')}
             style={{ [isWide ? 'width' : 'height']: `${size.sizePx}px` }}
             className={EDITOR_SHELL_CLASSES}
         >
@@ -164,6 +169,7 @@ export function AddonEditorPanel({ onClose, openKey, starter = 'reading' }: Addo
                 translate={translate}
                 onClose={onClose}
                 closeRef={closeRef}
+                isConnector={isConnector}
             />
             {/* Placed rather than reordered by CSS: what a reader tabs through
                 has to be what they see, and a bar moved down the screen by
@@ -406,16 +412,18 @@ interface EditorTitleRowProps {
     readonly translate: Translate;
     readonly onClose: () => void;
     readonly closeRef: RefObject<HTMLButtonElement | null>;
+    /** Whether the reader asked for a venue rather than a drawing. */
+    readonly isConnector: boolean;
 }
 
 /** What this is on the left, what closes it on the right, as every panel has. */
-function EditorTitleRow({ editor, translate, onClose, closeRef }: EditorTitleRowProps): ReactElement {
+function EditorTitleRow({ editor, translate, onClose, closeRef, isConnector }: EditorTitleRowProps): ReactElement {
     return (
         <div className="flex shrink-0 items-center gap-2 border-b border-hairline px-4 py-3">
             <input
                 type="text"
                 name="readingName"
-                aria-label={translate('editor.name')}
+                aria-label={translate(isConnector ? 'editor.nameConnector' : 'editor.name')}
                 value={editor.name}
                 onChange={(event) => { editor.rename(event.target.value); }}
                 className={`h-10 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 outline-none transition-colors hover:border-hairline focus-visible:ring-2 focus-visible:ring-phosphor ${PANEL_TITLE_CLASSES}`}

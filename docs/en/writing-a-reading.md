@@ -328,9 +328,10 @@ import { rollingMean } from './maths/mean.js';
 ```
 
 Relative paths only, and only within the reading: `./`, `../`, and `index.ts`
-for a folder. Write the ending or leave it off — `./maths/mean`, `./maths/mean.ts`
-and `./maths/mean.js` all find the same file, the last because that is how
-TypeScript has you write an import.
+for a folder. **End it in `.js`, or leave the ending off** — `./maths/mean` and
+`./maths/mean.js` both find `maths/mean.ts`, the second because that is how
+TypeScript has you write an import. Ending it in `.ts` is the one form the
+compiler refuses, and the editor says so.
 
 Each file runs once however many others ask for it. Two files that import each
 other get what the other has exported so far rather than looping. A file that

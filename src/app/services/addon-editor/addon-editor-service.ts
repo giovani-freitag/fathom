@@ -429,8 +429,9 @@ export class AddonEditorService {
 
         return [...syntactic, ...semantic].map((one) => {
             const at = model.getPositionAt(one.start ?? 0);
+            const said = typeof one.messageText === 'string' ? one.messageText : one.messageText.messageText;
             return {
-                message: typeof one.messageText === 'string' ? one.messageText : one.messageText.messageText,
+                message: sayPlainly(said),
                 line: at.lineNumber,
                 column: at.column,
                 file: path,
@@ -586,4 +587,29 @@ function configureLanguage(): void {
     });
     typescript.typescriptDefaults.addExtraLib(ADDON_SURFACE_TYPES, SURFACE_URI);
     defineThemes();
+}
+
+/**
+ * The compiler's own diagnostic for a `.ts` import in an addon.
+ *
+ * Matched by its shape rather than its number, because the worker hands over
+ * the rendered text and not the code.
+ */
+const TS_EXTENSION_FAULT = /allowImportingTsExtensions/;
+
+/**
+ * One diagnostic, in words that say what to do about it.
+ *
+ * Only where the compiler's own answer names a setting a reader has no way to
+ * change: this editor compiles for a linker that resolves an import three ways,
+ * and the one the compiler refuses is the one it tells them to switch a flag on
+ * for.
+ *
+ * @param said - The diagnostic as the compiler rendered it.
+ * @returns The same fault, or a sentence that can be acted on.
+ */
+function sayPlainly(said: string): string {
+    return TS_EXTENSION_FAULT.test(said)
+        ? 'Import your own files ending in `.js` or with no ending at all, even though they are `.ts`.'
+        : said;
 }

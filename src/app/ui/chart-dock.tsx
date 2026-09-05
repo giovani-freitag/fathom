@@ -1,7 +1,6 @@
-import { MarketsPanel } from './markets/markets-panel.tsx';
+import { MarketsButton } from './markets/markets-button.tsx';
 import type { WatchedPair } from '../../shared/core/watch-lists.ts';
 import { Code2,
-    Coins,
     Layers,
     Lock,
     LockOpen,
@@ -113,23 +112,13 @@ export function ChartDock(props: ChartDockProps): ReactElement {
             <div className="m-auto flex items-center gap-2">
                 {hasChartControls && (
                     <>
-                        <DockPopover
-                            label={translate('markets.title')}
-                            trigger={(
-                                <span className="flex items-center gap-1 px-1 text-xs font-semibold">
-                                    <Coins size={ICON_SIZE_PX} />
-                                    {shortenSymbol(props.instrumentSymbol)}
-                                </span>
-                            )}
-                        >
-                            {/* No title: the button it opened from is the title, and a panel
-                        that repeats it is a line the reader has to read twice. */}
-                            <MarketsPanel
-                                open={props.openPair}
-                                onOpen={props.onPairOpen}
-                                onWriteConnector={props.onWriteAConnector}
-                            />
-                        </DockPopover>
+                        <MarketsButton
+                            iconSizePx={ICON_SIZE_PX}
+                            said={shortenSymbol(props.instrumentSymbol)}
+                            openPair={props.openPair}
+                            onPairOpen={props.onPairOpen}
+                            onWriteAConnector={props.onWriteAConnector}
+                        />
 
                         <DockPopover
                             label={translate('dock.time')}

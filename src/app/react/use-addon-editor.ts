@@ -132,6 +132,15 @@ export type EditorFactory = (config: {
 export interface AddonEditorRequest {
     /** What a reader with an empty shelf opens on. */
     readonly starter: ReadingFiles;
+    /**
+     * Whether the draft is worth restoring over the starter.
+     *
+     * False where the reader asked for a particular kind of empty editor — a
+     * connector, say. Handing them back the reading they were half way through
+     * answers a question they did not ask, and the starter they wanted is the
+     * documentation for what they are about to write.
+     */
+    readonly isResumable?: boolean;
     /** Where the keyboard goes when the reader asks to leave the editor. */
     readonly onLeave: () => void;
     /** A saved reading to open, where the reader picked one. */
@@ -151,12 +160,12 @@ export interface AddonEditorRequest {
  * @returns Where to mount, what to say about it, and what can be done to it.
  */
 export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls {
-    const { starter, openOn, buildEditor, onLeave } = request;
+    const { starter, openOn, buildEditor, onLeave, isResumable = true } = request;
     const kernel = useKernel();
     const library = kernel.addons;
     const { locale, resolvedTheme } = useAppearance();
     const translate = useTranslate();
-    const untitled = translate('editor.untitled');
+    const untitled = translate(isResumable ? 'editor.untitled' : 'editor.untitledConnector');
     const shelfRefusedMessage = translate('editor.shelfRefused');
     const importTooLargeMessage = translate('editor.tooLarge');
     const compilerLostMessage = translate('editor.compilerLost');
@@ -313,7 +322,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         // The draft only where it belongs to the reading being opened. Offered
         // to any of them, opening one reading showed another's code under the
         // first one's key, and saving filed it over the reading it named.
-        const held = library.readDraft();
+        const held = isResumable ? library.readDraft() : null;
         const draft = held !== null && held.key === (wanted?.key ?? null) ? held.files : null;
         service.mount(node, draft ?? wanted?.files ?? starter);
         void rebuild(wanted?.key ?? null, false);

@@ -334,9 +334,10 @@ import { rollingMean } from './maths/mean.js';
 ```
 
 Só caminhos relativos, e só dentro da leitura: `./`, `../`, e `index.ts` para
-uma pasta. Escreva a terminação ou deixe de fora — `./maths/mean`,
-`./maths/mean.ts` e `./maths/mean.js` acham o mesmo arquivo, o último porque é
-assim que o TypeScript manda escrever um import.
+uma pasta. **Termine em `.js`, ou deixe a terminação de fora** —
+`./maths/mean` e `./maths/mean.js` acham `maths/mean.ts`, o segundo porque é
+assim que o TypeScript manda escrever um import. Terminar em `.ts` é a única
+forma que o compilador recusa, e o editor avisa.
 
 Cada arquivo roda uma vez, por mais que outros o peçam. Dois arquivos que
 importam um ao outro recebem o que o outro exportou até ali, em vez de entrar em
