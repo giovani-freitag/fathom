@@ -265,6 +265,81 @@ verdade, usada por corretoras de verdade. Leia como se fosse a usual e a máxima
 fica abaixo da mínima em todo candle que fechou em queda.
 :::
 
+## Servindo mais de uma largura de candle
+
+Toda receita acima pede uma largura só, que não é o que nenhuma corretora de
+verdade faz. O degrau que o gráfico está desenhando chega na requisição, e o
+nome que a corretora dá pra ele é uma tabela que você escreve uma vez:
+
+```ts
+import { Connector } from 'fathom';
+import type { BarPageRequest } from 'fathom';
+
+export default class Widths extends Connector {
+    private static readonly REST = 'https://api.example.com';
+
+    /** Como a corretora chama cada largura que serve, pela largura em si. */
+    private static readonly WIDTH_NAMES = new Map<number, string>([
+        [60_000, '1m'],
+        [300_000, '5m'],
+        [3_600_000, '1h'],
+        [86_400_000, '1d'],
+    ]);
+
+    readonly declaration = {
+        book: null,
+        tape: null,
+        bars: {
+            // As duas listas são uma lista só: um degrau declarado aqui que o
+            // planejador não sabe nomear é um degrau que o gráfico oferece e a
+            // corretora recusa.
+            rungs: [...Widths.WIDTH_NAMES.keys()].map((widthMs) => ({ widthMs, anchorMs: 0 })),
+            barsPerRequest: 500,
+            hasVolume: true,
+            hasBuyVolume: false,
+            hasTradeCount: false,
+        },
+    };
+
+    planInstruments() {
+        return { url: this.address(Widths.REST, '/markets') };
+    }
+
+    readInstruments() {
+        return [];
+    }
+
+    override planBars(request: BarPageRequest) {
+        const interval = Widths.WIDTH_NAMES.get(request.widthMs);
+        if (interval === undefined) {
+            // Recusado em vez de chutado. Uma largura que a corretora não serve
+            // responde com a mais próxima dela, e o gráfico desenha candle de
+            // uma hora num eixo de cinco minutos sem dizer nada.
+            throw new Error(`No venue candle of width ${String(request.widthMs)}ms`);
+        }
+
+        return {
+            url: this.address(Widths.REST, '/candles', {
+                symbol: request.symbol,
+                interval,
+                from: request.fromMs,
+                to: request.toMs,
+                limit: request.limit,
+            }),
+        };
+    }
+
+    override readBars() {
+        return [];
+    }
+}
+```
+
+O `request` carrega tudo que o motor decidiu: o símbolo, `widthMs`, `fromMs`,
+`toMs` e o `limit` que ele não vai ultrapassar. Derivar os degraus da mesma
+tabela é o que impede a declaração e o planejador de se separarem — a
+conferência que pega isso depois é o gráfico vazio de um leitor.
+
 ## Uma corretora que fecha os candles para você
 
 Algumas corretoras nomeiam as duas bordas. Diga isso, e o Fathom usa a sua em

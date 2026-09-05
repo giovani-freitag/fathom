@@ -119,6 +119,7 @@ export function AddonEditorPanel({ onClose, openKey, starter = 'reading' }: Addo
     const { mountInto, status, drawFailure, ...editor } = useAddonEditor({
         starter: starter === 'connector' ? STARTER_CONNECTOR_FILES : STARTER_FILES,
         isResumable: starter !== 'connector',
+        kind: starter,
         openOn: openKey,
         buildEditor,
         // Monaco eats Tab, so escape is the way out of it. Forward, onto the

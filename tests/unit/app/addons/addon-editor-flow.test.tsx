@@ -125,13 +125,18 @@ afterEach(() => {
     vi.restoreAllMocks();
 });
 
-function renderEditor(factory: EditorFactory, openOn?: string, existing?: ReturnType<typeof createIndicatorKernel>) {
+function renderEditor(
+    factory: EditorFactory,
+    openOn?: string,
+    existing?: ReturnType<typeof createIndicatorKernel>,
+    kind: 'reading' | 'connector' = 'reading',
+) {
     const kernel = existing ?? createIndicatorKernel([]);
     const wrapper = ({ children }: { readonly children: ReactNode }): ReactElement => (
         <KernelProvider container={kernel.container}>{children}</KernelProvider>
     );
     const rendered = renderHook(
-        () => useAddonEditor({ starter: STARTER, openOn, buildEditor: factory, onLeave: () => undefined }),
+        () => useAddonEditor({ starter: STARTER, openOn, buildEditor: factory, kind, onLeave: () => undefined }),
         { wrapper },
     );
     act(() => { rendered.result.current.mountInto(document.createElement('div')); });
@@ -740,6 +745,23 @@ describe('a draft left behind by one reading', () => {
         await waitFor(() => { expect(reopened.result.current.status?.kind).toBe('ready'); });
         expect(second.buffer()).toBe(sourceNamed('Yours'));
         expect(reopened.result.current.name).toBe('Yours');
+    });
+
+    it('is not offered to the other kind of editor either', async () => {
+        // Both kinds hold an unsaved draft under no key at all. Without the
+        // kind, a half-written connector came back inside an editor titled
+        // "write a reading" — the reader's own code, under the wrong heading,
+        // and saved as the wrong kind of addon.
+        const first = buildFakeEditor();
+        const opened = renderEditor(first.factory, undefined, undefined, 'connector');
+        act(() => { first.type(sourceNamed('Half a venue')); });
+        await waitFor(() => { expect(opened.result.current.isUnsaved).toBe(true); });
+        opened.unmount();
+
+        const second = buildFakeEditor();
+        renderEditor(second.factory, undefined, opened.kernel, 'reading');
+
+        await waitFor(() => { expect(second.buffer()).toBe(STARTER['main.ts']); });
     });
 
     it('is still offered back to the reading it does belong to', async () => {

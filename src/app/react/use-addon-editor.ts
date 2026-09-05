@@ -141,6 +141,12 @@ export interface AddonEditorRequest {
      * documentation for what they are about to write.
      */
     readonly isResumable?: boolean;
+    /**
+     * Which kind of addon this editor was opened to write.
+     *
+     * A draft is restored only into the kind it was written in.
+     */
+    readonly kind?: 'reading' | 'connector';
     /** Where the keyboard goes when the reader asks to leave the editor. */
     readonly onLeave: () => void;
     /** A saved reading to open, where the reader picked one. */
@@ -160,7 +166,7 @@ export interface AddonEditorRequest {
  * @returns Where to mount, what to say about it, and what can be done to it.
  */
 export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls {
-    const { starter, openOn, buildEditor, onLeave, isResumable = true } = request;
+    const { starter, openOn, buildEditor, onLeave, isResumable = true, kind = 'reading' } = request;
     const kernel = useKernel();
     const library = kernel.addons;
     const { locale, resolvedTheme } = useAppearance();
@@ -259,7 +265,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         if (isEdit) {
             setIsUnsaved(true);
         }
-        library.rememberDraft({ key: underKey, files: service.readFiles() });
+        library.rememberDraft({ key: underKey, kind, files: service.readFiles() });
         setIsRunning(true);
         try {
             const { compiled, faults } = await service.compile();
@@ -287,7 +293,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         } finally {
             setIsRunning(false);
         }
-    }, [compilerLostMessage, library, publish]);
+    }, [compilerLostMessage, kind, library, publish]);
 
     // A reading may name itself in the reader's language, and the name it
     // picked was picked when it was built. The draft is not in the shelf the
@@ -323,7 +329,10 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         // to any of them, opening one reading showed another's code under the
         // first one's key, and saving filed it over the reading it named.
         const held = isResumable ? library.readDraft() : null;
-        const draft = held !== null && held.key === (wanted?.key ?? null) ? held.files : null;
+        const draft = held !== null && held.key === (wanted?.key ?? null)
+            && (held.kind ?? 'reading') === kind
+            ? held.files
+            : null;
         service.mount(node, draft ?? wanted?.files ?? starter);
         void rebuild(wanted?.key ?? null, false);
     // Mounted once. Rebuilding on every change of `rebuild` would tear the

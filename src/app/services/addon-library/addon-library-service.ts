@@ -21,6 +21,15 @@ export interface SavedReading {
 export interface HeldDraft {
     /** The shelf key it was opened from, or null for one never saved. */
     readonly key: string | null;
+    /**
+     * Which kind of editor it was written in.
+     *
+     * Kept because both kinds hold an unsaved draft under no key at all, and
+     * without it a half-written connector came back inside an editor titled
+     * "write a reading" — the reader's own code, under somebody else's heading,
+     * and saved as the wrong kind of addon.
+     */
+    readonly kind?: 'reading' | 'connector';
     readonly files: ReadingFiles;
 }
 

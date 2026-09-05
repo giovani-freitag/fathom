@@ -260,6 +260,80 @@ venues use. Read it as the usual one and the high sits below the low on every
 candle that closed down.
 :::
 
+## Serving more than one candle width
+
+Every recipe above asks for one width, which no real venue is. The rung the
+chart is drawing arrives in the request, and the venue's own name for it is a
+lookup you write once:
+
+```ts
+import { Connector } from 'fathom';
+import type { BarPageRequest } from 'fathom';
+
+export default class Widths extends Connector {
+    private static readonly REST = 'https://api.example.com';
+
+    /** What the venue calls each width it serves, by the width itself. */
+    private static readonly WIDTH_NAMES = new Map<number, string>([
+        [60_000, '1m'],
+        [300_000, '5m'],
+        [3_600_000, '1h'],
+        [86_400_000, '1d'],
+    ]);
+
+    readonly declaration = {
+        book: null,
+        tape: null,
+        bars: {
+            // The two lists are one list: a rung declared here that the planner
+            // cannot name is a rung the chart offers and the venue refuses.
+            rungs: [...Widths.WIDTH_NAMES.keys()].map((widthMs) => ({ widthMs, anchorMs: 0 })),
+            barsPerRequest: 500,
+            hasVolume: true,
+            hasBuyVolume: false,
+            hasTradeCount: false,
+        },
+    };
+
+    planInstruments() {
+        return { url: this.address(Widths.REST, '/markets') };
+    }
+
+    readInstruments() {
+        return [];
+    }
+
+    override planBars(request: BarPageRequest) {
+        const interval = Widths.WIDTH_NAMES.get(request.widthMs);
+        if (interval === undefined) {
+            // Refused rather than guessed. A width the venue does not serve
+            // answers with its nearest one, and the chart draws hourly candles
+            // on a five-minute axis without a word.
+            throw new Error(`No venue candle of width ${String(request.widthMs)}ms`);
+        }
+
+        return {
+            url: this.address(Widths.REST, '/candles', {
+                symbol: request.symbol,
+                interval,
+                from: request.fromMs,
+                to: request.toMs,
+                limit: request.limit,
+            }),
+        };
+    }
+
+    override readBars() {
+        return [];
+    }
+}
+```
+
+`request` carries everything the engine decided: the symbol, `widthMs`,
+`fromMs`, `toMs`, and the `limit` it will not exceed. Deriving the rungs from
+the same map is what keeps the declaration and the planner from drifting apart —
+the check that catches it otherwise is a reader's empty chart.
+
 ## A venue that closes its candles for you
 
 Some venues name both edges. Say so, and Fathom uses yours instead of deriving
