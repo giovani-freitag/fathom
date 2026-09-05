@@ -490,7 +490,175 @@ Stated plainly, because finding out by trying is worse.
   change. A reading that stops building after an upgrade reports the compiler's
   own error, and the source is still yours.
 
+## 14. Writing a connector
+
+A **connector** is the other kind of addon. A reading adds arithmetic over what
+a venue said; a connector adds a venue to say it. You write it in the same
+editor, save it the same way, and which of the two Fathom builds comes from what
+your file exports.
+
+Press the contract picker at the top of the chart, then **Add a venue**. The
+editor opens on a connector rather than on a moving average.
+
+### The one rule
+
+**A connector describes and reads. The engine performs and measures.**
+
+Every method is plain and synchronous. It hands back a URL and reads what came
+back. It never fetches, never holds a socket, never sets a timer. Fathom owns
+the timeout, the size limit, the retry and the clock.
+
+That is not a style preference. The collector tears recordings down by waiting
+for each one to let go, and a connector that owned a connection would own a
+close that can hang — which would stop every other recording on the machine, not
+just its own.
+
+### The shape
+
+```ts
+import type { VenueBar, VenueConnector, VenueInstrument } from 'fathom';
+
+const REST = 'https://api.kucoin.com';
+
+/**
+ * KuCoin spot, as far as a page can read it.
+ */
+export default {
+    declaration: { book: null, tape: null, bars: null },
+    instruments: {
+        planInstruments: () => ({ url: `${REST}/api/v2/symbols` }),
+        readInstruments: (payload: unknown): VenueInstrument[] => [],
+    },
+    planStream: null,
+    book: null,
+    tape: null,
+    bars: null,
+} satisfies VenueConnector;
+```
+
+Six fields, and five of them can be `null`. There are no optional properties on
+purpose: you have to type `null` to say no, and typing it is the moment you read
+what the chart does instead.
+
+### Saying what the venue cannot do
+
+`declaration` is where a venue says what it can answer. Three capabilities, each
+either described or `null`:
+
+| | What it means when it is there | What `null` does |
+|---|---|---|
+| `book` | Resting size per price, live | No heatmap on this venue at all |
+| `tape` | What actually traded, live | No live executions |
+| `bars` | Candles for the past | The chart folds bars from what it records |
+
+Inside `bars`, three flags decide what a reading may rely on:
+
+```ts
+bars: {
+    rungs: [{ widthMs: 60_000, anchorMs: 0 }],
+    barsPerRequest: 1_500,
+    hasVolume: true,
+    hasBuyVolume: false,
+    hasTradeCount: false,
+}
+```
+
+`hasBuyVolume: false` is the important one, and it is the honest answer almost
+everywhere: one venue of any size publishes the taker split in its candles.
+Declared false, every reading that divides by it — delta, cumulative delta,
+volume in two tones — is greyed out on this venue with the reason on the row.
+Left out, the chart would draw a delta of nought and call it even buying and
+selling, which reads exactly like the truth.
+
+The `anchorMs` beside each width is the phase its buckets open on. Zero for
+almost everything; a weekly bar opens on a Monday, which is four days past where
+the epoch puts one.
+
+### Reading a listing
+
+This is the half worth writing first, because you find out in a second whether
+it works: press save, and either the pairs appear in the picker or the venue
+says why not.
+
+```ts
+instruments: {
+    planInstruments: () => ({ url: `${REST}/api/v2/symbols` }),
+    readInstruments: (payload: unknown): VenueInstrument[] => {
+        const listed = (payload as { data?: unknown }).data;
+        if (!Array.isArray(listed)) {
+            throw new Error('The venue listed no symbols.');
+        }
+        return listed.map((one) => {
+            const entry = one as Record<string, unknown>;
+            return {
+                symbol: String(entry['symbol']),
+                base: String(entry['baseCurrency']),
+                quote: String(entry['quoteCurrency']),
+                priceStep: Number(entry['priceIncrement']),
+                isTrading: entry['enableTrading'] === true,
+            };
+        });
+    },
+}
+```
+
+`payload` is whatever the venue answered, already parsed from JSON. Throw with a
+sentence if it is not the shape you expected — the picker shows it.
+
+### Reading candles
+
+```ts
+bars: {
+    planPage: (request) => ({
+        url: `${REST}/api/v1/market/candles?type=1min`
+            + `&symbol=${encodeURIComponent(request.symbol)}`
+            + `&startAt=${String(Math.floor(request.fromMs / 1_000))}`
+            + `&endAt=${String(Math.floor(request.toMs / 1_000))}`,
+    }),
+    readPage: (payload: unknown, request): VenueBar[] => [],
+}
+```
+
+Three things catch everybody:
+
+- **Units.** Fathom works in milliseconds. Several venues take and give seconds.
+- **Order.** Return oldest first. Some venues send newest first, and a run in
+  the wrong order draws a chart that moves backwards.
+- **Field order.** Some venues send `open, close, high, low`, not the usual one.
+  Read it wrong and the high sits below the low on every red candle.
+
+Leave `volume`, `buyVolume` and `tradeCount` as `null` where the venue publishes
+none. Zero is a real answer here — a bucket nobody traded in is a quiet bucket —
+so a venue that publishes nothing must be distinguishable from one that was
+quiet. And if the venue names only where a candle opens, leave `closedAtMs`
+equal to `openedAtMs`; Fathom fills the edge in from the width it asked for.
+
+### Installing it
+
+Save. The venue appears among the others in the contract picker and is asked
+what it trades straight away. Star a pair to keep it in a list.
+
+It is kept as the source you wrote, so it is there again next week — and so you
+can read what you installed before it runs again.
+
+### What a connector cannot do yet
+
+- **Only GET.** A connector names a URL. A venue that hands out its socket
+  through a POST for a short-lived URL cannot be streamed from — which is why
+  the KuCoin example declares `book: null`.
+- **The chart, not the collector.** A connector you install lives in your
+  browser, so the server that records order books cannot see it. A venue brought
+  in this way gives you a listing and a past, not a recording.
+- **A linked book only.** The grade a connector declares is recorded but not yet
+  acted on: the mirror still needs the back reference the shipped venue
+  publishes.
+
+A worked one, tests and all:
+[`src/addons/kucoin`](https://github.com/giovani-freitag/fathom-example-addons/tree/main/src/addons/kucoin).
+
 ---
 
 The design behind all of this — what was decided and what it cost — is in
-[ADR 23](/en/adr/0023-a-reader-writes-an-indicator-in-the-page.md).
+[ADR 23](/en/adr/0023-a-reader-writes-an-indicator-in-the-page.md) for readings
+and [ADR 25](/en/adr/0025-a-reader-brings-the-venue-as-well-as-the-indicator.md)
+for connectors.

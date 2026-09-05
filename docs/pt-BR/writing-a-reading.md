@@ -503,7 +503,178 @@ Dito sem rodeio, porque descobrir tentando é pior.
   Uma leitura que para de compilar depois de uma atualização informa o erro do
   próprio compilador, e o código continua seu.
 
+## 14. Escrevendo um conector
+
+Um **conector** é o outro tipo de addon. Uma leitura acrescenta aritmética sobre
+o que a corretora disse; um conector acrescenta a corretora que diz. Você
+escreve no mesmo editor, salva do mesmo jeito, e qual dos dois o Fathom monta
+vem do que o seu arquivo exporta.
+
+Clique no seletor de contrato no topo do gráfico e depois em **Adicionar
+corretora**. O editor abre em um conector, não em uma média móvel.
+
+### A única regra
+
+**Um conector descreve e lê. O motor executa e mede.**
+
+Todo método é simples e síncrono. Ele devolve uma URL e lê o que voltou. Ele
+nunca busca, nunca segura um socket, nunca cria um temporizador. O Fathom é dono
+do timeout, do limite de tamanho, da retentativa e do relógio.
+
+Isso não é preferência de estilo. O coletor desliga uma gravação esperando cada
+uma soltar, e um conector dono de uma conexão seria dono de um `close` que pode
+travar — o que pararia todas as outras gravações da máquina, não só a dele.
+
+### O formato
+
+```ts
+import type { VenueBar, VenueConnector, VenueInstrument } from 'fathom';
+
+const REST = 'https://api.kucoin.com';
+
+/**
+ * A KuCoin spot, até onde uma página consegue ler.
+ */
+export default {
+    declaration: { book: null, tape: null, bars: null },
+    instruments: {
+        planInstruments: () => ({ url: `${REST}/api/v2/symbols` }),
+        readInstruments: (payload: unknown): VenueInstrument[] => [],
+    },
+    planStream: null,
+    book: null,
+    tape: null,
+    bars: null,
+} satisfies VenueConnector;
+```
+
+Seis campos, e cinco deles podem ser `null`. Não existe propriedade opcional de
+propósito: você precisa digitar `null` para dizer não, e digitar é o momento em
+que você lê o que o gráfico faz no lugar.
+
+### Dizendo o que a corretora não faz
+
+`declaration` é onde a corretora diz o que consegue responder. Três capacidades,
+cada uma descrita ou `null`:
+
+| | O que significa quando existe | O que `null` faz |
+|---|---|---|
+| `book` | Tamanho em repouso por preço, ao vivo | Nenhum mapa de calor nesta corretora |
+| `tape` | O que de fato foi negociado, ao vivo | Nenhuma execução ao vivo |
+| `bars` | Candles do passado | O gráfico dobra as barras do que ele grava |
+
+Dentro de `bars`, três flags decidem no que uma leitura pode se apoiar:
+
+```ts
+bars: {
+    rungs: [{ widthMs: 60_000, anchorMs: 0 }],
+    barsPerRequest: 1_500,
+    hasVolume: true,
+    hasBuyVolume: false,
+    hasTradeCount: false,
+}
+```
+
+`hasBuyVolume: false` é a importante, e é a resposta honesta em quase todo
+lugar: uma corretora de porte publica a separação por lado agressor nos candles.
+Declarada falsa, toda leitura que divide por ela — delta, delta acumulado,
+volume em dois tons — fica esmaecida nesta corretora com o motivo na linha.
+Sem declarar, o gráfico desenharia um delta de zero e chamaria isso de compra e
+venda equilibradas, o que se parece exatamente com a verdade.
+
+O `anchorMs` ao lado de cada largura é a fase em que os baldes abrem. Zero para
+quase tudo; um candle semanal abre numa segunda-feira, que fica quatro dias
+depois de onde a época coloca uma.
+
+### Lendo a listagem
+
+É a metade que vale escrever primeiro, porque você descobre em um segundo se
+funciona: aperte salvar, e ou os pares aparecem no seletor ou a corretora diz
+por que não.
+
+```ts
+instruments: {
+    planInstruments: () => ({ url: `${REST}/api/v2/symbols` }),
+    readInstruments: (payload: unknown): VenueInstrument[] => {
+        const listed = (payload as { data?: unknown }).data;
+        if (!Array.isArray(listed)) {
+            throw new Error('A corretora não listou nenhum símbolo.');
+        }
+        return listed.map((one) => {
+            const entry = one as Record<string, unknown>;
+            return {
+                symbol: String(entry['symbol']),
+                base: String(entry['baseCurrency']),
+                quote: String(entry['quoteCurrency']),
+                priceStep: Number(entry['priceIncrement']),
+                isTrading: entry['enableTrading'] === true,
+            };
+        });
+    },
+}
+```
+
+`payload` é o que a corretora respondeu, já convertido de JSON. Lance um erro
+com uma frase se não for o formato esperado — o seletor mostra ela.
+
+### Lendo candles
+
+```ts
+bars: {
+    planPage: (request) => ({
+        url: `${REST}/api/v1/market/candles?type=1min`
+            + `&symbol=${encodeURIComponent(request.symbol)}`
+            + `&startAt=${String(Math.floor(request.fromMs / 1_000))}`
+            + `&endAt=${String(Math.floor(request.toMs / 1_000))}`,
+    }),
+    readPage: (payload: unknown, request): VenueBar[] => [],
+}
+```
+
+Três coisas pegam todo mundo:
+
+- **Unidades.** O Fathom trabalha em milissegundos. Várias corretoras recebem e
+  devolvem segundos.
+- **Ordem.** Devolva do mais antigo para o mais novo. Algumas mandam ao
+  contrário, e uma sequência invertida desenha um gráfico que anda para trás.
+- **Ordem dos campos.** Algumas mandam `abertura, fechamento, máxima, mínima`,
+  não a ordem usual. Lendo errado, a máxima fica abaixo da mínima em todo candle
+  vermelho.
+
+Deixe `volume`, `buyVolume` e `tradeCount` como `null` onde a corretora não
+publica nenhum. Zero é uma resposta de verdade aqui — um balde em que ninguém
+negociou é um balde quieto — então uma corretora que não publica nada precisa
+ser distinguível de uma que ficou quieta. E se a corretora só nomeia onde o
+candle abre, deixe `closedAtMs` igual a `openedAtMs`; o Fathom preenche a borda
+com a largura que pediu.
+
+### Instalando
+
+Salve. A corretora aparece entre as outras no seletor de contrato e já é
+perguntada sobre o que negocia. Marque um par com a estrela para guardá-lo numa
+lista.
+
+Ela é guardada como o código que você escreveu, então continua lá semana que vem
+— e assim você consegue ler o que instalou antes que rode de novo.
+
+### O que um conector ainda não faz
+
+- **Só GET.** Um conector nomeia uma URL. Uma corretora que entrega o socket por
+  um POST que responde com uma URL de curta duração não dá para transmitir — que
+  é por isso que o exemplo da KuCoin declara `book: null`.
+- **O gráfico, não o coletor.** Um conector que você instala vive no seu
+  navegador, então o servidor que grava livros de ofertas não o enxerga. Uma
+  corretora trazida assim te dá uma listagem e um passado, não uma gravação.
+- **Só livro encadeado.** O grau que um conector declara é registrado mas ainda
+  não é usado: o espelho ainda precisa da referência anterior que a corretora
+  nativa publica.
+
+Um exemplo pronto, com testes:
+[`src/addons/kucoin`](https://github.com/giovani-freitag/fathom-example-addons/tree/main/src/addons/kucoin).
+
 ---
 
 O desenho por trás de tudo isto — o que foi decidido e o que custou — está no
-[ADR 23](/en/adr/0023-a-reader-writes-an-indicator-in-the-page).
+[ADR 23](/en/adr/0023-a-reader-writes-an-indicator-in-the-page) para leituras e
+no [ADR 25](/en/adr/0025-a-reader-brings-the-venue-as-well-as-the-indicator)
+para conectores.

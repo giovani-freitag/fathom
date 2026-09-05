@@ -43,11 +43,11 @@ No deadline fixes it; a synchronous contract makes it impossible.
 
 **Every capability is declared on both sides, and every field is `T | null`.**
 
-The connector declares what it offers through `resolveVenue(settings)`. There are
-no optional properties: an author must type `null` to say no, and typing it is
-the moment they read what the engine does instead. Default-yes is a connector
-that lies into an archive that cannot be rewritten. Default-no is a chart quietly
-drawing less than it could, for ever, with nobody told why.
+The connector declares what it offers in a `declaration` — a value, not a call.
+There are no optional properties: an author must type `null` to say no, and
+typing it is the moment they read what the engine does instead. Default-yes is a
+connector that lies into an archive that cannot be rewritten. Default-no is a
+chart quietly drawing less than it could, for ever, with nobody told why.
 
 The indicator declares what it needs through `SourceRequest.needs`. This is
 ADR 22's sentence — *"an indicator says which rungs it reads"* — with facts in
@@ -116,6 +116,38 @@ and its hash before fetching a byte, and says the code runs in the page. For a
 connector that warning is not enough: an indicator that misbehaves costs a
 repaint, and a connector that misbehaves costs a recording that cannot be made
 again.
+
+## What was built, and what was not
+
+Written after the fact, because an ADR that describes an intention as though it
+were a state of affairs is the kind of document somebody trusts and should not.
+
+**Built and in use.** `VenueDeclaration` and `VenueConnector` with every field
+required and every capability `T | null`. The registry, refusing a connector that
+declares one thing and reads another. `VenueGateway`, which performs every plan
+under one timeout, one size limit, HTTPS only and no cookies. The Binance
+connector, which is now the only file in the tree that names that venue. The
+collector's feed, the chart's candles and the contract picker all read through a
+connector. `SourceRequest.needs` on five shipped readings, and the palette that
+puts a layer out of reach with the reason on the row. A reader writes a connector
+in the same editor as a reading, and which of the two it is comes from what the
+file exports.
+
+**Not built.** The two conflict rules about what arrives: events are not yet
+clamped against the declaration, and no figure is held to `min(declared,
+observed)`. The book grade is declared and not yet acted on — the mirror still
+requires the back reference Binance publishes, so a `ranged`, `stepped` or
+`unsequenced` venue is declared honestly and cannot yet be recorded. A connector
+can only describe a GET, which is the reason the KuCoin example declares no book:
+that venue hands out its socket through a POST for a short-lived URL, and a
+connector that describes requests rather than making them cannot ask for one.
+And a connector a reader installs lives in their browser, so the server's
+collector cannot see it: a venue brought in this way gives the chart a listing
+and a past, not a recording.
+
+Each of those is a smaller decision than the contract itself, and none of them
+changes it. They are named here so that nobody reads the section above as an
+inventory.
 
 The design was settled by four independent proposals — one maximising what a
 connector may decline, one minimising the surface, one mirroring the indicator
