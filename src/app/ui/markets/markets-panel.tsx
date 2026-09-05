@@ -157,6 +157,13 @@ export function MarketsPanel({
             : null;
     }, [state.search, showing, query]);
 
+    // What this venue is recording, which the row cut is not allowed to drop.
+    const recordedHere = useMemo(() => new Set(
+        showing.kind === 'venue'
+            ? instruments.filter((one) => one.venue === showing.venue).map((one) => one.instrumentSymbol)
+            : [],
+    ), [instruments, showing]);
+
     const quotes = useMemo(() => (listed === null ? [] : summariseQuotes(listed)), [listed]);
     const narrowed = useMemo(() => {
         if (answered !== null) {
@@ -165,8 +172,8 @@ export function MarketsPanel({
             // the rows it read more generously than we would have.
             return narrowPairs(answered, { query: '', quote });
         }
-        return listed === null ? null : narrowPairs(listed, { query, quote });
-    }, [answered, listed, query, quote]);
+        return listed === null ? null : narrowPairs(listed, { query, quote, keep: recordedHere });
+    }, [answered, listed, query, quote, recordedHere]);
 
     // What a row is filed under, which its own first cell both shows and
     // changes. Read per row rather than per tag: a pair carries several, and

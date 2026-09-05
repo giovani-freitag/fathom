@@ -98,9 +98,15 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
         // so a pair recorded from the far end of the alphabet was reachable
         // only by searching for a name the reader had no way to know — and a
         // recording nobody can see is a recording nobody can stop.
+        //
+        // Narrowed by what was typed all the same. Hoisting them past the cut
+        // and past the search as well made the groups answer a question nobody
+        // asked: typing a name that matches nothing left every recorded pair
+        // standing there, as though they had all matched.
         const unlisted = [...held.values()]
             .filter((contract) => !listedHere.has(contract.instrumentSymbol))
-            .map((contract) => ({ instrument: standInFor(contract), contract }));
+            .map((contract) => ({ instrument: standInFor(contract), contract }))
+            .filter((row) => narrowPairs([row.instrument], { query, quote }).shown.length > 0);
 
         const kept = [...rows.filter((row) => row.contract !== null), ...unlisted];
 
@@ -112,7 +118,7 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
             paused: kept.filter((row) => row.contract?.isEnabled === false),
             offered: rows.filter((row) => row.contract === null),
         };
-    }, [narrowed, props.contracts, venue]);
+    }, [narrowed, props.contracts, venue, query, quote]);
 
     return (
         <ListingCard

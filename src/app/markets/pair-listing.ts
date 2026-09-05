@@ -29,6 +29,13 @@ export interface PairFilter {
     readonly query: string;
     /** The quote currency, or empty for every one of them. */
     readonly quote: string;
+    /**
+     * Symbols the row cut may not drop, drawn before everything else.
+     *
+     * What the chart is already recording, so that it stays reachable however
+     * far down the alphabet the venue files it.
+     */
+    readonly keep?: ReadonlySet<string> | undefined;
 }
 
 /** A listing narrowed, and how much of it did not fit. */
@@ -71,7 +78,8 @@ export function summariseQuotes(instruments: readonly VenueInstrument[]): readon
  * DOGE_BTC — inside the cut on that venue, and outside it on the next.
  *
  * @param instruments - Everything the venue listed.
- * @param filter - What the reader typed and which quote they picked.
+ * @param filter - What the reader typed, which quote they picked, and which
+ *                 symbols the cut is not allowed to drop.
  * @returns The rows to draw, best first, and the total that matched.
  */
 export function narrowPairs(
@@ -86,7 +94,7 @@ export function narrowPairs(
     // Left in the venue's own order where nothing was typed: it opens on what
     // that venue is known for, and sorting it puts a leveraged token first.
     if (wanted === '') {
-        return { shown: byQuote.slice(0, ROWS_SHOWN), matched: byQuote.length };
+        return { shown: keepFirst(byQuote, filter.keep).slice(0, ROWS_SHOWN), matched: byQuote.length };
     }
 
     // Scored once per pair rather than once per comparison: a sort asks its
@@ -107,9 +115,30 @@ export function narrowPairs(
         || one.instrument.symbol.localeCompare(other.instrument.symbol));
 
     return {
-        shown: ranked.slice(0, ROWS_SHOWN).map((scored) => scored.instrument),
+        shown: keepFirst(ranked.map((scored) => scored.instrument), filter.keep).slice(0, ROWS_SHOWN),
         matched: ranked.length,
     };
+}
+
+/**
+ * The rows that must survive the cut, brought to the front of it.
+ *
+ * A listing stops at a hundred and fifty rows and a venue lists nine hundred,
+ * so a pair this chart is recording sat outside the cut and could be reached
+ * only by typing a name the reader had no way to know was there. A recording
+ * nobody can see is a recording nobody can stop.
+ */
+function keepFirst(
+    ordered: readonly VenueInstrument[],
+    keep: ReadonlySet<string> | undefined,
+): readonly VenueInstrument[] {
+    if (keep === undefined || keep.size === 0) {
+        return ordered;
+    }
+    const pinned = ordered.filter((instrument) => keep.has(instrument.symbol));
+    return pinned.length === 0
+        ? ordered
+        : [...pinned, ...ordered.filter((instrument) => !keep.has(instrument.symbol))];
 }
 
 /** What a pair scores against what was typed; lower is nearer. */

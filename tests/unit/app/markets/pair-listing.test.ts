@@ -125,3 +125,47 @@ describe('what a search puts first', () => {
         expect(found.shown.map((one) => one.symbol)).toEqual(listing().map((one) => one.symbol));
     });
 });
+
+describe('a row the cut may not drop', () => {
+    function listing(count: number) {
+        return Array.from({ length: count }, (_, at) => ({
+            symbol: `P${String(at).padStart(4, '0')}USDT`,
+            base: `P${String(at)}`,
+            quote: 'USDT',
+            priceStep: 0.1,
+            isTrading: true,
+        }));
+    }
+
+    it('draws a pinned pair even when the listing is cut long before it', () => {
+        // A venue lists nine hundred pairs and the listing stops at a hundred
+        // and fifty. A pair this chart is recording sat outside the cut and
+        // could be reached only by typing a name the reader had no way to know
+        // was there — and a recording nobody can see is one nobody can stop.
+        const pairs = listing(900);
+        const late = pairs[800]!.symbol;
+
+        const narrowed = narrowPairs(pairs, { query: '', quote: '', keep: new Set([late]) });
+
+        expect(narrowed.shown[0]?.symbol).toBe(late);
+        expect(narrowed.shown).toHaveLength(150);
+    });
+
+    it('leaves the order alone when nothing is pinned', () => {
+        const pairs = listing(400);
+
+        const narrowed = narrowPairs(pairs, { query: '', quote: '' });
+
+        expect(narrowed.shown[0]?.symbol).toBe(pairs[0]!.symbol);
+    });
+
+    it('still ranks the search, with the pinned pair ahead of it', () => {
+        const pairs = listing(900);
+        const late = pairs[800]!.symbol;
+
+        const narrowed = narrowPairs(pairs, { query: 'USDT', quote: '', keep: new Set([late]) });
+
+        expect(narrowed.shown[0]?.symbol).toBe(late);
+        expect(narrowed.matched).toBe(900);
+    });
+});

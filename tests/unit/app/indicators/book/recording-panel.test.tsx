@@ -345,6 +345,21 @@ describe('what else could be recorded', () => {
         expect(await screen.findByRole('switch', { name: 'Record ETHUSDT' })).toBeDefined();
     });
 
+    it('narrows the contracts it lifted to the top by what was typed', async () => {
+        // Lifting a recorded pair past the row cut is right; lifting it past
+        // the search as well left every recording standing under a name that
+        // matched none of them.
+        renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+        expect(await screen.findByRole('switch', { name: 'Record ETHUSDT' })).toBeDefined();
+
+        fireEvent.change(await screen.findByLabelText('Search pairs'), { target: { value: 'ZZZQQ' } });
+
+        await waitFor(() => {
+            expect(screen.queryByRole('switch', { name: 'Record ETHUSDT' })).toBeNull();
+        });
+    });
+
     it('heads the contracts that are off with what they are, not with "Recording"', async () => {
         renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
 
