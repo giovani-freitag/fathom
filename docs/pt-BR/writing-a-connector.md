@@ -304,11 +304,12 @@ Limpar os dados do site leva eles junto. Exporte o que quiser manter.
 - **Só livro encadeado.** O grau que um conector declara é registrado mas ainda
   não é usado. O espelho do Fathom ainda precisa da referência anterior que a
   corretora nativa publica.
-- **Uma página sozinha não alcança quase nenhuma corretora.** Quase nenhuma
-  publica o cabeçalho que o navegador exige para ler de outra origem. Onde o
-  Fathom tem servidor, os pedidos passam por ele — só https, sem redirecionar, e
-  sem alcançar nada da rede do próprio servidor. Na demo só-navegador não há a
-  quem pedir, então só dá para ler corretora que deixa a página entrar.
+- **Nem toda corretora deixa uma página ler.** As seis que já vêm aqui publicam
+  o cabeçalho que o navegador exige; muitas não publicam, a KuCoin entre elas.
+  Onde o Fathom tem servidor, os pedidos passam por ele — só https, sem
+  redirecionar, e sem alcançar nada da rede do próprio servidor. Na demo
+  só-navegador não há a quem pedir, então só dá para ler corretora que deixa a
+  página entrar.
 
 ## Mais receitas
 

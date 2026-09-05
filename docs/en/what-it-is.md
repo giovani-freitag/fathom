@@ -60,10 +60,12 @@ shows you every file, its size and where it came from before it fetches a byte.
 
 ## Exchanges
 
-Fathom ships recording Binance USD-M perpetuals. If you want another exchange,
-you write a **connector** — the same kind of addon, in the same editor. A
-connector tells Fathom what a venue can answer and how to read its replies, and
-Fathom does the fetching.
+Fathom records Binance USD-M perpetuals, and reads five more exchanges out of
+the box: Bybit, OKX, Coinbase, Kraken and Gate. If you want one that is not
+there, you write a **connector** — the same kind of addon, in the same editor,
+and the same interface the six shipped ones are written against. A connector
+tells Fathom what a venue can answer and how to read its replies, and Fathom
+does the fetching.
 
 A connector also declares what its venue *cannot* do. Most exchanges publish no
 taker split in their candles, for example. When a connector says so, Fathom

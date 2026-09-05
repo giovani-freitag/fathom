@@ -1,3 +1,4 @@
+import pMap from 'p-map';
 import { delay } from '../../../shared/core/timers.ts';
 import { ENTRY_FILE, isLegalPath, type ReadingFiles } from '../../../shared/core/reading-files.ts';
 
@@ -151,11 +152,12 @@ export class ReadingImportService {
         const at = `${CONTENT}/${found.at.host}/${nameAndVersion(found.at)}`;
         const prefix = found.at.folder === '' ? '' : `/${found.at.folder}`;
 
-        const fetched: (readonly [string, string])[] = [];
-        for (let from = 0; from < found.files.length; from += AT_ONCE) {
-            const batch = found.files.slice(from, from + AT_ONCE);
-            fetched.push(...await Promise.all(batch.map((one) => this.readFile(`${at}${prefix}`, one))));
-        }
+        // Through a pool rather than in batches of the same size: a repository
+        // whose largest file is slow held up the whole batch it landed in, and
+        // the batch after it never started.
+        const fetched = await pMap(found.files, async (one) => this.readFile(`${at}${prefix}`, one), {
+            concurrency: AT_ONCE,
+        });
 
         return Object.fromEntries(fetched);
     }

@@ -62,10 +62,12 @@ Fathom mostra cada arquivo, o tamanho e de onde veio antes de buscar um byte.
 
 ## Corretoras
 
-O Fathom já vem gravando perpétuos USD-M da Binance. Se você quer outra
-corretora, escreve um **conector** — o mesmo tipo de addon, no mesmo editor. Um
-conector diz ao Fathom o que aquela corretora consegue responder e como ler a
-resposta, e o Fathom faz as chamadas.
+O Fathom grava perpétuos USD-M da Binance, e já vem lendo mais cinco
+corretoras: Bybit, OKX, Coinbase, Kraken e Gate. Se você quer uma que não está
+aí, escreve um **conector** — o mesmo tipo de addon, no mesmo editor, e a mesma
+interface contra a qual os seis que já vêm juntos foram escritos. Um conector
+diz ao Fathom o que aquela corretora consegue responder e como ler a resposta,
+e o Fathom faz as chamadas.
 
 Um conector também declara o que a corretora **não** faz. A maioria não publica
 a separação por lado agressor nos candles, por exemplo. Quando um conector diz

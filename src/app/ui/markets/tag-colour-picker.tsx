@@ -1,5 +1,5 @@
 import { INSTANCE_TONES } from '../../../shared/core/draw-plan.ts';
-import { Pipette } from 'lucide-react';
+import { PaintBucket } from 'lucide-react';
 import { Popover } from 'radix-ui';
 import type { ReactElement } from 'react';
 import type { TagColour } from '../../../shared/core/pair-tags.ts';
@@ -9,6 +9,27 @@ import type { Translate } from '../../i18n/translator.ts';
 
 /** What the colour field opens on, where the tag holds a token rather than one. */
 const OPENS_ON = '#35e0c4';
+
+/** Where a colour stops taking a dark glyph and starts needing a light one. */
+const PALE_ENOUGH = 0.55;
+
+/**
+ * Whether a colour is light enough to draw a dark glyph on.
+ *
+ * By the luminance the eye actually reads rather than by the three channels
+ * evenly: green carries most of the brightness, and blue almost none, so a
+ * plain average calls a saturated blue pale and hides the glyph on it.
+ *
+ * @param colour - A colour written as six hexadecimal digits.
+ * @returns True where the glyph over it should be dark.
+ */
+function isPale(colour: string): boolean {
+    const red = Number.parseInt(colour.slice(1, 3), 16) / 255;
+    const green = Number.parseInt(colour.slice(3, 5), 16) / 255;
+    const blue = Number.parseInt(colour.slice(5, 7), 16) / 255;
+
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue > PALE_ENOUGH;
+}
 
 interface TagColourPickerProps {
     readonly colour: TagColour;
@@ -64,21 +85,28 @@ export function TagColourPicker({ colour, label, translate, onPick }: TagColourP
                             </button>
                         ))}
 
-                        {/* The browser's own picker, behind an icon rather than
-                            behind its own swatch: a sixth circle of colour in a
-                            row of five reads as a sixth colour to choose, and
-                            the one thing this control is not is a colour. */}
+                        {/* The browser's own picker, as a filled disc with the
+                            glyph inside it: the same weight as the swatches
+                            beside it, and holding the colour it would change
+                            rather than a thin outline of one. */}
                         <label
                             title={translate('markets.anyColour')}
                             className={`relative grid size-7 cursor-pointer place-items-center rounded-md border transition-colors ${
                                 isNamed ? 'border-phosphor/60 bg-abyss-700' : 'border-hairline hover:border-hairline-bright'
                             }`}
                         >
-                            <Pipette
-                                size={14}
-                                className={isNamed ? '' : 'text-ink-400'}
-                                {...isNamed ? { style: { color: colour } } : {}}
-                            />
+                            <span
+                                className={`grid size-5 place-items-center rounded-full ${isNamed ? '' : 'bg-ink-600'}`}
+                                {...isNamed ? { style: { background: colour } } : {}}
+                            >
+                                {/* Black on a pale fill, white on a dark one:
+                                    a reader may name any colour there is, and
+                                    half of them swallow either glyph. */}
+                                <PaintBucket
+                                    size={11}
+                                    className={isNamed && isPale(colour) ? 'text-abyss-900' : 'text-ink-100'}
+                                />
+                            </span>
                             <input
                                 type="color"
                                 name="tagColour"

@@ -299,11 +299,11 @@ data will take them with it. Export anything you want to keep.
 - **A linked book only.** The grade a connector declares is recorded but not yet
   acted on. Fathom's mirror still requires the back reference that the built-in
   venue publishes.
-- **A page alone cannot reach most exchanges.** Almost none publish the header a
-  browser needs to read them cross-origin. Where Fathom has a server, requests
-  go through it — https only, no redirects, and nothing on the server's own
-  network reachable. In the browser-only demo there is nobody to ask, so only an
-  exchange that lets a page in can be read.
+- **Not every exchange lets a page read it.** The six that ship here all publish
+  the header a browser needs; plenty do not, KuCoin among them. Where Fathom has
+  a server, requests go through it — https only, no redirects, and nothing on
+  the server's own network reachable. In the browser-only demo there is nobody
+  to ask, so only an exchange that lets a page in can be read.
 
 ## More recipes
 

@@ -187,3 +187,70 @@ describe('a venue that names only where a candle opens', () => {
         expect(window.bars[0]?.sellVolume).toBe(5);
     });
 });
+
+/**
+ * A venue that serves two candles a request, and says so.
+ *
+ * Two because the shape being tested is the paging rather than the volume: a
+ * range of six candles is three requests here, which is what a hundred-bar
+ * venue does to a two-thousand-bar budget on a real chart.
+ */
+function buildPagedService(watch: { asked: string[]; startedWhenFirstLanded: number }): VenueCandleService {
+    const perRequest = 2;
+    const fetch = vi.fn(async (input: URL | RequestInfo) => {
+        // The gateway fetches by address, never by `Request`, so the one shape
+        // this ever sees is the string the connector named.
+        const url = new URL(input as string);
+        watch.asked.push(url.href);
+        // The newest window is fetched on its own; the ones behind it go out
+        // together, and this waits long enough for that to be visible.
+        const isNewest = url.searchParams.get('endTime') === String(QUERY.fromMs + MINUTE_MS * 6);
+        await new Promise((wake) => { setTimeout(wake, isNewest ? 0 : 30); });
+        if (!isNewest && watch.startedWhenFirstLanded === 0) {
+            watch.startedWhenFirstLanded = watch.asked.length;
+        }
+
+        const fromMs = Number(url.searchParams.get('startTime'));
+        const body = Array.from({ length: perRequest }, (_, at) => buildCandle(fromMs + at * MINUTE_MS));
+        return new Response(JSON.stringify(body));
+    }) as unknown as typeof globalThis.fetch;
+
+    return new VenueCandleService({
+        connector: Object.assign(Object.create(BINANCE_CONNECTOR) as typeof BINANCE_CONNECTOR, {
+            declaration: {
+                ...BINANCE_CONNECTOR.declaration,
+                bars: { ...BINANCE_CONNECTOR.declaration.bars, barsPerRequest: perRequest },
+            },
+        }),
+        gateway: new VenueGateway({ fetch }),
+        readNowMs: () => NOW_MS,
+    });
+}
+
+describe('a venue that serves the range in several pages', () => {
+    it('asks for the pages behind the newest one together', async () => {
+        // Sequentially, a venue that serves a hundred bars a request is twenty
+        // round trips before the chart draws anything.
+        const watch = { asked: [] as string[], startedWhenFirstLanded: 0 };
+        const service = buildPagedService(watch);
+
+        await service.fetchPriceBars({ ...QUERY, toMs: QUERY.fromMs + MINUTE_MS * 6 });
+
+        expect(watch.asked.length).toBeGreaterThan(2);
+        // Every window was in the air by the time the first of them answered.
+        expect(watch.startedWhenFirstLanded).toBe(watch.asked.length);
+    });
+
+    it('hands back one run, in order and with no bar counted twice', async () => {
+        // Windows that meet at an edge are two requests that both hold the bar
+        // on it, and a bar counted twice is a volume counted twice by every
+        // reading that walks the run.
+        const service = buildPagedService({ asked: [], startedWhenFirstLanded: 0 });
+
+        const window = await service.fetchPriceBars({ ...QUERY, toMs: QUERY.fromMs + MINUTE_MS * 6 });
+
+        const opened = window.bars.map((bar) => bar.openedAtMs);
+        expect(opened).toEqual([...new Set(opened)].sort((one, other) => one - other));
+        expect(window.bars.length).toBeGreaterThan(2);
+    });
+});

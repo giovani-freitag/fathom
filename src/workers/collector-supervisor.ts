@@ -1,3 +1,4 @@
+import pMap from 'p-map';
 import type { CollectorConfiguration } from './core/collector-configuration.ts';
 import type { CollectorLog } from './core/collector-log.ts';
 import { CollectorRuntime } from './collector-runtime.ts';
@@ -7,6 +8,15 @@ import type { RecordedContract, RecordingControl } from '../shared/core/recordin
 import type { LiquidityArchive } from '../database/services/liquidity-archive.ts';
 import type { MarketDataSocketFactory } from './core/market-data-socket.ts';
 import { releaseTimerFromEventLoop, type TimerHandle } from '../shared/core/timers.ts';
+
+/**
+ * Collectors let go of at once, and brought up at once.
+ *
+ * Four, which is what one machine records: enough that a pass is not a queue of
+ * handshakes, few enough that a venue is not handed every subscription this
+ * process has in the same breath.
+ */
+const TEARDOWNS_AT_ONCE = 4;
 
 export interface CollectorSupervisorConfig {
     readonly control: RecordingControl;
@@ -79,9 +89,7 @@ export class CollectorSupervisor {
             this.reconcileTimer = null;
         }
 
-        for (const [symbol, runtime] of this.running) {
-            await this.discard(symbol, runtime);
-        }
+        await this.discardAll([...this.running]);
         await this.config.archive.close();
     }
 
@@ -134,11 +142,9 @@ export class CollectorSupervisor {
                 .map((instrument) => instrument.instrumentSymbol),
         );
 
-        for (const [symbol, runtime] of this.running) {
-            if (wanted.has(symbol)) {
-                continue;
-            }
-            await this.discard(symbol, runtime);
+        const dropping = [...this.running].filter(([symbol]) => !wanted.has(symbol));
+        await this.discardAll(dropping);
+        for (const [symbol] of dropping) {
             this.config.log.info('Stopped recording', { instrumentSymbol: symbol });
         }
     }
@@ -152,20 +158,32 @@ export class CollectorSupervisor {
      */
     private async dropStalled(): Promise<void> {
         const nowMs = this.config.readNowMs();
-
-        for (const [symbol, runtime] of this.running) {
+        const silent = [...this.running].filter(([symbol, runtime]) => {
             const lastSignMs = runtime.lastRecordedAtMs ?? this.startedAtMs.get(symbol) ?? nowMs;
-            const silentForMs = nowMs - lastSignMs;
-            if (silentForMs < this.config.stallTimeoutMs) {
-                continue;
-            }
+            return nowMs - lastSignMs >= this.config.stallTimeoutMs;
+        });
 
-            await this.discard(symbol, runtime);
+        await this.discardAll(silent);
+        for (const [symbol, runtime] of silent) {
             this.config.log.warning('Collector stopped recording and is being replaced', {
                 instrumentSymbol: symbol,
-                silentForMs,
+                silentForMs: nowMs - (runtime.lastRecordedAtMs ?? this.startedAtMs.get(symbol) ?? nowMs),
             });
         }
+    }
+
+    /**
+     * Lets go of several collectors at once.
+     *
+     * Together rather than one after another because a close is a socket
+     * closing: four of them in a queue is four timeouts end to end, and the
+     * pass that has to finish before any recording resumes is behind all of
+     * them. Bounded so that a shutdown does not open every teardown at once.
+     */
+    private async discardAll(held: readonly (readonly [string, CollectorRuntime])[]): Promise<void> {
+        await pMap(held, async ([symbol, runtime]) => { await this.discard(symbol, runtime); }, {
+            concurrency: TEARDOWNS_AT_ONCE,
+        });
     }
 
     /**

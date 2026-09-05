@@ -1,6 +1,16 @@
-import { BAR_BUDGET, type PriceBar, type PriceBarQuery, type PriceBarWindow } from '../../shared/core/price-bar.ts';
+import { BAR_BUDGET, keepNewestBars, type PriceBar, type PriceBarQuery, type PriceBarWindow } from '../../shared/core/price-bar.ts';
+import pMap from 'p-map';
 import type { VenueBar, VenueConnector } from '../../shared/core/venue-connector.ts';
 import type { VenueGateway } from '../../shared/venues/venue-gateway.ts';
+
+/**
+ * Pages of candles in the air at once, past the first.
+ *
+ * A venue that serves a hundred bars a request needs twenty of them to fill the
+ * budget, and asked one after the other that is twenty round trips a reader
+ * waits through before the chart draws anything at all.
+ */
+const PAGES_AT_ONCE = 4;
 
 export interface VenueCandleServiceConfig {
     /** What the venue can do, and how to read what it answers. */
@@ -57,46 +67,79 @@ export class VenueCandleService {
     }
 
     /**
-     * Walks back from the end of the range until it is covered or budgeted out.
+     * The range, read newest page first and then the rest of it at once.
      *
-     * Backwards because the newest end is the one a reader is looking at: a
-     * range too wide for the budget should lose its oldest bars, not the price.
+     * The newest page alone tells the engine two things: what the reader is
+     * looking at, and whether the venue has any more to give. Where it does,
+     * every remaining page has an address already — a window is a width and a
+     * count — so they go out together rather than each waiting for the one in
+     * front of it to name where it ends.
      */
     private async fetchRange(request: RangeRequest, signal?: AbortSignal): Promise<PriceBar[]> {
         const perRequest = this.config.connector.declaration.bars?.barsPerRequest ?? BAR_BUDGET.maximumBars;
-        const collected: PriceBar[][] = [];
-        let endMs = request.toMs;
-        let held = 0;
+        const span = perRequest * request.query.intervalMs;
 
-        while (endMs > request.fromMs && held < BAR_BUDGET.maximumBars) {
-            const page = await this.fetchPage({ request, endMs, perRequest }, signal);
-            const wanted = page.filter((bar) => bar.openedAtMs >= request.fromMs);
-            if (wanted.length === 0) {
-                break;
-            }
-
-            collected.unshift(wanted);
-            held += wanted.length;
-            endMs = wanted[0]!.openedAtMs - 1;
-            // A page short of the cap is the venue saying it has no more.
-            if (page.length < perRequest) {
-                break;
-            }
+        const newest = await this.fetchPage({ request, fromMs: Math.max(request.fromMs, request.toMs - span), toMs: request.toMs, perRequest }, signal);
+        // A page short of what one request holds is the venue saying it has no
+        // more, and the pages behind it would all come back empty.
+        if (newest.length < perRequest) {
+            return this.settle(newest, request);
         }
 
-        return collected.flat();
+        const older = await pMap(
+            this.windowsBefore(request, span, perRequest),
+            async (window) => this.fetchPage({ request, ...window, perRequest }, signal),
+            { concurrency: PAGES_AT_ONCE, ...signal === undefined ? {} : { signal } },
+        );
+
+        return this.settle([...older.flat(), ...newest], request);
     }
 
     /**
-     * One request's worth of candles, ending at an instant.
+     * Every window behind the newest one, up to what the budget will hold.
+     */
+    private windowsBefore(
+        request: RangeRequest,
+        span: number,
+        perRequest: number,
+    ): readonly { readonly fromMs: number; readonly toMs: number }[] {
+        const windows: { fromMs: number; toMs: number }[] = [];
+        const pages = Math.ceil(BAR_BUDGET.maximumBars / perRequest);
+
+        for (let toMs = request.toMs - span; toMs > request.fromMs && windows.length < pages; toMs -= span) {
+            windows.push({ fromMs: Math.max(request.fromMs, toMs - span), toMs });
+        }
+        return windows;
+    }
+
+    /**
+     * The pages as one run: in order, once each, and inside what was asked for.
+     *
+     * Deduplicated because windows that meet at an edge are two requests that
+     * both hold the bar on it, and a bar counted twice is a volume counted
+     * twice by every reading that walks the run.
+     */
+    private settle(pages: readonly PriceBar[], request: RangeRequest): PriceBar[] {
+        const held = new Map<number, PriceBar>();
+        for (const bar of pages) {
+            if (bar.openedAtMs >= request.fromMs && bar.openedAtMs < request.toMs) {
+                held.set(bar.openedAtMs, bar);
+            }
+        }
+
+        return keepNewestBars([...held.values()].sort((one, other) => one.openedAtMs - other.openedAtMs));
+    }
+
+    /**
+     * One request's worth of candles, covering one window of the range.
      */
     private async fetchPage(page: PageRequest, signal?: AbortSignal): Promise<PriceBar[]> {
         const { connector } = this.config;
         const asked = {
             symbol: page.request.query.symbol,
             widthMs: page.request.query.intervalMs,
-            fromMs: page.request.fromMs,
-            toMs: page.endMs,
+            fromMs: page.fromMs,
+            toMs: page.toMs,
             limit: page.perRequest,
         };
 
@@ -148,7 +191,8 @@ interface RangeRequest {
 
 interface PageRequest {
     readonly request: RangeRequest;
-    /** The instant this page ends at, walking backwards through the range. */
-    readonly endMs: number;
+    /** The window this page covers, which is one request's worth of the range. */
+    readonly fromMs: number;
+    readonly toMs: number;
     readonly perRequest: number;
 }

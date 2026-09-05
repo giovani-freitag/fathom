@@ -1,6 +1,11 @@
 import { BINANCE_CONNECTOR } from './binance-connector.ts';
 import { BINANCE_FUTURES_ID } from './binance-futures.ts';
+import { BYBIT_CONNECTOR, BYBIT_ID } from './bybit-connector.ts';
+import { COINBASE_CONNECTOR, COINBASE_ID } from './coinbase-connector.ts';
 import { findContradictions, type VenueConnector } from '../core/venue-connector.ts';
+import { GATE_CONNECTOR, GATE_ID } from './gate-connector.ts';
+import { KRAKEN_CONNECTOR, KRAKEN_ID } from './kraken-connector.ts';
+import { OKX_CONNECTOR, OKX_ID } from './okx-connector.ts';
 import { readVenueFacts, type VenueFact } from '../core/venue-plan.ts';
 
 /**
@@ -14,7 +19,34 @@ export const CONNECTOR_ID_PREFIX = 'venue:';
 /** What a connector may be called: lowercase, unpunctuated, short enough to read. */
 const LEGAL_CONNECTOR_ID = /^[a-z][a-z0-9-]{1,31}$/;
 
-const REGISTERED = new Map<string, VenueConnector>([[BINANCE_FUTURES_ID, BINANCE_CONNECTOR]]);
+/**
+ * The venues this build knows how to read without anybody writing anything.
+ *
+ * Six, and five of them are here to be read against the first: between them
+ * they page a listing two different ways, send candles in three different
+ * field orders, and decline a book for three different reasons. A contract
+ * proved against one venue is a contract shaped like that venue.
+ */
+const SHIPPED: readonly (readonly [string, VenueConnector])[] = [
+    [BINANCE_FUTURES_ID, BINANCE_CONNECTOR],
+    [BYBIT_ID, BYBIT_CONNECTOR],
+    [OKX_ID, OKX_CONNECTOR],
+    [COINBASE_ID, COINBASE_CONNECTOR],
+    [KRAKEN_ID, KRAKEN_CONNECTOR],
+    [GATE_ID, GATE_CONNECTOR],
+];
+
+const REGISTERED = new Map<string, VenueConnector>(SHIPPED);
+
+/**
+ * Whether a name belongs to a venue this build ships with.
+ *
+ * @param connectorId - The name being asked about.
+ * @returns True where the name is a shipped venue's.
+ */
+export function isShippedVenue(connectorId: string): boolean {
+    return SHIPPED.some(([id]) => id === connectorId);
+}
 
 /**
  * Whether a name may be a connector's.
@@ -39,8 +71,8 @@ export function registerConnector(connectorId: string, connector: VenueConnector
     if (!isLegalConnectorId(connectorId)) {
         throw new Error(`“${connectorId}” cannot be a connector's name.`);
     }
-    if (connectorId === BINANCE_FUTURES_ID) {
-        throw new Error(`${connectorId} is the venue this build ships with.`);
+    if (isShippedVenue(connectorId)) {
+        throw new Error(`${connectorId} is a venue this build ships with.`);
     }
 
     // Refused now rather than when a recording starts, which is hours later on a
@@ -60,7 +92,7 @@ export function registerConnector(connectorId: string, connector: VenueConnector
  * @param connectorId - The id it was registered under.
  */
 export function forgetConnector(connectorId: string): void {
-    if (connectorId !== BINANCE_FUTURES_ID) {
+    if (!isShippedVenue(connectorId)) {
         REGISTERED.delete(connectorId);
     }
 }
