@@ -1,12 +1,17 @@
 import type { ReactElement } from 'react';
-import { CONTROL_INPUT_CLASSES, SCROLLER_CLASSES } from '../control-shell.ts';
+import { CONTROL_INPUT_CLASSES } from '../control-shell.ts';
 import { RailAdd, RailHeading, RailRow, type RailRowProps } from './rail-row.tsx';
 import { ConfirmDialog } from '../confirm-dialog.tsx';
 import { FAVOURITES_ID, type PairTag, type TagColour } from '../../../shared/core/pair-tags.ts';
 import { labelOf } from '../../markets/tag-names.ts';
 import { TagColourPicker } from './tag-colour-picker.tsx';
 import type { Translate } from '../../i18n/translator.ts';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useIsViewportAtLeast } from '../../react/use-viewport-width.ts';
+import { Select } from '../select.tsx';
+import type { Choice } from '../choice.ts';
+import { Plus, Trash2 } from 'lucide-react';
+import { CONTROL_BUTTON_CLASSES, CONTROL_RESTING_CLASSES } from '../control-shell.ts';
 
 /** What the listing beside the rail is showing. */
 export type Showing =
@@ -41,9 +46,13 @@ interface MarketsRailProps {
  * meant a reader who wanted a pair from a second venue had to find out that
  * browsing and keeping were different halves of the same card.
  *
- * On a phone the same rail lies down and scrolls sideways above the listing,
- * because a column of targets beside a column of rows leaves neither enough
- * width to read.
+ * On a phone it is not a rail at all. Laid down and scrolled sideways, it put a
+ * reader's tags and the venues in one strip with the headings that told them
+ * apart hidden, and six of its eight targets past the edge — so the card opened
+ * on an empty tag, and the venues that would have filled it were off screen
+ * behind a scroll nothing announced. A phone gets the question asked outright,
+ * in the one select this interface has, with the two kinds under their own
+ * headings.
  */
 export function MarketsRail(props: MarketsRailProps): ReactElement {
     const { translate } = props;
@@ -51,84 +60,164 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
     // Which tag is being taken away, while the reader is being asked about it.
     const [dropping, setDropping] = useState<PairTag | null>(null);
 
-    return (
-        <nav
-            aria-label={translate('markets.title')}
-            // The same fade the tool bar uses when it lies down: a chip cut by a
-            // fade reads as one that continues, and a scrollbar under a row of
-            // targets on a phone is a second thing to drag.
-            className={`flex shrink-0 gap-1 overflow-x-auto border-hairline p-2 ${SCROLLER_CLASSES}`
-                + ' lg:w-56 lg:flex-col lg:overflow-y-auto lg:border-r lg:[mask-image:none]'}
-        >
-            <RailHeading said={translate('markets.yourTags')} />
-            {props.tags.map((tag) => (
-                <TagRow
-                    key={tag.id}
-                    said={labelOf(tag, translate)}
-                    colour={tag.colour}
-                    count={tag.pairs.length}
-                    isOn={props.showing.kind === 'tag' && props.openTagId === tag.id}
-                    translate={translate}
-                    onPress={() => { props.onOpenTag(tag.id); }}
-                    onRecolour={(colour) => { props.onRecolourTag(tag.id, colour); }}
-                    {...tag.id === FAVOURITES_ID
-                        ? {}
-                        : {
-                            // Asked about only where there is something to
-                            // lose: an empty tag is one press to make again.
-                            onRemove: () => {
-                                if (tag.pairs.length === 0) {
-                                    props.onRemoveTag(tag.id);
-                                    return;
-                                }
-                                setDropping(tag);
-                            },
-                            removeLabel: translate('markets.removeTag'),
-                        }}
-                />
-            ))}
+    // One layout or the other, never both mounted: the question is asked by a
+    // select on a phone and by a column of rows where there is room, and two of
+    // every control in the tree is two of every dialog behind them.
+    const isWide = useIsViewportAtLeast('lg');
+    const openTag = props.tags.find((tag) => tag.id === props.openTagId) ?? null;
+    const isRemovable = props.showing.kind === 'tag'
+        && openTag !== null
+        && openTag.id !== FAVOURITES_ID;
 
-            {isNaming
-                ? (
-                    <input
-                        autoFocus
-                        type="text"
-                        name="tagLabel"
-                        aria-label={translate('markets.tagLabel')}
-                        placeholder={translate('markets.tagLabel')}
-                        className={`${CONTROL_INPUT_CLASSES} h-9 w-36 shrink-0 px-2 lg:w-full`}
-                        onBlur={(event) => { props.onAddTag(event.target.value); setIsNaming(false); }}
-                        onKeyDown={(event) => {
-                            if (event.key === 'Enter') {
-                                props.onAddTag(event.currentTarget.value);
-                                setIsNaming(false);
+    const choices = useMemo((): readonly Choice[] => [
+        ...props.tags.map((tag): Choice => ({
+            value: `tag:${tag.id}`,
+            label: labelOf(tag, translate),
+            detail: String(tag.pairs.length),
+            group: translate('markets.yourTags'),
+        })),
+        ...props.venues.map((venue): Choice => ({
+            value: `venue:${venue}`,
+            label: venue,
+            group: translate('markets.venues'),
+        })),
+    ], [props.tags, props.venues, translate]);
+
+    return (
+        <>
+            {!isWide && (
+                <div className="flex shrink-0 items-center gap-2 border-b border-hairline p-2">
+                    <Select
+                        label={translate('markets.title')}
+                        value={props.showing.kind === 'tag'
+                            ? `tag:${props.openTagId}`
+                            : `venue:${props.showing.venue}`}
+                        choices={choices}
+                        onSelect={(picked) => {
+                            const [kind, ...rest] = picked.split(':');
+                            const named = rest.join(':');
+                            if (kind === 'tag') {
+                                props.onOpenTag(named);
+                                return;
                             }
-                            if (event.key === 'Escape') {
-                                setIsNaming(false);
-                            }
+                            props.onBrowse(named);
                         }}
                     />
-                )
-                : <RailAdd said={translate('markets.newTag')} onPress={() => { setIsNaming(true); }} />}
+                    {/* The swatch is where a tag's colour is read and changed, and on a
+                phone the row that carried it is gone. It follows the tag that
+                is open instead. */}
+                    {props.showing.kind === 'tag' && openTag !== null && (
+                        <TagColourPicker
+                            colour={openTag.colour}
+                            label={labelOf(openTag, translate)}
+                            translate={translate}
+                            onPick={(colour) => { props.onRecolourTag(openTag.id, colour); }}
+                        />
+                    )}
+                    <button
+                        type="button"
+                        aria-label={translate('markets.newTag')}
+                        onClick={() => { setIsNaming(true); }}
+                        className={`${CONTROL_BUTTON_CLASSES} ${CONTROL_RESTING_CLASSES}`}
+                    >
+                        <Plus className="size-4" />
+                    </button>
+                    {isRemovable && (
+                        <button
+                            type="button"
+                            aria-label={translate('markets.removeTag')}
+                            className={`${CONTROL_BUTTON_CLASSES} ${CONTROL_RESTING_CLASSES}`}
+                            onClick={() => {
+                                if (openTag.pairs.length === 0) {
+                                    props.onRemoveTag(openTag.id);
+                                    return;
+                                }
+                                setDropping(openTag);
+                            }}
+                        >
+                            <Trash2 className="size-4" />
+                        </button>
+                    )}
+                </div>
+            )}
 
-            <RailHeading said={translate('markets.venues')} />
-            {props.venues.map((venue) => (
-                <RailRow
-                    key={venue}
-                    said={venue}
-                    isOn={props.showing.kind === 'venue' && props.showing.venue === venue}
-                    onPress={() => { props.onBrowse(venue); }}
-                    {...props.broughtVenues.has(venue)
-                        ? {
-                            onRemove: () => { props.onRemoveVenue(venue); },
-                            removeLabel: translate('markets.removeVenue'),
-                        }
-                        : {}}
-                />
-            ))}
+            {isWide && (
+                <nav
+                    aria-label={translate('markets.title')}
+                    className="flex w-56 shrink-0 flex-col gap-1 overflow-y-auto border-r border-hairline p-2"
+                >
+                    <RailHeading said={translate('markets.yourTags')} />
+                    {props.tags.map((tag) => (
+                        <TagRow
+                            key={tag.id}
+                            said={labelOf(tag, translate)}
+                            colour={tag.colour}
+                            count={tag.pairs.length}
+                            isOn={props.showing.kind === 'tag' && props.openTagId === tag.id}
+                            translate={translate}
+                            onPress={() => { props.onOpenTag(tag.id); }}
+                            onRecolour={(colour) => { props.onRecolourTag(tag.id, colour); }}
+                            {...tag.id === FAVOURITES_ID
+                                ? {}
+                                : {
+                                    // Asked about only where there is something to
+                                    // lose: an empty tag is one press to make again.
+                                    onRemove: () => {
+                                        if (tag.pairs.length === 0) {
+                                            props.onRemoveTag(tag.id);
+                                            return;
+                                        }
+                                        setDropping(tag);
+                                    },
+                                    removeLabel: translate('markets.removeTag'),
+                                }}
+                        />
+                    ))}
 
-            {props.onWriteConnector !== undefined && (
-                <RailAdd said={translate('markets.addVenue')} onPress={props.onWriteConnector} />
+                    {isNaming
+                        ? (
+                            <input
+                                autoFocus
+                                type="text"
+                                name="tagLabel"
+                                aria-label={translate('markets.tagLabel')}
+                                placeholder={translate('markets.tagLabel')}
+                                className={`${CONTROL_INPUT_CLASSES} h-9 w-36 shrink-0 px-2 lg:w-full`}
+                                onBlur={(event) => { props.onAddTag(event.target.value); setIsNaming(false); }}
+                                onKeyDown={(event) => {
+                                    if (event.key === 'Enter') {
+                                        props.onAddTag(event.currentTarget.value);
+                                        setIsNaming(false);
+                                    }
+                                    if (event.key === 'Escape') {
+                                        setIsNaming(false);
+                                    }
+                                }}
+                            />
+                        )
+                        : <RailAdd said={translate('markets.newTag')} onPress={() => { setIsNaming(true); }} />}
+
+                    <RailHeading said={translate('markets.venues')} />
+                    {props.venues.map((venue) => (
+                        <RailRow
+                            key={venue}
+                            said={venue}
+                            isOn={props.showing.kind === 'venue' && props.showing.venue === venue}
+                            onPress={() => { props.onBrowse(venue); }}
+                            {...props.broughtVenues.has(venue)
+                                ? {
+                                    onRemove: () => { props.onRemoveVenue(venue); },
+                                    removeLabel: translate('markets.removeVenue'),
+                                }
+                                : {}}
+                        />
+                    ))}
+
+                    {props.onWriteConnector !== undefined && (
+                        <RailAdd said={translate('markets.addVenue')} onPress={props.onWriteConnector} />
+                    )}
+
+                </nav>
             )}
 
             <ConfirmDialog
@@ -147,7 +236,7 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
                     setDropping(null);
                 }}
             />
-        </nav>
+        </>
     );
 }
 

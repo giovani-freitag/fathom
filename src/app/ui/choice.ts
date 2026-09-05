@@ -20,6 +20,15 @@ export interface Choice {
      * they have read the word.
      */
     readonly icon?: ReactNode;
+    /**
+     * The heading this choice is filed under, where the answers are of more
+     * than one kind.
+     *
+     * A reader's own tags and the venues on offer are both answers to "what am
+     * I looking at", and listed flat they read as one list of things that are
+     * not alike.
+     */
+    readonly group?: string;
     readonly isDisabled?: boolean;
     /** Why it cannot be picked, for the reader who tries. */
     readonly title?: string;

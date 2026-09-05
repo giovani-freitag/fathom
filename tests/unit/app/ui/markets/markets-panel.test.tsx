@@ -6,8 +6,13 @@ import { FIRST_VENUE } from '../../../../../src/shared/core/recording-control.ts
 import { MarketsPanel } from '../../../../../src/app/ui/markets/markets-panel.tsx';
 import { buildConnector } from '../../../../mocks/venue-connectors.ts';
 import { forgetConnector, registerConnector } from '../../../../../src/shared/venues/venue-registry.ts';
+import { stubViewport } from '../../../../fixtures/viewport.ts';
 
-afterEach(() => { forgetConnector('empty'); });
+// The rail and the phone's select are different trees, so every test here
+// says which one it is about. These describe the rail.
+const showAt = stubViewport();
+
+afterEach(() => { forgetConnector('empty'); showAt(1_280); });
 
 let lastKernel: ReturnType<typeof createIndicatorKernel> | null = null;
 
@@ -405,5 +410,40 @@ describe('opening what is kept', () => {
         });
 
         expect(screen.getByRole('button', { name: /FOO-BAR — This venue declares no book/ })).toBeDefined();
+    });
+});
+
+describe('the card on a phone', () => {
+    it('asks which source outright, instead of a strip that mixes two kinds', () => {
+        // Laid down, the rail put a reader's tags and the venues in one row with
+        // the headings that told them apart hidden, and most of its targets past
+        // the edge of the screen.
+        showAt(390);
+        renderPanel();
+
+        const picker = screen.getByRole('combobox', { name: 'Contracts' });
+
+        expect(picker).toBeDefined();
+        expect(screen.queryByRole('button', { name: FIRST_VENUE })).toBeNull();
+    });
+
+    it('files the tags and the venues under headings of their own', async () => {
+        showAt(390);
+        renderPanel();
+
+        fireEvent.click(screen.getByRole('combobox', { name: 'Contracts' }));
+
+        expect(await screen.findByText('Your tags')).toBeDefined();
+        expect(await screen.findByText('Venues')).toBeDefined();
+    });
+
+    it('keeps only one of the two layouts in the tree at a time', async () => {
+        // Both mounted is two of every control with the same name, and two of
+        // every dialog behind them.
+        showAt(1_280);
+        renderPanel();
+
+        expect(screen.queryByRole('combobox', { name: 'Contracts' })).toBeNull();
+        expect(await screen.findByRole('button', { name: FIRST_VENUE })).toBeDefined();
     });
 });

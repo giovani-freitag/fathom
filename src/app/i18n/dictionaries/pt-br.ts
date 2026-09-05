@@ -285,7 +285,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'markets.recolourTag': 'Mudar a cor desta tag',
     'markets.anyColour': 'Qualquer outra cor',
     'markets.removeVenue': 'Remover esta corretora',
-    'markets.emptyTag': 'Nada nesta tag ainda. Explore uma corretora abaixo e marque o que quiser guardar.',
+    'markets.emptyTag': 'Nada nesta tag ainda. Escolha uma corretora e marque os pares que quiser guardar.',
     'markets.browse': 'Explorar',
     'markets.venue': 'Corretora',
     'markets.addVenue': 'Adicionar corretora',

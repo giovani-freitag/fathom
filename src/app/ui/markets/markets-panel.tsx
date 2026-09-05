@@ -19,6 +19,7 @@ import { readFactsFor } from '../../../shared/venues/venue-registry.ts';
 import { useChartSlice } from '../../react/use-chart-state.ts';
 import { useMarkets } from '../../react/use-markets.ts';
 import { useTranslate } from '../../react/use-appearance.ts';
+import { useIsViewportAtLeast } from '../../react/use-viewport-width.ts';
 
 /** What is known about a venue nobody has asked about yet. */
 const UNREAD: Listing = { kind: 'unread' };
@@ -61,6 +62,10 @@ export function MarketsPanel({
     onWriteConnector,
 }: MarketsPanelProps): ReactElement {
     const translate = useTranslate();
+    // On a phone the select above says what is being looked at, so the banner
+    // saying it again is the same answer twice on the screen with least room
+    // for it.
+    const isWide = useIsViewportAtLeast('lg');
     const { state, markets } = useMarkets();
     const [showing, setShowing] = useState<Showing>({ kind: 'tag' });
     const [query, setQuery] = useState('');
@@ -238,16 +243,18 @@ export function MarketsPanel({
                     onWriteConnector={onWriteConnector}
                 />
             )}
-            banner={(
+            banner={(!isWide && quotes.length === 0) ? undefined : (
                 <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
                     {/* What is being looked at, which is the tag the rail is on
                         or the venue being browsed. Filing is done on the row
                         itself, so this says nothing about where a press would
                         put anything. */}
-                    <span className="flex items-center gap-1.5 text-[11px] text-ink-500">
-                        {showing.kind === 'tag' && <TagSwatch colour={tagColour} className="size-2" />}
-                        {showing.kind === 'tag' ? tagLabel : showing.venue}
-                    </span>
+                    {isWide && (
+                        <span className="flex items-center gap-1.5 text-[11px] text-ink-500">
+                            {showing.kind === 'tag' && <TagSwatch colour={tagColour} className="size-2" />}
+                            {showing.kind === 'tag' ? tagLabel : showing.venue}
+                        </span>
+                    )}
                     {quotes.length > 0 && (
                         <div className="ml-auto flex flex-wrap gap-1">
                             <QuoteChip said={translate('markets.allQuotes')} isOn={quote === ''} onPress={() => { setQuote(''); }} />

@@ -12,6 +12,21 @@ interface SelectProps {
 }
 
 /**
+ * The choices in the order given, gathered under the headings they name.
+ *
+ * Ungrouped choices keep one nameless group, so a select that never heard of
+ * groups renders exactly as it did.
+ */
+function groupsOf(choices: readonly Choice[]): [string, Choice[]][] {
+    const held = new Map<string, Choice[]>();
+    for (const choice of choices) {
+        const group = choice.group ?? '';
+        held.set(group, [...held.get(group) ?? [], choice]);
+    }
+    return [...held.entries()];
+}
+
+/**
  * The one select on this interface.
  *
  * Written once because it was written three ways: a Radix select forty-four
@@ -53,29 +68,38 @@ export function Select({ value, choices, onSelect, label }: SelectProps): ReactE
                     className="z-50 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border border-hairline bg-abyss-800 shadow-2xl shadow-black/60"
                 >
                     <RadixSelect.Viewport className="p-1">
-                        {choices.map((choice) => (
-                            <RadixSelect.Item
-                                key={choice.value}
-                                value={choice.value}
-                                disabled={choice.isDisabled === true}
-                                {...choice.title === undefined ? {} : { title: choice.title }}
-                                className="flex min-h-9 cursor-pointer select-none items-center justify-between gap-6 rounded-md px-3 text-xs text-ink-300 outline-none data-[disabled]:cursor-default data-[disabled]:opacity-40 data-[highlighted]:bg-abyss-700 data-[highlighted]:text-ink-100"
-                            >
-                                <RadixSelect.ItemText>
-                                    <span className="flex items-center gap-2">
-                                        {choice.icon}
-                                        {choice.label}
-                                    </span>
-                                </RadixSelect.ItemText>
-                                <span className="flex items-center gap-2">
-                                    {choice.detail !== undefined && (
-                                        <span className="numeric text-[10px] text-ink-600">{choice.detail}</span>
-                                    )}
-                                    <RadixSelect.ItemIndicator>
-                                        <Check className="size-3.5 text-phosphor" />
-                                    </RadixSelect.ItemIndicator>
-                                </span>
-                            </RadixSelect.Item>
+                        {groupsOf(choices).map(([group, held]) => (
+                            <RadixSelect.Group key={group}>
+                                {group !== '' && (
+                                    <RadixSelect.Label className="px-3 pb-1 pt-2 field-label">
+                                        {group}
+                                    </RadixSelect.Label>
+                                )}
+                                {held.map((choice) => (
+                                    <RadixSelect.Item
+                                        key={choice.value}
+                                        value={choice.value}
+                                        disabled={choice.isDisabled === true}
+                                        {...choice.title === undefined ? {} : { title: choice.title }}
+                                        className="flex min-h-9 cursor-pointer select-none items-center justify-between gap-6 rounded-md px-3 text-xs text-ink-300 outline-none data-[disabled]:cursor-default data-[disabled]:opacity-40 data-[highlighted]:bg-abyss-700 data-[highlighted]:text-ink-100"
+                                    >
+                                        <RadixSelect.ItemText>
+                                            <span className="flex items-center gap-2">
+                                                {choice.icon}
+                                                {choice.label}
+                                            </span>
+                                        </RadixSelect.ItemText>
+                                        <span className="flex items-center gap-2">
+                                            {choice.detail !== undefined && (
+                                                <span className="numeric text-[10px] text-ink-600">{choice.detail}</span>
+                                            )}
+                                            <RadixSelect.ItemIndicator>
+                                                <Check className="size-3.5 text-phosphor" />
+                                            </RadixSelect.ItemIndicator>
+                                        </span>
+                                    </RadixSelect.Item>
+                                ))}
+                            </RadixSelect.Group>
                         ))}
                     </RadixSelect.Viewport>
                 </RadixSelect.Content>

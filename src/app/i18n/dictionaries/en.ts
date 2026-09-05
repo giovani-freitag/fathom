@@ -283,7 +283,7 @@ export const EN_DICTIONARY = {
     'markets.recolourTag': 'Change this tag\'s colour',
     'markets.anyColour': 'Any other colour',
     'markets.removeVenue': 'Remove this venue',
-    'markets.emptyTag': 'Nothing under this tag yet. Browse a venue below and mark what you want to keep.',
+    'markets.emptyTag': 'Nothing under this tag yet. Pick a venue and mark the pairs you want to keep.',
     'markets.browse': 'Browse',
     'markets.venue': 'Venue',
     'markets.addVenue': 'Add a venue',
