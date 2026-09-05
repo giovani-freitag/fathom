@@ -50,7 +50,7 @@ describe('taking a reading out of compiled source', () => {
     it('hands it a surface it can draw a real plan with', () => {
         const built = buildOne(COMPILED);
         if (built.kind !== 'ready') {
-            throw new Error(built.message);
+            throw new Error(failureOf(built));
         }
 
         const plan = completePlan(

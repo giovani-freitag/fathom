@@ -197,6 +197,7 @@ export const EN_DICTIONARY = {
     'editor.starting': 'Starting…',
     'editor.compilerLost': 'The compiler in this page stopped answering. Reopening the editor usually brings it back.',
     'editor.drawing': 'Drawing “{name}” on the chart.',
+    'editor.connected': '{name} added. Pick a pair from it in the contract picker.',
     'files.title': 'The files this reading is written across',
     'files.add': 'Add a file',
     'files.name': 'What to call the file',

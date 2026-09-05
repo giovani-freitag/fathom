@@ -1,11 +1,20 @@
 import type { Indicator } from '../../shared/core/draw-plan.ts';
+import { findContradictions, type VenueConnector } from '../../shared/core/venue-connector.ts';
 import * as ADDON_API from '../../shared/core/addon-api.ts';
 import { buildAddonConsole } from './addon-console.ts';
 import { ENTRY_FILE, isWithin, type ReadingFiles, resolveWithin } from '../../shared/core/reading-files.ts';
 
-/** What an addon's files are turned into, or why they could not be. */
+/**
+ * What an addon's files are turned into, or why they could not be.
+ *
+ * Two kinds, because an addon is a capability rather than a drawing: a reading
+ * adds arithmetic over what a venue said, and a connector adds a venue to say
+ * it. Which one a file is comes from what it exports, so a reader writes, saves
+ * and installs both the same way.
+ */
 export type AddonBuild =
     | { readonly kind: 'ready'; readonly indicator: Indicator }
+    | { readonly kind: 'connector'; readonly connector: VenueConnector }
     | {
         readonly kind: 'failed';
         readonly message: string;
@@ -31,7 +40,7 @@ export function buildAddon(compiled: ReadingFiles): AddonBuild {
     const linker = new Linker(compiled);
     try {
         const entry = linker.load(ENTRY_FILE);
-        const built = takeIndicator(readDefault(entry));
+        const built = takeExport(readDefault(entry));
         if (built.kind === 'ready') {
             linker.answerTo(built.indicator.label);
         }
@@ -162,12 +171,12 @@ class Linker {
 }
 
 /**
- * Checks that what was exported can actually be drawn.
+ * Checks that what was exported is something the chart can use.
  *
  * Every miss is named rather than left to fail later inside the chart, where
- * the reading simply would not appear.
+ * the addon simply would not appear.
  */
-function takeIndicator(exported: unknown): AddonBuild {
+function takeExport(exported: unknown): AddonBuild {
     if (exported === undefined || exported === null) {
         return { kind: 'failed', message: 'Nothing was exported. Add `export default class … `.' };
     }
@@ -179,8 +188,16 @@ function takeIndicator(exported: unknown): AddonBuild {
         return { kind: 'failed', message: candidate.message };
     }
 
+    const fields = candidate as Record<string, unknown>;
+    // Read as a connector by what only a connector has. Decided before the
+    // reading's own fields are checked, so a connector missing something is
+    // told what a connector is missing rather than that it has no `compute`.
+    if (fields['declaration'] !== undefined || fields['instruments'] !== undefined) {
+        return takeConnector(candidate);
+    }
+
     const missing = ['label', 'parameters', 'compute']
-        .filter((field) => (candidate as Record<string, unknown>)[field] === undefined);
+        .filter((field) => fields[field] === undefined);
     if (missing.length > 0) {
         return { kind: 'failed', message: `The export is missing: ${missing.join(', ')}.` };
     }
@@ -189,6 +206,35 @@ function takeIndicator(exported: unknown): AddonBuild {
     }
 
     return { kind: 'ready', indicator: candidate as Indicator };
+}
+
+/**
+ * Checks that a connector says what it can do and can read what it says.
+ */
+function takeConnector(candidate: unknown): AddonBuild {
+    const fields = candidate as Record<string, unknown>;
+    const missing = ['declaration', 'instruments', 'planStream', 'book', 'tape', 'bars']
+        .filter((field) => fields[field] === undefined);
+    if (missing.length > 0) {
+        // Named individually because every one of them is a `T | null`: an
+        // author has to type `null` to say no, and typing it is the moment they
+        // read what the engine does instead.
+        return {
+            kind: 'failed',
+            message: `The connector is missing: ${missing.join(', ')}. Every one takes a value or \`null\`.`,
+        };
+    }
+
+    const reader = fields['instruments'] as Record<string, unknown> | null;
+    if (typeof reader?.['planInstruments'] !== 'function' || typeof reader['readInstruments'] !== 'function') {
+        return { kind: 'failed', message: '`instruments` has to plan a request and read the answer.' };
+    }
+
+    const contradictions = findContradictions(candidate as VenueConnector);
+    if (contradictions.length > 0) {
+        return { kind: 'failed', message: contradictions.join(' ') };
+    }
+    return { kind: 'connector', connector: candidate as VenueConnector };
 }
 
 /** The default export of a file, where it exported anything at all. */

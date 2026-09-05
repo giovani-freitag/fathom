@@ -7,6 +7,8 @@ export type EditorReport =
     | { readonly kind: 'starting' }
     /** It builds and the chart is drawing it. */
     | { readonly kind: 'drawing'; readonly label: string }
+    /** It builds, and it added a venue rather than a drawing. */
+    | { readonly kind: 'connected'; readonly venue: string }
     /** It built, and threw while the chart drew it. */
     | { readonly kind: 'threw'; readonly message: string }
     /** The compiler refused it. */
@@ -35,6 +37,9 @@ export function reportOn(status: EditorStatus | null, drawFailure: string | null
     }
     if (status.kind === 'ready') {
         return { kind: 'drawing', label: status.label };
+    }
+    if (status.kind === 'connected') {
+        return { kind: 'connected', venue: status.venue };
     }
     if (status.kind === 'broken') {
         return { kind: 'broken', message: status.message };

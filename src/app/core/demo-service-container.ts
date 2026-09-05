@@ -1,3 +1,6 @@
+import { MarketsController } from './markets-controller.ts';
+import { restoreInstalledConnectors } from './service-container.ts';
+import { VenueGateway } from '../../shared/venues/venue-gateway.ts';
 import { type AppearanceHost, AppearanceController } from './appearance-controller.ts';
 import { IndexedDbChunkRowStore } from '../../database/browser/indexed-db-chunk-row-store.ts';
 import { ChartController } from './chart-controller.ts';
@@ -95,8 +98,14 @@ export function createDemoServiceContainer(
     });
 
     const chart = new ChartController({ api, liveFeed, preferences });
+    restoreInstalledConnectors(preferences);
 
     return {
+        markets: new MarketsController({
+            preferences,
+            gateway: new VenueGateway({ fetch: (input, init) => globalThis.fetch(input, init) }),
+            readNowMs: () => Date.now(),
+        }),
         api,
         liveFeed,
         preferences,

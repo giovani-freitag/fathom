@@ -39,7 +39,7 @@ function usePublisher() {
     return (source: string): void => {
         const built = buildAddon({ [ENTRY_FILE]: source });
         if (built.kind !== 'ready') {
-            throw new Error(built.message);
+            throw new Error(built.kind === 'failed' ? built.message : 'it built something else');
         }
         const id = registerAddon('draft', built.indicator);
         kernel.chart.updateIndicators((current) => (

@@ -13,8 +13,12 @@ import { buildAddon } from '../addons/addon-runtime.ts';
 import { PreferencesService } from '../services/preferences-service.ts';
 import { registerAddon } from '../addons/addon-registry.ts';
 import { speakIn } from '../../shared/core/reading-words.ts';
+import { ENTRY_FILE } from '../../shared/core/reading-files.ts';
 import { RecordingApiService } from '../services/recording-api-service.ts';
 import type { RecordingControl } from '../../shared/core/recording-control.ts';
+import { MarketsController } from './markets-controller.ts';
+import { registerConnector } from '../../shared/venues/venue-registry.ts';
+import { VenueGateway } from '../../shared/venues/venue-gateway.ts';
 
 export interface ServiceContainer {
     readonly api: HeatmapSource;
@@ -30,6 +34,8 @@ export interface ServiceContainer {
     readonly recording: RecordingControl | null;
     /** The readings the reader wrote themselves. */
     readonly addons: AddonLibraryService;
+    /** The pairs the reader keeps, and the venues they come from. */
+    readonly markets: MarketsController;
 }
 
 export interface ServiceContainerConfig {
@@ -72,6 +78,9 @@ export function createServiceContainer(config: ServiceContainerConfig): ServiceC
     // Before the chart, because a stored selection names a reading by its id
     // and the chart resolves those the moment its preferences are read.
     restoreSavedReadings(addons);
+    // Before the markets controller reads the registry, so a reader who
+    // installed a venue last week is browsing it again this week.
+    restoreInstalledConnectors(preferences);
     const chart = new ChartController({ api, liveFeed, preferences });
     rebuildReadingsOnLanguageChange({ appearance, addons, chart });
 
@@ -89,7 +98,35 @@ export function createServiceContainer(config: ServiceContainerConfig): ServiceC
         appearance,
         cursor,
         addons,
+        markets: new MarketsController({
+            preferences,
+            gateway: new VenueGateway({ fetch: (input, init) => globalThis.fetch(input, init) }),
+            readNowMs: () => Date.now(),
+        }),
     };
+}
+
+/**
+ * Puts every venue the reader installed back where the chart can find it.
+ *
+ * Built from the source again rather than from anything cached, because a
+ * connector is a function and there is nothing else to keep. One that no longer
+ * builds is left out rather than allowed to fail later: a recording opened
+ * against a venue nothing can read writes a contract's worth of nothing.
+ */
+export function restoreInstalledConnectors(preferences: Pick<PreferencesService, 'read'>): void {
+    for (const stored of preferences.read().connectorSources) {
+        const built = buildAddon({ [ENTRY_FILE]: stored.source });
+        if (built.kind === 'connector') {
+            try {
+                registerConnector(stored.id, built.connector);
+            } catch {
+                // Refused on a name the build has since taken for itself. The
+                // reader is shown it in the venue list either way, so there is
+                // somewhere for them to find out and remove it.
+            }
+        }
+    }
 }
 
 export interface LanguageWatchConfig {

@@ -37,6 +37,8 @@ export interface DiscardedWork {
 /** What the panel shows about the script as it stands. */
 export type EditorStatus =
     | { readonly kind: 'ready'; readonly label: string }
+    /** A venue was installed rather than a reading put on the chart. */
+    | { readonly kind: 'connected'; readonly venue: string }
     | { readonly kind: 'faulted'; readonly faults: readonly SourceFault[] }
     | { readonly kind: 'broken'; readonly message: string };
 
@@ -202,6 +204,17 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         }
 
         service?.showRuntimeFault(null);
+        if (build.kind === 'connector') {
+            // A connector is not put on the chart the way a reading is: it adds
+            // a venue to read, which the reader then picks a pair from. Putting
+            // it on the chart would add a layer that draws nothing.
+            const refused = kernel.markets.installConnector(key, build.connector, '');
+            setStatus(refused === null
+                ? { kind: 'connected', venue: key }
+                : { kind: 'broken', message: refused });
+            return;
+        }
+
         const id = registerAddon(key, build.indicator);
         setStatus({ kind: 'ready', label: build.indicator.label });
         if (!isNamedByHandRef.current) {

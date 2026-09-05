@@ -353,6 +353,9 @@ function spokenStatus(request: SpokenStatusRequest): string {
     if (report.kind === 'drawing') {
         return translate('editor.drawing', { name: report.label });
     }
+    if (report.kind === 'connected') {
+        return translate('editor.connected', { name: report.venue });
+    }
     if (report.kind === 'broken') {
         return report.message;
     }
@@ -604,6 +607,17 @@ function EditorStatusLine({ status, drawFailure, translate }: EditorStatusLinePr
                 <CircleCheck className="size-3.5 shrink-0" />
                 <span className="truncate">
                     {translate('editor.drawing', { name: report.label })}
+                </span>
+            </footer>
+        );
+    }
+
+    if (report.kind === 'connected') {
+        return (
+            <footer className="flex items-center gap-2 border-t border-hairline px-4 py-2.5 text-xs text-phosphor">
+                <CircleCheck className="size-3.5 shrink-0" />
+                <span className="truncate">
+                    {translate('editor.connected', { name: report.venue })}
                 </span>
             </footer>
         );
