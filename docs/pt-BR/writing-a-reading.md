@@ -1,75 +1,84 @@
-# Escrevendo uma leitura
+# Escrevendo um indicador
 
-Uma **leitura** é um indicador que você escreve, na própria página, contra a
-mesma superfície que os nativos usam. Ele compila enquanto você digita, desenha
-no gráfico ao lado do editor, e nunca sai do seu navegador.
+## Introdução
 
-Este guia vai da menor leitura que funciona até as partes que você só vai
-precisar no fim. Todo exemplo aqui compila.
+Um indicador que você escreve usa exatamente a mesma interface dos dezoito que
+já vêm com o Fathom. Não existe API de plugin nem superfície de segunda classe:
+o que você escreve e o que vem pronto têm a mesma forma.
 
-Exemplos prontos que você abre com um clique:
-[github.com/giovani-freitag/fathom-example-addons](https://github.com/giovani-freitag/fathom-example-addons)
-— checados contra esta superfície a cada push, então nada lá é um trecho que
+Você escreve na própria página. Clique em **Escrever uma leitura** na barra e um
+editor abre ao lado do gráfico. Ele compila enquanto você digita, e o que ele
+desenha aparece no gráfico bem ao lado.
+
+Este guia começa pelo menor indicador que funciona e vai até as partes que você
+só vai usar no fim. Todo exemplo aqui compila.
+
+::: tip Aprenda com código que roda
+O [repositório de addons de exemplo](https://github.com/giovani-freitag/fathom-example-addons)
+tem vários indicadores completos, com testes. Eles são checados contra
+exatamente esta superfície a cada push, então nada lá é um trecho que
 funcionava antes.
+:::
 
----
+## Seu primeiro indicador
 
-## 1. A menor leitura que funciona
+Aqui está um indicador completo e funcionando. Ele desenha o ponto médio de cada
+barra.
 
 ```ts
 import { Plot } from 'fathom';
 import type { Indicator, IndicatorInput, PlanDraft } from 'fathom';
 
 export default class Midpoint implements Indicator {
-    readonly label = 'Midpoint';
+    readonly label = 'Ponto médio';
     readonly parameters = [];
 
     compute(input: IndicatorInput): PlanDraft {
         const middle = input.bars.bars.map((bar) => (bar.highPrice + bar.lowPrice) / 2);
 
-        return Plot.over(input.bars).line(middle, 'Midpoint').overThePrice();
+        return Plot.over(input.bars).line(middle, 'Ponto médio').overThePrice();
     }
 }
 ```
 
-É uma leitura inteira. Aperte **Escrever uma leitura**, cole, e ela desenha.
+Clique em **Escrever uma leitura**, cole, e ele desenha.
 
-Três coisas valem para toda leitura:
+Três coisas valem para todo indicador que você escreve:
 
-- Ela mora em **`main.ts`**, e o **export default** é a leitura.
-- Ela importa de **`'fathom'`** e dos próprios arquivos. Nada mais resolve.
-- **`compute` é aritmética.** Ele roda de novo a cada barra, a cada arrasto e a
-  cada zoom, então não pode buscar, esperar nem lembrar nada entre as chamadas.
+- Ele mora em **`main.ts`**, e o **export default** é o indicador.
+- Ele pode importar de **`'fathom'`** e dos próprios arquivos. Nada mais
+  resolve.
+- **`compute` é aritmética.** Ele roda de novo a cada barra nova, a cada arrasto
+  e a cada zoom, então nunca pode buscar, esperar, nem lembrar nada entre
+  chamadas.
 
----
+## A forma de um indicador
 
-## 2. As cinco partes
+Um indicador é uma classe com até cinco membros. Dois são obrigatórios.
 
 ```ts
-export default class MyReading implements Indicator {
-    readonly label = 'My reading';          // obrigatório — como o gráfico a chama
-    readonly about = 'One line about it';   // opcional — aparece onde se escolhe uma camada
-    readonly parameters = [];               // obrigatório — os botões, talvez nenhum
-    readonly scale = { kind: 'price' };     // opcional — em geral decidido pelo builder
+export default class MeuIndicador implements Indicator {
+    readonly label = 'Meu indicador';        // obrigatório — como o gráfico o chama
+    readonly about = 'Uma linha sobre ele';  // opcional — aparece ao escolher a camada
+    readonly parameters = [];                // obrigatório — os botões, talvez nenhum
+    readonly scale = { kind: 'price' };      // opcional — normalmente já decidido
 
-    resolveSources(settings) { … }          // opcional — o que o gráfico precisa buscar antes
-    compute(input) { … }                    // obrigatório — a aritmética
+    resolveSources(settings) { … }           // opcional — o que buscar antes
+    compute(input) { … }                     // obrigatório — a aritmética
 }
 ```
 
-`implements Indicator` em vez de `extends` qualquer coisa: não há classe base
-para importar, e uma leitura que você escreve tem a mesma forma de uma que vem
-junto.
+Repare no `implements Indicator` em vez de `extends` alguma coisa. Não tem
+classe base para importar. Um indicador que você escreve tem a mesma forma de um
+que já vem.
 
-**`label`** aparece na legenda e na lista de camadas. **`about`** é uma linha
-sob o nome onde o leitor adiciona uma camada. Os dois são strings comuns — veja
-a [§9](#_9-duas-linguas) para escrevê-los em mais de um idioma.
+`label` aparece na legenda e na lista de camadas. `about` é a única linha
+mostrada abaixo do nome quando alguém está escolhendo o que adicionar. Os dois
+são strings simples — veja [Dois idiomas](#dois-idiomas) se quiser traduzir.
 
----
+## O que o compute recebe
 
-## 3. O que você recebe
-
-`compute` recebe um objeto:
+O `compute` recebe um objeto:
 
 ```ts
 interface IndicatorInput {
@@ -81,7 +90,8 @@ interface IndicatorInput {
 
 ### As barras
 
-`input.bars.bars` é o array, da mais antiga para a mais nova. Cada barra:
+`input.bars.bars` é o array de barras, da mais antiga para a mais nova. Cada uma
+é assim:
 
 ```ts
 interface PriceBar {
@@ -94,120 +104,129 @@ interface PriceBar {
     readonly buyVolume: number;    // o que cruzou o spread, por lado
     readonly sellVolume: number;
     readonly tradeCount: number;
-    readonly expectedFrames: number;   // quadros que um balde inteiro desta largura tem
-    readonly frameCount: number;       // quadros de fato gravados
+    readonly expectedFrames: number;   // quadros que um balde inteiro dessa largura tem
+    readonly frameCount: number;       // quadros realmente gravados
     readonly isClosed: boolean;        // falso para a barra ainda se formando
 }
 ```
 
-`buyVolume` e `sellVolume` são o par que este gráfico tem e a maioria não: um
-zero é uma resposta de verdade, e significa um balde atravessado com o livro
-sendo gravado e ninguém negociando.
+`buyVolume` e `sellVolume` são o par que a maioria dos gráficos não tem. Um zero
+em qualquer um deles é uma resposta de verdade: significa um balde em que o
+livro foi gravado e ninguém negociou daquele lado.
 
-`frameCount` menor que `expectedFrames` quer dizer que a barra foi montada com
-menos do que devia — uma lacuna na gravação, não um mercado parado.
-`classifyBar` diz qual é o caso.
+Quando `frameCount` fica abaixo de `expectedFrames`, a barra foi montada com
+menos do que deveria. Isso é uma lacuna na gravação, não um mercado parado. Use
+`classifyBar` quando precisar distinguir os dois.
 
-`input.bars` também carrega `instrumentSymbol` e `intervalMs`.
+O `input.bars` também carrega `instrumentSymbol` e `intervalMs`.
 
-### Um valor por barra desenhada
+### Um valor por barra
 
-Toda série que você plota precisa ter exatamente um valor por barra em
-`input.bars.bars`. Devolva um comprimento diferente e o builder joga, dizendo o
-que recebeu e o que esperava. Use `Number.NaN` para "sem resposta aqui" — isso
-quebra a linha em vez de fazer ponte sobre a lacuna.
+Toda série que você plota precisa ter exatamente um valor para cada barra em
+`input.bars.bars`. Devolva um tamanho diferente e o construtor do plano lança um
+erro, dizendo o que recebeu e o que esperava.
 
----
+Quando você não tem resposta para uma barra, use `Number.NaN`. Isso quebra a
+linha naquele ponto em vez de desenhar um trecho reto atravessando a lacuna.
 
-## 4. Desenhando
+## Desenhando
 
-`Plot.over(input.bars)` começa um plano. Você acrescenta séries e depois diz
-para onde ele vai. A última chamada devolve o plano, então ela sempre encerra a
-corrente.
+`Plot.over(input.bars)` começa um plano. Você adiciona séries, estiliza e termina
+dizendo para onde o plano vai. Essa última chamada devolve o plano, então ela
+sempre encerra a corrente.
 
 ### Séries
 
 ```ts
 Plot.over(input.bars)
-    .line(values, 'Mean')            // uma linha ligada
-    .histogram(values, 'Delta')      // barras a partir de uma base
-    .dots(values, 'Stop')            // marcas que não são ligadas
-    .lines({ Upper: a, Lower: b })   // várias linhas de uma vez, em ordem
+    .line(values, 'Média')                 // uma linha ligada
+    .histogram(values, 'Delta')            // barras a partir de uma base
+    .dots(values, 'Stop')                  // marcas que não se ligam
+    .lines({ Superior: a, Inferior: b })   // várias linhas de uma vez, em ordem
 ```
 
-`dots` é para uma leitura que pula de um lado do preço para o outro: ligar as
-marcas desenharia, a cada pulo, um traço atravessando o preço que leitura
-nenhuma fez.
+Use `dots` quando seu indicador pula de um lado do preço para o outro. Ligar as
+marcas desenharia um traço atravessando o preço a cada virada, que é um
+movimento que o indicador nunca fez.
 
-### Estilizando a que você acabou de acrescentar
+### Estilizando o que você acabou de adicionar
+
+Cada chamada de estilo se aplica à série adicionada logo antes.
 
 ```ts
     .in('amber')          // um token da paleta, nunca uma cor CSS
     .dashed()
     .thick(2)
-    .risingAndFalling()   // separa por lado em torno de uma base, zero por padrão
+    .risingAndFalling()   // separada por lado em torno de uma base, zero por padrão
 ```
 
-Tons: `bid`, `ask`, `amber`, `phosphor`, `violet`, `cyan`, `ink`, `muted`.
-Deixe a cor de fora e o leitor escolhe na lista de camadas, que é o que a
-maioria das leituras deveria fazer.
+Os tons são `bid`, `ask`, `amber`, `phosphor`, `violet`, `cyan`, `ink` e
+`muted`.
 
-### Marcas que não são séries
+Deixe a cor de fora e quem estiver lendo escolhe na lista de camadas. É isso que
+a maioria dos indicadores deveria fazer — mantém a legibilidade quando o tema
+muda.
+
+### Níveis e sombreado
 
 ```ts
     .at(70, 'muted')            // uma linha horizontal num valor fixo
     .shading(0, 1, 'amber')     // preenche entre duas séries, pela ordem em que entraram
-    .namingEachLine()           // escreve o nome de cada série no fim da própria linha
+    .namingEachLine()           // escreve o nome de cada série no fim da linha
 ```
 
-### Onde ele vai — uma destas encerra a corrente
+### Para onde o plano vai
+
+Uma destas encerra a corrente.
 
 ```ts
     .overThePrice()        // sobre o próprio preço
-    .inItsOwnBand()        // uma faixa embaixo, escalada pelo que os valores alcançam
+    .inItsOwnBand()        // uma faixa embaixo, na escala do que os valores alcançam
     .between(0, 100)       // uma faixa presa a um intervalo fixo
     .aboutZero()           // uma faixa centrada no zero
-    .alongTheFloor(0.2)    // uma tira ao longo do rodapé do painel de preço
+    .alongTheFloor(0.2)    // uma tira no rodapé do painel de preço
 ```
 
-`alongTheFloor` não custa altura ao preço, só um pedaço do chão dele — é o que o
-volume usa.
+`alongTheFloor` não custa altura nenhuma ao painel de preço, só um pedaço do
+chão dele. É o que o indicador de volume nativo usa.
 
-### Mais duas, de vez em quando
+Mais duas chamadas aparecem de vez em quando:
 
 ```ts
-    .summarisedAs('20, close')   // o que a legenda diz sobre os ajustes
-    .converged(false)            // veja a §7
+    .summarisedAs('20, fechamento')   // o que a legenda diz sobre os ajustes
+    .converged(false)                 // veja Sessões mais grossas, abaixo
 ```
 
-**Orçamento:** no máximo 8 séries e 8192 pontos cada. Um plano acima disso é
-recusado inteiro em vez de ser cortado, e o rodapé do editor diz qual limite foi
-ultrapassado — mas só enquanto a leitura estiver aberta, então
-`isPlanWithinBudget` continua ali para você checar um plano antes do gráfico.
+### O orçamento
 
----
+Um plano pode ter no máximo **8 séries de 8192 pontos cada**. Um plano acima
+disso é recusado inteiro em vez de ser cortado em silêncio, e o rodapé do editor
+diz qual limite você passou.
 
-## 5. Botões que o leitor pode girar
+Essa mensagem só aparece enquanto o indicador está aberto no editor, então
+`isPlanWithinBudget` existe para você checar um plano por conta própria.
+
+## Parâmetros
 
 Um parâmetro é construído uma vez, fora da classe. O objeto que você constrói é
-ao mesmo tempo o que o painel de ajustes mostra e o que você usa para ler o
-valor de volta.
+tanto o que o painel de ajustes desenha quanto o que você usa para ler o valor
+de volta.
 
 ```ts
 import { Params, readSetting, readToggle, readChoice } from 'fathom';
 
-const PERIOD = Params.integer('periodBars')   // guardado sob este nome
-    .called('Period')                         // o que o painel mostra
-    .between(2, 400)                          // limitado a este intervalo
-    .by(1)                                    // quanto um toque move
+const PERIOD = Params.integer('periodBars')   // guardado com esse nome
+    .called('Período')                        // o que o painel mostra
+    .between(2, 400)                          // limitado a esse intervalo
+    .by(1)                                    // quanto um clique move
     .startingAt(20);
 
-const BAND = Params.decimal('deviations').called('Deviations').between(0.5, 5).startingAt(2);
-const MODE = Params.choice('mode', ['Fast', 'Slow']).called('Mode').startingAt('Fast');
-const FILL = Params.toggle('isFilled').called('Fill it').startingAt(true);
+const BAND = Params.decimal('deviations').called('Desvios').between(0.5, 5).startingAt(2);
+const MODE = Params.choice('mode', ['Rápido', 'Lento']).called('Modo').startingAt('Rápido');
+const FILL = Params.toggle('isFilled').called('Preencher').startingAt(true);
 ```
 
-Depois, no `compute`:
+Leia dentro do `compute`:
 
 ```ts
 const periodBars = readSetting(input.settings, PERIOD);   // número
@@ -216,20 +235,25 @@ const mode = readChoice(input.settings, MODE);            // string
 const isFilled = readToggle(input.settings, FILL);        // booleano
 ```
 
-Ponha cada um que você construiu em
-`readonly parameters = [PERIOD, BAND, MODE, FILL]`, na ordem em que quer que
-apareçam.
+Por fim, liste todo parâmetro que você construiu em `readonly parameters`, na
+ordem em que quer que apareçam:
 
-Os valores de uma escolha aparecem como estão, então mantenha-os legíveis — e
-mantenha-os estáveis, porque o valor é o que fica guardado.
+```ts
+readonly parameters = [PERIOD, BAND, MODE, FILL];
+```
 
----
+::: warning Escolhas são guardadas como escritas
+Os valores de uma escolha são mostrados exatamente como você escreveu, então
+mantenha-os legíveis. E mantenha-os estáveis: a string é o que fica salvo, então
+renomear uma perde o ajuste de quem já tinha escolhido ela.
+:::
 
-## 6. O que o gráfico precisa buscar antes
+## Barras de aquecimento
 
 Uma média de vinte barras precisa de dezenove barras de histórico antes da
-primeira desenhada, senão a borda esquerda fica em branco sem precisar. Peça, e
-o gráfico as busca; elas chegam como parte de `input.bars` e a janela desenhada
+primeira desenhada, senão a borda esquerda fica em branco sem precisar.
+
+Peça, e o Fathom busca. Elas chegam dentro de `input.bars`, e a janela desenhada
 não muda.
 
 ```ts
@@ -238,88 +262,88 @@ resolveSources(settings: IndicatorSettings): SourceRequest {
 }
 ```
 
-Peça o que você de fato lê. Uma leitura que declara aquecimento que não usa se
-declara não convergida quando o arquivo começa no meio da janela, o que é um
-aviso sobre nada.
+Peça o que você realmente lê, e nada além. Um indicador que declara aquecimento
+que não usa se reporta como não convergido sempre que a gravação começa no meio
+da janela, e isso é um aviso sobre nada.
 
----
+## Sessões mais grossas
 
-## 7. Um tempo gráfico mais grosso
-
-Para uma leitura desenhada em barras de um minuto que precisa do fechamento de
-ontem, declare a sessão com um nome seu:
+Digamos que seu indicador desenha em barras de um minuto mas precisa do
+fechamento de ontem. Declare a sessão mais grossa com um nome seu:
 
 ```ts
 resolveSources(): SourceRequest {
-    return { sessions: { previous: { intervalMs: 86_400_000, reachingBack: 1 } } };
+    return { sessions: { anterior: { intervalMs: 86_400_000, reachingBack: 1 } } };
 }
 ```
 
-`reachingBack` é quantas sessões já assentadas você precisa antes da janela
-abrir. Depois leia de volta:
+`reachingBack` é quantas sessões fechadas você precisa antes de a janela abrir.
+
+### Lendo uma sessão de volta
 
 ```ts
-const previous = readSessions(input, 'previous');
+const anterior = readSessions(input, 'anterior');
 
-previous.hasAny             // falso se nada tinha assentado em nenhuma barra desenhada
-previous.perBar[index]      // a sessão mais recente já fechada quando essa barra abriu
-previous.turnsOver[index]   // 1 onde esta barra é a primeira depois da virada
-previous.closed             // toda sessão assentada, da mais antiga para a mais nova
-previous.indexPerBar[index] // onde em `closed` a sessão desta barra está
+anterior.hasAny             // falso quando nada tinha fechado em nenhuma barra desenhada
+anterior.perBar[index]      // a sessão mais nova que já tinha fechado na abertura da barra
+anterior.turnsOver[index]   // 1 onde esta barra é a primeira depois da virada
+anterior.closed             // toda sessão fechada, da mais antiga para a mais nova
+anterior.indexPerBar[index] // onde em `closed` a sessão desta barra está
 ```
 
-**Os quatro são segurados no que cada barra desenhada podia saber**, então não
-existe índice que alcance uma sessão que a barra não poderia ter visto. Uma
-leitura escrita contra eles não repinta.
+Os cinco são segurados no que cada barra desenhada podia saber. Não existe aqui
+um índice que alcance uma sessão que a barra desenhada não poderia ter visto, o
+que significa que um indicador escrito contra eles **não repinta**.
 
 `perBar[index]` é `undefined` na borda esquerda, antes de qualquer coisa ter
-assentado. `?? Number.NaN` é a resposta de sempre.
+fechado. `?? Number.NaN` é a resposta de sempre.
 
-Pedir um nome que você nunca declarou joga, e diz quais nomes você declarou. É a
-única falha que este desenho se recusa a deixar silenciosa.
+Buscar um nome que você nunca declarou lança um erro, e a mensagem lista os
+nomes que você declarou. É a única falha que este desenho se recusa a deixar
+silenciosa.
 
-### Um número calculado sobre o tempo gráfico mais grosso
+### Calculando sobre a série mais grossa
 
-`perBar` responde *o que esta barra sabia*, que é uma sessão. Para uma média,
-uma amplitude ou qualquer coisa com memória, você precisa da corrida — que é
-`closed`, e `indexPerBar` diz onde cada barra desenhada cai nela:
+`perBar` responde *o que esta barra sabia*, que é uma sessão só. Para uma média,
+uma amplitude, ou qualquer coisa com memória, você precisa da série inteira. Ela
+é `closed`, e `indexPerBar` diz onde cada barra desenhada se encaixa nela.
 
 ```ts
 const period = 50;
-const held = readSessions(input, 'previous');
+const held = readSessions(input, 'anterior');
 
-// Calculado uma vez sobre a corrida, depois segurado em cada barra desenhada:
-// um degrau, porque a média mais grossa não se moveu entre os fechamentos.
+// Calculada uma vez sobre a série, depois segurada em cada barra desenhada: um
+// degrau, porque a média mais grossa não se mexeu entre os fechamentos.
 const means = exponentialMean(held.closed.map((bar) => bar.closePrice), period);
 const perBar = [...held.indexPerBar]
     .map((at) => (at < 0 ? Number.NaN : means[at] ?? Number.NaN));
 ```
 
-`closed` alcança para trás por `reachingBack` sessões, então peça um múltiplo do
-período em vez de uma: `reachingBack: period * 8` entrega quatrocentos
-fechamentos a uma média de cinquenta períodos, e custa a mesma única requisição
-por tempo gráfico que pedir uma. Nada ainda se formando está lá dentro.
+`closed` alcança exatamente `reachingBack` sessões para trás, então peça um
+múltiplo do seu período em vez de uma só. `reachingBack: period * 8` entrega
+quatrocentos fechamentos a uma média de cinquenta períodos, e custa a mesma
+requisição única por degrau que pedir uma custaria. Nada que ainda está se
+formando entra aí.
 
-Quais tempos gráficos uma corretora publica é uma lista fixa — um minuto, cinco,
-quinze, trinta, uma hora, duas, quatro, um dia, uma semana. O mês não está nela
-e não pode estar: a lista é indexada por uma largura em milissegundos e um mês
-não tem largura fixa.
+::: tip Não existe degrau mensal
+Quais larguras uma corretora publica é uma lista fixa: um minuto, cinco, quinze,
+trinta, uma hora, duas, quatro, um dia, uma semana. Um mês não pode estar nela —
+a lista é indexada por uma largura em milissegundos, e um mês não tem uma fixa.
+:::
 
 ### Dizendo que você ainda não tem nada
 
 ```ts
-    .converged(previous.hasAny)
+    .converged(anterior.hasAny)
 ```
 
-A legenda então marca a leitura como ainda não convergida, em vez de deixar uma
-linha em branco parecer uma linha reta.
+A legenda então marca seu indicador como ainda não convergido, em vez de deixar
+uma linha em branco parecer uma linha plana.
 
----
+## Dividindo em arquivos
 
-## 8. Mais de um arquivo
-
-Aperte o botão de **novo arquivo** na barra e dê um nome a ele. Uma leitura
-começa em `main.ts`; todo o resto é seu para organizar.
+Clique no botão de **novo arquivo** na barra e dê um nome. Um indicador sempre
+começa em `main.ts`; o resto é você que organiza.
 
 ```ts
 // maths/mean.ts
@@ -333,28 +357,29 @@ export function rollingMean(values: readonly number[], periodBars: number): numb
 import { rollingMean } from './maths/mean.js';
 ```
 
-Só caminhos relativos, e só dentro da leitura: `./`, `../`, e `index.ts` para
-uma pasta. **Termine em `.js`, ou deixe a terminação de fora** —
-`./maths/mean` e `./maths/mean.js` acham `maths/mean.ts`, o segundo porque é
-assim que o TypeScript manda escrever um import. Terminar em `.ts` é a única
-forma que o compilador recusa, e o editor avisa.
+Você pode usar só caminhos relativos, e só dentro do seu próprio indicador:
+`./`, `../` e `index.ts` para uma pasta.
+
+::: warning Termine seus imports em `.js`, ou em nada
+`./maths/mean` e `./maths/mean.js` acham `maths/mean.ts`. O segundo é como o
+TypeScript manda escrever um import. Terminar em `.ts` é a única forma que o
+compilador recusa, e o editor te avisa.
+:::
 
 Cada arquivo roda uma vez, por mais que outros o peçam. Dois arquivos que
 importam um ao outro recebem o que o outro exportou até ali, em vez de entrar em
-laço. Um arquivo que joga não fica guardado: o próximo `require` roda de novo e
-joga de novo.
+laço. Um arquivo que lança erro não fica guardado, então o próximo import roda
+de novo e lança de novo.
 
-`'fathom'` é a única outra coisa que resolve. **Não há npm aqui.**
+`'fathom'` é a única outra coisa que resolve. **Não tem npm aqui.**
 
-Um arquivo que você tira é oferecido de volta por alguns segundos, como uma
-leitura apagada.
+Um arquivo que você apaga é oferecido de volta por alguns segundos, do mesmo
+jeito que um indicador apagado.
 
----
+## Dois idiomas
 
-## 9. Duas línguas
-
-A interface tem duas. Uma leitura dá nome a si mesma, então pode responder nas
-duas:
+A interface fala dois. Como um indicador dá nome a si mesmo, ele pode responder
+nos dois:
 
 ```ts
 import { inWords } from 'fathom';
@@ -362,76 +387,78 @@ import { inWords } from 'fathom';
 readonly label = inWords({ en: 'My mean', 'pt-BR': 'Minha média' });
 ```
 
-`en` é obrigatório e é para onde cai um idioma que você não escreveu. Funciona
-em qualquer lugar do arquivo — um campo, o rótulo de um parâmetro, o nome de uma
-série — porque trocar o idioma reconstrói toda leitura a partir do JavaScript em
-que ela foi salva, então o arquivo inteiro roda de novo com o novo idioma
-valendo.
+`en` é obrigatório, e é o que qualquer idioma que você não escreveu usa como
+recurso.
 
----
+Isso funciona em qualquer lugar do arquivo — um campo, o rótulo de um parâmetro,
+o nome de uma série. Trocar o idioma reconstrói todo indicador a partir do
+JavaScript com que ele foi salvo, então o arquivo inteiro roda de novo com o
+idioma novo valendo.
 
-## 10. Vendo o que de fato chegou
+## Depurando
 
-`console.log` funciona, e imprime no **Console** abaixo do editor, não no do
-navegador.
+`console.log` funciona. Ele imprime no painel **Console** abaixo do editor, e
+não no console do navegador.
 
 ```ts
-console.log('bars', input.bars.bars.length, 'first', input.bars.bars[0]);
+console.log('barras', input.bars.bars.length, 'primeira', input.bars.bars[0]);
 ```
 
-Séries são impressas com o comprimento — `Float64Array(43) [81176.4, …31 more]`
-—, listas mostram os doze primeiros e contam o resto, e objetos são abertos até
-dois níveis.
+Séries imprimem com o tamanho, tipo `Float64Array(43) [81176.4, …mais 31]`.
+Listas mostram os doze primeiros e contam o resto. Objetos são abertos dois
+níveis.
 
-`compute` roda de novo a cada barra, arrasto e zoom, então uma linha impressa
-dentro dele chega o tempo todo: uma linha impressa duas vezes seguidas aparece
-uma vez com uma contagem ao lado, só as últimas 200 ficam guardadas, e quando
-mais de uma leitura está imprimindo cada linha é nomeada. `warn` e `error` são
-marcados; `info` e `debug` valem como `log`. Nada mais do console de verdade é
-oferecido.
+Lembre que `compute` roda de novo a cada barra, arrasto e zoom, então uma linha
+impressa dentro dele chega o tempo todo. O Fathom cuida disso: uma linha impressa
+duas vezes seguidas aparece uma vez com um contador ao lado, só as últimas 200
+são guardadas, e quando mais de um indicador está imprimindo, cada linha ganha o
+nome de quem imprimiu.
 
----
+`warn` e `error` são marcados. `info` e `debug` aparecem como `log`. Nada mais do
+console de verdade é oferecido.
 
-## 11. Compartilhando uma
+## Compartilhando um indicador
 
-**Para fora.** Uma leitura de um arquivo exporta como `.ts`. Uma de vários
-exporta como um `.fathom.json` com todos eles, que é também de onde ela abre.
+**Exportando.** Um indicador de um arquivo só exporta como `.ts`. Um de vários
+arquivos exporta como `.fathom.json` com todos eles, que é também de onde ele
+abre.
 
-**Para dentro, de um arquivo.** O botão de abrir aceita um `.ts`, um `.tsx` ou
-um pacote.
+**Importando de um arquivo.** O botão de abrir aceita `.ts`, `.tsx` ou um pacote.
 
-**Para dentro, de um repositório ou de um pacote.** O botão de nuvem aceita:
+**Importando de um repositório ou pacote.** O botão de nuvem aceita endereços
+assim:
 
 ```text
 gh/user/repo                       a tag mais nova, ou o branch padrão
 gh/user/repo@main/readings/mean    um branch, e uma pasta dentro dele
-npm/@someone/reading@1.2.0
+npm/@alguem/leitura@1.2.0
 ```
 
-Um endereço copiado do GitHub ou do npm também funciona. Ele pega os arquivos
-`.ts` e `.tsx` sob a pasta que você nomeou — até quarenta e 512 kB, entrada em
-`main.ts` ou `index.ts`, `.d.ts` de fora — e os abre como uma leitura, marcada
-como não salva.
+Um endereço copiado direto do GitHub ou do npm também funciona.
 
-Você vê a lista de arquivos e de onde eles vieram antes de qualquer coisa ser
-buscada, e a busca é exatamente do que foi mostrado. Cada arquivo é conferido
+O Fathom pega os arquivos `.ts` e `.tsx` sob a pasta que você indicou — até
+quarenta deles e 512 kB, entrada em `main.ts` ou `index.ts`, com `.d.ts` de fora
+— e abre todos como um indicador, marcado como não salvo.
+
+Você vê a lista de arquivos e de onde vieram antes de um único byte ser buscado,
+e o Fathom então busca exatamente o que te mostrou. Cada arquivo é conferido
 contra o tamanho e o hash que a listagem informou.
 
-> O que você traz é código de outra pessoa, e ele roda nesta página assim que
-> abrir — do mesmo jeito que o seu. Traga apenas o que você mesmo rodaria.
+::: danger O que você importa é código de outra pessoa
+Ele roda nesta página assim que abre, do mesmo jeito que o seu. Só traga o que
+você estaria disposto a rodar.
+:::
 
----
+## A superfície inteira
 
-## 12. Tudo na superfície
-
-Tudo que é importável de `'fathom'`. Nada fora desta lista é público.
+Tudo que se importa de `'fathom'`. Nada fora desta lista é público.
 
 ### Começando um plano e um parâmetro
 
 | | |
 |---|---|
 | `Plot.over(bars)` | Começa um plano ligado às barras desenhadas. |
-| `Params.integer(name)` `.decimal` `.choice` `.toggle` | Constrói um botão. |
+| `Params.integer(nome)` `.decimal` `.choice` `.toggle` | Constrói um botão. |
 
 ### Lendo ajustes e sessões
 
@@ -440,21 +467,21 @@ Tudo que é importável de `'fathom'`. Nada fora desta lista é público.
 | `readSetting(settings, parameter)` | O valor de um botão numérico. |
 | `readToggle(settings, parameter)` | O valor de um interruptor. |
 | `readChoice(settings, parameter)` | O valor de uma escolha. |
-| `readSessions(input, name)` | Uma sessão declarada. Joga num nome que você não declarou. |
-| `summariseParameters(parameters, settings)` | O resumo que a legenda faz dos ajustes. |
+| `readSessions(input, nome)` | Uma sessão declarada. Lança erro num nome não declarado. |
+| `summariseParameters(parameters, settings)` | O resumo dos ajustes que a legenda usa. |
 
 ### As barras
 
 | | |
 |---|---|
 | `readBarSource(bar, source)` | Uma barra sob `'close'`, `'hl2'`, `'ohlc4'` e o resto. |
-| `collectSource(bars, settings)` | A fonte escolhida ao longo de todas as barras. |
+| `collectSource(bars, settings)` | A fonte escolhida em todas as barras. |
 | `collectInstants(bars)` | O instante de fechamento de cada barra. |
-| `classifyBar(bar)` | Se a barra foi gravada por inteiro. |
+| `classifyBar(bar)` | Se uma barra foi gravada por inteiro. |
 | `findContinuousSegments(bars)` | Trechos de barras sem lacuna entre elas. |
 | `BAR_SOURCES`, `SOURCE` | Os nomes das fontes, e uma escolha pronta sobre eles. |
 
-### A aritmética que as leituras nativas usam
+### Aritmética que os indicadores nativos usam
 
 | | |
 |---|---|
@@ -462,15 +489,15 @@ Tudo que é importável de `'fathom'`. Nada fora desta lista é público.
 | `smoothWilder(previous, sample, periodBars)` | Um passo de Wilder. |
 | `fillWilder(fill)` / `fillExponential(fill)` | Uma série suavizada inteira, no lugar. |
 | `resolveExponentialWeight(periodBars)` | O α que uma EMA desse tamanho usa. |
-| `resolveTrueRange(bar, previousClose)` / `collectTrueRanges(bars, segment)` | True range. |
-| `holdLastClosed(bars, higher)` | Alinha um tempo gráfico mais grosso à mão, como o host faz. |
+| `resolveTrueRange(bar, previousClose)` / `collectTrueRanges(bars, segment)` | Amplitude verdadeira. |
+| `holdLastClosed(bars, higher)` | Alinha um degrau mais grosso à mão, como o host faz. |
 
 ### Palavras, orçamentos e formas
 
 | | |
 |---|---|
-| `inWords(words)` | Uma frase no idioma do leitor. |
-| `isPlanWithinBudget(plan)` | Se um plano está dentro do orçamento de 8 × 8192. |
+| `inWords(words)` | Uma frase no idioma de quem lê. |
+| `isPlanWithinBudget(plan)` | Se um plano cabe no orçamento de 8 × 8192. |
 | `PLOT_TONES`, `PLOT_BUDGET`, `BAR_BUDGET`, `NO_SESSIONS` | As constantes por trás de tudo. |
 
 Tipos: `Indicator`, `IndicatorInput`, `IndicatorSettings`, `PlanDraft`,
@@ -480,207 +507,38 @@ Tipos: `Indicator`, `IndicatorInput`, `IndicatorSettings`, `PlanDraft`,
 `ToggleParameter`, `IndicatorParameter`, `Tunable`, `BarSource`,
 `BarCompleteness`, `BarSegment`, `SeriesFill`, `Words`, `Locale`, `DrawPlan`.
 
----
+Os tipos de conector estão na mesma superfície — veja
+[Escrevendo um conector](/pt-BR/writing-a-connector).
 
-## 13. O que uma leitura não pode fazer
+## O que um indicador não pode fazer
 
 Dito sem rodeio, porque descobrir tentando é pior.
 
 - **Sem npm.** Nada fora de `'fathom'` e dos seus próprios arquivos resolve. Um
-  pacote cujo código importe qualquer outra coisa não vai compilar, e o editor
-  diz qual import ele não achou.
-- **Sem buscar, sem temporizadores, sem estado entre chamadas.** `compute` é
-  chamado de novo a cada redesenho; qualquer coisa que ele lembre é um bug
+  pacote cujo código importe qualquer outra coisa não compila, e o editor diz
+  qual import ele não achou.
+- **Sem buscar, sem temporizadores, sem estado entre chamadas.** O `compute` é
+  chamado de novo a cada redesenho, então qualquer coisa que ele lembre é um bug
   esperando um arrasto.
-- **Sem livro, sem execuções, sem lacunas.** Uma leitura alcança as barras e as
-  sessões. O campo de livro de ofertas em torno do qual este gráfico é
+- **Sem livro, sem execuções, sem lacunas.** Um indicador alcança as barras e as
+  sessões. O campo de livro de ofertas em torno do qual este gráfico foi
   construído ainda não está na superfície.
-- **Sem sandbox.** Uma leitura roda na página, na thread principal, como as
-  nativas. Ela alcança um global se for procurar. Um laço infinito leva a aba
-  junto.
-- **Sem cor própria.** Os tons vêm da paleta, então uma leitura continua legível
-  quando o tema muda.
-- **Nada prometido entre versões.** A superfície é um barril só e pode mudar.
-  Uma leitura que para de compilar depois de uma atualização informa o erro do
+- **Sem sandbox.** Um indicador roda na página, na thread principal, igualzinho
+  aos nativos. Ele alcança um global se for procurar, e um laço infinito leva a
+  aba junto.
+- **Sem cor própria.** Os tons vêm da paleta, então um indicador continua
+  legível quando o tema muda.
+- **Nada prometido entre versões.** A superfície é um barril só e pode mudar. Um
+  indicador que para de compilar depois de uma atualização informa o erro do
   próprio compilador, e o código continua seu.
 
-## 14. Escrevendo um conector
-
-Um **conector** é o outro tipo de addon. Uma leitura acrescenta aritmética sobre
-o que a corretora disse; um conector acrescenta a corretora que diz. Você
-escreve no mesmo editor, salva do mesmo jeito, e qual dos dois o Fathom monta
-vem do que o seu arquivo exporta.
-
-Clique no seletor de contrato no topo do gráfico e depois em **Adicionar
-corretora**. O editor abre em um conector, não em uma média móvel.
-
-### A única regra
-
-**Um conector descreve e lê. O motor executa e mede.**
-
-Todo método é simples e síncrono. Ele devolve uma URL e lê o que voltou. Ele
-nunca busca, nunca segura um socket, nunca cria um temporizador. O Fathom é dono
-do timeout, do limite de tamanho, da retentativa e do relógio.
-
-Isso não é preferência de estilo. O coletor desliga uma gravação esperando cada
-uma soltar, e um conector dono de uma conexão seria dono de um `close` que pode
-travar — o que pararia todas as outras gravações da máquina, não só a dele.
-
-### O formato
-
-```ts
-import type { VenueBar, VenueConnector, VenueInstrument } from 'fathom';
-
-const REST = 'https://api.kucoin.com';
-
-/**
- * A KuCoin spot, até onde uma página consegue ler.
- */
-export default {
-    declaration: { book: null, tape: null, bars: null },
-    instruments: {
-        planInstruments: () => ({ url: `${REST}/api/v2/symbols` }),
-        readInstruments: (payload: unknown): VenueInstrument[] => [],
-    },
-    planStream: null,
-    book: null,
-    tape: null,
-    bars: null,
-} satisfies VenueConnector;
-```
-
-Seis campos, e cinco deles podem ser `null`. Não existe propriedade opcional de
-propósito: você precisa digitar `null` para dizer não, e digitar é o momento em
-que você lê o que o gráfico faz no lugar.
-
-### Dizendo o que a corretora não faz
-
-`declaration` é onde a corretora diz o que consegue responder. Três capacidades,
-cada uma descrita ou `null`:
-
-| | O que significa quando existe | O que `null` faz |
-|---|---|---|
-| `book` | Tamanho em repouso por preço, ao vivo | Nenhum mapa de calor nesta corretora |
-| `tape` | O que de fato foi negociado, ao vivo | Nenhuma execução ao vivo |
-| `bars` | Candles do passado | O gráfico dobra as barras do que ele grava |
-
-Dentro de `bars`, três flags decidem no que uma leitura pode se apoiar:
-
-```ts
-bars: {
-    rungs: [{ widthMs: 60_000, anchorMs: 0 }],
-    barsPerRequest: 1_500,
-    hasVolume: true,
-    hasBuyVolume: false,
-    hasTradeCount: false,
-}
-```
-
-`hasBuyVolume: false` é a importante, e é a resposta honesta em quase todo
-lugar: uma corretora de porte publica a separação por lado agressor nos candles.
-Declarada falsa, toda leitura que divide por ela — delta, delta acumulado,
-volume em dois tons — fica esmaecida nesta corretora com o motivo na linha.
-Sem declarar, o gráfico desenharia um delta de zero e chamaria isso de compra e
-venda equilibradas, o que se parece exatamente com a verdade.
-
-O `anchorMs` ao lado de cada largura é a fase em que os baldes abrem. Zero para
-quase tudo; um candle semanal abre numa segunda-feira, que fica quatro dias
-depois de onde a época coloca uma.
-
-### Lendo a listagem
-
-É a metade que vale escrever primeiro, porque você descobre em um segundo se
-funciona: aperte salvar, e ou os pares aparecem no seletor ou a corretora diz
-por que não.
-
-```ts
-instruments: {
-    planInstruments: () => ({ url: `${REST}/api/v2/symbols` }),
-    readInstruments: (payload: unknown): VenueInstrument[] => {
-        const listed = (payload as { data?: unknown }).data;
-        if (!Array.isArray(listed)) {
-            throw new Error('A corretora não listou nenhum símbolo.');
-        }
-        return listed.map((one) => {
-            const entry = one as Record<string, unknown>;
-            return {
-                symbol: String(entry['symbol']),
-                base: String(entry['baseCurrency']),
-                quote: String(entry['quoteCurrency']),
-                priceStep: Number(entry['priceIncrement']),
-                isTrading: entry['enableTrading'] === true,
-            };
-        });
-    },
-}
-```
-
-`payload` é o que a corretora respondeu, já convertido de JSON. Lance um erro
-com uma frase se não for o formato esperado — o seletor mostra ela.
-
-### Lendo candles
-
-```ts
-bars: {
-    planPage: (request) => ({
-        url: `${REST}/api/v1/market/candles?type=1min`
-            + `&symbol=${encodeURIComponent(request.symbol)}`
-            + `&startAt=${String(Math.floor(request.fromMs / 1_000))}`
-            + `&endAt=${String(Math.floor(request.toMs / 1_000))}`,
-    }),
-    readPage: (payload: unknown, request): VenueBar[] => [],
-}
-```
-
-Três coisas pegam todo mundo:
-
-- **Unidades.** O Fathom trabalha em milissegundos. Várias corretoras recebem e
-  devolvem segundos.
-- **Ordem.** Devolva do mais antigo para o mais novo. Algumas mandam ao
-  contrário, e uma sequência invertida desenha um gráfico que anda para trás.
-- **Ordem dos campos.** Algumas mandam `abertura, fechamento, máxima, mínima`,
-  não a ordem usual. Lendo errado, a máxima fica abaixo da mínima em todo candle
-  vermelho.
-
-Deixe `volume`, `buyVolume` e `tradeCount` como `null` onde a corretora não
-publica nenhum. Zero é uma resposta de verdade aqui — um balde em que ninguém
-negociou é um balde quieto — então uma corretora que não publica nada precisa
-ser distinguível de uma que ficou quieta. E se a corretora só nomeia onde o
-candle abre, deixe `closedAtMs` igual a `openedAtMs`; o Fathom preenche a borda
-com a largura que pediu.
-
-### Instalando
-
-Salve. A corretora aparece entre as outras no seletor de contrato e já é
-perguntada sobre o que negocia. Marque um par com a estrela para guardá-lo numa
-lista.
-
-Ela é guardada como o código que você escreveu, então continua lá semana que vem
-— e assim você consegue ler o que instalou antes que rode de novo.
-
-### O que um conector ainda não faz
-
-- **Só GET.** Um conector nomeia uma URL. Uma corretora que entrega o socket por
-  um POST que responde com uma URL de curta duração não dá para transmitir — que
-  é por isso que o exemplo da KuCoin declara `book: null`.
-- **O gráfico, não o coletor.** Um conector que você instala vive no seu
-  navegador, então o servidor que grava livros de ofertas não o enxerga. Uma
-  corretora trazida assim te dá uma listagem e um passado, não uma gravação.
-- **Uma página sozinha não alcança quase nenhuma corretora.** Quase nenhuma
-  publica o cabeçalho que o navegador exige para ler de outra origem. Onde o
-  Fathom tem servidor, os pedidos passam por ele — só https, sem redirecionar, e
-  sem alcançar nada da rede do próprio servidor. Na build só-navegador não há a
-  quem pedir, então só dá para ler corretora que deixa a página entrar.
-- **Só livro encadeado.** O grau que um conector declara é registrado mas ainda
-  não é usado: o espelho ainda precisa da referência anterior que a corretora
-  nativa publica.
-
-Um exemplo pronto, com testes:
-[`src/addons/kucoin`](https://github.com/giovani-freitag/fathom-example-addons/tree/main/src/addons/kucoin).
+::: warning Onde seu trabalho fica guardado
+Indicadores salvos ficam no armazenamento local do navegador. Isso é prático e
+não é durável: limpar dados do site, encher o disco ou usar outro navegador não
+vai ter eles. Exporte o que você quiser manter.
+:::
 
 ---
 
-O desenho por trás de tudo isto — o que foi decidido e o que custou — está no
-[ADR 23](/en/adr/0023-a-reader-writes-an-indicator-in-the-page) para leituras e
-no [ADR 25](/en/adr/0025-a-reader-brings-the-venue-as-well-as-the-indicator)
-para conectores.
+O raciocínio por trás de tudo isto está no
+[ADR 23](/en/adr/0023-a-reader-writes-an-indicator-in-the-page).

@@ -3,50 +3,50 @@ layout: home
 
 hero:
   name: Fathom
-  text: Liquidez do livro de ofertas, gravada segundo a segundo
+  text: O livro de ofertas, gravado segundo a segundo
   tagline: >
-    A profundidade em repouso vira um mapa de calor que você percorre: as faixas
-    claras são paredes de ordens limitadas, as bolhas são os negócios que as
-    comeram. Os candles ficam por cima, então você vê se a parede segurou ou
-    quebrou.
+    Um mapa de calor da liquidez com candles por cima, dezoito indicadores
+    prontos para adicionar, e um editor para escrever os seus. Abriu, funciona.
   image:
     src: /brand.svg
     alt: Fathom
   actions:
-    - theme: brand
-      text: O que é
+    - theme: alt
+      text: Guia completo
       link: /pt-BR/what-it-is
     - theme: alt
-      text: Rodar
+      text: Instalação
       link: /pt-BR/running-it
-    - theme: alt
-      text: Abrir o gráfico ao vivo
+    - theme: brand
+      text: Ir pro gráfico
       link: https://giovani-freitag.github.io/fathom/
 
 features:
-  - icon: 🌊
-    title: O livro, não só o preço
+  - icon: 🔓
+    title: Sem cadastro. Sem plano.
     details: >
-      Cada preço com ordem em repouso, uma vez por segundo, como cor. Nenhuma
-      corretora vende a profundidade de ontem e nada a reconstrói — uma hora que
-      não foi gravada está perdida, e é por isso que o Fathom existe para estar
-      rodando antes.
+      Não tem cadastro, não tem teste grátis, e não tem plano que libera
+      justamente a parte que você veio usar. Tudo está ligado desde o primeiro
+      segundo. Rodando por conta própria, a gravação é sua, no seu disco, pelo
+      tempo que você quiser.
+    link: /pt-BR/running-it
+    linkText: Instalar
+  - icon: 📊
+    title: Candles, livro e indicadores
+    details: >
+      A profundidade em repouso desenhada como mapa de calor, os negócios por
+      cima dimensionados pelo volume e coloridos pelo lado que cruzou, candles e
+      volume no topo. Dezoito indicadores já vêm juntos, da média móvel ao delta
+      acumulado.
     link: /pt-BR/what-it-is
-    linkText: O que ele grava
-  - icon: 🫧
-    title: Quem cruzou o spread
-    details: >
-      Negócios dimensionados pelo volume e coloridos pelo lado que tomou
-      liquidez, sobre uma escada de profundidade com o tamanho em repouso por
-      preço. Você vê a parede e o que a comeu no mesmo quadro.
-    link: /data-model
-    linkText: O modelo de dados
+    linkText: Ver o que ele desenha
   - icon: ✏️
-    title: Indicadores que você mesmo escreve
+    title: Seus addons, no mesmo nível
     details: >
-      Escreva um na própria página, contra a mesma superfície que os dezoito
-      indicadores nativos usam, ou traga um de um repositório. Ele compila
-      enquanto você digita e nunca sai do seu navegador.
+      Um indicador que você escreve usa exatamente a mesma interface dos
+      nativos. Escreva na própria página, veja compilar enquanto digita, e veja
+      o resultado no gráfico ao lado do editor. Traga uma corretora sua do mesmo
+      jeito.
     link: /pt-BR/writing-a-reading
     linkText: Escrever um
 ---

@@ -160,18 +160,24 @@ one the moment it appears in the stretch a reader has just been sent.
 Two things a reader chooses from the interface are stored rather than configured.
 
 `instrument_registry` carries the grid each contract records on, and an
-`is_enabled` flag: the row exists because something has been recorded for that
+`is_enabled` flag. The row exists because something has been recorded for that
 contract, and the flag says whether it still is.
 
 ```sql
 CREATE TABLE instrument_registry (
-    instrument_symbol TEXT PRIMARY KEY,
+    instrument_symbol TEXT,
+    venue             TEXT NOT NULL DEFAULT 'binance-futures',
     price_bucket_size DOUBLE PRECISION,
     frame_interval_ms INTEGER,
     registered_at     TIMESTAMPTZ,
-    is_enabled        BOOLEAN
+    is_enabled        BOOLEAN,
+    PRIMARY KEY (venue, instrument_symbol)
 );
 ```
+
+The key is the pair, not the symbol alone. Two exchanges both listing `BTCUSDT`
+would otherwise be one row, and the second to register would silently take the
+grid of the first — with a recording already under way on the old one.
 
 `recording_budget` is one row holding the disk ceiling, keyed by a constant so
 there can only ever be one.

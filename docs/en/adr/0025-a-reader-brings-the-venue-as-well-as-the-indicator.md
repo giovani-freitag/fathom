@@ -143,7 +143,8 @@ that venue hands out its socket through a POST for a short-lived URL, and a
 connector that describes requests rather than making them cannot ask for one.
 And a connector a reader installs lives in their browser, so the server's
 collector cannot see it: a venue brought in this way gives the chart a listing
-and a past, not a recording.
+and nothing more. Its candles would need the same server-side route the listing
+uses, and the candle source is still wired to the shipped connector.
 
 Each of those is a smaller decision than the contract itself, and none of them
 changes it. They are named here so that nobody reads the section above as an

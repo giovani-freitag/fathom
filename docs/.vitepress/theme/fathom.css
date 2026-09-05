@@ -190,3 +190,51 @@
     fill: var(--vp-c-text-3) !important;
     stroke: var(--vp-c-text-3) !important;
 }
+
+/*
+ * The two controls that were replaced.
+ *
+ * Hidden rather than removed: they are the default theme's own, and a build
+ * that leaves them in place shows two language menus and two appearance
+ * toggles side by side.
+ */
+.VPNavBarTranslations,
+.VPNavBarAppearance,
+.VPNavScreenTranslations,
+.VPNavScreenAppearance {
+    display: none !important;
+}
+
+.nav-extras {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: 8px;
+}
+
+.nav-extras--screen {
+    justify-content: space-between;
+    margin: 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--vp-c-divider);
+}
+
+/* The links along the foot, with nothing else on the line. */
+.VPFooter .message {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px 20px;
+    font-size: 14px;
+}
+
+.VPFooter .message a {
+    color: var(--vp-c-text-2);
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.VPFooter .message a:hover {
+    color: var(--vp-c-brand-1);
+}

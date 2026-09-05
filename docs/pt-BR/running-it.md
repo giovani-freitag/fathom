@@ -1,103 +1,124 @@
-# Rodar
+# Instalação
+
+O jeito mais rápido de rodar o Fathom de verdade é um comando do Docker.
 
 ```bash
-docker run -p 8787:8787 ghcr.io/giovani-freitag/fathom
+docker run -p 8787:8787 -v fathom:/var/lib/postgresql/data \
+  ghcr.io/giovani-freitag/fathom
 ```
 
 Abra **http://localhost:8787**. As primeiras colunas aparecem em segundos.
 
-Um contêiner: o banco, o coletor que espelha o livro, e o gateway que o desenha.
-Nada para configurar, nada para clonar, nenhum arquivo para escrever antes.
+Esse container sozinho tem o banco, o coletor que espelha o livro de ofertas e o
+gateway que desenha. Não tem nada para configurar, nada para clonar e nenhum
+arquivo para escrever antes.
 
-::: warning Dê a ele onde gravar antes de se importar
-A gravação vive dentro do contêiner, então ela vai embora junto com ele. É o
-padrão certo para dar uma olhada e o errado para guardar o que ele viu — **um
-livro de ofertas não pode ser gravado de novo depois do fato.**
-
-```bash
-docker run -p 8787:8787 -v fathom:/var/lib/postgresql/data ghcr.io/giovani-freitag/fathom
-```
+::: warning Sempre dê um volume a ele
+O `-v` acima não é opcional na prática. Sem ele, a gravação mora dentro do
+container e vai embora com o container — e **um livro de ofertas não pode ser
+gravado depois que passou.**
 :::
 
-## O que mudar
+## Só de olhada?
 
-O comando acima roda nos padrões. O `.env.example` documenta cada variável;
-estas quatro decidem o que você recebe.
+Se você só quer ver o que o Fathom desenha, a
+[demo ao vivo](https://giovani-freitag.github.io/fathom/) não exige instalação
+nenhuma. Ela roda o coletor num Web Worker e grava no armazenamento do
+navegador.
+
+É uma demo, e se comporta como uma: só grava com a aba aberta, guarda uma janela
+corrida em vez de um histórico, acompanha um contrato por vez, e o armazenamento
+do navegador pode ser limpo por baixo dela a qualquer momento. Volte aqui quando
+quiser guardar o que foi gravado.
+
+## Configuração
+
+O comando acima roda nos padrões. Toda variável está documentada no
+`.env.example`, mas estas quatro são as que você provavelmente vai mexer.
 
 | | |
 |---|---|
 | `INSTRUMENT_SYMBOL` | Qual contrato gravar. Qualquer perpétuo USD-M da Binance. |
-| `PRICE_BUCKET_SIZE` | Qual a altura de uma linha do mapa de calor, na moeda de cotação. Dez dólares no Bitcoin; um centésimo disso no Litecoin. |
-| `RECORDED_PRICE_RANGE_RATIO` | Até onde a gravação alcança para cada lado do preço. É isso que decide quanto um dia custa em disco. |
-| `POSTGRES_PASSWORD` | Padrão `fathom`, o que serve enquanto a porta estiver no loopback e não fora disso. |
+| `PRICE_BUCKET_SIZE` | A altura de uma linha do mapa de calor, na moeda de cotação. Dez dólares no Bitcoin, um centésimo disso no Litecoin. |
+| `RECORDED_PRICE_RANGE_RATIO` | Quão longe do preço, para cada lado, a gravação alcança. É isso que decide quanto um dia dela custa em disco. |
+| `POSTGRES_PASSWORD` | Padrão `fathom`. Tudo bem enquanto a porta estiver no loopback, e não além disso. |
 
-Um `-e` de cada vez:
+Passe com `-e`:
 
 ```bash
-docker run -p 8787:8787 -e INSTRUMENT_SYMBOL=ETHUSDT -e PRICE_BUCKET_SIZE=0.5 \
+docker run -p 8787:8787 -v fathom:/var/lib/postgresql/data \
+  -e INSTRUMENT_SYMBOL=ETHUSDT -e PRICE_BUCKET_SIZE=0.5 \
   ghcr.io/giovani-freitag/fathom
 ```
 
-As duas portas são publicadas só em `127.0.0.1`. **O Fathom não pergunta a
-ninguém quem é** — ponha algo que pergunte na frente antes de abrir mais.
+::: danger O Fathom não pergunta quem é você
+Não tem login, o que é a graça na sua máquina e um problema numa máquina
+pública. As duas portas são publicadas só em `127.0.0.1`. Ponha o Fathom atrás
+de algo que autentique antes de abrir mais que isso.
+:::
 
-## Como quatro contêineres
+## Como quatro containers
 
-O banco no próprio contêiner é o que qualquer coisa que precise de backup,
-atualização ou monitoramento vai querer.
+Quando você começa a se importar com backup, atualização ou monitoramento, o
+banco vai querer um container só dele.
 
 ```bash
 curl -O https://raw.githubusercontent.com/giovani-freitag/fathom/main/docker-compose.yml
 docker compose up -d
 ```
 
-TimescaleDB, um passo de migração que roda uma vez e para, o coletor e o
-gateway. O arquivo em vez de uma linha só, porque quem escolhe isto no lugar do
-contêiner único vai editá-lo.
+Isso sobe o TimescaleDB, um passo de migração que roda uma vez e para, o coletor
+e o gateway. É um arquivo em vez de uma linha só porque quem escolhe isso no
+lugar do container único vai editar.
+
+Alguns comandos que você vai querer:
 
 ```bash
-# O coletor mantém o próprio log, uma linha por coisa que aconteceu com ele.
+# O coletor mantém o log dele, uma linha por coisa que aconteceu.
 docker compose exec collector tail -f logs/collector.*.log
 
 docker compose logs collector         # só o que ele não conseguiu sobreviver
 docker compose down                   # parar, mantendo a gravação
-docker compose down -v                # parar e apagá-la, para sempre
+docker compose down -v                # parar e apagar a gravação, sem volta
 ```
 
-## A partir do código
+## Direto do código
 
-Node 22.12 ou mais novo, e Docker só para o banco.
+Se você quer subir o Fathom num lugar seu, ou mudar alguma coisa, clone. Precisa
+do Node 22.12 ou mais novo, e do Docker só para o banco.
 
 ```bash
 git clone https://github.com/giovani-freitag/fathom.git
 cd fathom
 npm install
 cp .env.example .env
+```
 
-docker compose up -d timescaledb      # só o banco
-npm run migrate                       # só contra um banco que já existe
+Suba o banco, aplique as migrações e monte:
+
+```bash
+docker compose up -d timescaledb      # o banco sozinho
+npm run migrate                       # contra um banco que já existe
 npm run build
+```
 
+Depois inicie as duas metades:
+
+```bash
 npm run collector &                   # a metade que não pode parar
 npm run gateway                       # http://localhost:8787
 ```
 
-`npm run dev` serve o visualizador com recarga a quente contra um gateway já
-rodando.
-
-## Sem backend nenhum
-
-O mesmo coletor se registra como Web Worker e grava no IndexedDB, que é o que a
-[demonstração](https://giovani-freitag.github.io/fathom/) é.
-
-```bash
-npm run dev:demo
-```
+Enquanto você mexe na interface, `npm run dev` serve o visualizador com hot
+reload contra um gateway já rodando. `npm run dev:demo` serve a build que roda
+só no navegador.
 
 ## Mantendo no ar
 
-**O gráfico só cobre o tempo em que o coletor esteve rodando.** Não há histórico
-para carregar e nada pelo que esperar. Deixe no ar.
+**O gráfico só cobre o tempo em que o coletor estava rodando.** Não tem
+histórico para carregar e nada para esperar. Deixe no ar, e ele preenche atrás
+de você.
 
-[Como é montado →](/en/architecture) · [O que ele grava →](/en/data-model) ·
+[Arquitetura →](/en/architecture) ·
+[Modelo de dados →](/en/data-model) ·
 [Rodando como serviço →](/en/operations)

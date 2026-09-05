@@ -41,22 +41,22 @@ function titleOf(name: string): string {
  */
 const WORDS = {
     en: {
-        startHere: 'Start here', whatItIs: 'What Fathom is', runIt: 'Run it',
-        writeOne: 'Write an indicator', theGuide: 'The guide', reference: 'API reference',
-        examples: 'Worked examples', howItWorks: 'How it works', architecture: 'Architecture',
+        startHere: 'Getting started', whatItIs: 'Introduction', runIt: 'Installation',
+        writeOne: 'Addons', theGuide: 'Writing an indicator', connectors: 'Writing a connector',
+        reference: 'API reference',
+        examples: 'Worked examples', howItWorks: 'Under the hood', architecture: 'Architecture',
         dataModel: 'Data model', operations: 'Operations', decisions: 'Decisions',
         openTheChart: 'Open the chart', editThisPage: 'Edit this page',
-        footer: 'An order book is only ever recorded, never recovered.',
-        source: 'Source', chart: 'Chart', addons: 'Addons',
+        source: 'GitHub', chart: 'Live chart', addons: 'Example addons',
     },
     'pt-BR': {
-        startHere: 'Comece aqui', whatItIs: 'O que é o Fathom', runIt: 'Rodar',
-        writeOne: 'Escrever um indicador', theGuide: 'O guia', reference: 'Referência da API',
-        examples: 'Exemplos prontos', howItWorks: 'Como funciona', architecture: 'Arquitetura',
+        startHere: 'Primeiros passos', whatItIs: 'Introdução', runIt: 'Instalação',
+        writeOne: 'Addons', theGuide: 'Escrevendo um indicador', connectors: 'Escrevendo um conector',
+        reference: 'Referência da API',
+        examples: 'Exemplos prontos', howItWorks: 'Por dentro', architecture: 'Arquitetura',
         dataModel: 'Modelo de dados', operations: 'Operação', decisions: 'Decisões',
         openTheChart: 'Abrir o gráfico', editThisPage: 'Editar esta página',
-        footer: 'Um livro de ofertas só é gravado, nunca recuperado.',
-        source: 'Código', chart: 'Gráfico', addons: 'Addons',
+        source: 'GitHub', chart: 'Gráfico ao vivo', addons: 'Addons de exemplo',
     },
 } as const;
 
@@ -81,8 +81,8 @@ function navigationIn(language: Language) {
 
         nav: [
             { text: said.whatItIs, link: at('/what-it-is') },
+            { text: said.runIt, link: at('/running-it') },
             { text: said.writeOne, link: at('/writing-a-reading') },
-            { text: 'API', link: '/api/' },
             { text: said.howItWorks, link: '/en/architecture' },
             { text: said.openTheChart, link: 'https://giovani-freitag.github.io/fathom/' },
         ],
@@ -99,6 +99,7 @@ function navigationIn(language: Language) {
                 text: said.writeOne,
                 items: [
                     { text: said.theGuide, link: at('/writing-a-reading') },
+                    { text: said.connectors, link: at('/writing-a-connector') },
                     { text: said.reference, link: '/api/' },
                     { text: said.examples, link: 'https://github.com/giovani-freitag/fathom-example-addons' },
                 ],
@@ -122,12 +123,12 @@ function navigationIn(language: Language) {
             text: said.editThisPage,
         },
 
+        // Links and nothing else. A line of prose under every page is a line
+        // every page carries and no page needed.
         footer: {
-            message: `${said.footer} `
-                + `<a href="https://github.com/giovani-freitag/fathom">${said.source}</a> · `
-                + `<a href="https://giovani-freitag.github.io/fathom/">${said.chart}</a> · `
+            message: `<a href="https://giovani-freitag.github.io/fathom/">${said.chart}</a>`
+                + `<a href="https://github.com/giovani-freitag/fathom">${said.source}</a>`
                 + `<a href="https://github.com/giovani-freitag/fathom-example-addons">${said.addons}</a>`,
-            copyright: 'MIT',
         },
     };
 }
@@ -139,6 +140,7 @@ export default withMermaid({
     lang: 'en',
     cleanUrls: true,
     lastUpdated: true,
+
 
     head: [
         ['link', { rel: 'icon', href: `${PUBLISHED_BASE_PATH}brand.svg` }],
