@@ -149,9 +149,13 @@ describe('what else could be recorded', () => {
 
         fireEvent.click(await screen.findByRole('button', { name: 'Record another pair' }));
 
-        expect(screen.getByRole('button', { name: FIRST_VENUE, pressed: true })).toBeDefined();
+        // The rail of the card that opens over the chart, which is the same
+        // rail the contract picker has.
+        const rail = await screen.findByRole('navigation', { name: 'Record a pair' });
+        expect(rail.textContent).toContain('bybit');
+        expect(rail.textContent).toContain('gate');
         // Declared `book: null`, so there is nothing on them to capture.
-        expect(screen.queryByRole('button', { name: 'okx' })).toBeNull();
+        expect(rail.textContent).not.toContain('okx ');
         expect(screen.getByText(/publish no book/)).toBeDefined();
     });
 

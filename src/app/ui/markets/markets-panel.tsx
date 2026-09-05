@@ -1,11 +1,10 @@
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
 import {
     CONTROL_CHIP_CLASSES,
     CONTROL_CHOSEN_CLASSES,
-    CONTROL_INPUT_CLASSES,
     CONTROL_OFFERED_CLASSES,
 } from '../control-shell.ts';
+import { ListingCard, SearchField } from './listing-card.tsx';
 import { FAVOURITES_ID, findTagsHolding, type MarketPair } from '../../../shared/core/pair-tags.ts';
 import { MarketsRail, type Showing } from './markets-rail.tsx';
 import { labelOf } from '../../markets/tag-names.ts';
@@ -212,22 +211,16 @@ export function MarketsPanel({
     }, [showing, openTag, recorded, sayWhyNot, noteWhyNot, heldBy, narrowed, query, translate]);
 
     return (
-        <div className="flex min-h-0 flex-1 flex-col">
-            <header className="relative shrink-0 border-b border-hairline p-2">
-                <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-ink-500" />
-                <input
-                    autoFocus
-                    type="search"
-                    name="pairSearch"
-                    aria-label={translate('markets.searchPairs')}
-                    placeholder={translate('markets.searchPairs')}
+        <ListingCard
+            search={(
+                <SearchField
+                    hasFocus
+                    label={translate('markets.searchPairs')}
                     value={query}
-                    onChange={(event) => { setQuery(event.target.value); }}
-                    className={`${CONTROL_INPUT_CLASSES} h-9 pl-8 pr-2`}
+                    onChange={setQuery}
                 />
-            </header>
-
-            <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+            )}
+            rail={(
                 <MarketsRail
                     tags={state.tags}
                     venues={state.venues}
@@ -243,66 +236,67 @@ export function MarketsPanel({
                     broughtVenues={brought}
                     onWriteConnector={onWriteConnector}
                 />
+            )}
+            banner={(
+                <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
+                    {/* What is being looked at, which is the tag the rail is on
+                        or the venue being browsed. Filing is done on the row
+                        itself, so this says nothing about where a press would
+                        put anything. */}
+                    <span className="flex items-center gap-1.5 text-[11px] text-ink-500">
+                        {showing.kind === 'tag' && <TagSwatch colour={tagColour} className="size-2" />}
+                        {showing.kind === 'tag' ? tagLabel : showing.venue}
+                    </span>
+                    {quotes.length > 0 && (
+                        <div className="ml-auto flex flex-wrap gap-1">
+                            <QuoteChip said={translate('markets.allQuotes')} isOn={quote === ''} onPress={() => { setQuote(''); }} />
+                            {quotes.map((one) => (
+                                <QuoteChip key={one} said={one} isOn={quote === one} onPress={() => { setQuote(one); }} />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+            footing={(
+                <Footing
+                    listing={listing}
+                    shown={narrowed?.shown.length ?? 0}
+                    matched={narrowed?.matched ?? 0}
+                    isAsking={state.search?.kind === 'reading'}
+                    translate={translate}
+                />
+            )}
+        >
+            <Body
+                showing={showing}
+                listing={listing}
+                rowCount={rows.length}
+                query={query}
+                translate={translate}
+                onRetry={() => {
+                    if (showing.kind === 'venue') {
+                        void markets.readListing(showing.venue);
+                    }
+                }}
+            >
+                <PairTable
+                    rows={rows}
+                    hasVenueColumn={showing.kind === 'tag'}
+                    open={open}
+                    tags={state.tags}
+                    translate={translate}
+                    onOpen={(pair) => { onOpen(pair); onClose(); }}
+                    onKeep={(pair, tagId, isOn) => {
+                        if (isOn) {
+                            markets.tagPair(tagId, pair);
+                        } else {
+                            markets.untagPair(tagId, pair);
+                        }
+                    }}
+                />
+            </Body>
 
-                <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-                    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
-                        {/* What is being looked at, which is the tag the rail is
-                            on or the venue being browsed. Filing is done on the
-                            row itself, so this says nothing about where a press
-                            would put anything. */}
-                        <span className="flex items-center gap-1.5 text-[11px] text-ink-500">
-                            {showing.kind === 'tag' && <TagSwatch colour={tagColour} className="size-2" />}
-                            {showing.kind === 'tag' ? tagLabel : showing.venue}
-                        </span>
-                        {quotes.length > 0 && (
-                            <div className="ml-auto flex flex-wrap gap-1">
-                                <QuoteChip said={translate('markets.allQuotes')} isOn={quote === ''} onPress={() => { setQuote(''); }} />
-                                {quotes.map((one) => (
-                                    <QuoteChip key={one} said={one} isOn={quote === one} onPress={() => { setQuote(one); }} />
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    <Body
-                        showing={showing}
-                        listing={listing}
-                        rowCount={rows.length}
-                        query={query}
-                        translate={translate}
-                        onRetry={() => {
-                            if (showing.kind === 'venue') {
-                                void markets.readListing(showing.venue);
-                            }
-                        }}
-                    >
-                        <PairTable
-                            rows={rows}
-                            hasVenueColumn={showing.kind === 'tag'}
-                            open={open}
-                            tags={state.tags}
-                            translate={translate}
-                            onOpen={(pair) => { onOpen(pair); onClose(); }}
-                            onKeep={(pair, tagId, isOn) => {
-                                if (isOn) {
-                                    markets.tagPair(tagId, pair);
-                                } else {
-                                    markets.untagPair(tagId, pair);
-                                }
-                            }}
-                        />
-                    </Body>
-
-                    <Footing
-                        listing={listing}
-                        shown={narrowed?.shown.length ?? 0}
-                        matched={narrowed?.matched ?? 0}
-                        isAsking={state.search?.kind === 'reading'}
-                        translate={translate}
-                    />
-                </section>
-            </div>
-        </div>
+        </ListingCard>
     );
 }
 

@@ -3,7 +3,7 @@ import { isRecordable } from '../../markets/recordable.ts';
 import { listConnectors } from '../../../shared/venues/venue-registry.ts';
 import { PanelSection } from '../../ui/panel-section.tsx';
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { RecordingPicker } from './recording-picker.tsx';
+import { RecordingCard } from './recording-card.tsx';
 import { ToggleSwitch } from '../../ui/toggle-switch.tsx';
 import type { RecordedContract, RecordingControl, StorageBudget } from '../../../shared/core/recording-control.ts';
 import { formatFixed } from '../../core/formatting.ts';
@@ -136,50 +136,41 @@ export function RecordingPanel({ recording, onContractsChanged, translate }: Rec
                 </div>
             ))}
 
-            {isPicking
-                ? (
-                    <div className="space-y-2 rounded-lg border border-hairline/60 p-2">
-                        <div className="flex items-center justify-between gap-2">
-                            <h4 className="field-label">{translate('recording.pickerTitle')}</h4>
-                            <button
-                                type="button"
-                                onClick={() => { setIsPicking(false); }}
-                                className={`${CONTROL_CHIP_CLASSES} h-7 justify-center px-2.5 ${CONTROL_OFFERED_CLASSES}`}
-                            >
-                                {translate('recording.done')}
-                            </button>
-                        </div>
-                        <RecordingPicker
-                            venues={venues.offered}
-                            silent={venues.silent}
-                            contracts={state.contracts}
-                            isSaving={isSaving}
-                            translate={translate}
-                            onRecord={(venue, instrument, priceBucketSize) => {
-                                void apply(recording.saveContract({
-                                    venue,
-                                    instrumentSymbol: instrument.symbol,
-                                    priceBucketSize,
-                                    // The rate every contract here is recorded
-                                    // at; the panel offers no choice because
-                                    // nothing downstream reads a second one.
-                                    frameIntervalMs: 1_000,
-                                    isEnabled: true,
-                                })).then(onContractsChanged);
-                            }}
-                        />
-                        <p className="panel-note">{translate('recording.gridHelp')}</p>
-                    </div>
-                )
-                : (
-                    <button
-                        type="button"
-                        onClick={() => { setIsPicking(true); }}
-                        className={`${CONTROL_CHIP_CLASSES} h-8 w-full justify-center ${CONTROL_OFFERED_CLASSES}`}
-                    >
-                        {translate('recording.addPair')}
-                    </button>
-                )}
+            <button
+                type="button"
+                onClick={() => { setIsPicking(true); }}
+                className={`${CONTROL_CHIP_CLASSES} h-8 w-full justify-center ${CONTROL_OFFERED_CLASSES}`}
+            >
+                {translate('recording.addPair')}
+            </button>
+
+            {/* Over the chart rather than inside this rail: a venue lists a
+                thousand pairs, and the panel it would be listed in is three
+                hundred pixels wide. Built only once it is asked for, so a panel
+                nobody opened fetches nothing. */}
+            {isPicking && (
+                <RecordingCard
+                    isOpen={isPicking}
+                    onOpenChange={setIsPicking}
+                    venues={venues.offered}
+                    silent={venues.silent}
+                    contracts={state.contracts}
+                    isSaving={isSaving}
+                    translate={translate}
+                    onRecord={(venue, instrument, priceBucketSize) => {
+                        void apply(recording.saveContract({
+                            venue,
+                            instrumentSymbol: instrument.symbol,
+                            priceBucketSize,
+                            // The rate every contract here is recorded at; the panel
+                            // offers no choice because nothing downstream reads a
+                            // second one.
+                            frameIntervalMs: 1_000,
+                            isEnabled: true,
+                        })).then(onContractsChanged);
+                    }}
+                />
+            )}
 
             <BudgetChooser
                 budget={state.budget}
