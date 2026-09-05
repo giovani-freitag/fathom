@@ -2,6 +2,7 @@ import { Type } from '@sinclair/typebox';
 
 const InstrumentItemSchema = Type.Object({
     instrumentSymbol: Type.String(),
+    venue: Type.String(),
     priceBucketSize: Type.Number(),
     frameIntervalMs: Type.Integer(),
     firstFrameAtMs: Type.Union([Type.Integer(), Type.Null()]),

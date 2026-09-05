@@ -70,12 +70,12 @@ export class LiquidityArchiveService implements LiquidityArchive {
      */
     async registerInstrument(request: InstrumentRegistrationRequest): Promise<void> {
         await this.postgres.execute(
-            `INSERT INTO instrument_registry (instrument_symbol, price_bucket_size, frame_interval_ms)
-             VALUES ($1, $2, $3)
-             ON CONFLICT (instrument_symbol) DO UPDATE
+            `INSERT INTO instrument_registry (instrument_symbol, venue, price_bucket_size, frame_interval_ms)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (venue, instrument_symbol) DO UPDATE
              SET price_bucket_size = EXCLUDED.price_bucket_size,
                  frame_interval_ms = EXCLUDED.frame_interval_ms`,
-            [request.instrumentSymbol, request.priceBucketSize, request.frameIntervalMs],
+            [request.instrumentSymbol, request.venue, request.priceBucketSize, request.frameIntervalMs],
         );
     }
 

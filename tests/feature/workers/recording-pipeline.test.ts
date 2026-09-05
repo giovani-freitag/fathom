@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 import type { LiquidityArchiveService } from '../../../src/database/services/liquidity-archive-service.ts';
 import type { RecordingGap } from '../../../src/shared/core/recording-gap.ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -88,6 +89,7 @@ function buildPipeline(lastFrameMs: number | null = null): Pipeline {
         orderBook,
         archive: spy.archive,
         instrumentSymbol: 'BTCUSDT',
+        venue: FIRST_VENUE,
         priceBucketSize: 1,
         frameIntervalMs: FRAME_INTERVAL_MS,
         flushIntervalMs: 500,
@@ -460,6 +462,7 @@ describe('recording pipeline framing the far field more than once', () => {
             orderBook: pipeline.orderBook,
             archive: pipeline.spy.archive,
             instrumentSymbol: 'BTCUSDT',
+            venue: FIRST_VENUE,
             priceBucketSize: 1,
             frameIntervalMs: FRAME_INTERVAL_MS,
             flushIntervalMs: 500,

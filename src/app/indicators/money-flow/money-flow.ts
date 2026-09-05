@@ -50,7 +50,7 @@ export class MoneyFlow implements Indicator {
      * @returns One period plus the bar its first comparison needs.
      */
     resolveSources(settings: IndicatorSettings): SourceRequest {
-        return { warmupBars: readSetting(settings, PERIOD_BARS) + 1 };
+        return { warmupBars: readSetting(settings, PERIOD_BARS) + 1, needs: ['volume'] };
     }
 
     /**

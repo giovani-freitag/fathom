@@ -1,7 +1,6 @@
 import { CollectorSupervisor } from './collector-supervisor.ts';
 import { openNodeCollectorLog } from './transport/node-collector-log.ts';
 import { describeError } from './core/collector-log.ts';
-import { FIRST_VENUE } from '../shared/core/recording-control.ts';
 import { LiquidityArchiveService } from '../database/services/liquidity-archive-service.ts';
 import { PostgresChunkRowStore } from '../database/postgres/postgres-chunk-row-store.ts';
 import { ChunkArchiveService } from '../database/services/chunk-archive-service.ts';
@@ -31,7 +30,7 @@ const RECONCILE_INTERVAL_MS = 15_000;
 const STALL_TIMEOUT_MS = 120_000;
 
 const { log, close: closeLog } = await openNodeCollectorLog({ filePath: readLogFilePath() });
-const { instrumentSymbol, priceBucketSize, frameIntervalMs, ...shared } = readCollectorConfiguration();
+const { instrumentSymbol, venue, priceBucketSize, frameIntervalMs, ...shared } = readCollectorConfiguration();
 
 const postgres = new PostgresService({
     connectionString: readDatabaseUrl(),
@@ -106,7 +105,7 @@ try {
     // The environment still names one contract: it is the seed a fresh database
     // needs, so a first run records something without anyone opening the chart.
     await control.saveContract({
-        venue: FIRST_VENUE,
+        venue,
         instrumentSymbol,
         priceBucketSize,
         frameIntervalMs,

@@ -8,6 +8,7 @@ import {
 } from '../../shared/core/heatmap-source.ts';
 import type { IndexedDbService } from './indexed-db-service.ts';
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
+import { FIRST_VENUE } from '../../shared/core/recording-control.ts';
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import { ChunkArchiveService } from '../services/chunk-archive-service.ts';
@@ -50,6 +51,7 @@ export class IndexedDbHeatmapSource implements ArchiveSource {
             const coverage = await this.rows.readCoverage(record.instrumentSymbol);
             return {
                 instrumentSymbol: record.instrumentSymbol,
+                venue: record.venue ?? FIRST_VENUE,
                 priceBucketSize: record.priceBucketSize,
                 frameIntervalMs: record.frameIntervalMs,
                 firstFrameAtMs: coverage?.firstFrameAtMs ?? null,

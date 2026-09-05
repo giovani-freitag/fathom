@@ -40,6 +40,14 @@ export const MAXIMUM_ROWS_PER_WINDOW = 4_000;
 /** Instrument descriptor, with the extent of what has actually been recorded. */
 export interface InstrumentCoverage {
     readonly instrumentSymbol: string;
+    /**
+     * Which venue this was recorded from.
+     *
+     * Carried on every instrument rather than held once for the machine: the
+     * chart decides per contract which readings it can offer, and two contracts
+     * with the same symbol on different venues answer differently.
+     */
+    readonly venue: string;
     readonly priceBucketSize: number;
     readonly frameIntervalMs: number;
     readonly firstFrameAtMs: number | null;

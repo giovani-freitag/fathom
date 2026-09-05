@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import type { CollectorEvent } from '../../../../src/shared/core/collector-worker-contract.ts';
@@ -12,7 +13,7 @@ vi.mock('../../../../src/app/app.tsx', () => ({
 }));
 
 const RECORDED: InstrumentCoverage = {
-    instrumentSymbol: 'BTCUSDT', priceBucketSize: 10, frameIntervalMs: 1_000,
+    instrumentSymbol: 'BTCUSDT', venue: FIRST_VENUE, priceBucketSize: 10, frameIntervalMs: 1_000,
     firstFrameAtMs: 1_000, lastFrameAtMs: 2_000,
     lastMidPrice: 79_000,
 };

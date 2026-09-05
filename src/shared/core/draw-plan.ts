@@ -1,4 +1,5 @@
 import type { PriceBar, PriceBarWindow } from './price-bar.ts';
+import type { VenueFact } from './venue-plan.ts';
 
 /**
  * Colours an indicator may ask for, as tokens rather than CSS.
@@ -308,6 +309,17 @@ export interface SourceRequest {
      * looking one up is the same string.
      */
     readonly sessions?: Readonly<Record<string, SessionRequest>>;
+    /**
+     * Facts about the venue this reading cannot be computed without.
+     *
+     * The same sentence as the rungs above, about the venue rather than about
+     * the window: a reading that divides by the taker split is arithmetic on a
+     * figure a venue may not publish, and one that shades between resting
+     * prices is drawing a place a windowed feed never described. Declared, the
+     * reading is put out of reach on a venue that cannot answer it. Undeclared,
+     * it is offered and draws a plausible flat line over the absence.
+     */
+    readonly needs?: readonly VenueFact[];
 }
 
 /**

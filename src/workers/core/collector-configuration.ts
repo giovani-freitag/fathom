@@ -8,6 +8,8 @@ export class ConfigurationError extends Error {
 
 export interface CollectorConfiguration {
     readonly instrumentSymbol: string;
+    /** Which venue is being read, which the archive keys every row by. */
+    readonly venue: string;
     readonly priceBucketSize: number;
     readonly frameIntervalMs: number;
     readonly recordedPriceRangeRatio: number;

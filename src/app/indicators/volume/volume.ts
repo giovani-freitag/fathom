@@ -7,6 +7,8 @@ import {
     type PlotScale,
     type PlotSeries,
     readChoice,
+    type IndicatorSettings,
+    type SourceRequest,
 } from '../../../shared/core/draw-plan.ts';
 import { collectInstants, createBlankValues } from '../../../shared/core/series-math.ts';
 import type { PriceBar } from '../../../shared/core/price-bar.ts';
@@ -52,6 +54,23 @@ export class Volume implements Indicator {
      */
     readonly isSelfColoured = true;
     readonly parameters: readonly IndicatorParameter[] = [MODE];
+
+    /**
+     * What this needs of the venue, which is what the reader asked to see.
+     *
+     * Resolved per setting rather than declared once: whole, this reads a size
+     * every venue publishes; split, it reads a figure almost none do. Declared
+     * flat as needing the split, it would be out of reach on every venue but
+     * one, in the mode that works everywhere.
+     *
+     * @param settings - The parameters as the reader tuned them.
+     * @returns The facts the chosen mode is arithmetic on.
+     */
+    resolveSources(settings: IndicatorSettings): SourceRequest {
+        return {
+            needs: readChoice(settings, MODE) === 'sides' ? ['takerSplit'] : ['volume'],
+        };
+    }
 
     /**
      * Draws what traded in each bar, whole or split by side.

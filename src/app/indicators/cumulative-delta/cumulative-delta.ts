@@ -3,6 +3,7 @@ import {
     type IndicatorInput,
     type IndicatorParameter,
     type PlanDraft,
+    type SourceRequest,
     type PlotScale,
 } from '../../../shared/core/draw-plan.ts';
 import { collectInstants, createBlankValues, findContinuousSegments } from '../../../shared/core/series-math.ts';
@@ -36,6 +37,10 @@ export class CumulativeDelta implements Indicator {
      * @param input - The bars and the parameters.
      * @returns One line, running from nought at the first bar drawn.
      */
+    resolveSources(): SourceRequest {
+        return { needs: ['takerSplit'] };
+    }
+
     compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const value = createBlankValues(bars.length);

@@ -53,6 +53,7 @@ export interface LiquidityRecorderServiceConfig {
     readonly orderBook: OrderBookService;
     readonly archive: LiquidityArchive;
     readonly instrumentSymbol: string;
+    readonly venue: string;
     readonly priceBucketSize: number;
     readonly frameIntervalMs: number;
     /**
@@ -127,6 +128,7 @@ export class LiquidityRecorderService {
 
         await this.config.archive.registerInstrument({
             instrumentSymbol: this.config.instrumentSymbol,
+            venue: this.config.venue,
             priceBucketSize: this.config.priceBucketSize,
             frameIntervalMs: this.config.frameIntervalMs,
         });

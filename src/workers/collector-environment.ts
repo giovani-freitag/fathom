@@ -2,6 +2,7 @@ import {
     type CollectorConfiguration,
     ConfigurationError,
 } from './core/collector-configuration.ts';
+import { FIRST_VENUE } from '../shared/core/recording-control.ts';
 
 /** Where the dated log files go when the environment does not say. */
 const DEFAULT_LOG_FILE_PATH = 'logs/collector';
@@ -25,6 +26,7 @@ export function readCollectorConfiguration(): CollectorConfiguration {
 
     return {
         instrumentSymbol: readText('INSTRUMENT_SYMBOL', 'BTCUSDT').toUpperCase(),
+        venue: FIRST_VENUE,
         priceBucketSize: readPositiveNumber('PRICE_BUCKET_SIZE', 10),
         frameIntervalMs: readPositiveNumber('FRAME_INTERVAL_MS', 1_000),
         recordedPriceRangeRatio,

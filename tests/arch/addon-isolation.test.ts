@@ -99,10 +99,16 @@ describe('addon isolation', () => {
     });
 
     it('keeps every registry at the top, where the way in is one list', () => {
-        const top = readdirSync(join(ROOT, ADDONS))
-            .filter((entry) => entry.endsWith('.ts') || entry.endsWith('.tsx'));
+        // A file at the top that is not one of the registries has to reach no
+        // layer at all: the guarantee is that a layer is named in four places,
+        // not that nothing generic may sit beside them.
+        const strays = readdirSync(join(ROOT, ADDONS))
+            .filter((entry) => entry.endsWith('.ts') || entry.endsWith('.tsx'))
+            .filter((entry) => !REGISTRIES.has(entry))
+            .filter((entry) => reachesIntoAnAddon(join(ROOT, ADDONS, entry)));
 
-        expect(new Set(top)).toEqual(REGISTRIES);
+        expect(strays).toEqual([]);
+        expect([...REGISTRIES].every((name) => readdirSync(join(ROOT, ADDONS)).includes(name))).toBe(true);
     });
 });
 

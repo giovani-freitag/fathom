@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../src/shared/core/recording-control.ts';
 import { buildFrame } from './chart-services.ts';
 import { ChunkArchiveService } from '../../src/database/services/chunk-archive-service.ts';
 import { ChunkTileRecorder } from '../../src/database/services/chunk-tile-recorder.ts';
@@ -6,7 +7,7 @@ import type { IndexedDbService } from '../../src/database/browser/indexed-db-ser
 import type { LiquidityFrame } from '../../src/shared/core/liquidity-frame.ts';
 
 /** The grid the browser records on, matching what the worker is configured with. */
-export const RECORDING_GRID = { priceBucketSize: 10, frameIntervalMs: 1_000 };
+export const RECORDING_GRID = { venue: FIRST_VENUE, priceBucketSize: 10, frameIntervalMs: 1_000 };
 
 /** What the collector records the whole book with. */
 const PRICE_RANGE_RATIO = 1;

@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 import type { InstrumentCoverage } from '../../../src/shared/core/api-contract.ts';
 import type { PriceBar } from '../../../src/shared/core/price-bar.ts';
 import { type ChartDataset, EMPTY_DATASET } from '../../../src/app/core/chart-dataset.ts';
@@ -24,6 +25,7 @@ const FLAT_BAR = {
 
 const INSTRUMENT: InstrumentCoverage = {
     instrumentSymbol: 'BTCUSDT',
+    venue: FIRST_VENUE,
     priceBucketSize: 10,
     frameIntervalMs: 1_000,
     firstFrameAtMs: 500_000,

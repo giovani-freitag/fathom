@@ -20,6 +20,7 @@ export const DEMO_CATALOGUE = [
 /** What a visitor sees unless the link says otherwise. */
 const DEMO_DEFAULTS = {
     instrumentSymbol: 'BTCUSDT',
+    venue: FIRST_VENUE,
     priceBucketSize: 10,
     frameIntervalMs: 1_000,
     recordedPriceRangeRatio: 0.02,

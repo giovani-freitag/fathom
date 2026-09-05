@@ -14,7 +14,7 @@ export interface CollectorSupervisorConfig {
     readonly openSocket: MarketDataSocketFactory;
     readonly log: CollectorLog;
     /** Recording settings every contract shares; the grid comes from the registry. */
-    readonly shared: Omit<CollectorConfiguration, 'instrumentSymbol' | 'priceBucketSize' | 'frameIntervalMs'>;
+    readonly shared: Omit<CollectorConfiguration, 'instrumentSymbol' | 'venue' | 'priceBucketSize' | 'frameIntervalMs'>;
     readonly framesPerFlush: number;
     /**
      * Builds the wide recording for one contract, when there is to be one.
@@ -196,6 +196,7 @@ export class CollectorSupervisor {
                 configuration: {
                     ...this.config.shared,
                     instrumentSymbol: instrument.instrumentSymbol,
+                    venue: instrument.venue,
                     priceBucketSize: instrument.priceBucketSize,
                     frameIntervalMs: instrument.frameIntervalMs,
                 },

@@ -38,6 +38,7 @@ describe('GET /api/instruments', () => {
     it('answers with every recorded contract and its extent', async () => {
         harness.query.listInstruments.mockResolvedValue([{
             instrumentSymbol: 'BTCUSDT',
+            venue: FIRST_VENUE,
             priceBucketSize: 10,
             frameIntervalMs: 1_000,
             firstFrameAtMs: FROM_MS,
@@ -49,6 +50,7 @@ describe('GET /api/instruments', () => {
 
         expect(bodyOf<{ instruments: unknown[] }>(response).instruments[0]).toMatchObject({
             instrumentSymbol: 'BTCUSDT',
+            venue: FIRST_VENUE,
             priceBucketSize: 10,
         });
     });

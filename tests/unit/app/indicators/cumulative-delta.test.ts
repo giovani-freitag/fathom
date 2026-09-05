@@ -30,7 +30,10 @@ describe('CumulativeDelta', () => {
     });
 
     it('needs nothing before the window, which is why it can start there', () => {
-        expect((CUMULATIVE_DELTA as { resolveSources?: unknown }).resolveSources).toBeUndefined();
+        const asked = CUMULATIVE_DELTA.resolveSources();
+
+        expect(asked.warmupBars).toBeUndefined();
+        expect(asked.sessions).toBeUndefined();
     });
 
     it('marks the line the aggression changes hands on', () => {

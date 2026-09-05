@@ -66,7 +66,10 @@ describe('Volume', () => {
     it('needs no history behind the window, because it carries nothing between bars', () => {
         // None rather than one: the fetch floors at one on its own, and a bar it
         // does not read must not decide whether it converged.
-        expect((VOLUME as { resolveSources?: unknown }).resolveSources).toBeUndefined();
+        const asked = VOLUME.resolveSources({});
+
+        expect(asked.warmupBars).toBeUndefined();
+        expect(asked.sessions).toBeUndefined();
         expect(compute('total').hasConverged).toBe(true);
     });
 });

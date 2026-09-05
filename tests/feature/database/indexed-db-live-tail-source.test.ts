@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { IDBFactory } from 'fake-indexeddb';
@@ -6,7 +7,7 @@ import { IndexedDbChunkRowStore } from '../../../src/database/browser/indexed-db
 import { IndexedDbLiveTailSource } from '../../../src/database/browser/indexed-db-live-tail-source.ts';
 import { IndexedDbService } from '../../../src/database/browser/indexed-db-service.ts';
 
-const GRID = { priceBucketSize: 10, frameIntervalMs: 1_000 };
+const GRID = { venue: FIRST_VENUE, priceBucketSize: 10, frameIntervalMs: 1_000 };
 const FIRST_MS = 1_000_000;
 
 function buildCluster(executedAtMs: number, priceBucketIndex = 7_900) {

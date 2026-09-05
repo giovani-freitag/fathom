@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../src/shared/core/recording-control.ts';
 import { EMPTY_BAR_WINDOW } from '../../src/shared/core/price-bar.ts';
 import type { PriceBarWindow } from '../../src/shared/core/price-bar.ts';
 import type { InstrumentCoverage } from '../../src/shared/core/api-contract.ts';
@@ -10,6 +11,7 @@ import { vi } from 'vitest';
 
 export const INSTRUMENT: InstrumentCoverage = {
     instrumentSymbol: 'BTCUSDT',
+    venue: FIRST_VENUE,
     priceBucketSize: 10,
     frameIntervalMs: 1_000,
     firstFrameAtMs: 1_000_000,

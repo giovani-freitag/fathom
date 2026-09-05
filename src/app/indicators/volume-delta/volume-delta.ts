@@ -3,6 +3,7 @@ import {
     type IndicatorInput,
     type IndicatorParameter,
     type PlanDraft,
+    type SourceRequest,
     type PlotScale,
 } from '../../../shared/core/draw-plan.ts';
 import { collectInstants, createBlankValues } from '../../../shared/core/series-math.ts';
@@ -39,6 +40,10 @@ export class VolumeDelta implements Indicator {
      * @param input - The bars and the parameters.
      * @returns One histogram, growing either side of nought.
      */
+    resolveSources(): SourceRequest {
+        return { needs: ['takerSplit'] };
+    }
+
     compute(input: IndicatorInput): PlanDraft {
         const bars = input.bars.bars;
         const value = createBlankValues(bars.length);

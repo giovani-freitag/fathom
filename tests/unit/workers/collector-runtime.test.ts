@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 import { CollectorRuntime } from '../../../src/workers/collector-runtime.ts';
 import { describe, expect, it, vi } from 'vitest';
 import type { LiquidityArchive } from '../../../src/database/services/liquidity-archive.ts';
@@ -27,6 +28,7 @@ function buildRuntime(archive: LiquidityArchive): CollectorRuntime {
     return new CollectorRuntime({
         configuration: {
             instrumentSymbol: 'BTCUSDT',
+            venue: FIRST_VENUE,
             priceBucketSize: 10,
             frameIntervalMs: 1_000,
             recordedPriceRangeRatio: 0.02,

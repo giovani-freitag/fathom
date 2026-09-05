@@ -94,6 +94,7 @@ export class CollectorRuntime {
             orderBook: this.orderBook,
             archive: config.archive,
             instrumentSymbol: configuration.instrumentSymbol,
+            venue: configuration.venue,
             priceBucketSize: configuration.priceBucketSize,
             frameIntervalMs: configuration.frameIntervalMs,
             flushIntervalMs: WRITE_SETTINGS.flushIntervalMs,

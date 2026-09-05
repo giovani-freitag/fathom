@@ -49,7 +49,7 @@ export class VolumeWeightedAverage implements Indicator {
      * @returns One, the smallest a window can be asked for.
      */
     resolveSources(): SourceRequest {
-        return { warmupBars: 1 };
+        return { warmupBars: 1, needs: ['volume'] };
     }
 
     /**

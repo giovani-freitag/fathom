@@ -9,6 +9,8 @@ export interface TradeClusterAppendRequest {
 
 export interface InstrumentRegistrationRequest {
     readonly instrumentSymbol: string;
+    /** Which venue the collector is reading, which is half the row's key. */
+    readonly venue: string;
     readonly priceBucketSize: number;
     readonly frameIntervalMs: number;
 }

@@ -88,7 +88,10 @@ describe('VolumeDelta', () => {
     });
 
     it('needs nothing before the window, each bar being answered from itself', () => {
-        expect((VOLUME_DELTA as { resolveSources?: unknown }).resolveSources).toBeUndefined();
+        const asked = VOLUME_DELTA.resolveSources();
+
+        expect(asked.warmupBars).toBeUndefined();
+        expect(asked.sessions).toBeUndefined();
     });
 
     it('marks the line the aggression changes hands on', () => {

@@ -37,6 +37,14 @@ export interface GapRecord {
 
 export interface InstrumentRecord {
     readonly instrumentSymbol: string;
+    /**
+     * Which venue this was recorded from.
+     *
+     * Optional on the way in, because a page that recorded under an older build
+     * has rows written before the field existed, and those rows came from the
+     * one venue the build could reach.
+     */
+    readonly venue?: string;
     readonly priceBucketSize: number;
     readonly frameIntervalMs: number;
     readonly registeredAtMs: number;

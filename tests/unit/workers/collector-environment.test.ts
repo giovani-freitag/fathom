@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     readCollectorConfiguration,
@@ -30,6 +31,7 @@ describe('readCollectorConfiguration', () => {
 
         expect(configuration).toEqual({
             instrumentSymbol: 'BTCUSDT',
+            venue: FIRST_VENUE,
             priceBucketSize: 10,
             frameIntervalMs: 1_000,
             recordedPriceRangeRatio: 0.02,

@@ -63,11 +63,12 @@ export class LiquidityQueryService {
     async listInstruments(): Promise<InstrumentCoverage[]> {
         const rows = await this.postgres.selectRows<{
             instrument_symbol: string;
+            venue: string;
             price_bucket_size: number;
             frame_interval_ms: number;
         }>(`
-            SELECT instrument_symbol, price_bucket_size, frame_interval_ms
-            FROM instrument_registry ORDER BY instrument_symbol`);
+            SELECT instrument_symbol, venue, price_bucket_size, frame_interval_ms
+            FROM instrument_registry ORDER BY venue, instrument_symbol`);
 
         // Coverage out of the archive the chart reads, not out of a second
         // store kept beside it. A registry entry with nothing recorded against
@@ -81,6 +82,7 @@ export class LiquidityQueryService {
             const coverage = covered[index] ?? null;
             return {
                 instrumentSymbol: row.instrument_symbol,
+                venue: row.venue,
                 priceBucketSize: row.price_bucket_size,
                 frameIntervalMs: row.frame_interval_ms,
                 firstFrameAtMs: coverage?.firstFrameAtMs ?? null,

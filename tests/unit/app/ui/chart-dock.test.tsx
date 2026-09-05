@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 import { describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { ChartDock, type ChartDockProps } from '../../../../src/app/ui/chart-dock.tsx';
@@ -38,6 +39,7 @@ function buildControls(overrides: Partial<DrawingControls>, pressed: Pressed): D
 
 const INSTRUMENT = {
     instrumentSymbol: 'BTCUSDT',
+    venue: FIRST_VENUE,
     priceBucketSize: 10,
     frameIntervalMs: 1_000,
     firstFrameAtMs: 1_000,

@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildFrame } from '../../mocks/chart-services.ts';
@@ -11,7 +12,7 @@ import { recordInstants } from '../../mocks/browser-recording.ts';
 import { IndexedDbChunkRowStore } from '../../../src/database/browser/indexed-db-chunk-row-store.ts';
 import type { LiquidityFrame, LiquidityFrameWindow } from '../../../src/shared/core/liquidity-frame.ts';
 
-const GRID = { priceBucketSize: 10, frameIntervalMs: 1_000 };
+const GRID = { venue: FIRST_VENUE, priceBucketSize: 10, frameIntervalMs: 1_000 };
 const FIRST_MS = 1_000_000;
 
 describe('IndexedDbHeatmapSource', () => {
