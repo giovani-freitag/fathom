@@ -1,3 +1,5 @@
+import { useVenue } from '../react/use-venue.ts';
+import type { WatchedPair } from '../../shared/core/watch-lists.ts';
 import { RefreshCw, TriangleAlert } from 'lucide-react';
 import { type ReactElement, lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useKernel } from '../react/kernel-context.ts';
@@ -70,6 +72,7 @@ export function HeatmapPage(): ReactElement {
     const failureKey = useChartSlice(readFailureKey);
     const instruments = useChartSlice(readInstruments);
     const instrumentSymbol = useChartSlice(readInstrumentSymbol);
+    const openVenue = useVenue();
     const addedIndicators = useChartSlice(readAddedIndicators);
     const barIntervalMs = useChartSlice(readBarIntervalMs);
     const barWindowIntervalMs = useChartSlice(readBarWindowIntervalMs);
@@ -100,6 +103,10 @@ export function HeatmapPage(): ReactElement {
 
     const handleInstrumentSelect = useCallback((symbol: string) => {
         kernel.chart.selectInstrument(symbol);
+    }, [kernel]);
+
+    const handlePairOpen = useCallback((pair: WatchedPair) => {
+        kernel.chart.selectInstrument(pair.symbol);
     }, [kernel]);
 
     const handleIntervalSelect = useCallback((intervalMs: BarIntervalMs | null) => {
@@ -134,6 +141,10 @@ export function HeatmapPage(): ReactElement {
         instruments,
         instrumentSymbol,
         onInstrumentSelect: handleInstrumentSelect,
+        openPair: openVenue === '' || instrumentSymbol === null
+            ? null
+            : { venue: openVenue, symbol: instrumentSymbol },
+        onPairOpen: handlePairOpen,
         time: {
             visibleSpanMs,
             onSpanSelect: handleSpanSelect,

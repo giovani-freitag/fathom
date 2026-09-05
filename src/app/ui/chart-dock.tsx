@@ -1,3 +1,5 @@
+import { MarketsPanel } from './markets/markets-panel.tsx';
+import type { WatchedPair } from '../../shared/core/watch-lists.ts';
 import { Code2,
     Coins,
     Layers,
@@ -29,7 +31,6 @@ import type { IndicatorControls } from '../react/use-indicators.ts';
 import { LayerPanel } from './indicators/layer-panel.tsx';
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
 import { BarIntervalControl, SpanControl } from './time-controls.tsx';
-import { ChoiceGrid } from './choice-grid.tsx';
 import { PanelSection } from './panel-section.tsx';
 import type { TranslationKey } from '../i18n/dictionaries/en.ts';
 import { useTranslate } from '../react/use-appearance.ts';
@@ -61,6 +62,10 @@ export interface ChartDockProps {
     readonly instruments: readonly InstrumentCoverage[];
     readonly instrumentSymbol: string | null;
     readonly onInstrumentSelect: (instrumentSymbol: string) => void;
+    /** The pair on the chart, venue included, or null before one is chosen. */
+    readonly openPair: WatchedPair | null;
+    /** Puts a pair from a list on the chart. */
+    readonly onPairOpen: (pair: WatchedPair) => void;
     readonly time: TimeControls;
     /**
      * Opens the editor, where this build offers one.
@@ -107,7 +112,7 @@ export function ChartDock(props: ChartDockProps): ReactElement {
                 {hasChartControls && (
                     <>
                         <DockPopover
-                            label={translate('instrument.label')}
+                            label={translate('markets.title')}
                             trigger={(
                                 <span className="flex items-center gap-1 px-1 text-xs font-semibold">
                                     <Coins size={ICON_SIZE_PX} />
@@ -117,18 +122,13 @@ export function ChartDock(props: ChartDockProps): ReactElement {
                         >
                             {/* No title: the button it opened from is the title, and a panel
                         that repeats it is a line the reader has to read twice. */}
-                            <div className="w-56">
-                                <ChoiceGrid
-                                    isStacked
-                                    label={translate('instrument.label')}
-                                    value={props.instrumentSymbol ?? ''}
-                                    onChoose={props.onInstrumentSelect}
-                                    choices={props.instruments.map((instrument) => ({
-                                        value: instrument.instrumentSymbol,
-                                        label: instrument.instrumentSymbol,
-                                    }))}
-                                />
-                            </div>
+                            <MarketsPanel
+                                open={props.openPair}
+                                onOpen={props.onPairOpen}
+                                {...props.onWriteAReading === undefined
+                                    ? {}
+                                    : { onWriteConnector: () => { props.onWriteAReading?.(); } }}
+                            />
                         </DockPopover>
 
                         <DockPopover

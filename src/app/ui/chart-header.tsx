@@ -1,12 +1,12 @@
 import { BarIntervalControl, SpanControl } from './time-controls.tsx';
 import { type ChartDockProps, DockButton, Divider, DrawingTools } from './chart-dock.tsx';
 import { ADDON_EDITOR_ID } from './panel-ids.ts';
-import { Code2, Layers } from 'lucide-react';
+import { Code2, Coins, Layers } from 'lucide-react';
 import type { ReactElement, ReactNode } from 'react';
 import { CONTROL_BAR_CLASSES } from './control-shell.ts';
 import { DockPopover } from './dock-popover.tsx';
 import { LayerPanel } from './indicators/layer-panel.tsx';
-import { Select } from './select.tsx';
+import { MarketsPanel } from './markets/markets-panel.tsx';
 import { useTranslate } from '../react/use-appearance.ts';
 
 const ICON_SIZE_PX = 18;
@@ -45,15 +45,26 @@ export function ChartHeader(props: ChartHeaderProps): ReactElement {
 
     return (
         <header className={`${CONTROL_BAR_CLASSES} border-b border-hairline`}>
-            <Select
-                value={props.instrumentSymbol ?? ''}
-                label={translate('instrument.label')}
-                onSelect={props.onInstrumentSelect}
-                choices={props.instruments.map((instrument) => ({
-                    value: instrument.instrumentSymbol,
-                    label: instrument.instrumentSymbol,
-                }))}
-            />
+            {/* The same panel the dock opens, rather than a dropdown of the
+                recorded contracts: a reader keeping a pair and a reader opening
+                one are asking the same question, and answering it in two places
+                meant finding out that they were different places. */}
+            <DockPopover
+                side="bottom"
+                label={translate('markets.title')}
+                trigger={(
+                    <span className="flex items-center gap-1 px-1 text-xs font-semibold">
+                        <Coins size={ICON_SIZE_PX} />
+                        {props.instrumentSymbol ?? ''}
+                    </span>
+                )}
+            >
+                <MarketsPanel
+                    open={props.openPair}
+                    onOpen={props.onPairOpen}
+                    onWriteConnector={() => { props.onWriteAReading(); }}
+                />
+            </DockPopover>
 
             <BarIntervalControl
                 isCollapsed

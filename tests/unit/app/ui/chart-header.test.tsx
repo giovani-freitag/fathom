@@ -45,6 +45,8 @@ function renderHeader(hasRoomForPresets: boolean): void {
                 instruments={[INSTRUMENT]}
                 instrumentSymbol="BTCUSDT"
                 onInstrumentSelect={() => undefined}
+                openPair={null}
+                onPairOpen={() => undefined}
                 onWriteAReading={() => undefined}
                 isWritingAReading={false}
                 settings={<button type="button">Settings</button>}

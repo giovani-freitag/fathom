@@ -11,6 +11,9 @@ import { KernelProvider } from '../../src/app/react/kernel-provider.tsx';
 import { ObservableStore } from '../../src/app/core/observable-store.ts';
 import type { ServiceContainer } from '../../src/app/core/service-container.ts';
 import { buildRun, buildWindow } from './price-bars.ts';
+import { MarketsController } from '../../src/app/core/markets-controller.ts';
+import { PreferencesService } from '../../src/app/services/preferences-service.ts';
+import { VenueGateway } from '../../src/shared/venues/venue-gateway.ts';
 
 // The real shape rather than a copy of it: a copy drifts the moment the
 // interface gains a preference, and a mock that drifts renders the control the
@@ -35,6 +38,27 @@ function buildShelf(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
         setItem: (key, value) => { held.set(key, value); },
         removeItem: (key) => { held.delete(key); },
     };
+}
+
+/**
+ * What a venue answers a test that asks it what it trades.
+ *
+ * Two pairs, shaped the way the shipped venue shapes its listing, so a panel
+ * test drives the real connector rather than a stand-in for it.
+ */
+function readListings(): Promise<Response> {
+    return Promise.resolve(new Response(JSON.stringify({
+        symbols: [
+            {
+                symbol: 'BTCUSDT', baseAsset: 'BTC', quoteAsset: 'USDT', status: 'TRADING',
+                filters: [{ filterType: 'PRICE_FILTER', tickSize: '0.1' }],
+            },
+            {
+                symbol: 'NANOUSDT', baseAsset: 'NANO', quoteAsset: 'USDT', status: 'TRADING',
+                filters: [{ filterType: 'PRICE_FILTER', tickSize: '0.0001' }],
+            },
+        ],
+    })));
 }
 
 /** Enough bars that every shipped indicator has something to say. */
@@ -90,6 +114,13 @@ export function createIndicatorKernel(added: readonly AddedIndicator[] = []): In
         // The real service over storage a test owns, so what a reading is filed
         // under is decided by the code the application runs.
         addons: new AddonLibraryService({ storage: buildShelf(), now: () => (shelfClock += 1) }),
+        // The real controller over storage a test owns, for the same reason:
+        // what a list holds is decided by the code the application runs.
+        markets: new MarketsController({
+            preferences: new PreferencesService({ storage: buildShelf() as Storage }),
+            gateway: new VenueGateway({ fetch: readListings }),
+            readNowMs: () => (shelfClock += 1),
+        }),
         chart: {
             store,
             refreshInstruments: () => Promise.resolve(),

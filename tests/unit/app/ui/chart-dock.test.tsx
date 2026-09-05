@@ -71,6 +71,8 @@ function renderDock(overrides: Partial<DrawingControls> = {}): Pressed {
         instruments: [INSTRUMENT],
         instrumentSymbol: 'BTCUSDT',
         onInstrumentSelect: () => undefined,
+        openPair: null,
+        onPairOpen: () => undefined,
         time: {
             visibleSpanMs: 900_000,
             onSpanSelect: () => undefined,
@@ -99,7 +101,7 @@ describe('ChartDock', () => {
         renderDock();
 
         expect([
-            control('instrument.label'),
+            control('markets.title'),
             control('dock.time'),
             control('indicators.onTheChart'),
         ]).toHaveLength(3);
@@ -110,7 +112,7 @@ describe('ChartDock', () => {
         // that carries nothing.
         renderDock();
 
-        expect(control('instrument.label').textContent).toContain('BTC');
+        expect(control('markets.title').textContent).toContain('BTC');
     });
 
     it('carries a way into what is already on the chart', () => {
