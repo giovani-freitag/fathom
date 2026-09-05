@@ -201,58 +201,73 @@ export class CollectorSupervisor {
         this.startedAtMs.delete(symbol);
     }
 
+    /**
+     * Brings up every enabled contract that is not already recording.
+     *
+     * Several at a time, because bringing one up is a socket opened and a
+     * ladder fetched: in a queue, the fourth contract starts recording three
+     * handshakes after the first, and every one of those seconds is a second
+     * of book nothing wrote down.
+     */
     private async startEnabled(registered: readonly RecordedContract[]): Promise<void> {
-        for (const instrument of registered) {
+        const wanted = registered.filter((instrument) => instrument.isEnabled
+            && !this.running.has(instrument.instrumentSymbol));
+
+        await pMap(wanted, async (instrument) => { await this.startOne(instrument); }, {
+            concurrency: TEARDOWNS_AT_ONCE,
+        });
+    }
+
+    /**
+     * Brings up one contract, or says why it could not be brought up.
+     */
+    private async startOne(instrument: RecordedContract): Promise<void> {
+        if (this.hasShutdownBegun()) {
+            return;
+        }
+
+        const runtime = new CollectorRuntime({
+            configuration: {
+                ...this.config.shared,
+                instrumentSymbol: instrument.instrumentSymbol,
+                venue: instrument.venue,
+                priceBucketSize: instrument.priceBucketSize,
+                frameIntervalMs: instrument.frameIntervalMs,
+            },
+            openSocket: this.config.openSocket,
+            archive: this.config.archive,
+            framesPerFlush: this.config.framesPerFlush,
+            ...this.config.buildWideRecordings === undefined
+                ? {}
+                : {
+                    wideRecordings: this.config.buildWideRecordings(
+                        instrument.instrumentSymbol, instrument.priceBucketSize,
+                    ),
+                },
+            // Bound to the contract, so every line a runtime writes says which
+            // one wrote it. Four collectors share one log.
+            log: this.config.log.child({ instrumentSymbol: instrument.instrumentSymbol }),
+        });
+
+        try {
+            await runtime.start();
             if (this.hasShutdownBegun()) {
+                // Stopped while this one was still coming up. Nothing drains the
+                // running collectors again, so it lets go here or it holds its
+                // socket and its write buffer for good.
+                await runtime.stop();
                 return;
             }
-            if (!instrument.isEnabled || this.running.has(instrument.instrumentSymbol)) {
-                continue;
-            }
-
-            const runtime = new CollectorRuntime({
-                configuration: {
-                    ...this.config.shared,
-                    instrumentSymbol: instrument.instrumentSymbol,
-                    venue: instrument.venue,
-                    priceBucketSize: instrument.priceBucketSize,
-                    frameIntervalMs: instrument.frameIntervalMs,
-                },
-                openSocket: this.config.openSocket,
-                archive: this.config.archive,
-                framesPerFlush: this.config.framesPerFlush,
-                ...this.config.buildWideRecordings === undefined
-                    ? {}
-                    : {
-                        wideRecordings: this.config.buildWideRecordings(
-                            instrument.instrumentSymbol, instrument.priceBucketSize,
-                        ),
-                    },
-                // Bound to the contract, so every line a runtime writes says
-                // which one wrote it. Four collectors share one log.
-                log: this.config.log.child({ instrumentSymbol: instrument.instrumentSymbol }),
+            this.running.set(instrument.instrumentSymbol, runtime);
+            this.startedAtMs.set(instrument.instrumentSymbol, this.config.readNowMs());
+        } catch (error) {
+            // One venue refusing must not stop the others: the next reconcile
+            // tries again, and every other contract keeps writing.
+            this.config.log.warning('Could not start a collector', {
+                instrumentSymbol: instrument.instrumentSymbol,
+                reason: describeError(error),
             });
-
-            try {
-                await runtime.start();
-                if (this.hasShutdownBegun()) {
-                    // Stopped while this one was still coming up. Nothing drains
-                    // the running collectors again, so it lets go here or it
-                    // holds its socket and its write buffer for good.
-                    await runtime.stop();
-                    return;
-                }
-                this.running.set(instrument.instrumentSymbol, runtime);
-                this.startedAtMs.set(instrument.instrumentSymbol, this.config.readNowMs());
-            } catch (error) {
-                // One venue refusing must not stop the others: the next
-                // reconcile tries again, and every other contract keeps writing.
-                this.config.log.warning('Could not start a collector', {
-                    instrumentSymbol: instrument.instrumentSymbol,
-                    reason: describeError(error),
-                });
-                await runtime.stop();
-            }
+            await runtime.stop();
         }
     }
 

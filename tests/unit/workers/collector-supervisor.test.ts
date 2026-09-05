@@ -33,10 +33,10 @@ interface Harness {
     setContracts: (contracts: readonly RecordedContract[]) => void;
 }
 
-function buildHarness(contracts: readonly RecordedContract[]): Harness {
+function buildHarness(contracts: readonly RecordedContract[], given?: LiquidityArchive): Harness {
     const log = createMockCollectorLog();
     const listContracts = vi.fn().mockResolvedValue(contracts);
-    const archive = buildArchive();
+    const archive = given ?? buildArchive();
     const pruneToBudget = vi.fn().mockResolvedValue(0);
     let nowMs = 1_000_000;
 
@@ -275,5 +275,32 @@ describe('CollectorSupervisor reconciling', () => {
         await harness.supervisor.reconcileNow();
 
         expect(harness.supervisor.recording).toEqual(['BTCUSDT']);
+    });
+});
+
+describe('bringing several contracts up', () => {
+    it('opens them together rather than one handshake after another', async () => {
+        // Every second a contract spends waiting behind another one's handshake
+        // is a second of book that nothing wrote down, and it cannot be
+        // recorded again.
+        let inFlight = 0;
+        let mostAtOnce = 0;
+        const archive = buildArchive();
+        archive.registerInstrument = vi.fn(async () => {
+            inFlight += 1;
+            mostAtOnce = Math.max(mostAtOnce, inFlight);
+            await new Promise((wake) => { setTimeout(wake, 20); });
+            inFlight -= 1;
+        });
+
+        const harness = buildHarness(
+            ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT'].map((symbol) => buildContract(symbol)),
+            archive,
+        );
+        await harness.supervisor.start();
+
+        expect(harness.supervisor.recording).toHaveLength(4);
+        expect(mostAtOnce).toBeGreaterThan(1);
+        await harness.supervisor.stop();
     });
 });
