@@ -1,16 +1,14 @@
 import {
     CONTROL_CHIP_CLASSES,
     CONTROL_OFFERED_CLASSES,
-    FLOATING_CARD_CLASSES,
-    ROOMY_CARD_CLASSES,
 } from '../../ui/control-shell.ts';
 import { ConfirmDialog } from '../../ui/confirm-dialog.tsx';
-import { Popover } from 'radix-ui';
 import { Trash2 } from 'lucide-react';
 import { type GridChoice, offerGrids } from '../../markets/recordable.ts';
 import { ListingCard, SearchField } from '../../ui/markets/listing-card.tsx';
+import { ListingRefusal } from '../../ui/markets/listing-refusal.tsx';
 import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
-import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactElement, useEffect, useMemo, useState } from 'react';
 import { PairIdentity } from '../../ui/markets/pair-identity.tsx';
 import { RailHeading, RailRow } from '../../ui/markets/rail-row.tsx';
 import type { RecordedContract } from '../../../shared/core/recording-control.ts';
@@ -20,11 +18,7 @@ import type { Translate } from '../../i18n/translator.ts';
 import { useMarkets } from '../../react/use-markets.ts';
 import type { VenueInstrument } from '../../../shared/core/venue-connector.ts';
 
-export interface RecordingCardProps {
-    readonly isOpen: boolean;
-    readonly onOpenChange: (isOpen: boolean) => void;
-    /** What opens it, which is a line of the panel it is opened from. */
-    readonly trigger: ReactNode;
+export interface RecordingListingProps {
     /** The venues that publish a book, which are the only ones worth offering. */
     readonly venues: readonly string[];
     /** The venues that publish none, named so the absence is not a mystery. */
@@ -42,45 +36,18 @@ export interface RecordingCardProps {
 /**
  * The pairs a venue offers to record, read the way every listing here is read.
  *
- * The same card as the contract picker rather than a list squeezed into the
+ * The same shape as the contract picker rather than a list squeezed into the
  * panel beside the chart: a venue lists a thousand pairs, and a rail three
  * hundred pixels wide showing eight of them at a time is a scroll bar inside a
  * scroll bar. Search along the top, venues down the side, rows filling the rest.
  *
- * Opened from the line that asks for it rather than over the middle of the
- * screen. Every other question on this interface is answered in a card hanging
- * off the control that raised it, and a modal is the one shape that takes the
- * chart away while it is open.
+ * A step inside the panel that asked for it, not a card floating beside it. A
+ * popover hung off a control that is itself inside a popover is placed against
+ * its trigger and sized against the window, and on a phone those two answers
+ * differ by more than the screen is wide — the card rendered off the edge with
+ * every switch and every delete button past it, unreachable.
  */
-export function RecordingCard(props: RecordingCardProps): ReactElement {
-    return (
-        <Popover.Root open={props.isOpen} onOpenChange={props.onOpenChange}>
-            <Popover.Trigger asChild>{props.trigger}</Popover.Trigger>
-            <Popover.Portal>
-                <Popover.Content
-                    // Beside the panel it was opened from, which on a narrow
-                    // window is wherever Radix can fit it instead.
-                    side="left"
-                    align="start"
-                    sideOffset={10}
-                    collisionPadding={12}
-                    aria-label={props.translate('recording.pickerTitle')}
-                    className={`${FLOATING_CARD_CLASSES} z-50 ${ROOMY_CARD_CLASSES}`}
-                >
-                    {/* Built by the card being open rather than by a flag, so a
-                        panel nobody opened reads no listing and asks the store
-                        for nothing. */}
-                    <RecordingListing {...props} />
-                </Popover.Content>
-            </Popover.Portal>
-        </Popover.Root>
-    );
-}
-
-/**
- * The listing itself, which only exists while the card is open.
- */
-function RecordingListing(props: RecordingCardProps): ReactElement {
+export function RecordingListing(props: RecordingListingProps): ReactElement {
     const { state, markets } = useMarkets();
     const [venue, setVenue] = useState(props.venues[0] ?? '');
     const [query, setQuery] = useState('');
@@ -118,9 +85,26 @@ function RecordingListing(props: RecordingCardProps): ReactElement {
             instrument,
             contract: held.get(instrument.symbol) ?? null,
         }));
+        const listedHere = new Set(rows.map((row) => row.instrument.symbol));
 
+        // A contract is shown because it is being recorded, not because it
+        // happened to fall inside the rows the listing was cut to. A venue
+        // lists a thousand pairs and the listing stops at a couple of hundred,
+        // so a pair recorded from the far end of the alphabet was reachable
+        // only by searching for a name the reader had no way to know — and a
+        // recording nobody can see is a recording nobody can stop.
+        const unlisted = [...held.values()]
+            .filter((contract) => !listedHere.has(contract.instrumentSymbol))
+            .map((contract) => ({ instrument: standInFor(contract), contract }));
+
+        const kept = [...rows.filter((row) => row.contract !== null), ...unlisted];
+
+        // Split rather than one group headed "Recording", which said the word
+        // over rows whose switch was off. The switch is 20 pixels tall and it
+        // was the only thing telling them apart.
         return {
-            recording: rows.filter((row) => row.contract !== null),
+            recording: kept.filter((row) => row.contract?.isEnabled === true),
+            paused: kept.filter((row) => row.contract?.isEnabled === false),
             offered: rows.filter((row) => row.contract === null),
         };
     }, [narrowed, props.contracts, venue]);
@@ -194,76 +178,68 @@ function RecordingListing(props: RecordingCardProps): ReactElement {
                 )
                 : null}
         >
-            {narrowed === null
+            {listing?.kind === 'refused'
                 ? (
-                    <p className="min-h-0 flex-1 px-3 py-4 text-xs leading-snug text-ink-500">
-                        {props.translate('markets.reading')}
-                    </p>
+                    // A venue that refused and a venue still answering read the
+                    // same from here, and saying "asking" about a request that
+                    // already failed and will never be sent again leaves the
+                    // reader waiting on nothing until they reload the page.
+                    <ListingRefusal
+                        said={listing.said ?? props.translate('markets.noConnector')}
+                        retryLabel={props.translate('markets.retry')}
+                        onRetry={() => { void markets.readListing(venue); }}
+                    />
                 )
-                : (
-                    <ul
-                        aria-label={props.translate('recording.pickerTitle')}
-                        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
-                    >
-                        {shown.recording.length > 0 && (
-                            <li className="sticky top-0 z-10 bg-abyss-800/95 px-3 py-1 field-label">
-                                {props.translate('recording.recordingHere')}
-                            </li>
-                        )}
-                        {shown.recording.map((row) => (
-                            <PairRow
-                                key={row.instrument.symbol}
-                                instrument={row.instrument}
-                                contract={row.contract}
-                                lastPrice={state.prices[`${venue}/${row.instrument.symbol}`] ?? null}
-                                isOpen={chosen === row.instrument.symbol}
-                                isSaving={props.isSaving}
-                                translate={props.translate}
-                                onOpen={() => {
-                                    setChosen(chosen === row.instrument.symbol ? null : row.instrument.symbol);
-                                    void markets.readLastPrice(venue, row.instrument.symbol);
-                                }}
-                                onRecord={(priceBucketSize) => {
-                                    props.onRecord(venue, row.instrument, priceBucketSize);
-                                    setChosen(null);
-                                }}
-                                onToggle={(isEnabled) => {
-                                    if (row.contract !== null) {
-                                        props.onToggle(row.contract, isEnabled);
-                                    }
-                                }}
-                                onRemove={() => { setDropping(row.contract); }}
-                            />
-                        ))}
-
-                        {shown.recording.length > 0 && shown.offered.length > 0 && (
-                            <li className="px-3 py-1 field-label">
-                                {props.translate('recording.everythingElse')}
-                            </li>
-                        )}
-                        {shown.offered.map((row) => (
-                            <PairRow
-                                key={row.instrument.symbol}
-                                instrument={row.instrument}
-                                contract={null}
-                                lastPrice={state.prices[`${venue}/${row.instrument.symbol}`] ?? null}
-                                isOpen={chosen === row.instrument.symbol}
-                                isSaving={props.isSaving}
-                                translate={props.translate}
-                                onOpen={() => {
-                                    setChosen(chosen === row.instrument.symbol ? null : row.instrument.symbol);
-                                    void markets.readLastPrice(venue, row.instrument.symbol);
-                                }}
-                                onRecord={(priceBucketSize) => {
-                                    props.onRecord(venue, row.instrument, priceBucketSize);
-                                    setChosen(null);
-                                }}
-                                onToggle={() => undefined}
-                                onRemove={() => undefined}
-                            />
-                        ))}
-                    </ul>
-                )}
+                : narrowed === null
+                    ? (
+                        <p className="min-h-0 flex-1 px-3 py-4 text-xs leading-snug text-ink-500">
+                            {props.translate('markets.reading')}
+                        </p>
+                    )
+                    : (
+                        <ul
+                            aria-label={props.translate('recording.pickerTitle')}
+                            className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+                        >
+                            {GROUPS.map((group) => ({ said: group.said, rows: shown[group.of] }))
+                                .filter((group) => group.rows.length > 0).map((group) => (
+                                    <li key={group.said}>
+                                        <p className="sticky top-0 z-10 bg-abyss-800/95 px-3 py-1 field-label">
+                                            {props.translate(group.said)}
+                                        </p>
+                                        <ul>
+                                            {group.rows.map((row) => (
+                                                <PairRow
+                                                    key={row.instrument.symbol}
+                                                    instrument={row.instrument}
+                                                    contract={row.contract}
+                                                    lastPrice={state.prices[`${venue}/${row.instrument.symbol}`] ?? null}
+                                                    isOpen={chosen === row.instrument.symbol}
+                                                    isSaving={props.isSaving}
+                                                    translate={props.translate}
+                                                    onOpen={() => {
+                                                        setChosen(chosen === row.instrument.symbol
+                                                            ? null
+                                                            : row.instrument.symbol);
+                                                        void markets.readLastPrice(venue, row.instrument.symbol);
+                                                    }}
+                                                    onRecord={(priceBucketSize) => {
+                                                        props.onRecord(venue, row.instrument, priceBucketSize);
+                                                        setChosen(null);
+                                                    }}
+                                                    onToggle={(isEnabled) => {
+                                                        if (row.contract !== null) {
+                                                            props.onToggle(row.contract, isEnabled);
+                                                        }
+                                                    }}
+                                                    onRemove={() => { setDropping(row.contract); }}
+                                                />
+                                            ))}
+                                        </ul>
+                                    </li>
+                                ))}
+                        </ul>
+                    )}
             <ConfirmDialog
                 isOpen={dropping !== null}
                 onOpenChange={(isOpen) => { if (!isOpen) { setDropping(null); } }}
@@ -314,6 +290,30 @@ function GridChip({ grid, isChosen, isSaving, translate, onPick }: {
             {grid.priceBucketSize}
         </button>
     );
+}
+
+/**
+ * A row for a contract the listing did not reach.
+ *
+ * Only the symbol is known, which is the one field every control on the row
+ * needs. The rest is what the pair would look like to a reader who cannot see
+ * it: no tick published, and nothing claiming it is trading.
+ */
+/** The three headings a pair can sit under, in the order they are read. */
+const GROUPS = [
+    { said: 'recording.recordingHere', of: 'recording' },
+    { said: 'recording.switchedOffHere', of: 'paused' },
+    { said: 'recording.everythingElse', of: 'offered' },
+] as const;
+
+function standInFor(contract: RecordedContract): VenueInstrument {
+    return {
+        symbol: contract.instrumentSymbol,
+        base: contract.instrumentSymbol,
+        quote: '',
+        priceStep: 0,
+        isTrading: false,
+    };
 }
 
 interface PairRowProps {

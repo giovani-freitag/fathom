@@ -428,6 +428,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'recording.venuesWithoutBook': '{venues} não publicam livro que o Fathom consiga espelhar, então não há o que gravar nelas.',
     'recording.recordingHere': 'Gravando',
     'recording.everythingElse': 'Todo o resto',
+    'recording.switchedOffHere': 'Desligados',
     'recording.noGrid': 'sem tick publicado',
     'recording.choose': 'escolher a grade',
     'recording.gridHelp': 'A grade é o que cada linha do mapa de calor cobre. Ela é fixada quando a gravação começa: um contrato não pode ser regravado em outra sem acabar com duas grades numa história só.',

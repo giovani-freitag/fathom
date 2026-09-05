@@ -2,9 +2,12 @@ import { CONTROL_CHIP_CLASSES, CONTROL_OFFERED_CLASSES } from '../../ui/control-
 import { isRecordable } from '../../markets/recordable.ts';
 import { listConnectors } from '../../../shared/venues/venue-registry.ts';
 import { PanelSection } from '../../ui/panel-section.tsx';
+import { PanelStep } from '../../ui/panel-step.tsx';
+import { usePanelTakeover } from '../../ui/indicators/panel-takeover.ts';
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { RecordingCard } from './recording-card.tsx';
+import { RecordingListing } from './recording-card.tsx';
 import type { RecordedContract, RecordingControl, StorageBudget } from '../../../shared/core/recording-control.ts';
+import type { VenueInstrument } from '../../../shared/core/venue-connector.ts';
 import { formatFixed } from '../../core/formatting.ts';
 import { RangeField } from '../../ui/range-field.tsx';
 import type { Translate } from '../../i18n/translator.ts';
@@ -19,6 +22,9 @@ const BYTES_PER_GIGABYTE = 1_073_741_824;
 
 export interface RecordingPanelProps {
     readonly recording: RecordingControl;
+    /** Held by the panel above, which the listing takes over while it is open. */
+    readonly isPicking?: boolean;
+    readonly onPickingChange?: ((isPicking: boolean) => void) | undefined;
     /** Called after a contract is switched on or off, so the picker keeps up. */
     readonly onContractsChanged: () => void;
     readonly translate: Translate;
@@ -32,11 +38,15 @@ interface PanelState {
 /**
  * What is being recorded, and how much disk it may take.
  */
-export function RecordingPanel({ recording, onContractsChanged, translate }: RecordingPanelProps): ReactElement {
+export function RecordingPanel(props: RecordingPanelProps): ReactElement {
+    const { recording, onContractsChanged, translate } = props;
     const [state, setState] = useState<PanelState | null>(null);
     const [hasFailed, setHasFailed] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [isPicking, setIsPicking] = useState(false);
+    const takeover = usePanelTakeover();
+    const [isPickingHere, setIsPickingHere] = useState(false);
+    const isPicking = props.isPicking ?? isPickingHere;
+    const setIsPicking = props.onPickingChange ?? setIsPickingHere;
 
     // Which venues have a book to record, and which have none. Read from the
     // registry rather than from what is already being recorded: the answer to
@@ -78,8 +88,57 @@ export function RecordingPanel({ recording, onContractsChanged, translate }: Rec
         return () => { wasCancelled = true; };
     }, [read]);
 
+    // The drawer this is drawn in stands its own controls down while the
+    // listing is open. They are a phone screen tall on their own, and a listing
+    // that opens below them opens where nobody is looking.
+    useEffect(() => {
+        takeover.take(isPicking);
+        return () => { takeover.take(false); };
+    }, [isPicking, takeover]);
+
     if (state === null) {
         return <p className="panel-note">{translate('recording.reading')}</p>;
+    }
+
+    const listing = {
+        venues: venues.offered,
+        silent: venues.silent,
+        contracts: state.contracts,
+        isSaving,
+        translate,
+        onRecord: (venue: string, instrument: VenueInstrument, priceBucketSize: number): void => {
+            const held = state.contracts.find(
+                (one) => one.venue === venue && one.instrumentSymbol === instrument.symbol,
+            );
+            void apply(recording.saveContract({
+                venue,
+                instrumentSymbol: instrument.symbol,
+                priceBucketSize,
+                // The rate every contract here is recorded at; the panel
+                // offers no choice because nothing downstream reads a
+                // second one.
+                frameIntervalMs: 1_000,
+                // Regridding a contract that is switched off leaves it off. The
+                // control says it changes the grid, and starting a recording is
+                // the other control on the same row.
+                isEnabled: held?.isEnabled ?? true,
+            })).then(onContractsChanged);
+        },
+        onToggle: (contract: RecordedContract, isEnabled: boolean): void => {
+            void apply(recording.saveContract({ ...contract, isEnabled })).then(onContractsChanged);
+        },
+        onRemove: (contract: RecordedContract): void => {
+            void apply(recording.removeContract(contract.venue, contract.instrumentSymbol))
+                .then(onContractsChanged);
+        },
+    };
+
+    if (isPicking) {
+        return (
+            <PanelStep onBack={() => { setIsPicking(false); }} title={translate('recording.title')}>
+                <RecordingListing {...listing} />
+            </PanelStep>
+        );
     }
 
     return (
@@ -100,45 +159,13 @@ export function RecordingPanel({ recording, onContractsChanged, translate }: Rec
                 and the same rows written twice are two places to keep in step. */}
             <p className="text-xs text-ink-200">{summarise(state.contracts, translate)}</p>
 
-            {/* Beside this rail rather than inside it: a venue lists a thousand
-                pairs, and the panel it would be listed in is three hundred
-                pixels wide. */}
-            <RecordingCard
-                isOpen={isPicking}
-                onOpenChange={setIsPicking}
-                trigger={(
-                    <button
-                        type="button"
-                        className={`${CONTROL_CHIP_CLASSES} h-8 w-full justify-center ${CONTROL_OFFERED_CLASSES}`}
-                    >
-                        {translate('recording.addPair')}
-                    </button>
-                )}
-                venues={venues.offered}
-                silent={venues.silent}
-                contracts={state.contracts}
-                isSaving={isSaving}
-                translate={translate}
-                onRecord={(venue, instrument, priceBucketSize) => {
-                    void apply(recording.saveContract({
-                        venue,
-                        instrumentSymbol: instrument.symbol,
-                        priceBucketSize,
-                        // The rate every contract here is recorded at; the panel
-                        // offers no choice because nothing downstream reads a
-                        // second one.
-                        frameIntervalMs: 1_000,
-                        isEnabled: true,
-                    })).then(onContractsChanged);
-                }}
-                onToggle={(contract, isEnabled) => {
-                    void apply(recording.saveContract({ ...contract, isEnabled })).then(onContractsChanged);
-                }}
-                onRemove={(contract) => {
-                    void apply(recording.removeContract(contract.venue, contract.instrumentSymbol))
-                        .then(onContractsChanged);
-                }}
-            />
+            <button
+                type="button"
+                onClick={() => { setIsPicking(true); }}
+                className={`${CONTROL_CHIP_CLASSES} h-8 w-full justify-center ${CONTROL_OFFERED_CLASSES}`}
+            >
+                {translate('recording.addPair')}
+            </button>
 
             <BudgetChooser
                 budget={state.budget}

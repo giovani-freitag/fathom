@@ -426,6 +426,7 @@ export const EN_DICTIONARY = {
     'recording.venuesWithoutBook': '{venues} publish no book Fathom can mirror, so there is nothing to record on them.',
     'recording.recordingHere': 'Recording',
     'recording.everythingElse': 'Everything else',
+    'recording.switchedOffHere': 'Switched off',
     'recording.noGrid': 'no tick published',
     'recording.choose': 'choose a grid',
     'recording.gridHelp': 'The grid is what one row of the heat map covers. It is fixed when recording starts: a contract cannot be re-recorded on another without two grids ending up in one history.',

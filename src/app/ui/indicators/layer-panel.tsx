@@ -1,9 +1,11 @@
 import { PANEL_ADD_CLASSES } from '../control-shell.ts';
-import { ArrowLeft, Plus } from 'lucide-react';
-import { type ReactElement, type ReactNode, useState } from 'react';
+import { Plus } from 'lucide-react';
+import { type ReactElement, type ReactNode, useMemo, useState } from 'react';
 import type { IndicatorControls } from '../../react/use-indicators.ts';
 import { IndicatorPalette } from './indicator-palette.tsx';
 import { LayerList } from './layer-list.tsx';
+import { PanelStep } from '../panel-step.tsx';
+import { PanelTakeoverContext } from './panel-takeover.ts';
 import { findChartLayer } from '../../indicators/indicator-catalogue.ts';
 import { findLayerContribution, isLayerRecolourable } from '../../indicators/layer-contributions.ts';
 import { IndicatorParameters } from './indicator-parameters.tsx';
@@ -89,31 +91,6 @@ export function LayerPanel({ controls, onEditReading }: LayerPanelProps): ReactE
     );
 }
 
-interface PanelStepProps {
-    readonly title: string;
-    readonly onBack: () => void;
-    readonly children: ReactElement;
-}
-
-/**
- * One step in from the list, with the way back where a reader looks for it.
- */
-function PanelStep({ title, onBack, children }: PanelStepProps): ReactElement {
-    return (
-        <div className="flex flex-col gap-2">
-            <button
-                type="button"
-                onClick={onBack}
-                className="flex items-center gap-1.5 self-start rounded-md px-1 py-0.5 text-xs text-ink-500 hover:text-ink-100"
-            >
-                <ArrowLeft className="size-3.5" />
-                {title}
-            </button>
-            {children}
-        </div>
-    );
-}
-
 export interface LayerKnobsProps {
     readonly controls: IndicatorControls;
     readonly instanceId: string;
@@ -136,6 +113,8 @@ export interface LayerKnobsProps {
 export function LayerKnobs({ controls, instanceId, action }: LayerKnobsProps): ReactElement | null {
     const translate = useTranslate();
     const state = useChartState();
+    const [isTaken, setIsTaken] = useState(false);
+    const takeover = useMemo(() => ({ take: setIsTaken }), []);
     const added = controls.added.find((entry) => entry.instanceId === instanceId);
     const layer = added === undefined ? null : findChartLayer(added.indicatorId);
     if (added === undefined || layer === null) {
@@ -147,20 +126,26 @@ export function LayerKnobs({ controls, instanceId, action }: LayerKnobsProps): R
 
     return (
         <div className="flex w-72 flex-col gap-3">
-            <div className="flex min-h-6 items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-ink-100">
-                    {translateLabel(translate, layer.label)}
-                </span>
-                {action}
-            </div>
-            <IndicatorParameters
-                indicator={layer}
-                hasTone={hasTone}
-                added={added}
-                onRetune={(name, value) => { controls.retune(instanceId, name, value); }}
-                onRecolour={(tone) => { controls.recolour(instanceId, tone); }}
-            />
-            {Panel !== undefined && <Panel state={state} />}
+            {!isTaken && (
+                <>
+                    <div className="flex min-h-6 items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-ink-100">
+                            {translateLabel(translate, layer.label)}
+                        </span>
+                        {action}
+                    </div>
+                    <IndicatorParameters
+                        indicator={layer}
+                        hasTone={hasTone}
+                        added={added}
+                        onRetune={(name, value) => { controls.retune(instanceId, name, value); }}
+                        onRecolour={(tone) => { controls.recolour(instanceId, tone); }}
+                    />
+                </>
+            )}
+            <PanelTakeoverContext.Provider value={takeover}>
+                {Panel !== undefined && <Panel state={state} />}
+            </PanelTakeoverContext.Provider>
         </div>
     );
 }

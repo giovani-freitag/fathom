@@ -109,9 +109,10 @@ describe('what else could be recorded', () => {
         saveContract: Mock<(contract: RecordedContract) => Promise<void>>,
         removeContract: Mock<(venue: string, symbol: string) => Promise<void>>
             = vi.fn<(venue: string, symbol: string) => Promise<void>>().mockResolvedValue(undefined),
+        contracts: readonly RecordedContract[] = CONTRACTS,
     ): void {
         const recording = {
-            listContracts: () => Promise.resolve(CONTRACTS),
+            listContracts: () => Promise.resolve(contracts),
             readBudget: () => Promise.resolve(budget),
             saveContract,
             removeContract,
@@ -284,6 +285,79 @@ describe('what else could be recorded', () => {
         const listing = await screen.findByRole('list', { name: 'Record a pair' });
         expect(within(listing).getByRole('button', { name: /BTCUSDT/ }).textContent)
             .toContain('choose a grid');
+    });
+
+    it('leaves a switched-off contract off when only its grid changes', async () => {
+        // The control says it changes the grid. Starting a recording is the
+        // switch on the same row, and a reader who wanted the one and got both
+        // has a collector running against a venue they did not ask to reach.
+        const saveContract = vi.fn<(contract: RecordedContract) => Promise<void>>()
+            .mockResolvedValue(undefined);
+        renderInKernel(saveContract, undefined, [{
+            venue: FIRST_VENUE,
+            instrumentSymbol: 'NANOUSDT',
+            priceBucketSize: 0.001,
+            frameIntervalMs: 1_000,
+            isEnabled: false,
+        }]);
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Change the grid NANOUSDT records on' }));
+        fireEvent.click((await screen.findAllByRole('button', { name: /per row/ }))[1]!);
+
+        await waitFor(() => {
+            expect(saveContract).toHaveBeenCalledWith(expect.objectContaining({
+                instrumentSymbol: 'NANOUSDT',
+                isEnabled: false,
+            }));
+        });
+    });
+
+    it('lists a contract being recorded that the venue listing never reached', async () => {
+        // The listing stops at a couple of hundred rows and a venue trades a
+        // thousand. A pair recorded from the far end of it was reachable only
+        // by searching a name the reader had no way to know was there.
+        renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+
+        expect(await screen.findByRole('switch', { name: 'Record ETHUSDT' })).toBeDefined();
+    });
+
+    it('heads the contracts that are off with what they are, not with "Recording"', async () => {
+        renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+
+        expect(await screen.findByText('Switched off')).toBeDefined();
+    });
+
+    it('says a venue refused and offers to ask again, rather than asking for ever', async () => {
+        // A refusal and an answer that has not arrived read the same from here,
+        // and the request is never sent a second time: without this the card
+        // says it is asking until the page is reloaded.
+        const recording = {
+            listContracts: () => Promise.resolve(CONTRACTS),
+            readBudget: () => Promise.resolve(budget),
+            saveContract: vi.fn().mockResolvedValue(undefined),
+            removeContract: vi.fn().mockResolvedValue(undefined),
+            setBudget: vi.fn().mockResolvedValue(undefined),
+            pruneToBudget: vi.fn().mockResolvedValue(0),
+        } as unknown as RecordingControl;
+
+        renderWithKernel(
+            createIndicatorKernel([], () => Promise.reject(new Error('the venue is down'))),
+            (
+                <RecordingPanel
+                    recording={recording}
+                    onContractsChanged={() => undefined}
+                    translate={buildTranslate('en')}
+                />
+            ),
+        );
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+
+        expect(await screen.findByRole('button', { name: 'Try again' })).toBeDefined();
     });
 
     it('lifts what is already being recorded to the top, with its switch on the row', async () => {

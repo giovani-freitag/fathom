@@ -106,7 +106,11 @@ export interface IndicatorKernel {
  * @param added - What the chart starts with.
  * @returns The container, and the two things a test needs to drive it.
  */
-export function createIndicatorKernel(added: readonly AddedIndicator[] = []): IndicatorKernel {
+export function createIndicatorKernel(
+    added: readonly AddedIndicator[] = [],
+    /** Swapped for one that refuses, where a test drives what a dead venue looks like. */
+    fetchVenue: typeof readListings = readListings,
+): IndicatorKernel {
     const cursor = createCursorStore();
     const appearance = new ObservableStore<AppearanceState>({ initialState: APPEARANCE });
     const store = new ObservableStore<ChartState>({
@@ -139,7 +143,7 @@ export function createIndicatorKernel(added: readonly AddedIndicator[] = []): In
         // what a list holds is decided by the code the application runs.
         markets: new MarketsController({
             preferences: new PreferencesService({ storage: buildShelf() as Storage }),
-            gateway: new VenueGateway({ fetch: readListings }),
+            gateway: new VenueGateway({ fetch: fetchVenue }),
             readNowMs: () => (shelfClock += 1),
         }),
         chart: {

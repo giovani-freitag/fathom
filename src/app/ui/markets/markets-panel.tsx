@@ -6,6 +6,7 @@ import {
 } from '../control-shell.ts';
 import { ListingCard, SearchField } from './listing-card.tsx';
 import { FAVOURITES_ID, findTagsHolding, type MarketPair } from '../../../shared/core/pair-tags.ts';
+import { ListingRefusal } from './listing-refusal.tsx';
 import { MarketsRail, type Showing } from './markets-rail.tsx';
 import { labelOf } from '../../markets/tag-names.ts';
 import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
@@ -378,18 +379,11 @@ function Body({ showing, listing, rowCount, query, translate, onRetry, children 
 
     if (showing.kind === 'venue' && listing.kind === 'refused') {
         return (
-            <div className="flex min-h-0 flex-1 flex-col items-start gap-3 px-3 py-4">
-                <p className="text-xs leading-snug text-amber">
-                    {listing.said ?? translate('markets.noConnector')}
-                </p>
-                <button
-                    type="button"
-                    onClick={onRetry}
-                    className={`${CONTROL_CHIP_CLASSES} h-8 justify-center ${CONTROL_OFFERED_CLASSES}`}
-                >
-                    {translate('markets.retry')}
-                </button>
-            </div>
+            <ListingRefusal
+                said={listing.said ?? translate('markets.noConnector')}
+                retryLabel={translate('markets.retry')}
+                onRetry={onRetry}
+            />
         );
     }
 

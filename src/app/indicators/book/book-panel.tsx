@@ -1,6 +1,6 @@
 import type { Translate } from '../../i18n/translator.ts';
 import { PanelSection } from '../../ui/panel-section.tsx';
-import type { ReactElement, ReactNode } from 'react';
+import { type ReactElement, type ReactNode, useState } from 'react';
 import type { ChartState } from '../../core/chart-controller.ts';
 import { formatDuration, formatFixed } from '../../core/formatting.ts';
 import { RecordingPanel } from './recording-panel.tsx';
@@ -27,6 +27,14 @@ interface BookPanelProps {
  */
 export function BookPanel({ state }: BookPanelProps): ReactElement {
     const translate = useTranslate();
+    const [isPicking, setIsPicking] = useState(false);
+
+    // A step in takes the panel, rather than sitting under everything the panel
+    // already said. On a phone the readings above it are the whole screen, and
+    // a listing that starts below them is a listing nobody scrolls to.
+    if (isPicking) {
+        return <RecordingSection translate={translate} isPicking onPickingChange={setIsPicking} />;
+    }
 
     return (
         <>
@@ -62,7 +70,7 @@ export function BookPanel({ state }: BookPanelProps): ReactElement {
                 <p className="panel-note">{translate('settings.backfillNote')}</p>
             </PanelSection>
 
-            <RecordingSection translate={translate} />
+            <RecordingSection translate={translate} isPicking={false} onPickingChange={setIsPicking} />
         </>
     );
 }
@@ -70,7 +78,7 @@ export function BookPanel({ state }: BookPanelProps): ReactElement {
 /**
  * The collector, beside the readings it feeds.
  */
-function RecordingSection({ translate }: { readonly translate: Translate }): ReactElement | null {
+function RecordingSection({ translate, isPicking, onPickingChange }: RecordingSectionProps): ReactElement | null {
     const kernel = useKernel();
     if (kernel.recording === null) {
         return null;
@@ -81,8 +89,17 @@ function RecordingSection({ translate }: { readonly translate: Translate }): Rea
             recording={kernel.recording}
             onContractsChanged={() => { void kernel.chart.refreshInstruments(); }}
             translate={translate}
+            isPicking={isPicking}
+            onPickingChange={onPickingChange}
         />
     );
+}
+
+interface RecordingSectionProps {
+    readonly translate: Translate;
+    /** True while the pairs are being chosen, which takes the whole panel. */
+    readonly isPicking: boolean;
+    readonly onPickingChange: (isPicking: boolean) => void;
 }
 
 interface StatProps {

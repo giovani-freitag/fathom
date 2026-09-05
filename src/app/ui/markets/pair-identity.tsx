@@ -18,7 +18,10 @@ interface PairIdentityProps {
 export function PairIdentity({ symbol, base = '', quote = '' }: PairIdentityProps): ReactElement {
     return (
         <>
-            <span className="w-32 shrink-0 truncate text-sm font-semibold sm:w-40">{symbol}</span>
+            {/* Wide enough to line the rows up, but able to give way: on a phone a
+                row carrying a long grid figure ran its delete button off the
+                screen rather than shortening the name in front of it. */}
+            <span className="w-32 min-w-0 truncate text-sm font-semibold sm:w-40">{symbol}</span>
             {base !== '' && (
                 <span className="hidden w-28 shrink-0 truncate text-xs text-ink-400 sm:inline">
                     {base}/{quote}
