@@ -5,13 +5,15 @@ import {
     ROOMY_CARD_CLASSES,
 } from '../../ui/control-shell.ts';
 import { Popover } from 'radix-ui';
-import { isAlreadyRecorded, offerGrids } from '../../markets/recordable.ts';
+import { offerGrids } from '../../markets/recordable.ts';
 import { ListingCard, SearchField } from '../../ui/markets/listing-card.tsx';
 import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
 import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { PairIdentity } from '../../ui/markets/pair-identity.tsx';
 import { RailHeading, RailRow } from '../../ui/markets/rail-row.tsx';
 import type { RecordedContract } from '../../../shared/core/recording-control.ts';
 import { SCROLLER_CLASSES } from '../../ui/control-shell.ts';
+import { ToggleSwitch } from '../../ui/toggle-switch.tsx';
 import type { Translate } from '../../i18n/translator.ts';
 import { useMarkets } from '../../react/use-markets.ts';
 import type { VenueInstrument } from '../../../shared/core/venue-connector.ts';
@@ -29,6 +31,8 @@ export interface RecordingCardProps {
     readonly isSaving: boolean;
     readonly translate: Translate;
     readonly onRecord: (venue: string, instrument: VenueInstrument, priceBucketSize: number) => void;
+    /** Turns a contract's recording on or off, from the row it is listed on. */
+    readonly onToggle: (contract: RecordedContract, isEnabled: boolean) => void;
 }
 
 /**
@@ -94,6 +98,26 @@ function RecordingListing(props: RecordingCardProps): ReactElement {
         () => (listed === null ? null : narrowPairs(listed, { query, quote })),
         [listed, query, quote],
     );
+
+    // What this venue is already recording, lifted out of the listing and put
+    // at the top of it. A reader who came here to switch one off would
+    // otherwise be searching a thousand rows for the four they own — and the
+    // rest of the list is a catalogue, while these four are a machine that is
+    // running.
+    const shown = useMemo(() => {
+        const held = new Map(props.contracts
+            .filter((contract) => contract.venue === venue)
+            .map((contract) => [contract.instrumentSymbol, contract]));
+        const rows = (narrowed?.shown ?? []).map((instrument) => ({
+            instrument,
+            contract: held.get(instrument.symbol) ?? null,
+        }));
+
+        return {
+            recording: rows.filter((row) => row.contract !== null),
+            offered: rows.filter((row) => row.contract === null),
+        };
+    }, [narrowed, props.contracts, venue]);
 
     return (
         <ListingCard
@@ -171,22 +195,54 @@ function RecordingListing(props: RecordingCardProps): ReactElement {
                     </p>
                 )
                 : (
-                    <ul className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-                        {narrowed.shown.map((instrument) => (
+                    <ul
+                        aria-label={props.translate('recording.pickerTitle')}
+                        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+                    >
+                        {shown.recording.length > 0 && (
+                            <li className="sticky top-0 z-10 bg-abyss-800/95 px-3 py-1 field-label">
+                                {props.translate('recording.recordingHere')}
+                            </li>
+                        )}
+                        {shown.recording.map((row) => (
                             <PairRow
-                                key={instrument.symbol}
-                                instrument={instrument}
-                                isOpen={chosen === instrument.symbol}
-                                isRecorded={isAlreadyRecorded(props.contracts, venue, instrument.symbol)}
+                                key={row.instrument.symbol}
+                                instrument={row.instrument}
+                                contract={row.contract}
+                                isOpen={false}
+                                isSaving={props.isSaving}
+                                translate={props.translate}
+                                onOpen={() => undefined}
+                                onRecord={() => undefined}
+                                onToggle={(isEnabled) => {
+                                    if (row.contract !== null) {
+                                        props.onToggle(row.contract, isEnabled);
+                                    }
+                                }}
+                            />
+                        ))}
+
+                        {shown.recording.length > 0 && shown.offered.length > 0 && (
+                            <li className="px-3 py-1 field-label">
+                                {props.translate('recording.everythingElse')}
+                            </li>
+                        )}
+                        {shown.offered.map((row) => (
+                            <PairRow
+                                key={row.instrument.symbol}
+                                instrument={row.instrument}
+                                contract={null}
+                                isOpen={chosen === row.instrument.symbol}
                                 isSaving={props.isSaving}
                                 translate={props.translate}
                                 onOpen={() => {
-                                    setChosen(chosen === instrument.symbol ? null : instrument.symbol);
+                                    setChosen(chosen === row.instrument.symbol ? null : row.instrument.symbol);
                                 }}
                                 onRecord={(priceBucketSize) => {
-                                    props.onRecord(venue, instrument, priceBucketSize);
+                                    props.onRecord(venue, row.instrument, priceBucketSize);
                                     setChosen(null);
                                 }}
+                                onToggle={() => undefined}
                             />
                         ))}
                     </ul>
@@ -197,45 +253,68 @@ function RecordingListing(props: RecordingCardProps): ReactElement {
 
 interface PairRowProps {
     readonly instrument: VenueInstrument;
+    /** The contract recording it, or null where nothing is. */
+    readonly contract: RecordedContract | null;
     /** True while this row is showing the grids it could be recorded on. */
     readonly isOpen: boolean;
-    readonly isRecorded: boolean;
     readonly isSaving: boolean;
     readonly translate: Translate;
     readonly onOpen: () => void;
     readonly onRecord: (priceBucketSize: number) => void;
+    readonly onToggle: (isEnabled: boolean) => void;
 }
 
 /**
- * One pair on offer, and the grid question it asks before it is taken.
+ * One pair: the switch where it is recorded, and the grid question where it is not.
  *
- * Asked here rather than assumed, because the grid cannot be changed later: a
- * contract recorded on one and re-recorded on another has two grids in one
- * history, and nothing downstream can tell which row belongs to which.
+ * The switch lives on the row rather than in a list of its own, because they
+ * are one question asked of one pair. The grid is asked before the recording
+ * starts and never after: a contract recorded on one and re-recorded on another
+ * has two grids in one history, and nothing downstream can tell which row
+ * belongs to which.
  */
 function PairRow(props: PairRowProps): ReactElement {
     const grids = offerGrids(props.instrument);
+
+    if (props.contract !== null) {
+        const contract = props.contract;
+        return (
+            <li className="flex items-center gap-3 border-b border-hairline/40 px-3 py-2">
+                <PairIdentity
+                    symbol={props.instrument.symbol}
+                    base={props.instrument.base}
+                    quote={props.instrument.quote}
+                />
+                <span className="numeric ml-auto shrink-0 pl-2 text-[11px] text-ink-500">
+                    {props.translate('settings.perRow', { value: contract.priceBucketSize })}
+                </span>
+                <ToggleSwitch
+                    isOn={contract.isEnabled}
+                    isDisabled={props.isSaving}
+                    onChange={props.onToggle}
+                    label={props.translate('recording.toggle', { symbol: props.instrument.symbol })}
+                />
+            </li>
+        );
+    }
 
     return (
         <li className="border-b border-hairline/40">
             <button
                 type="button"
-                disabled={props.isRecorded || grids.length === 0}
+                disabled={grids.length === 0}
                 onClick={props.onOpen}
                 className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-abyss-700 disabled:hover:bg-transparent"
             >
-                <span className="w-32 shrink-0 truncate text-sm font-semibold text-ink-100 sm:w-40">
-                    {props.instrument.symbol}
-                </span>
-                <span className="hidden w-28 shrink-0 truncate text-xs text-ink-400 sm:inline">
-                    {props.instrument.base}/{props.instrument.quote}
-                </span>
+                <PairIdentity
+                    symbol={props.instrument.symbol}
+                    base={props.instrument.base}
+                    quote={props.instrument.quote}
+                />
                 <span className="ml-auto shrink-0 pl-2 text-[11px] text-ink-500">
-                    {props.isRecorded
-                        ? props.translate('recording.alreadyOn')
-                        : grids.length === 0
-                            ? props.translate('recording.noGrid')
-                            : props.translate('recording.choose')}
+                    {grids.length === 0
+                        ? props.translate('recording.noGrid')
+                        : props.translate('recording.choose')}
                 </span>
             </button>
 

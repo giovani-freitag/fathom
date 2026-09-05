@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import type { MarketPair, PairTag } from '../../../shared/core/pair-tags.ts';
+import { PairIdentity } from './pair-identity.tsx';
 import { PairTagMenu } from './pair-tag-menu.tsx';
 import type { Translate } from '../../i18n/translator.ts';
 
@@ -80,18 +81,7 @@ export function PairTable(props: PairTableProps): ReactElement {
                                 isShowing ? 'text-phosphor' : 'text-ink-100'
                             }`}
                         >
-                            <span className="w-32 shrink-0 truncate text-sm font-semibold sm:w-40">
-                                {row.pair.symbol}
-                            </span>
-                            {/* Absent on a kept pair: a tag holds a venue and a
-                                symbol, and nothing it knows says what the two
-                                assets were. Rendered anyway, it draws a lone
-                                slash in a column of them. */}
-                            {row.base !== '' && (
-                                <span className="hidden w-28 shrink-0 truncate text-xs text-ink-400 sm:inline">
-                                    {row.base}/{row.quote}
-                                </span>
-                            )}
+                            <PairIdentity symbol={row.pair.symbol} base={row.base} quote={row.quote} />
                             {props.hasVenueColumn && (
                                 <span className="w-28 shrink-0 truncate text-xs text-ink-500">
                                     {row.pair.venue}

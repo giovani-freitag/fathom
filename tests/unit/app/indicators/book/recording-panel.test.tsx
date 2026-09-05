@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createIndicatorKernel, renderWithKernel } from '../../../../mocks/indicator-kernel.tsx';
 import { FIRST_VENUE } from '../../../../../src/shared/core/recording-control.ts';
 import type { RecordedContract, RecordingControl, StorageBudget } from '../../../../../src/shared/core/recording-control.ts';
@@ -179,13 +179,29 @@ describe('what else could be recorded', () => {
         });
     });
 
-    it('says a pair is already on the list rather than offering it twice', async () => {
-        renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
+    it('lifts what is already being recorded to the top, with its switch on the row', async () => {
+        // A reader who came to switch one off would otherwise be searching a
+        // thousand rows for the four they own — and the switch for those four
+        // was in a different list from the pairs themselves.
+        const saveContract = vi.fn<(contract: RecordedContract) => Promise<void>>()
+            .mockResolvedValue(undefined);
+        renderInKernel(saveContract);
         fireEvent.click(await screen.findByRole('button', { name: 'Record another pair' }));
 
-        const btc = await screen.findByRole('button', { name: /BTCUSDT/ });
+        const listing = await screen.findByRole('list', { name: 'Record a pair' });
+        const said = within(listing).getAllByRole('listitem').map((row) => row.textContent);
+        expect(said[0]).toContain('Recording');
+        expect(said[1]).toContain('BTCUSDT');
 
-        expect(btc.textContent).toContain('on the list');
-        expect(btc.hasAttribute('disabled')).toBe(true);
+        // The same switch as the panel's, on the row the pair is listed on.
+        const switches = screen.getAllByRole('switch', { name: 'Record BTCUSDT' });
+        fireEvent.click(switches[switches.length - 1]!);
+
+        await waitFor(() => {
+            expect(saveContract).toHaveBeenCalledWith(expect.objectContaining({
+                instrumentSymbol: 'BTCUSDT',
+                isEnabled: false,
+            }));
+        });
     });
 });

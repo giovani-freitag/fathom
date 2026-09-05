@@ -167,6 +167,9 @@ export function RecordingPanel({ recording, onContractsChanged, translate }: Rec
                         isEnabled: true,
                     })).then(onContractsChanged);
                 }}
+                onToggle={(contract, isEnabled) => {
+                    void apply(recording.saveContract({ ...contract, isEnabled })).then(onContractsChanged);
+                }}
             />
 
             <BudgetChooser
