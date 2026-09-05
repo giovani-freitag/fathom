@@ -3,7 +3,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { createIndicatorKernel, renderWithKernel } from '../../../../mocks/indicator-kernel.tsx';
 import { FAVOURITES_ID, type WatchedPair } from '../../../../../src/shared/core/watch-lists.ts';
 import { FIRST_VENUE } from '../../../../../src/shared/core/recording-control.ts';
-import { MarketsDialog } from '../../../../../src/app/ui/markets/markets-dialog.tsx';
+import { MarketsPanel } from '../../../../../src/app/ui/markets/markets-panel.tsx';
 import { buildConnector } from '../../../../mocks/venue-connectors.ts';
 import { forgetConnector, registerConnector } from '../../../../../src/shared/venues/venue-registry.ts';
 
@@ -11,7 +11,7 @@ afterEach(() => { forgetConnector('empty'); });
 
 let lastKernel: ReturnType<typeof createIndicatorKernel> | null = null;
 
-function renderDialog(): { opened: WatchedPair[] } {
+function renderPanel(): { opened: WatchedPair[] } {
     const opened: WatchedPair[] = [];
     const kernel = createIndicatorKernel();
     lastKernel = kernel;
@@ -30,11 +30,10 @@ function renderDialog(): { opened: WatchedPair[] } {
     }));
 
     renderWithKernel(kernel, (
-        <MarketsDialog
-            isOpen
-            onOpenChange={() => undefined}
+        <MarketsPanel
             open={null}
-            onOpen={(pair) => { opened.push(pair); }}
+            onClose={() => undefined}
+            onOpen={(pair: WatchedPair) => { opened.push(pair); }}
         />
     ));
     return { opened };
@@ -67,26 +66,26 @@ function makeList(name: string): void {
 
 describe('the card a reader picks a contract on', () => {
     it('opens on the list every reader starts with', () => {
-        renderDialog();
+        renderPanel();
 
         expect(railRow('Favourites').getAttribute('aria-current')).toBe('true');
     });
 
     it('says the list is empty rather than showing a blank stretch', () => {
-        renderDialog();
+        renderPanel();
 
         expect(screen.getByText(/Nothing in this list yet/)).toBeDefined();
     });
 
     it('offers every venue and every list from the one rail', () => {
-        renderDialog();
+        renderPanel();
 
         expect(screen.getByRole('button', { name: FIRST_VENUE })).toBeDefined();
         expect(railRow('Favourites')).toBeDefined();
     });
 
     it('asks the venue what it trades the moment one is picked', async () => {
-        renderDialog();
+        renderPanel();
 
         await browse();
 
@@ -96,7 +95,7 @@ describe('the card a reader picks a contract on', () => {
 
 describe('narrowing a venue listing', () => {
     it('searches by asset as well as by symbol', async () => {
-        renderDialog();
+        renderPanel();
         await browse();
 
         fireEvent.change(screen.getByLabelText('Search pairs'), { target: { value: 'NANO' } });
@@ -106,7 +105,7 @@ describe('narrowing a venue listing', () => {
     });
 
     it('offers the venue\'s own quote currencies as chips', async () => {
-        renderDialog();
+        renderPanel();
         await browse();
 
         expect(screen.getByRole('button', { name: 'USDT' }).getAttribute('aria-pressed')).toBe('false');
@@ -114,7 +113,7 @@ describe('narrowing a venue listing', () => {
     });
 
     it('narrows to a quote when its chip is pressed', async () => {
-        renderDialog();
+        renderPanel();
         await browse();
 
         fireEvent.click(screen.getByRole('button', { name: 'USDT' }));
@@ -126,7 +125,7 @@ describe('narrowing a venue listing', () => {
 
 describe('keeping a pair', () => {
     it('puts it in the open list', async () => {
-        renderDialog();
+        renderPanel();
         await browse();
 
         fireEvent.click(screen.getByRole('button', { name: /Add BTCUSDT to Favourites/ }));
@@ -135,7 +134,7 @@ describe('keeping a pair', () => {
     });
 
     it('goes into the list the reader has open rather than always the first', async () => {
-        renderDialog();
+        renderPanel();
         makeList('Shitcoins');
         await browse();
 
@@ -147,7 +146,7 @@ describe('keeping a pair', () => {
     it('says which list the next star lands in, even while browsing a venue', async () => {
         // A reader who has walked away from their lists to a venue cannot see
         // which one is selected without being told.
-        renderDialog();
+        renderPanel();
         makeList('Shitcoins');
         await browse();
 
@@ -155,7 +154,7 @@ describe('keeping a pair', () => {
     });
 
     it('opens the list it has just made, because that is where the next star goes', () => {
-        renderDialog();
+        renderPanel();
 
         makeList('Shitcoins');
 
@@ -167,7 +166,7 @@ describe('what each half marks', () => {
     it('marks the handful a venue lists that this chart actually holds', async () => {
         // The reason nothing else opens is true of nine hundred rows, and a
         // column that repeats it nine hundred times says nothing.
-        renderDialog();
+        renderPanel();
         await browse();
 
         const held = screen.getByRole('button', { name: /Open BTCUSDT on the chart/ });
@@ -177,7 +176,7 @@ describe('what each half marks', () => {
     });
 
     it('says why on a list, where a reader kept the pair themselves', async () => {
-        renderDialog();
+        renderPanel();
         await browse();
         fireEvent.click(screen.getByRole('button', { name: /Add NANOUSDT to Favourites/ }));
         fireEvent.click(railRow('Favourites'));
@@ -189,7 +188,7 @@ describe('what each half marks', () => {
 
 describe('opening what is kept', () => {
     it('hands back the venue as well as the symbol', async () => {
-        const { opened } = renderDialog();
+        const { opened } = renderPanel();
         await browse();
         fireEvent.click(screen.getByRole('button', { name: /Add BTCUSDT to Favourites/ }));
         fireEvent.click(railRow('Favourites'));
@@ -200,7 +199,7 @@ describe('opening what is kept', () => {
     });
 
     it('will not open a pair nothing has recorded, and says why', async () => {
-        const { opened } = renderDialog();
+        const { opened } = renderPanel();
         await browse();
         fireEvent.click(screen.getByRole('button', { name: /Add NANOUSDT to Favourites/ }));
         fireEvent.click(railRow('Favourites'));
@@ -217,7 +216,7 @@ describe('opening what is kept', () => {
         // the second goes looking for a broken recording instead of for the
         // `null` their own connector declared.
         registerConnector('empty', buildConnector({ book: null, tape: null, bars: null }));
-        renderDialog();
+        renderPanel();
 
         act(() => {
             lastKernel!.container.markets.addPair(FAVOURITES_ID, { venue: 'empty', symbol: 'FOO-BAR' });

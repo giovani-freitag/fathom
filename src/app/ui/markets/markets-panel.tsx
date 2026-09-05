@@ -1,18 +1,16 @@
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { Search, X } from 'lucide-react';
+import { Search } from 'lucide-react';
 import {
     CONTROL_CHIP_CLASSES,
     CONTROL_CHOSEN_CLASSES,
     CONTROL_INPUT_CLASSES,
     CONTROL_OFFERED_CLASSES,
-    PANEL_TITLE_CLASSES,
 } from '../control-shell.ts';
 import { FAVOURITES_ID, findListsHolding, type WatchedPair } from '../../../shared/core/watch-lists.ts';
 import { MarketsRail, type Showing } from './markets-rail.tsx';
 import { nameOf } from '../../markets/list-names.ts';
 import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
 import { PairTable, type PairRow } from './pair-table.tsx';
-import { Dialog } from 'radix-ui';
 import type { Listing } from '../../core/markets-controller.ts';
 import type { Translate } from '../../i18n/translator.ts';
 import { readFactsFor } from '../../../shared/venues/venue-registry.ts';
@@ -23,9 +21,9 @@ import { useTranslate } from '../../react/use-appearance.ts';
 /** What is known about a venue nobody has asked about yet. */
 const UNREAD: Listing = { kind: 'unread' };
 
-interface MarketsDialogProps {
-    readonly isOpen: boolean;
-    readonly onOpenChange: (isOpen: boolean) => void;
+interface MarketsPanelProps {
+    /** Closes the card the panel is in, once a pair has been picked. */
+    readonly onClose: () => void;
     /** Puts a pair on the chart. */
     readonly onOpen: (pair: WatchedPair) => void;
     /** Which pair the chart is showing, so the table can say which. */
@@ -35,24 +33,23 @@ interface MarketsDialogProps {
 }
 
 /**
- * The contracts, on a card large enough to read one.
+ * The contracts, on a card large enough to read a listing on.
  *
- * A dialog rather than a dropdown, because what a reader came here to do is
- * read a listing: a venue publishes over a thousand pairs, and a column three
- * hundred pixels wide showing eight of them at a time is a scroll bar with a
- * chart behind it.
+ * The same dropdown every other question on this bar opens, given the room the
+ * answer needs: a venue publishes over a thousand pairs, and a column three
+ * hundred pixels wide showing eight at a time is a scroll bar with a chart
+ * behind it.
  *
- * The shape is the one every venue's own interface settled on — targets down
- * one side, a search and a row of quote chips along the top, and the listing
- * itself filling the rest.
+ * Inside, the shape is the one every venue's own interface settled on — targets
+ * down one side, a search and a row of quote chips along the top, and the
+ * listing itself filling the rest.
  */
-export function MarketsDialog({
-    isOpen,
-    onOpenChange,
+export function MarketsPanel({
+    onClose,
     onOpen,
     open,
     onWriteConnector,
-}: MarketsDialogProps): ReactElement {
+}: MarketsPanelProps): ReactElement {
     const translate = useTranslate();
     const { state, markets } = useMarkets();
     const [showing, setShowing] = useState<Showing>({ kind: 'list' });
@@ -144,114 +141,95 @@ export function MarketsDialog({
     }, [showing, openList, recorded, sayWhyNot, narrowed, state.lists, query, translate]);
 
     return (
-        <Dialog.Root open={isOpen} onOpenChange={onOpenChange}>
-            <Dialog.Portal>
-                <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px]" />
-                <Dialog.Content
-                    aria-describedby={undefined}
-                    className="fixed inset-0 z-50 flex flex-col border-hairline bg-abyss-850 shadow-2xl shadow-black/80 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:h-[min(38rem,86vh)] sm:w-[min(60rem,94vw)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:border"
-                >
-                    <header className="flex shrink-0 items-center gap-3 border-b border-hairline px-3 py-2.5">
-                        <Dialog.Title className={`${PANEL_TITLE_CLASSES} shrink-0`}>
-                            {translate('markets.title')}
-                        </Dialog.Title>
-                        <div className="relative min-w-0 flex-1">
-                            <Search className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-ink-500" />
-                            <input
-                                autoFocus
-                                type="search"
-                                name="pairSearch"
-                                aria-label={translate('markets.searchPairs')}
-                                placeholder={translate('markets.searchPairs')}
-                                value={query}
-                                onChange={(event) => { setQuery(event.target.value); }}
-                                className={`${CONTROL_INPUT_CLASSES} h-9 pl-8 pr-2`}
-                            />
-                        </div>
-                        <Dialog.Close
-                            aria-label={translate('markets.close')}
-                            className="grid size-9 shrink-0 place-items-center rounded-lg text-ink-400 transition-colors hover:bg-abyss-700 hover:text-ink-100"
-                        >
-                            <X className="size-4" />
-                        </Dialog.Close>
-                    </header>
+        <div className="flex min-h-0 flex-1 flex-col">
+            <header className="relative shrink-0 border-b border-hairline p-2">
+                <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-ink-500" />
+                <input
+                    autoFocus
+                    type="search"
+                    name="pairSearch"
+                    aria-label={translate('markets.searchPairs')}
+                    placeholder={translate('markets.searchPairs')}
+                    value={query}
+                    onChange={(event) => { setQuery(event.target.value); }}
+                    className={`${CONTROL_INPUT_CLASSES} h-9 pl-8 pr-2`}
+                />
+            </header>
 
-                    <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-                        <MarketsRail
-                            lists={state.lists}
-                            venues={state.venues}
-                            openListId={openList?.id ?? FAVOURITES_ID}
-                            showing={showing}
-                            translate={translate}
-                            onOpenList={(listId) => { markets.openList(listId); setShowing({ kind: 'list' }); }}
-                            onBrowse={(venue) => { setShowing({ kind: 'venue', venue }); setQuote(''); }}
-                            onAddList={(name) => { markets.addList(name); setShowing({ kind: 'list' }); }}
-                            onRemoveList={(listId) => { markets.removeList(listId); }}
-                            onRemoveVenue={(venue) => { markets.removeConnector(venue); setShowing({ kind: 'list' }); }}
-                            broughtVenues={brought}
-                            onWriteConnector={onWriteConnector}
-                        />
+            <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+                <MarketsRail
+                    lists={state.lists}
+                    venues={state.venues}
+                    openListId={openList?.id ?? FAVOURITES_ID}
+                    showing={showing}
+                    translate={translate}
+                    onOpenList={(listId) => { markets.openList(listId); setShowing({ kind: 'list' }); }}
+                    onBrowse={(venue) => { setShowing({ kind: 'venue', venue }); setQuote(''); }}
+                    onAddList={(name) => { markets.addList(name); setShowing({ kind: 'list' }); }}
+                    onRemoveList={(listId) => { markets.removeList(listId); }}
+                    onRemoveVenue={(venue) => { markets.removeConnector(venue); setShowing({ kind: 'list' }); }}
+                    broughtVenues={brought}
+                    onWriteConnector={onWriteConnector}
+                />
 
-                        <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-                            <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
-                                {/* Where the next star lands, said out loud. A
-                                    reader browsing a venue cannot see which list
-                                    is selected without it. */}
-                                <span className="text-[11px] text-ink-500">
-                                    {translate('markets.savingTo', { list: listName })}
-                                </span>
-                                {quotes.length > 0 && (
-                                    <div className="ml-auto flex flex-wrap gap-1">
-                                        <QuoteChip said={translate('markets.allQuotes')} isOn={quote === ''} onPress={() => { setQuote(''); }} />
-                                        {quotes.map((one) => (
-                                            <QuoteChip key={one} said={one} isOn={quote === one} onPress={() => { setQuote(one); }} />
-                                        ))}
-                                    </div>
-                                )}
+                <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+                    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
+                        {/* Where the next star lands, said out loud. A reader
+                            browsing a venue cannot see which list is selected
+                            without it. */}
+                        <span className="text-[11px] text-ink-500">
+                            {translate('markets.savingTo', { list: listName })}
+                        </span>
+                        {quotes.length > 0 && (
+                            <div className="ml-auto flex flex-wrap gap-1">
+                                <QuoteChip said={translate('markets.allQuotes')} isOn={quote === ''} onPress={() => { setQuote(''); }} />
+                                {quotes.map((one) => (
+                                    <QuoteChip key={one} said={one} isOn={quote === one} onPress={() => { setQuote(one); }} />
+                                ))}
                             </div>
-
-                            <Body
-                                showing={showing}
-                                listing={listing}
-                                rowCount={rows.length}
-                                translate={translate}
-                                onRetry={() => {
-                                    if (showing.kind === 'venue') {
-                                        void markets.readListing(showing.venue);
-                                    }
-                                }}
-                            >
-                                <PairTable
-                                    rows={rows}
-                                    hasVenueColumn={showing.kind === 'list'}
-                                    open={open}
-                                    listName={listName}
-                                    translate={translate}
-                                    onOpen={(pair) => { onOpen(pair); onOpenChange(false); }}
-                                    onKeep={(pair, isKept) => {
-                                        const listId = openList?.id ?? FAVOURITES_ID;
-                                        if (isKept) {
-                                            markets.removePair(listId, pair);
-                                        } else {
-                                            markets.addPair(listId, pair);
-                                        }
-                                    }}
-                                />
-                            </Body>
-
-                            {narrowed !== null && narrowed.matched > narrowed.shown.length && (
-                                <p className="shrink-0 border-t border-hairline px-3 py-2 text-[11px] text-ink-500">
-                                    {translate('markets.shownOf', {
-                                        shown: String(narrowed.shown.length),
-                                        matched: String(narrowed.matched),
-                                    })}
-                                </p>
-                            )}
-                        </section>
+                        )}
                     </div>
-                </Dialog.Content>
-            </Dialog.Portal>
-        </Dialog.Root>
+
+                    <Body
+                        showing={showing}
+                        listing={listing}
+                        rowCount={rows.length}
+                        translate={translate}
+                        onRetry={() => {
+                            if (showing.kind === 'venue') {
+                                void markets.readListing(showing.venue);
+                            }
+                        }}
+                    >
+                        <PairTable
+                            rows={rows}
+                            hasVenueColumn={showing.kind === 'list'}
+                            open={open}
+                            listName={listName}
+                            translate={translate}
+                            onOpen={(pair) => { onOpen(pair); onClose(); }}
+                            onKeep={(pair, isKept) => {
+                                const listId = openList?.id ?? FAVOURITES_ID;
+                                if (isKept) {
+                                    markets.removePair(listId, pair);
+                                } else {
+                                    markets.addPair(listId, pair);
+                                }
+                            }}
+                        />
+                    </Body>
+
+                    {narrowed !== null && narrowed.matched > narrowed.shown.length && (
+                        <p className="shrink-0 border-t border-hairline px-3 py-2 text-[11px] text-ink-500">
+                            {translate('markets.shownOf', {
+                                shown: String(narrowed.shown.length),
+                                matched: String(narrowed.matched),
+                            })}
+                        </p>
+                    )}
+                </section>
+            </div>
+        </div>
     );
 }
 

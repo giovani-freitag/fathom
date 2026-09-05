@@ -21,6 +21,14 @@ interface DockPopoverProps {
     readonly title?: string;
     /** Which way it opens; above, where a dock is under it, by default. */
     readonly side?: 'top' | 'bottom';
+    /**
+     * Whether the card holds a listing rather than a stack of controls.
+     *
+     * A stack of controls is as tall as it is and scrolls whole. A listing is
+     * as tall as the room allows and scrolls inside itself, keeping its own
+     * search and filters in place while the rows move under them.
+     */
+    readonly isRoomy?: boolean;
 }
 
 /**
@@ -39,6 +47,7 @@ export function DockPopover({
     onOpenChange,
     title,
     side = 'top',
+    isRoomy = false,
 }: DockPopoverProps): ReactElement {
     return (
         <Popover.Root
@@ -60,7 +69,19 @@ export function DockPopover({
                     side={side}
                     sideOffset={10}
                     collisionPadding={12}
-                    className={`${FLOATING_CARD_CLASSES} z-50 max-h-[60dvh] overflow-y-auto`}
+                    className={`${FLOATING_CARD_CLASSES} z-50 ${
+                        isRoomy
+                            // Radix measures the room it has and hands it over;
+                            // taken rather than guessed, the card is as tall as
+                            // the window allows and no taller.
+                            // A minimum as well as a maximum: a list holding one
+                            // pair and a venue listing nine hundred are the same
+                            // card, and one that collapses to a single row
+                            // between them moves the targets under the cursor.
+                            ? 'flex h-[min(34rem,var(--radix-popover-content-available-height))]'
+                              + ' w-[min(52rem,calc(100vw-1.5rem))] flex-col overflow-hidden !p-0'
+                            : 'max-h-[60dvh] overflow-y-auto'
+                    }`}
                 >
                     {children}
                     <Popover.Arrow className="fill-abyss-800/95" />

@@ -50,6 +50,7 @@ export function ChartHeader(props: ChartHeaderProps): ReactElement {
                 one are asking the same question, and answering it in two places
                 meant finding out that they were different places. */}
             <MarketsButton
+                side="bottom"
                 iconSizePx={ICON_SIZE_PX}
                 said={props.instrumentSymbol ?? ''}
                 openPair={props.openPair}
