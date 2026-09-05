@@ -44,6 +44,7 @@ function buildHarness(contracts: readonly RecordedContract[], given?: LiquidityA
         control: {
             listContracts,
             saveContract: vi.fn().mockResolvedValue(undefined),
+            removeContract: vi.fn().mockResolvedValue(undefined),
             readBudget: vi.fn().mockResolvedValue({ maximumBytes: 1, usedBytes: 0, availableBytes: null }),
             setBudget: vi.fn().mockResolvedValue(undefined),
             pruneToBudget,

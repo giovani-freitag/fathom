@@ -26,6 +26,23 @@ export const InstrumentUpdateSchema = Type.Object({
     isEnabled: Type.Boolean(),
 });
 
+/**
+ * What names a contract, which is all a removal needs.
+ *
+ * The grid and the flag are left out on purpose: a removal that carried them
+ * would look like an update, and the two are opposite decisions — one keeps
+ * everything that was captured and the other deletes it.
+ */
+export const InstrumentRemovalSchema = Type.Object({
+    venue: Type.String({ minLength: 1, maxLength: 64 }),
+    instrumentSymbol: Type.String({ minLength: 1, maxLength: 32 }),
+});
+
+export const InstrumentRemovalRouteSchema = {
+    body: InstrumentRemovalSchema,
+    response: { 200: RecordingResponseSchema },
+};
+
 export const InstrumentUpdateRouteSchema = {
     body: InstrumentUpdateSchema,
     response: { 200: RecordingResponseSchema },

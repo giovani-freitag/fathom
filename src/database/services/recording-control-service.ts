@@ -101,6 +101,36 @@ export class RecordingControlService implements RecordingControl {
     }
 
     /**
+     * Takes a contract off the list and deletes everything it recorded.
+     *
+     * The registry row last: while it is there the supervisor may still be
+     * recording, and a delete that ran before the collector let go would be
+     * writing into what it had just emptied.
+     *
+     * @param venue - Which connector the symbol belongs to.
+     * @param instrumentSymbol - Which contract.
+     */
+    async removeContract(venue: string, instrumentSymbol: string): Promise<void> {
+        await this.postgres.execute(
+            `UPDATE instrument_registry SET is_enabled = FALSE
+             WHERE venue = $1 AND instrument_symbol = $2`,
+            [venue, instrumentSymbol],
+        );
+
+        for (const table of [...RECORDED_TABLES, 'recording_gap']) {
+            await this.postgres.execute(
+                `DELETE FROM ${table} WHERE instrument_symbol = $1`,
+                [instrumentSymbol],
+            );
+        }
+
+        await this.postgres.execute(
+            'DELETE FROM instrument_registry WHERE venue = $1 AND instrument_symbol = $2',
+            [venue, instrumentSymbol],
+        );
+    }
+
+    /**
      * Turns recording of one contract on or off.
      *
      * @param venue - Which connector the symbol belongs to.

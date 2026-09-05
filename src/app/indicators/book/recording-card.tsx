@@ -4,7 +4,9 @@ import {
     FLOATING_CARD_CLASSES,
     ROOMY_CARD_CLASSES,
 } from '../../ui/control-shell.ts';
+import { ConfirmDialog } from '../../ui/confirm-dialog.tsx';
 import { Popover } from 'radix-ui';
+import { Trash2 } from 'lucide-react';
 import { offerGrids } from '../../markets/recordable.ts';
 import { ListingCard, SearchField } from '../../ui/markets/listing-card.tsx';
 import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
@@ -33,6 +35,8 @@ export interface RecordingCardProps {
     readonly onRecord: (venue: string, instrument: VenueInstrument, priceBucketSize: number) => void;
     /** Turns a contract's recording on or off, from the row it is listed on. */
     readonly onToggle: (contract: RecordedContract, isEnabled: boolean) => void;
+    /** Takes a contract off the list and deletes what it recorded. */
+    readonly onRemove: (contract: RecordedContract) => void;
 }
 
 /**
@@ -82,6 +86,8 @@ function RecordingListing(props: RecordingCardProps): ReactElement {
     const [query, setQuery] = useState('');
     const [quote, setQuote] = useState('');
     const [chosen, setChosen] = useState<string | null>(null);
+    // Which contract is being deleted, while the reader is being asked about it.
+    const [dropping, setDropping] = useState<RecordedContract | null>(null);
 
     const listing = state.listings[venue];
     // Only where nobody has asked yet. Asked again while one is in flight, each
@@ -209,11 +215,13 @@ function RecordingListing(props: RecordingCardProps): ReactElement {
                                 key={row.instrument.symbol}
                                 instrument={row.instrument}
                                 contract={row.contract}
+                                lastPrice={state.prices[`${venue}/${row.instrument.symbol}`] ?? null}
                                 isOpen={chosen === row.instrument.symbol}
                                 isSaving={props.isSaving}
                                 translate={props.translate}
                                 onOpen={() => {
                                     setChosen(chosen === row.instrument.symbol ? null : row.instrument.symbol);
+                                    void markets.readLastPrice(venue, row.instrument.symbol);
                                 }}
                                 onRecord={(priceBucketSize) => {
                                     props.onRecord(venue, row.instrument, priceBucketSize);
@@ -224,6 +232,7 @@ function RecordingListing(props: RecordingCardProps): ReactElement {
                                         props.onToggle(row.contract, isEnabled);
                                     }
                                 }}
+                                onRemove={() => { setDropping(row.contract); }}
                             />
                         ))}
 
@@ -237,21 +246,39 @@ function RecordingListing(props: RecordingCardProps): ReactElement {
                                 key={row.instrument.symbol}
                                 instrument={row.instrument}
                                 contract={null}
+                                lastPrice={state.prices[`${venue}/${row.instrument.symbol}`] ?? null}
                                 isOpen={chosen === row.instrument.symbol}
                                 isSaving={props.isSaving}
                                 translate={props.translate}
                                 onOpen={() => {
                                     setChosen(chosen === row.instrument.symbol ? null : row.instrument.symbol);
+                                    void markets.readLastPrice(venue, row.instrument.symbol);
                                 }}
                                 onRecord={(priceBucketSize) => {
                                     props.onRecord(venue, row.instrument, priceBucketSize);
                                     setChosen(null);
                                 }}
                                 onToggle={() => undefined}
+                                onRemove={() => undefined}
                             />
                         ))}
                     </ul>
                 )}
+            <ConfirmDialog
+                isOpen={dropping !== null}
+                onOpenChange={(isOpen) => { if (!isOpen) { setDropping(null); } }}
+                title={props.translate('recording.removeTitle')}
+                body={props.translate('recording.removeBody', {
+                    symbol: dropping?.instrumentSymbol ?? '',
+                })}
+                confirmLabel={props.translate('recording.removeConfirm')}
+                onConfirm={() => {
+                    if (dropping !== null) {
+                        props.onRemove(dropping);
+                    }
+                    setDropping(null);
+                }}
+            />
         </ListingCard>
     );
 }
@@ -260,6 +287,8 @@ interface PairRowProps {
     readonly instrument: VenueInstrument;
     /** The contract recording it, or null where nothing is. */
     readonly contract: RecordedContract | null;
+    /** What it last traded at, which is what the grids are a band of. */
+    readonly lastPrice: number | null;
     /** True while this row is showing the grids it could be recorded on. */
     readonly isOpen: boolean;
     readonly isSaving: boolean;
@@ -267,6 +296,7 @@ interface PairRowProps {
     readonly onOpen: () => void;
     readonly onRecord: (priceBucketSize: number) => void;
     readonly onToggle: (isEnabled: boolean) => void;
+    readonly onRemove: () => void;
 }
 
 /**
@@ -279,7 +309,7 @@ interface PairRowProps {
  * belongs to which.
  */
 function PairRow(props: PairRowProps): ReactElement {
-    const grids = offerGrids(props.instrument);
+    const grids = offerGrids(props.instrument, props.lastPrice);
 
     if (props.contract !== null) {
         const contract = props.contract;
@@ -309,6 +339,18 @@ function PairRow(props: PairRowProps): ReactElement {
                         onChange={props.onToggle}
                         label={props.translate('recording.toggle', { symbol: props.instrument.symbol })}
                     />
+                    {/* Apart from the switch, and further from the thumb: one
+                        keeps everything that was captured and the other is the
+                        only control here that cannot be taken back. */}
+                    <button
+                        type="button"
+                        disabled={props.isSaving}
+                        aria-label={props.translate('recording.remove', { symbol: props.instrument.symbol })}
+                        onClick={props.onRemove}
+                        className="grid size-7 shrink-0 place-items-center rounded text-ink-500 transition-colors hover:bg-abyss-700 hover:text-ask"
+                    >
+                        <Trash2 size={13} />
+                    </button>
                 </div>
 
                 {props.isOpen && grids.length > 0 && (
@@ -319,7 +361,7 @@ function PairRow(props: PairRowProps): ReactElement {
                             </span>
                             {grids.map((grid) => (
                                 <button
-                                    key={grid.ticks}
+                                    key={grid.priceBucketSize}
                                     type="button"
                                     disabled={props.isSaving || grid.priceBucketSize === contract.priceBucketSize}
                                     onClick={() => { props.onRecord(grid.priceBucketSize); }}
@@ -367,11 +409,13 @@ function PairRow(props: PairRowProps): ReactElement {
                     </span>
                     {grids.map((grid) => (
                         <button
-                            key={grid.ticks}
+                            key={grid.priceBucketSize}
                             type="button"
                             disabled={props.isSaving}
                             onClick={() => { props.onRecord(grid.priceBucketSize); }}
-                            className={`${CONTROL_CHIP_CLASSES} h-7 justify-center px-2.5 ${CONTROL_OFFERED_CLASSES}`}
+                            className={`${CONTROL_CHIP_CLASSES} h-7 justify-center px-2.5 ${
+                                grid.isSuggested ? 'border-phosphor/60 text-phosphor' : CONTROL_OFFERED_CLASSES
+                            }`}
                         >
                             {props.translate('settings.perRow', { value: grid.priceBucketSize })}
                         </button>

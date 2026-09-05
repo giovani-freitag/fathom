@@ -5,23 +5,45 @@ function pair(priceStep: number) {
     return { symbol: 'BTCUSDT', base: 'BTC', quote: 'USDT', priceStep, isTrading: true };
 }
 
-describe('the grids a new contract may be recorded on', () => {
-    it('offers three, built out of the one figure a listing carries', () => {
-        // A venue says what it quotes in, not what it trades at.
-        const offered = offerGrids(pair(0.1));
+describe('the grids a contract may be recorded on', () => {
+    it('is a band of the price rather than a count of ticks', () => {
+        // The tick says how finely a price may be written, which on one venue
+        // is a hundredth of a per cent of the price and on another a hundred
+        // times that. Grids built from it are a different band on every pair.
+        const offered = offerGrids(pair(0.1), 80_000);
 
-        expect(offered.map((one) => one.priceBucketSize)).toEqual([1, 10, 100]);
+        expect(offered.map((one) => one.priceBucketSize)).toEqual([5, 20, 100]);
+        expect(offered.find((one) => one.isSuggested)?.priceBucketSize).toBe(20);
     });
 
-    it('rounds to a number people say out loud', () => {
-        // A grid of 0.037 rules an axis nobody can read at a glance.
-        expect(offerGrids(pair(0.0037)).map((one) => one.priceBucketSize)).toEqual([0.05, 0.5, 5]);
+    it('puts about the same number of rows across any price', () => {
+        // A row means the same thing on a pair worth eighty thousand and one
+        // worth a tenth, which is what makes the choice readable at all.
+        const rich = offerGrids(pair(0.1), 80_000).find((one) => one.isSuggested)!;
+        const cheap = offerGrids(pair(0.000001), 0.1).find((one) => one.isSuggested)!;
+
+        // Rounded to numbers people say out loud, so the two land near each
+        // other rather than on the same figure.
+        for (const rows of [80_000 / rich.priceBucketSize, 0.1 / cheap.priceBucketSize]) {
+            expect(rows).toBeGreaterThanOrEqual(2_000);
+            expect(rows).toBeLessThanOrEqual(8_000);
+        }
     });
 
-    it('offers none where the venue published no tick', () => {
-        // Zero is how a connector says it does not know, and a grid of nothing
-        // is a heat map of one row.
-        expect(offerGrids(pair(0))).toEqual([]);
+    it('is never finer than the smallest move the venue quotes', () => {
+        // A row narrower than the tick is a ladder of stripes with nothing
+        // between them.
+        const offered = offerGrids(pair(0.5), 80);
+
+        expect(Math.min(...offered.map((one) => one.priceBucketSize))).toBeGreaterThanOrEqual(0.5);
+    });
+
+    it('falls back to the tick where nothing has said what it trades at', () => {
+        expect(offerGrids(pair(0.1), null).map((one) => one.priceBucketSize)).toEqual([2, 10, 50]);
+    });
+
+    it('offers none where neither a price nor a tick is known', () => {
+        expect(offerGrids(pair(0), null)).toEqual([]);
     });
 });
 

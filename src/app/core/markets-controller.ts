@@ -19,6 +19,9 @@ import type { VenueConnector, VenueInstrument } from '../../shared/core/venue-co
 import type { VenueGateway } from '../../shared/venues/venue-gateway.ts';
 import { VenueUnreachableError } from '../../shared/venues/venue-gateway.ts';
 
+const MINUTE_MS = 60_000;
+const HOUR_MS = 60 * MINUTE_MS;
+
 /** What is known about one venue's listing, and how it got that way. */
 export type Listing =
     | { readonly kind: 'unread' }
@@ -75,6 +78,14 @@ export interface MarketsState {
     readonly search: VenueSearch | null;
     /** The connectors the reader installed, for the interface to show and undo. */
     readonly installed: readonly StoredConnector[];
+    /**
+     * What a pair last traded at, by venue and symbol.
+     *
+     * Asked for one pair at a time and only where a price actually decides
+     * something — the grid a recording would be written on is a band of price,
+     * and a band chosen without one is a guess at a different market.
+     */
+    readonly prices: Readonly<Record<string, number>>;
 }
 
 export interface MarketsControllerConfig {
@@ -107,6 +118,7 @@ export class MarketsController {
             venues: listConnectors().map(([id]) => id),
             browsingVenue: listConnectors()[0]?.[0] ?? '',
             listings: {},
+            prices: {},
             search: null,
             installed: stored.connectorSources,
         } });
@@ -251,6 +263,49 @@ export class MarketsController {
             if (this.inFlight.get(venue) === aborts) {
                 this.inFlight.delete(venue);
             }
+        }
+    }
+
+    /**
+     * Asks a venue what one of its pairs last traded at.
+     *
+     * One candle of the last hour, which every venue that serves a past can
+     * answer. Nothing is asked of a venue that serves none, and nothing is
+     * asked twice: the price decides which grids to offer, and it is asked for
+     * only when that question is being put.
+     *
+     * @param venue - Which venue.
+     * @param symbol - Which pair.
+     */
+    async readLastPrice(venue: string, symbol: string): Promise<void> {
+        const at = `${venue}/${symbol}`;
+        const connector = listConnectors().find(([id]) => id === venue)?.[1];
+        if (connector?.declaration.bars === undefined || connector.declaration.bars === null
+            || this.store.read().prices[at] !== undefined) {
+            return;
+        }
+
+        const toMs = this.config.readNowMs();
+        const asked = {
+            symbol,
+            widthMs: MINUTE_MS,
+            fromMs: toMs - HOUR_MS,
+            toMs,
+            limit: connector.declaration.bars.barsPerRequest,
+        };
+
+        try {
+            const payload = await this.config.gateway.perform(connector.planBars(asked));
+            const closed = connector.readBars(payload, asked).at(-1)?.closePrice;
+            if (closed !== undefined && closed > 0) {
+                this.store.update((current) => ({
+                    ...current,
+                    prices: { ...current.prices, [at]: closed },
+                }));
+            }
+        } catch {
+            // A price nobody answered is a grid chosen from the tick instead,
+            // which is what the picker does when it has no price at all.
         }
     }
 

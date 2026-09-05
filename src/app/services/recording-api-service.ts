@@ -51,6 +51,21 @@ export class RecordingApiService implements RecordingControl {
     }
 
     /**
+     * Takes a contract off the list and deletes what it recorded.
+     *
+     * @param venue - Which connector the symbol belongs to.
+     * @param instrumentSymbol - Which contract.
+     * @throws HeatmapSourceError when the gateway will not do it.
+     */
+    async removeContract(venue: string, instrumentSymbol: string): Promise<void> {
+        await this.request(API_ROUTES.recording, {
+            method: 'DELETE',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ venue, instrumentSymbol }),
+        });
+    }
+
+    /**
      * The disk ceiling and what the recording occupies.
      *
      * @returns Both in bytes; how much disk exists is not something a query can

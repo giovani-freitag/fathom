@@ -134,6 +134,10 @@ export function RecordingPanel({ recording, onContractsChanged, translate }: Rec
                 onToggle={(contract, isEnabled) => {
                     void apply(recording.saveContract({ ...contract, isEnabled })).then(onContractsChanged);
                 }}
+                onRemove={(contract) => {
+                    void apply(recording.removeContract(contract.venue, contract.instrumentSymbol))
+                        .then(onContractsChanged);
+                }}
             />
 
             <BudgetChooser

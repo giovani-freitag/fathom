@@ -105,11 +105,16 @@ describe('what else could be recorded', () => {
         availableBytes: null,
     };
 
-    function renderInKernel(saveContract: Mock<(contract: RecordedContract) => Promise<void>>): void {
+    function renderInKernel(
+        saveContract: Mock<(contract: RecordedContract) => Promise<void>>,
+        removeContract: Mock<(venue: string, symbol: string) => Promise<void>>
+            = vi.fn<(venue: string, symbol: string) => Promise<void>>().mockResolvedValue(undefined),
+    ): void {
         const recording = {
             listContracts: () => Promise.resolve(CONTRACTS),
             readBudget: () => Promise.resolve(budget),
             saveContract,
+            removeContract,
             setBudget: vi.fn().mockResolvedValue(undefined),
             pruneToBudget: vi.fn().mockResolvedValue(0),
         } as unknown as RecordingControl;
@@ -171,12 +176,14 @@ describe('what else could be recorded', () => {
         fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
 
         fireEvent.click(await screen.findByRole('button', { name: /NANOUSDT/ }));
-        fireEvent.click(await screen.findByRole('button', { name: '0.001 per row' }));
+        // The venue answered nothing about what it trades at, so the grids fall
+        // back to the tick — which is the case this mock stands for.
+        fireEvent.click(await screen.findByRole('button', { name: '0.01 per row' }));
 
         expect(saveContract).toHaveBeenCalledWith({
             venue: FIRST_VENUE,
             instrumentSymbol: 'NANOUSDT',
-            priceBucketSize: 0.001,
+            priceBucketSize: 0.01,
             frameIntervalMs: 1_000,
             isEnabled: true,
         });
@@ -192,12 +199,12 @@ describe('what else could be recorded', () => {
         fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
 
         fireEvent.click(await screen.findByRole('button', { name: 'Change the grid BTCUSDT records on' }));
-        fireEvent.click(await screen.findByRole('button', { name: '1 per row' }));
+        fireEvent.click(await screen.findByRole('button', { name: '2 per row' }));
 
         await waitFor(() => {
             expect(saveContract).toHaveBeenCalledWith(expect.objectContaining({
                 instrumentSymbol: 'BTCUSDT',
-                priceBucketSize: 1,
+                priceBucketSize: 2,
                 isEnabled: true,
             }));
         });
@@ -210,6 +217,31 @@ describe('what else could be recorded', () => {
         fireEvent.click(await screen.findByRole('button', { name: 'Change the grid BTCUSDT records on' }));
 
         expect(await screen.findByText(/keeps the grid it was written on/)).toBeDefined();
+    });
+
+    it('asks before deleting a recording, and says what is lost', async () => {
+        // Apart from the switch on purpose: one keeps everything that was
+        // captured, and an order book cannot be recorded again.
+        const removeContract = vi.fn<(venue: string, symbol: string) => Promise<void>>()
+            .mockResolvedValue(undefined);
+        renderInKernel(
+            vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined),
+            removeContract,
+        );
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+
+        fireEvent.click(await screen.findByRole('button', {
+            name: 'Delete BTCUSDT and everything it recorded',
+        }));
+
+        expect(await screen.findByText(/cannot be recorded again/)).toBeDefined();
+        expect(removeContract).not.toHaveBeenCalled();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Delete it' }));
+
+        await waitFor(() => {
+            expect(removeContract).toHaveBeenCalledWith(FIRST_VENUE, 'BTCUSDT');
+        });
     });
 
     it('lifts what is already being recorded to the top, with its switch on the row', async () => {

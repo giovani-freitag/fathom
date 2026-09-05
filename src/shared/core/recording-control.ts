@@ -41,6 +41,17 @@ export interface StorageBudget {
 export interface RecordingControl {
     listContracts(): Promise<readonly RecordedContract[]>;
     saveContract(contract: RecordedContract): Promise<void>;
+    /**
+     * Takes a contract off the list and deletes what it recorded.
+     *
+     * Apart from switching one off, which keeps everything it captured. This is
+     * the other decision, and the one that cannot be taken back: an order book
+     * cannot be recorded again, so what goes here is gone.
+     *
+     * @param venue - Which connector the symbol belongs to.
+     * @param instrumentSymbol - Which contract.
+     */
+    removeContract(venue: string, instrumentSymbol: string): Promise<void>;
     readBudget(): Promise<StorageBudget>;
     setBudget(maximumBytes: number): Promise<void>;
     /**

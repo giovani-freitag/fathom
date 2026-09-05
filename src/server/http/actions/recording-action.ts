@@ -1,7 +1,11 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { RecordingControl } from '../../../shared/core/recording-control.ts';
 import type { Static } from '@sinclair/typebox';
-import type { BudgetUpdateSchema, InstrumentUpdateSchema } from '../schemas/recording-schema.ts';
+import type {
+    BudgetUpdateSchema,
+    InstrumentRemovalSchema,
+    InstrumentUpdateSchema,
+} from '../schemas/recording-schema.ts';
 
 export interface RecordingHandlerConfig {
     readonly control: RecordingControl;
@@ -9,6 +13,7 @@ export interface RecordingHandlerConfig {
 
 type InstrumentUpdate = Static<typeof InstrumentUpdateSchema>;
 type BudgetUpdate = Static<typeof BudgetUpdateSchema>;
+type InstrumentRemoval = Static<typeof InstrumentRemovalSchema>;
 
 /**
  * Builds the handler that reports what is being recorded and what it costs.
@@ -37,6 +42,22 @@ export function createInstrumentUpdateHandler(config: RecordingHandlerConfig) {
         reply: FastifyReply,
     ): Promise<FastifyReply> {
         await config.control.saveContract(request.body);
+        return reply.send(await readState(config.control));
+    };
+}
+
+/**
+ * Builds the handler that takes a contract off the list and deletes its history.
+ *
+ * @param config - The control service backing the change.
+ * @returns A handler applying the removal and returning the new state.
+ */
+export function createInstrumentRemovalHandler(config: RecordingHandlerConfig) {
+    return async function instrumentRemovalHandler(
+        request: FastifyRequest<{ Body: InstrumentRemoval }>,
+        reply: FastifyReply,
+    ): Promise<FastifyReply> {
+        await config.control.removeContract(request.body.venue, request.body.instrumentSymbol);
         return reply.send(await readState(config.control));
     };
 }

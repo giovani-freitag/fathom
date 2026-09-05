@@ -105,6 +105,43 @@ export class BrowserRecordingControl implements RecordingControl {
     }
 
     /**
+     * Takes a contract off the list and deletes what it recorded.
+     *
+     * Everything keyed by that symbol, across every store the collector writes
+     * to. The choice goes last: while it is stored the collector may still pick
+     * the contract up, and a delete that ran before it let go would be emptying
+     * a store still being written into.
+     *
+     * @param venue - Which connector the symbol belongs to.
+     * @param instrumentSymbol - Which contract.
+     */
+    async removeContract(venue: string, instrumentSymbol: string): Promise<void> {
+        const kept = (await this.listContracts())
+            .filter((contract) => !(contract.venue === venue
+                && contract.instrumentSymbol === instrumentSymbol));
+        await this.write({
+            contracts: kept,
+            maximumBytes: (await this.read())?.maximumBytes ?? null,
+        });
+
+        // Every store the recording touches, by the one field they all key on.
+        const named = IDBKeyRange.only(instrumentSymbol);
+        const under = IDBKeyRange.bound([instrumentSymbol], [instrumentSymbol, []]);
+        await this.config.database.transact([
+            STORES.instrumentRegistry,
+            STORES.tradeCluster,
+            STORES.recordingGap,
+            STORES.liquidityBlock,
+            STORES.liquidityChunk,
+        ], 'readwrite', ([registry, trades, gaps, blocks, chunks]) => {
+            registry!.delete(named);
+            for (const store of [trades!, gaps!, blocks!, chunks!]) {
+                store.delete(under);
+            }
+        });
+    }
+
+    /**
      * The ceiling in force, what is stored, and what the browser will allow.
      *
      * @returns All three in bytes.

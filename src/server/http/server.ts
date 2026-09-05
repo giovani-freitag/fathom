@@ -25,6 +25,7 @@ import { createVenueHandler } from './actions/venue-action.ts';
 import { VenueRouteSchema } from './schemas/venue-schema.ts';
 import {
     createBudgetUpdateHandler,
+    createInstrumentRemovalHandler,
     createInstrumentUpdateHandler,
     createRecordingHandler,
 } from './actions/recording-action.ts';
@@ -36,6 +37,7 @@ import { HeatmapRouteSchema } from './schemas/heatmap-schema.ts';
 import { InstrumentsRouteSchema } from './schemas/instruments-schema.ts';
 import {
     BudgetUpdateRouteSchema,
+    InstrumentRemovalRouteSchema,
     InstrumentUpdateRouteSchema,
     RecordingRouteSchema,
 } from './schemas/recording-schema.ts';
@@ -173,6 +175,7 @@ export class Server {
         instance.get(API_ROUTES.instruments, { schema: InstrumentsRouteSchema }, instrumentsHandler);
         instance.get(API_ROUTES.recording, { schema: RecordingRouteSchema }, createRecordingHandler(control));
         instance.put(API_ROUTES.recording, { schema: InstrumentUpdateRouteSchema }, createInstrumentUpdateHandler(control));
+        instance.delete(API_ROUTES.recording, { schema: InstrumentRemovalRouteSchema }, createInstrumentRemovalHandler(control));
         instance.put(API_ROUTES.recordingBudget, { schema: BudgetUpdateRouteSchema }, createBudgetUpdateHandler(control));
         instance.get(API_ROUTES.heatmap, { schema: HeatmapRouteSchema }, heatmapHandler);
         instance.get(API_ROUTES.tradeClusters, { schema: TradeClustersRouteSchema }, tradeClustersHandler);
