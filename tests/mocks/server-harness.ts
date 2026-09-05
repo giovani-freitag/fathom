@@ -4,7 +4,7 @@ import type { PostgresService } from '../../src/database/postgres/postgres-servi
 import type { RecordingControlService } from '../../src/database/services/recording-control-service.ts';
 import type { ChunkArchiveService } from '../../src/database/services/chunk-archive-service.ts';
 import { Server } from '../../src/server/http/server.ts';
-import { vi } from 'vitest';
+import { vi, type Mock } from 'vitest';
 
 type Spies<TNames extends string> = Readonly<Record<TNames, ReturnType<typeof vi.fn>>>;
 
@@ -18,6 +18,8 @@ export interface ServerHarness {
     >;
     readonly postgres: Spies<'selectRows'>;
     readonly chunks: Spies<'fetchWindow'>;
+    /** What the server answers when it reaches a venue for a connector. */
+    readonly venue: Mock<(url: string, init?: RequestInit) => Promise<Response>>;
 }
 
 /**
@@ -75,6 +77,10 @@ export function createServerHarness(
     }) };
     const postgres = { selectRows: vi.fn().mockResolvedValue([{ '?column?': 1 }]) };
 
+    // Answers whatever the test last set, so a route that reaches a venue is
+    // driven by the test rather than by whatever the network is doing.
+    const venue = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ symbols: [] }))));
+
     const server = new Server({
         host: '127.0.0.1',
         port: 0,
@@ -84,7 +90,8 @@ export function createServerHarness(
         chunks: chunks as unknown as ChunkArchiveService,
         liveTail: { start: vi.fn(), stop: vi.fn(), subscribe: vi.fn() } as unknown as LiveTailService,
         control: control as unknown as RecordingControlService,
+        fetch: venue,
     });
 
-    return { server, query, control, postgres, chunks };
+    return { server, query, control, postgres, chunks, venue };
 }

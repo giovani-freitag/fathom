@@ -649,6 +649,11 @@ can read what you installed before it runs again.
 - **The chart, not the collector.** A connector you install lives in your
   browser, so the server that records order books cannot see it. A venue brought
   in this way gives you a listing and a past, not a recording.
+- **A page alone cannot reach most venues.** Almost none publish the header a
+  browser needs to read them cross-origin. Where Fathom has a server, requests
+  go through it — https only, no redirects, and nothing on the server's own
+  network reachable. In the browser-only build there is nobody to ask, so only a
+  venue that lets a page in can be read.
 - **A linked book only.** The grade a connector declares is recorded but not yet
   acted on: the mirror still needs the back reference the shipped venue
   publishes.

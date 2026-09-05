@@ -12,6 +12,15 @@ const ALLOWED_PROTOCOL = 'https:';
 export interface VenueGatewayConfig {
     /** Injected so a test can answer without a network. */
     readonly fetch: typeof globalThis.fetch;
+    /**
+     * Where the server fetches on a connector's behalf, when there is a server.
+     *
+     * Most venues publish no cross-origin header, so a page cannot read them at
+     * all — a connector for one would be refused by the browser before it ever
+     * reached the venue. Absent in a build with no server, where a page can only
+     * reach a venue that lets it.
+     */
+    readonly reachThrough?: string | undefined;
 }
 
 /**
@@ -70,7 +79,7 @@ export class VenueGateway {
      *         a scheme other than HTTPS, or an answer that is not JSON.
      */
     async perform(request: VenueRequest, signal?: AbortSignal): Promise<unknown> {
-        const url = this.readUrl(request.url);
+        const url = this.routeTo(this.readUrl(request.url));
         const deadline = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
         const aborts = signal === undefined ? deadline : AbortSignal.any([signal, deadline]);
 
@@ -110,6 +119,17 @@ export class VenueGateway {
         } catch (error) {
             throw new VenueUnreachableError('The venue could not be reached.', { cause: error });
         }
+    }
+
+    /**
+     * The URL to actually fetch: the venue's, or the server's stand-in for it.
+     *
+     * The venue's own URL is what is checked and what is passed along, so the
+     * connector's plan is the thing being performed either way.
+     */
+    private routeTo(url: string): string {
+        const through = this.config.reachThrough;
+        return through === undefined ? url : `${through}?url=${encodeURIComponent(url)}`;
     }
 
     /**

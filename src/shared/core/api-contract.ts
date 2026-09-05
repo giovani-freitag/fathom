@@ -16,6 +16,8 @@ export const API_ROUTES = {
     bars: '/api/bars',
     tradeClusters: '/api/trade-clusters',
     gaps: '/api/gaps',
+    /** Fetches what a connector described, for a venue a browser cannot read. */
+    venue: '/api/venue',
     live: '/api/live',
     recording: '/api/recording',
     recordingBudget: '/api/recording/budget',

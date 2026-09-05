@@ -21,6 +21,8 @@ import { createHealthHandler } from './actions/health-action.ts';
 import { createHeatmapHandler } from './actions/heatmap-action.ts';
 import type { ChunkArchiveService } from '../../database/services/chunk-archive-service.ts';
 import { createInstrumentsHandler } from './actions/instruments-action.ts';
+import { createVenueHandler } from './actions/venue-action.ts';
+import { VenueRouteSchema } from './schemas/venue-schema.ts';
 import {
     createBudgetUpdateHandler,
     createInstrumentUpdateHandler,
@@ -53,6 +55,13 @@ export interface ServerConfig {
     readonly chunks: ChunkArchiveService;
     readonly liveTail: LiveTailService;
     readonly control: RecordingControlService;
+    /**
+     * How the server reaches a venue on a connector's behalf.
+     *
+     * Injected so a test can answer without a network, and so the one
+     * place that fetches something a page named is visible from here.
+     */
+    readonly fetch: typeof globalThis.fetch;
 }
 
 /**
@@ -168,6 +177,7 @@ export class Server {
         instance.get(API_ROUTES.heatmap, { schema: HeatmapRouteSchema }, heatmapHandler);
         instance.get(API_ROUTES.tradeClusters, { schema: TradeClustersRouteSchema }, tradeClustersHandler);
         instance.get(API_ROUTES.gaps, { schema: GapsRouteSchema }, gapsHandler);
+        instance.get(API_ROUTES.venue, { schema: VenueRouteSchema }, createVenueHandler({ fetch: this.config.fetch }));
         instance.get(API_ROUTES.live, { websocket: true, schema: LiveRouteSchema }, liveHandler);
     }
 }

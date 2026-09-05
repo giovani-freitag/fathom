@@ -108,3 +108,38 @@ describe('reading a listing through a connector', () => {
         await expect(gateway.fetchInstruments(connector)).rejects.toThrow(/could not read the listing/);
     });
 });
+
+describe('reaching a venue a browser cannot read', () => {
+    it('asks the server to fetch it, naming the venue\'s own URL', async () => {
+        // KuCoin, and most venues, publish no cross-origin header. A connector
+        // for one is refused by the browser before it reaches the venue.
+        const fetch = answerWith({});
+        const gateway = new VenueGateway({ fetch, reachThrough: 'http://localhost:8080/api/venue' });
+
+        await gateway.perform({ url: 'https://api.kucoin.com/api/v2/symbols' });
+
+        expect(fetch).toHaveBeenCalledWith(
+            'http://localhost:8080/api/venue?url=https%3A%2F%2Fapi.kucoin.com%2Fapi%2Fv2%2Fsymbols',
+            expect.anything(),
+        );
+    });
+
+    it('still refuses a URL it would not fetch itself', async () => {
+        // Checked before it is handed on, so the server is never asked to reach
+        // something the page would not have.
+        const fetch = answerWith({});
+        const gateway = new VenueGateway({ fetch, reachThrough: 'http://localhost:8080/api/venue' });
+
+        await expect(gateway.perform({ url: 'file:///etc/passwd' })).rejects.toThrow(VenueUnreachableError);
+        expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('goes straight to the venue where there is no server to ask', async () => {
+        const fetch = answerWith({});
+        const gateway = new VenueGateway({ fetch });
+
+        await gateway.perform({ url: 'https://fapi.binance.com/fapi/v1/exchangeInfo' });
+
+        expect(fetch).toHaveBeenCalledWith('https://fapi.binance.com/fapi/v1/exchangeInfo', expect.anything());
+    });
+});

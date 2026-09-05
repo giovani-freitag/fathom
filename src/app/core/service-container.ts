@@ -16,6 +16,7 @@ import { speakIn } from '../../shared/core/reading-words.ts';
 import { ENTRY_FILE } from '../../shared/core/reading-files.ts';
 import { RecordingApiService } from '../services/recording-api-service.ts';
 import type { RecordingControl } from '../../shared/core/recording-control.ts';
+import { API_ROUTES } from '../../shared/core/api-contract.ts';
 import { MarketsController } from './markets-controller.ts';
 import { registerConnector } from '../../shared/venues/venue-registry.ts';
 import { VenueGateway } from '../../shared/venues/venue-gateway.ts';
@@ -100,7 +101,10 @@ export function createServiceContainer(config: ServiceContainerConfig): ServiceC
         addons,
         markets: new MarketsController({
             preferences,
-            gateway: new VenueGateway({ fetch: (input, init) => globalThis.fetch(input, init) }),
+            gateway: new VenueGateway({
+                fetch: (input, init) => globalThis.fetch(input, init),
+                reachThrough: `${config.baseUrl}${API_ROUTES.venue}`,
+            }),
             readNowMs: () => Date.now(),
         }),
     };

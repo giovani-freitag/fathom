@@ -295,3 +295,71 @@ describe('GET /api/heatmap reading the whole book', () => {
         }));
     });
 });
+
+describe('GET /api/venue', () => {
+    it('hands back what the venue said, verbatim', async () => {
+        // Most venues publish no cross-origin header, so a browser cannot read
+        // them at all. What the page cannot do, the server does.
+        harness.venue.mockResolvedValue(new Response(JSON.stringify({ data: [{ symbol: 'BTC-USDT' }] })));
+
+        const response = await get(`/api/venue?url=${encodeURIComponent('https://api.kucoin.com/api/v2/symbols')}`);
+
+        expect(response.statusCode).toBe(200);
+        expect(bodyOf<{ data: unknown[] }>(response).data).toHaveLength(1);
+    });
+
+    it('carries the venue\'s own refusal through rather than inventing one', async () => {
+        harness.venue.mockResolvedValue(new Response(JSON.stringify({ msg: 'too fast' }), { status: 429 }));
+
+        const response = await get(`/api/venue?url=${encodeURIComponent('https://api.kucoin.com/api/v2/symbols')}`);
+
+        expect(response.statusCode).toBe(429);
+    });
+
+    it('refuses a URL on a network this server can reach and the internet cannot', async () => {
+        const response = await get(`/api/venue?url=${encodeURIComponent('https://169.254.169.254/latest/meta-data/')}`);
+
+        expect(response.statusCode).toBe(400);
+        expect(harness.venue).not.toHaveBeenCalled();
+    });
+
+    it('refuses a scheme other than https without reaching for it', async () => {
+        const response = await get(`/api/venue?url=${encodeURIComponent('file:///etc/passwd')}`);
+
+        expect(response.statusCode).toBe(400);
+        expect(harness.venue).not.toHaveBeenCalled();
+    });
+
+    it('will not follow a redirect, which is a second URL nothing checked', async () => {
+        harness.venue.mockResolvedValue(new Response(null, {
+            status: 302,
+            headers: { location: 'https://169.254.169.254/' },
+        }));
+
+        const response = await get(`/api/venue?url=${encodeURIComponent('https://api.kucoin.com/api/v2/symbols')}`);
+
+        expect(response.statusCode).toBe(502);
+    });
+
+    it('says so when the venue could not be reached at all', async () => {
+        harness.venue.mockRejectedValue(new Error('ENOTFOUND'));
+
+        const response = await get(`/api/venue?url=${encodeURIComponent('https://api.kucoin.com/api/v2/symbols')}`);
+
+        expect(response.statusCode).toBe(502);
+    });
+
+    it('refuses an answer larger than it will read', async () => {
+        harness.venue.mockResolvedValue(new Response('{}', {
+            headers: { 'content-length': String(64 * 1024 * 1024) },
+        }));
+
+        const response = await get(`/api/venue?url=${encodeURIComponent('https://api.kucoin.com/api/v2/symbols')}`);
+
+        expect(response.statusCode).toBe(502);
+    });
+
+    it('needs a URL at all', async () => {
+        expect((await get('/api/venue')).statusCode).toBe(400);
+    });
+});

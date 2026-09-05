@@ -54,6 +54,7 @@ const server = new Server({
     chunks,
     liveTail,
     control,
+    fetch: (input, init) => globalThis.fetch(input, init),
 });
 
 async function shutDown(): Promise<void> {

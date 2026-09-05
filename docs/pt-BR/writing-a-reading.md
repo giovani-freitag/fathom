@@ -665,6 +665,11 @@ Ela é guardada como o código que você escreveu, então continua lá semana qu
 - **O gráfico, não o coletor.** Um conector que você instala vive no seu
   navegador, então o servidor que grava livros de ofertas não o enxerga. Uma
   corretora trazida assim te dá uma listagem e um passado, não uma gravação.
+- **Uma página sozinha não alcança quase nenhuma corretora.** Quase nenhuma
+  publica o cabeçalho que o navegador exige para ler de outra origem. Onde o
+  Fathom tem servidor, os pedidos passam por ele — só https, sem redirecionar, e
+  sem alcançar nada da rede do próprio servidor. Na build só-navegador não há a
+  quem pedir, então só dá para ler corretora que deixa a página entrar.
 - **Só livro encadeado.** O grau que um conector declara é registrado mas ainda
   não é usado: o espelho ainda precisa da referência anterior que a corretora
   nativa publica.
