@@ -2,7 +2,7 @@ import { releaseTimerFromEventLoop, type TimerHandle } from '../../shared/core/t
 import { describeError } from '../core/collector-log.ts';
 import type { DepthDiff, DepthSnapshot, ExecutedTrade } from '../../shared/core/depth-types.ts';
 import type { MarketDataSocket, MarketDataSocketFactory } from '../core/market-data-socket.ts';
-import type { VenueConnector, VenueStreamPlan } from '../../shared/core/venue-connector.ts';
+import type { VenueConnector, VenueRequest, VenueStreamPlan } from '../../shared/core/venue-connector.ts';
 
 export interface VenueDepthFeedServiceConfig {
     readonly instrumentSymbol: string;
@@ -39,7 +39,13 @@ export class DepthLadderUnavailableError extends Error {
  */
 export class VenueDepthFeedService {
     private readonly config: VenueDepthFeedServiceConfig;
-    private readonly plan: VenueStreamPlan;
+    /**
+     * The socket to open, once the ticket that buys it has been fetched.
+     *
+     * Null until the first connect, because a venue that hands sockets out per
+     * session cannot be asked for one before there is a reason to open it.
+     */
+    private plan: VenueStreamPlan | null = null;
     private heartbeatTimer: TimerHandle | null = null;
 
     private activeSocket: MarketDataSocket | null = null;
@@ -51,10 +57,10 @@ export class VenueDepthFeedService {
 
     constructor(config: VenueDepthFeedServiceConfig) {
         this.config = config;
-        if (config.connector.planStream === null) {
+        const { book, tape } = config.connector.declaration;
+        if (book === null && tape === null) {
             throw new Error('This venue streams nothing, so there is nothing to keep open');
         }
-        this.plan = config.connector.planStream(config.instrumentSymbol);
 
         this.handleSocketOpen = this.handleSocketOpen.bind(this);
         this.handleSocketMessage = this.handleSocketMessage.bind(this);
@@ -73,9 +79,68 @@ export class VenueDepthFeedService {
         if (this.wasShutdownRequested) {
             throw new Error('This feed service was disconnected and cannot be reconnected');
         }
+        void this.openWhenTicketed();
+    }
+
+    /**
+     * Buys a socket where the venue sells them, then opens one.
+     *
+     * The ticket is fetched again on every connect rather than kept: a venue
+     * that hands them out per session hands out one that expires, and a
+     * reconnect an hour later with the first one is a socket that is refused
+     * every time and a feed that never comes back.
+     */
+    private async openWhenTicketed(): Promise<void> {
+        let ticket = '';
+        const bought = this.config.connector.planStreamTicket();
+        if (bought !== null) {
+            try {
+                ticket = this.config.connector.readStreamTicket(await this.fetchJson(bought));
+            } catch (error) {
+                // Treated as a connection that failed, because that is what it
+                // is: the backoff and the reconnect are already the answer.
+                this.recycleAfter(`could not buy a socket: ${describeError(error)}`);
+                return;
+            }
+        }
+
+        if (this.wasShutdownRequested) {
+            return;
+        }
+
+        this.plan = this.config.connector.planStream(this.config.instrumentSymbol, ticket);
         const socket = this.config.openSocket(this.plan.url);
         this.activeSocket = socket;
         this.listen(socket);
+    }
+
+    /**
+     * Waits out the backoff and tries again, where there is no socket to recycle.
+     */
+    private recycleAfter(reason: string): void {
+        this.config.onDisconnected(reason);
+        if (this.wasShutdownRequested) {
+            return;
+        }
+        this.consecutiveFailureCount += 1;
+        this.reconnectTimer = setTimeout(this.handleReconnectDue, this.resolveBackoffDelay());
+        releaseTimerFromEventLoop(this.reconnectTimer);
+    }
+
+    /**
+     * Performs one request the connector described, and parses what came back.
+     */
+    private async fetchJson(request: VenueRequest): Promise<unknown> {
+        const answer = await fetch(request.url, {
+            signal: AbortSignal.timeout(this.config.snapshotRequestTimeoutMs),
+            ...request.method === undefined ? {} : { method: request.method },
+            ...request.body === undefined ? {} : { body: request.body },
+            ...request.headers === undefined ? {} : { headers: request.headers },
+        });
+        if (!answer.ok) {
+            throw new Error(`the venue refused with ${String(answer.status)}`);
+        }
+        return await answer.json();
     }
 
     /**
@@ -101,35 +166,20 @@ export class VenueDepthFeedService {
      * @throws DepthLadderUnavailableError when the venue rejects or times out the request.
      */
     async fetchDepthSnapshot(): Promise<DepthSnapshot> {
-        const reader = this.config.connector.book;
-        if (reader === null) {
+        const { connector } = this.config;
+        if (connector.declaration.book === null) {
             throw new DepthLadderUnavailableError('This venue publishes no book');
-        }
-
-        const request = reader.planSnapshot(this.config.instrumentSymbol);
-        let response: Response;
-        try {
-            response = await fetch(request.url, {
-                signal: AbortSignal.timeout(this.config.snapshotRequestTimeoutMs),
-                ...request.headers === undefined ? {} : { headers: request.headers },
-            });
-        } catch (error) {
-            throw new DepthLadderUnavailableError('Depth ladder request did not complete', { cause: error });
-        }
-
-        if (!response.ok) {
-            throw new DepthLadderUnavailableError(`Depth ladder request returned status ${response.status}`);
         }
 
         let body: unknown;
         try {
-            body = await response.json();
+            body = await this.fetchJson(connector.planSnapshot(this.config.instrumentSymbol));
         } catch (error) {
-            throw new DepthLadderUnavailableError('Depth ladder response was not JSON', { cause: error });
+            throw new DepthLadderUnavailableError('Depth ladder request did not complete', { cause: error });
         }
 
         try {
-            return reader.readSnapshot(body);
+            return connector.readSnapshot(body);
         } catch (error) {
             // The venue answers some rejections with HTTP 200 and a code/message
             // body. Read as a ladder, that yields undefined sides, and an
@@ -151,7 +201,7 @@ export class VenueDepthFeedService {
         this.scheduleProactiveReconnect();
         this.startHeartbeat();
 
-        for (const greeting of this.plan.greetings ?? []) {
+        for (const greeting of this.plan?.greetings ?? []) {
             this.activeSocket?.send(greeting);
         }
         this.config.onConnected();
@@ -164,7 +214,7 @@ export class VenueDepthFeedService {
      * could keep the process alive after the recording it belonged to was gone.
      */
     private startHeartbeat(): void {
-        const beat = this.plan.heartbeat;
+        const beat = this.plan?.heartbeat;
         if (beat === undefined || beat === null) {
             return;
         }
@@ -173,7 +223,7 @@ export class VenueDepthFeedService {
     }
 
     private handleHeartbeatDue(): void {
-        const beat = this.plan.heartbeat;
+        const beat = this.plan?.heartbeat;
         if (beat !== undefined && beat !== null) {
             this.activeSocket?.send(beat.send);
         }
@@ -189,12 +239,12 @@ export class VenueDepthFeedService {
             return;
         }
 
-        const update = this.config.connector.book?.readUpdate(payload) ?? null;
+        const update = this.config.connector.readUpdate(payload);
         if (update !== null) {
             this.config.onDepthDiff(update);
             return;
         }
-        for (const trade of this.config.connector.tape?.readTrades(payload) ?? []) {
+        for (const trade of this.config.connector.readTrades(payload)) {
             this.config.onExecutedTrade(trade);
         }
     }

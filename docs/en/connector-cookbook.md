@@ -32,47 +32,47 @@ export default class Simple extends Connector {
         },
     };
 
-    readonly instruments = {
-        planInstruments: () => ({ url: Simple.REST + '/markets' }),
-        readInstruments: (payload: unknown): VenueInstrument[] =>
-            this.requireList(payload, 'markets').map((one) => {
-                const entry = one as Record<string, unknown>;
-                return {
-                    symbol: String(entry['id']),
-                    base: String(entry['base']),
-                    quote: String(entry['quote']),
-                    priceStep: this.readNumber(entry['tick']) ?? 0,
-                    isTrading: entry['status'] === 'online',
-                };
-            }),
-    };
+    planInstruments() {
+        return { url: Simple.REST + '/markets' };
+    }
 
-    readonly planStream = null;
-    readonly book = null;
-    readonly tape = null;
+    readInstruments(payload: unknown): VenueInstrument[] {
+        return this.requireList(payload, 'markets').map((one) => {
+            const entry = one as Record<string, unknown>;
+            return {
+                symbol: String(entry['id']),
+                base: String(entry['base']),
+                quote: String(entry['quote']),
+                priceStep: this.readNumber(entry['tick']) ?? 0,
+                isTrading: entry['status'] === 'online',
+            };
+        });
+    }
 
-    readonly bars = {
-        planPage: (request: BarPageRequest) => ({
+    override planBars(request: BarPageRequest) {
+        return {
             url: Simple.REST + '/candles?market=' + encodeURIComponent(request.symbol)
                 + '&from=' + String(request.fromMs) + '&to=' + String(request.toMs),
-        }),
-        readPage: (payload: unknown): VenueBar[] =>
-            this.requireList(payload, 'candles').map((one) => {
-                const row = one as Record<string, unknown>;
-                const openedAtMs = this.readNumber(row['t']) ?? 0;
-                return {
-                    openedAtMs,
-                    closedAtMs: openedAtMs,
-                    openPrice: this.readNumber(row['o']) ?? 0,
-                    highPrice: this.readNumber(row['h']) ?? 0,
-                    lowPrice: this.readNumber(row['l']) ?? 0,
-                    closePrice: this.readNumber(row['c']) ?? 0,
-                    volume: this.readNumber(row['v']),
-                    buyVolume: null,
-                    tradeCount: null,
-                };
-            }),
-    };
+        };
+    }
+
+    override readBars(payload: unknown): VenueBar[] {
+        return this.requireList(payload, 'candles').map((one) => {
+            const row = one as Record<string, unknown>;
+            const openedAtMs = this.readNumber(row['t']) ?? 0;
+            return {
+                openedAtMs,
+                closedAtMs: openedAtMs,
+                openPrice: this.readNumber(row['o']) ?? 0,
+                highPrice: this.readNumber(row['h']) ?? 0,
+                lowPrice: this.readNumber(row['l']) ?? 0,
+                closePrice: this.readNumber(row['c']) ?? 0,
+                volume: this.readNumber(row['v']),
+                buyVolume: null,
+                tradeCount: null,
+            };
+        });
+    }
 }
 ```
 
@@ -98,24 +98,35 @@ export default class Tuples extends Connector {
     /** How many positions a row must have before it is worth reading. */
     private static readonly FIELDS = 6;
 
-    readonly declaration = { book: null, tape: null, bars: null };
-    readonly instruments = {
-        planInstruments: () => ({ url: 'https://api.example.com/markets' }),
-        readInstruments: () => [],
+    readonly declaration = {
+        book: null,
+        tape: null,
+        bars: {
+            rungs: [{ widthMs: 60_000, anchorMs: 0 }],
+            barsPerRequest: 500,
+            hasVolume: true,
+            hasBuyVolume: false,
+            hasTradeCount: false,
+        },
     };
-    readonly planStream = null;
-    readonly book = null;
-    readonly tape = null;
 
-    readonly bars = {
-        planPage: (request: BarPageRequest) => ({
-            url: 'https://api.example.com/klines?symbol=' + encodeURIComponent(request.symbol),
-        }),
-        readPage: (payload: unknown): VenueBar[] => this
-            .requireList(payload)
+    planInstruments() {
+        return { url: 'https://api.example.com/markets' };
+    }
+
+    readInstruments() {
+        return [];
+    }
+
+    override planBars(request: BarPageRequest) {
+        return { url: 'https://api.example.com/klines?symbol=' + encodeURIComponent(request.symbol) };
+    }
+
+    override readBars(payload: unknown): VenueBar[] {
+        return this.requireList(payload)
             .map((row) => this.readCandle(row))
-            .filter((bar): bar is VenueBar => bar !== null),
-    };
+            .filter((bar): bar is VenueBar => bar !== null);
+    }
 
     /**
      * One candle out of a tuple, or null where a field is unreadable.
@@ -205,47 +216,49 @@ export default class Live extends Connector {
         bars: null,
     };
 
-    readonly instruments = {
-        planInstruments: () => ({ url: Live.REST + '/markets' }),
-        readInstruments: () => [],
-    };
+    planInstruments() {
+        return { url: Live.REST + '/markets' };
+    }
 
-    readonly planStream = (symbol: string) => ({
-        url: Live.SOCKET + '/book/' + symbol.toLowerCase(),
-    });
+    readInstruments() {
+        return [];
+    }
 
-    readonly book = {
-        planSnapshot: (symbol: string) => ({
-            url: Live.REST + '/book?symbol=' + encodeURIComponent(symbol) + '&depth=1000',
-        }),
-        readSnapshot: (payload: unknown): DepthSnapshot => ({
+    override planStream(symbol: string) {
+        return { url: Live.SOCKET + '/book/' + symbol.toLowerCase() };
+    }
+
+    override planSnapshot(symbol: string) {
+        return { url: Live.REST + '/book?symbol=' + encodeURIComponent(symbol) + '&depth=1000' };
+    }
+
+    override readSnapshot(payload: unknown): DepthSnapshot {
+        return {
             lastUpdateId: this.readNumber((payload as Record<string, unknown>)['seq']) ?? 0,
             bidLevels: this.requireList(payload, 'bids') as SerializedPriceLevel[],
             askLevels: this.requireList(payload, 'asks') as SerializedPriceLevel[],
-        }),
-        readUpdate: (payload: unknown): DepthDiff | null => {
-            const message = payload as Record<string, unknown>;
-            const first = this.readNumber(message['from']);
-            const final = this.readNumber(message['to']);
-            // Anything else on the socket is not an error — it is a heartbeat,
-            // an acknowledgement, or another subscription's traffic.
-            if (first === null || final === null
-                || !Array.isArray(message['b']) || !Array.isArray(message['a'])) {
-                return null;
-            }
+        };
+    }
 
-            return {
-                firstUpdateId: first,
-                finalUpdateId: final,
-                previousFinalUpdateId: first - 1,
-                bidLevels: message['b'] as SerializedPriceLevel[],
-                askLevels: message['a'] as SerializedPriceLevel[],
-            };
-        },
-    };
+    override readUpdate(payload: unknown): DepthDiff | null {
+        const message = payload as Record<string, unknown>;
+        const first = this.readNumber(message['from']);
+        const final = this.readNumber(message['to']);
+        // Anything else on the socket is not an error — it is a heartbeat, an
+        // acknowledgement, or another subscription's traffic.
+        if (first === null || final === null
+            || !Array.isArray(message['b']) || !Array.isArray(message['a'])) {
+            return null;
+        }
 
-    readonly tape = null;
-    readonly bars = null;
+        return {
+            firstUpdateId: first,
+            finalUpdateId: final,
+            previousFinalUpdateId: first - 1,
+            bidLevels: message['b'] as SerializedPriceLevel[],
+            askLevels: message['a'] as SerializedPriceLevel[],
+        };
+    }
 }
 ```
 
@@ -258,11 +271,13 @@ Many venues take their subscription over the socket rather than in the URL, and
 drop a connection nothing has said anything on.
 
 ```ts
-readonly planStream = (symbol: string) => ({
-    url: 'wss://stream.example.com/v2',
-    greetings: [JSON.stringify({ op: 'subscribe', args: ['book.' + symbol] })],
-    heartbeat: { everyMs: 20_000, send: JSON.stringify({ op: 'ping' }) },
-});
+override planStream(symbol: string) {
+    return {
+        url: 'wss://stream.example.com/v2',
+        greetings: [JSON.stringify({ op: 'subscribe', args: ['book.' + symbol] })],
+        heartbeat: { everyMs: 20_000, send: JSON.stringify({ op: 'ping' }) },
+    };
+}
 ```
 
 Fathom owns that timer. A connector holding one could keep the process alive

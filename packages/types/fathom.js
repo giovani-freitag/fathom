@@ -395,15 +395,100 @@ function walkSettled(bars, higher) {
 /**
 * What a connector is written as.
 *
-* Every member is abstract, including the four that may be `null`. A base class
-* that defaulted them would undo the one rule the declaration is built on: an
-* author has to type `null` to say no, and typing it is the moment they read
-* what the engine does instead. Here the compiler is what asks.
+* Methods on the class, not objects of functions hung off it. Every one a venue
+* does not have is inherited from here and refuses, so a connector is only as
+* long as what its venue can actually answer — and the declaration stays the one
+* place a capability is claimed.
 *
-* What it does carry is the two readings every connector repeats — a figure a
-* venue sent as text, and a list that has to be somewhere in the answer.
+* It also carries the two readings every connector repeats: a figure a venue
+* sent as text, and a list that has to be somewhere in the answer.
 */
 var Connector = class {
+	/**
+	* The next page of the listing. One page, unless a connector says otherwise.
+	*
+	* @returns Null, which is a listing served whole.
+	*/
+	continueInstruments(payload, read) {
+		return null;
+	}
+	/**
+	* The socket to open.
+	*
+	* @returns Never; a venue declaring no book and no tape streams nothing.
+	* @throws Error, because nothing should have asked.
+	*/
+	planStream(symbol, ticket) {
+		throw new Error("This venue streams nothing.");
+	}
+	/**
+	* The request that buys a socket. None, unless a connector says otherwise.
+	*
+	* @returns Null, which is a socket whose URL is fixed.
+	*/
+	planStreamTicket() {
+		return null;
+	}
+	/**
+	* What a ticket request answered. Nothing, for a venue that needs none.
+	*
+	* @returns The empty string.
+	*/
+	readStreamTicket(payload) {
+		return "";
+	}
+	/**
+	* Where the resting ladder is fetched from.
+	*
+	* @returns Never; a venue declaring no book has none to fetch.
+	* @throws Error, because nothing should have asked.
+	*/
+	planSnapshot(symbol) {
+		throw new Error("This venue publishes no book.");
+	}
+	/**
+	* The ladder out of that answer.
+	*
+	* @returns Never, for the same reason.
+	* @throws Error, because nothing should have asked.
+	*/
+	readSnapshot(payload) {
+		throw new Error("This venue publishes no book.");
+	}
+	/**
+	* One book update off the socket.
+	*
+	* @returns Null, which is how every message that is not one is answered.
+	*/
+	readUpdate(payload) {
+		return null;
+	}
+	/**
+	* The prints one message carried.
+	*
+	* @returns None, which is how every message carrying none is answered.
+	*/
+	readTrades(payload) {
+		return [];
+	}
+	/**
+	* Where one page of candles is fetched from.
+	*
+	* @returns Never; a venue declaring no bars serves none.
+	* @throws Error, because nothing should have asked.
+	*/
+	planBars(request) {
+		throw new Error("This venue serves no candles.");
+	}
+	/**
+	* The candles out of that answer.
+	*
+	* @returns Never, for the same reason.
+	* @throws Error, because nothing should have asked.
+	*/
+	readBars(payload, request) {
+		throw new Error("This venue serves no candles.");
+	}
 	/**
 	* A figure as a number, or null where it does not read as one.
 	*

@@ -192,7 +192,7 @@ function takeExport(exported: unknown): AddonBuild {
     // Read as a connector by what only a connector has. Decided before the
     // reading's own fields are checked, so a connector missing something is
     // told what a connector is missing rather than that it has no `compute`.
-    if (fields['declaration'] !== undefined || fields['instruments'] !== undefined) {
+    if (fields['declaration'] !== undefined || typeof fields['planInstruments'] === 'function') {
         return takeConnector(candidate);
     }
 
@@ -213,21 +213,24 @@ function takeExport(exported: unknown): AddonBuild {
  */
 function takeConnector(candidate: unknown): AddonBuild {
     const fields = candidate as Record<string, unknown>;
-    const missing = ['declaration', 'instruments', 'planStream', 'book', 'tape', 'bars']
-        .filter((field) => fields[field] === undefined);
-    if (missing.length > 0) {
-        // Named individually because every one of them is a `T | null`: an
-        // author has to type `null` to say no, and typing it is the moment they
-        // read what the engine does instead.
+    const declaration = fields['declaration'] as Record<string, unknown> | null | undefined;
+    if (typeof declaration !== 'object' || declaration === null) {
+        return { kind: 'failed', message: 'A connector needs a `declaration` saying what its venue can do.' };
+    }
+
+    // Named individually because every one is a `T | null`: an author has to
+    // type `null` to say no, and typing it is the moment they read what the
+    // engine does instead.
+    const unsaid = ['book', 'tape', 'bars'].filter((field) => declaration[field] === undefined);
+    if (unsaid.length > 0) {
         return {
             kind: 'failed',
-            message: `The connector is missing: ${missing.join(', ')}. Every one takes a value or \`null\`.`,
+            message: `The declaration says nothing about: ${unsaid.join(', ')}. Each takes a value or \`null\`.`,
         };
     }
 
-    const reader = fields['instruments'] as Record<string, unknown> | null;
-    if (typeof reader?.['planInstruments'] !== 'function' || typeof reader['readInstruments'] !== 'function') {
-        return { kind: 'failed', message: '`instruments` has to plan a request and read the answer.' };
+    if (typeof fields['planInstruments'] !== 'function' || typeof fields['readInstruments'] !== 'function') {
+        return { kind: 'failed', message: 'A connector needs `planInstruments` and `readInstruments`.' };
     }
 
     const contradictions = findContradictions(candidate as VenueConnector);

@@ -38,7 +38,7 @@ describe('the connector for the venue every recording came from', () => {
 
 describe('its listing', () => {
     it('names each pair by its base and its quote', () => {
-        const listed = BINANCE_CONNECTOR.instruments.readInstruments(EXCHANGE_INFO);
+        const listed = BINANCE_CONNECTOR.readInstruments(EXCHANGE_INFO);
 
         expect(listed[0]).toEqual({
             symbol: 'BTCUSDT', base: 'BTC', quote: 'USDT', priceStep: 0.1, isTrading: true,
@@ -49,19 +49,19 @@ describe('its listing', () => {
         // A pair that was recorded and has since stopped trading still has a
         // history worth opening, and dropping it from the listing would make the
         // recording unreachable from the interface that filed it.
-        const listed = BINANCE_CONNECTOR.instruments.readInstruments(EXCHANGE_INFO);
+        const listed = BINANCE_CONNECTOR.readInstruments(EXCHANGE_INFO);
 
         expect(listed.map((instrument) => instrument.isTrading)).toEqual([true, false]);
     });
 
     it('refuses an answer that lists nothing at all', () => {
-        expect(() => BINANCE_CONNECTOR.instruments.readInstruments({})).toThrow(/no list under .symbols./);
+        expect(() => BINANCE_CONNECTOR.readInstruments({})).toThrow(/no list under .symbols./);
     });
 });
 
 describe('its candles', () => {
     it('reads the split the venue publishes, which most venues do not', () => {
-        const [bar] = BINANCE_CONNECTOR.bars!.readPage([CANDLE], ASKED);
+        const [bar] = BINANCE_CONNECTOR.readBars([CANDLE], ASKED);
 
         expect(bar?.volume).toBe(120.5);
         expect(bar?.buyVolume).toBe(70.25);
@@ -71,17 +71,17 @@ describe('its candles', () => {
         // The venue closes on the last millisecond it holds; the chart treats
         // the edge as the first it does not, and an off-by-one here folds one
         // bar's last print into the next bucket.
-        const [bar] = BINANCE_CONNECTOR.bars!.readPage([CANDLE], ASKED);
+        const [bar] = BINANCE_CONNECTOR.readBars([CANDLE], ASKED);
 
         expect(bar?.closedAtMs).toBe(1_700_000_060_000);
     });
 
     it('drops a candle short of the fields it is read by', () => {
-        expect(BINANCE_CONNECTOR.bars!.readPage([[1, '2', '3']], ASKED)).toEqual([]);
+        expect(BINANCE_CONNECTOR.readBars([[1, '2', '3']], ASKED)).toEqual([]);
     });
 
     it('asks for the width by the name the venue gives it', () => {
-        const asked = BINANCE_CONNECTOR.bars!.planPage({
+        const asked = BINANCE_CONNECTOR.planBars({
             symbol: 'BTCUSDT', widthMs: 3_600_000, fromMs: 1_000, toMs: 2_000, limit: 500,
         });
 
@@ -90,7 +90,7 @@ describe('its candles', () => {
     });
 
     it('refuses a width the venue serves no candle at', () => {
-        expect(() => BINANCE_CONNECTOR.bars!.planPage({
+        expect(() => BINANCE_CONNECTOR.planBars({
             symbol: 'BTCUSDT', widthMs: 7_000, fromMs: 1_000, toMs: 2_000, limit: 500,
         })).toThrow(/No venue candle/);
     });
@@ -98,7 +98,7 @@ describe('its candles', () => {
 
 describe('its book', () => {
     it('reads an update with its whole sequence, which is what makes it checkable', () => {
-        const update = BINANCE_CONNECTOR.book!.readUpdate({
+        const update = BINANCE_CONNECTOR.readUpdate({
             data: { e: 'depthUpdate', U: 10, u: 12, pu: 9, b: [['42000', '1.5']], a: [] },
         });
 
@@ -112,7 +112,7 @@ describe('its book', () => {
     });
 
     it('ignores an update missing a side, rather than handing on something to iterate', () => {
-        const update = BINANCE_CONNECTOR.book!.readUpdate({
+        const update = BINANCE_CONNECTOR.readUpdate({
             data: { e: 'depthUpdate', U: 10, u: 12, pu: 9, b: [['42000', '1.5']] },
         });
 
@@ -120,16 +120,16 @@ describe('its book', () => {
     });
 
     it('ignores anything on the stream that is not a book update', () => {
-        expect(BINANCE_CONNECTOR.book!.readUpdate({ data: { e: 'trade' } })).toBeNull();
-        expect(BINANCE_CONNECTOR.book!.readUpdate({ data: { e: 'kline', k: {} } })).toBeNull();
+        expect(BINANCE_CONNECTOR.readUpdate({ data: { e: 'trade' } })).toBeNull();
+        expect(BINANCE_CONNECTOR.readUpdate({ data: { e: 'kline', k: {} } })).toBeNull();
     });
 
     it('ignores a frame carrying no payload, which is how the venue acknowledges', () => {
-        expect(BINANCE_CONNECTOR.book!.readUpdate({ result: null, id: 1 })).toBeNull();
+        expect(BINANCE_CONNECTOR.readUpdate({ result: null, id: 1 })).toBeNull();
     });
 
     it('ignores an update with no sequence to place it in', () => {
-        const update = BINANCE_CONNECTOR.book!.readUpdate({
+        const update = BINANCE_CONNECTOR.readUpdate({
             data: { e: 'depthUpdate', b: [], a: [] },
         });
 
@@ -139,7 +139,7 @@ describe('its book', () => {
 
 describe('its tape', () => {
     it('names the side that crossed the spread', () => {
-        const prints = BINANCE_CONNECTOR.tape!.readTrades({
+        const prints = BINANCE_CONNECTOR.readTrades({
             data: { e: 'trade', T: 1_700_000_000_000, m: true, p: '42000.5', q: '0.75' },
         });
 
@@ -152,7 +152,7 @@ describe('its tape', () => {
     });
 
     it('reads a print the resting seller absorbed as a purchase', () => {
-        const [print] = BINANCE_CONNECTOR.tape!.readTrades({
+        const [print] = BINANCE_CONNECTOR.readTrades({
             data: { e: 'trade', T: 1_700_000_000_000, m: false, p: '42000.5', q: '0.75' },
         });
 
@@ -160,7 +160,7 @@ describe('its tape', () => {
     });
 
     it('drops a print with no instant of its own', () => {
-        const prints = BINANCE_CONNECTOR.tape!.readTrades({
+        const prints = BINANCE_CONNECTOR.readTrades({
             data: { e: 'trade', m: true, p: '42000.5', q: '0.75' },
         });
 
@@ -170,7 +170,7 @@ describe('its tape', () => {
     it('drops a print whose price does not read as a number', () => {
         // A price that reads as NaN is written as a real print, and no later
         // read can tell it from one.
-        const prints = BINANCE_CONNECTOR.tape!.readTrades({
+        const prints = BINANCE_CONNECTOR.readTrades({
             data: { e: 'trade', T: 1_700_000_000_000, m: true, p: 'nonsense', q: '0.75' },
         });
 

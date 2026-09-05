@@ -152,18 +152,15 @@ describe('VenueCandleService', () => {
 /** A venue that publishes an open instant, a total, and nothing else. */
 function buildOpenOnlyService(): VenueCandleService {
     return new VenueCandleService({
-        connector: {
-            ...BINANCE_CONNECTOR,
-            bars: {
-                planPage: () => ({ url: 'https://venue.example/candles' }),
-                readPage: () => [{
-                    openedAtMs: 1_000_000,
-                    closedAtMs: 1_000_000,
-                    openPrice: 99, highPrice: 101, lowPrice: 98, closePrice: 100,
-                    volume: 5, buyVolume: null, tradeCount: null,
-                }],
-            },
-        },
+        connector: Object.assign(Object.create(BINANCE_CONNECTOR) as typeof BINANCE_CONNECTOR, {
+            planBars: () => ({ url: 'https://venue.example/candles' }),
+            readBars: () => [{
+                openedAtMs: 1_000_000,
+                closedAtMs: 1_000_000,
+                openPrice: 99, highPrice: 101, lowPrice: 98, closePrice: 100,
+                volume: 5, buyVolume: null, tradeCount: null,
+            }],
+        }),
         gateway: new VenueGateway({ fetch: () => Promise.resolve(new Response('[]')) }),
         readNowMs: () => NOW_MS,
     });

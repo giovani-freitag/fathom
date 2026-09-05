@@ -41,23 +41,32 @@ export default class KuCoin extends Connector {
 
     readonly declaration = { book: null, tape: null, bars: null };
 
-    readonly instruments = {
-        planInstruments: () => ({ url: KuCoin.REST + '/api/v2/symbols' }),
-        readInstruments: (payload: unknown): VenueInstrument[] => [],
-    };
+    planInstruments() {
+        return { url: KuCoin.REST + '/api/v2/symbols' };
+    }
 
-    readonly planStream = null;
-    readonly book = null;
-    readonly tape = null;
-    readonly bars = null;
+    readInstruments(payload: unknown): VenueInstrument[] {
+        return [];
+    }
 }
 ```
 
-Seis membros, e cinco deles podem ser `null`.
+Isso é um conector inteiro. Três membros, e não há um quarto para lembrar: uma
+corretora que não declara nada além da listagem não escreve nada além dela.
 
-Todos são abstratos na classe base, inclusive esses cinco. É de propósito: você
-precisa digitar `null` para dizer não, e digitar é o momento em que você lê o
-que o Fathom faz no lugar. Se esquecer um, o compilador cobra.
+Todo o resto — o socket, o snapshot, os candles — vem do `Connector`, e tudo que
+vem de lá recusa. Peça uma página de candles a uma corretora assim e ela diz que
+não serve nenhum, com essas palavras, em vez de devolver uma página vazia que se
+parece com um mercado parado.
+
+Então você escreve um método quando, e só quando, sua declaração reivindica o
+que está por trás dele. Os dois são conferidos um contra o outro na hora de
+salvar: declare um livro sem os métodos para ler um e o Fathom nomeia os que
+você não escreveu, e escreva os métodos sem declarar e o Fathom também avisa.
+
+Cada um dos três campos de `declaration` é obrigatório, e cada um é descrito ou
+`null`. Você precisa digitar o `null` — e digitar é o momento em que você lê o
+que o Fathom faz no lugar.
 
 O `Connector` também traz as duas leituras que todo conector acaba repetindo:
 
@@ -109,20 +118,22 @@ funciona. Aperte salvar, e ou os pares aparecem no seletor ou a corretora diz
 por que não.
 
 ```ts
-readonly instruments = {
-    planInstruments: () => ({ url: KuCoin.REST + '/api/v2/symbols' }),
-    readInstruments: (payload: unknown): VenueInstrument[] =>
-        this.requireList(payload, 'data').map((listing) => {
-            const entry = listing as Record<string, unknown>;
-            return {
-                symbol: String(entry['symbol']),
-                base: String(entry['baseCurrency']),
-                quote: String(entry['quoteCurrency']),
-                priceStep: this.readNumber(entry['priceIncrement']) ?? 0,
-                isTrading: entry['enableTrading'] === true,
-            };
-        }),
-};
+planInstruments() {
+    return { url: KuCoin.REST + '/api/v2/symbols' };
+}
+
+readInstruments(payload: unknown): VenueInstrument[] {
+    return this.requireList(payload, 'data').map((listing) => {
+        const entry = listing as Record<string, unknown>;
+        return {
+            symbol: String(entry['symbol']),
+            base: String(entry['baseCurrency']),
+            quote: String(entry['quoteCurrency']),
+            priceStep: this.readNumber(entry['priceIncrement']) ?? 0,
+            isTrading: entry['enableTrading'] === true,
+        };
+    });
+}
 ```
 
 `payload` é o que a corretora respondeu, já convertido de JSON. O `requireList`
@@ -130,19 +141,45 @@ lança o erro por você quando não existe lista onde você disse que existe. Em
 qualquer outro ponto em que o formato te surpreender, lance um erro com uma
 frase sua — o seletor mostra ela para quem estiver lendo.
 
+### Uma listagem servida em páginas
+
+Algumas corretoras entregam algumas centenas de pares por vez. Diga onde está a
+próxima página, e o Fathom continua pedindo até você dizer que não há mais.
+
+```ts
+continueInstruments(payload: unknown, read: number) {
+    const total = this.readNumber((payload as Record<string, unknown>)['total']) ?? 0;
+
+    return read < total
+        ? { url: KuCoin.REST + '/api/v2/symbols?offset=' + String(read) }
+        : null;
+}
+```
+
+`read` é quantos instrumentos você já devolveu, somando todas as páginas.
+Devolver `null` encerra a listagem, e uma vigésima página também — uma corretora
+cuja resposta nunca diz que acabou para na conta do Fathom, não na sua.
+
 ## Lendo candles
 
 ```ts
-readonly bars = {
-    planPage: (request: BarPageRequest) => ({
+override planBars(request: BarPageRequest) {
+    return {
         url: KuCoin.REST + '/api/v1/market/candles?type=1min'
             + '&symbol=' + encodeURIComponent(request.symbol)
             + '&startAt=' + String(Math.floor(request.fromMs / 1_000))
             + '&endAt=' + String(Math.floor(request.toMs / 1_000)),
-    }),
-    readPage: (payload: unknown, request: BarPageRequest): VenueBar[] => [],
-};
+    };
+}
+
+override readBars(payload: unknown, request: BarPageRequest): VenueBar[] {
+    return [];
+}
 ```
+
+O `override` é o que diz que você está entrando no lugar da recusa que herdou.
+Sem ele o compilador avisa, que é a mesma conferência pelo outro lado: um método
+escrito quase certo é um método que o Fathom nunca chama.
 
 Três coisas pegam todo mundo:
 
@@ -163,6 +200,42 @@ continuar distinguível de uma que só ficou quieta.
 Se a corretora só nomeia onde o candle abre, deixe `closedAtMs` igual a
 `openedAtMs`. O Fathom preenche a borda de fechamento com a largura que pediu.
 
+## Um socket que você precisa comprar antes
+
+Muitas corretoras não dão uma URL fixa de socket. Você pede uma, elas devolvem
+um endereço de curta duração, e é nele que você conecta. Um conector não busca
+nada, então ele descreve as duas metades e o Fathom executa na ordem.
+
+```ts
+override planStreamTicket() {
+    return { url: KuCoin.REST + '/api/v1/bullet-public', method: 'POST' as const };
+}
+
+override readStreamTicket(payload: unknown): string {
+    const data = (payload as Record<string, Record<string, unknown>>)['data'];
+    return String((this.requireList(data, 'instanceServers')[0] as
+        Record<string, unknown>)['endpoint']) + '?token=' + String(data?.['token']);
+}
+
+override planStream(symbol: string, ticket: string) {
+    return {
+        url: ticket,
+        greetings: [JSON.stringify({ type: 'subscribe', topic: '/market/level2:' + symbol })],
+        heartbeat: { everyMs: 20_000, send: JSON.stringify({ type: 'ping' }) },
+    };
+}
+```
+
+Qualquer pedido que você descrever pode levar `method`, `body` e `headers` — é
+tudo que um `POST` precisa aqui. O que ele não pode levar é segredo: não existe
+lugar no Fathom para guardar uma chave, então só dá para ler endpoint que não
+pede assinatura.
+
+O Fathom compra um bilhete novo toda vez que abre o socket, inclusive depois de
+uma reconexão, porque um endereço de curta duração é curto justamente quando a
+transmissão cai. E o temporizador do heartbeat é dele, pela razão lá do começo
+da página.
+
 ## Instalando
 
 Salve. A corretora aparece entre as outras no seletor de contrato, e o Fathom já
@@ -180,9 +253,9 @@ Limpar os dados do site leva eles junto. Exporte o que quiser manter.
 
 ## O que um conector ainda não faz
 
-- **Só `GET`.** Um conector nomeia uma URL. Uma corretora que entrega o socket
-  por um `POST` que responde com uma URL de curta duração não dá para
-  transmitir, que é exatamente por que o exemplo da KuCoin declara `book: null`.
+- **Sem segredos.** Um pedido leva cabeçalhos, e não existe onde guardar a chave
+  que iria em um deles. Só dá para ler endpoint que não pede assinatura, o que
+  deixa de fora quase tudo que uma corretora põe atrás de uma conta.
 - **O gráfico, não o coletor.** Um conector que você instala vive no seu
   navegador, então o servidor que grava livros de ofertas não o enxerga. Uma
   corretora trazida assim te dá uma listagem de pares e nada além: sem gravação

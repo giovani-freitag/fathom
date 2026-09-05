@@ -1097,15 +1097,21 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
      * and one that never settles wedges the reconcile pass for every contract on the
      * machine, one bad connector stopping four good recordings.
      */
+    /** How a request is made, for the few venues that will not answer a plain read. */
+    export type RequestMethod = 'GET' | 'POST';
     /**
      * A request for the engine to perform.
      *
-     * A URL and headers rather than a fetch: the connector never reaches the network
+     * A description rather than a fetch: the connector never reaches the network
      * itself, so it cannot hang, cannot retry behind the engine's back, and cannot
      * send anything the engine did not see first.
      */
     export interface VenueRequest {
         readonly url: string;
+        /** Omitted for the ordinary read, which is every listing and every candle. */
+        readonly method?: RequestMethod;
+        /** Sent as it stands, for a venue that asks to be posted to. */
+        readonly body?: string;
         readonly headers?: Readonly<Record<string, string>>;
     }
     /** A socket to open, and what to say once it is open. */
@@ -1174,59 +1180,32 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
         readonly toMs: number;
         readonly limit: number;
     }
-    /** How a venue's instrument listing is asked for and read. */
-    export interface InstrumentReader {
-        planInstruments: () => VenueRequest;
-        /**
-         * @param payload - Whatever the venue answered, already parsed from JSON.
-         * @returns Every instrument it listed.
-         * @throws Error when the answer is not the shape the connector expects.
-         */
-        readInstruments: (payload: unknown) => readonly VenueInstrument[];
-    }
-    /** How a venue's resting book is asked for and read. */
-    export interface BookReader {
-        planSnapshot: (symbol: string) => VenueRequest;
-        readSnapshot: (payload: unknown) => DepthSnapshot;
-        /**
-         * @param payload - One message off the socket, already parsed.
-         * @returns The change it carried, or null for anything else on the stream.
-         */
-        readUpdate: (payload: unknown) => DepthDiff | null;
-    }
-    /** How a venue's executions are read. */
-    export interface TapeReader {
-        /**
-         * @param payload - One message off the socket, already parsed.
-         * @returns Every print it carried, empty for anything else on the stream.
-         */
-        readTrades: (payload: unknown) => readonly ExecutedTrade[];
-    }
-    /** How a venue's candles are asked for and read. */
-    export interface BarReader {
-        planPage: (request: BarPageRequest) => VenueRequest;
-        /**
-         * @param payload - The venue's answer, already parsed from JSON.
-         * @param request - What was asked for, handed back because most venues name
-         *                  only where a candle opens, and the width is what turns
-         *                  that into the first instant it does not hold.
-         * @returns The candles it carried, oldest first.
-         */
-        readPage: (payload: unknown, request: BarPageRequest) => readonly VenueBar[];
-    }
     /**
      * Everything the engine needs to read one venue.
      *
-     * The three optional readers stand exactly where the declaration's three
-     * capabilities do, and registration refuses a connector where they disagree:
-     * a declared book with nothing that reads one is a chart waiting for a message
-     * that never comes, and a reader for a capability that was declared absent is a
-     * venue quietly doing more than the chart was told to expect.
+     * Flat, and every method on the connector itself. The methods a venue does not
+     * have are the ones its declaration says \`null\` for, and the base class answers
+     * those by refusing — so there is one place a capability is claimed, and
+     * registration checks the methods against it.
      */
     export interface VenueConnector {
         readonly declaration: VenueDeclaration;
         /** Every venue lists what it trades; there is nothing to chart otherwise. */
-        readonly instruments: InstrumentReader;
+        planInstruments: () => VenueRequest;
+        /**
+         * @param payload - Whatever the venue answered, already parsed from JSON.
+         * @returns Every instrument this page listed.
+         * @throws Error when the answer is not the shape the connector expects.
+         */
+        readInstruments: (payload: unknown) => readonly VenueInstrument[];
+        /**
+         * The next page of the listing, for a venue that serves it in several.
+         *
+         * @param payload - The page just read.
+         * @param read - How many instruments have been gathered so far.
+         * @returns What to fetch next, or null once the listing is whole.
+         */
+        continueInstruments: (payload: unknown, read: number) => VenueRequest | null;
         /**
          * One socket carrying everything the venue streams.
          *
@@ -1235,12 +1214,43 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
          * that is usually counted per address, and two independent reconnects whose
          * gaps do not line up in the ledger.
          *
-         * Null exactly where the venue streams nothing.
+         * @param symbol - The instrument being recorded.
+         * @param ticket - What \`readStreamTicket\` returned, or empty where the venue
+         *                 needs none.
          */
-        readonly planStream: ((symbol: string) => VenueStreamPlan) | null;
-        readonly book: BookReader | null;
-        readonly tape: TapeReader | null;
-        readonly bars: BarReader | null;
+        planStream: (symbol: string, ticket: string) => VenueStreamPlan;
+        /**
+         * The request that buys a socket, for a venue handing them out per session.
+         *
+         * @returns The request, or null for a venue whose socket URL is fixed.
+         */
+        planStreamTicket: () => VenueRequest | null;
+        /**
+         * @param payload - What that request answered.
+         * @returns Whatever \`planStream\` needs to build its URL — usually a token.
+         */
+        readStreamTicket: (payload: unknown) => string;
+        planSnapshot: (symbol: string) => VenueRequest;
+        readSnapshot: (payload: unknown) => DepthSnapshot;
+        /**
+         * @param payload - One message off the socket, already parsed.
+         * @returns The change it carried, or null for anything else on the stream.
+         */
+        readUpdate: (payload: unknown) => DepthDiff | null;
+        /**
+         * @param payload - One message off the socket, already parsed.
+         * @returns Every print it carried, empty for anything else on the stream.
+         */
+        readTrades: (payload: unknown) => readonly ExecutedTrade[];
+        planBars: (request: BarPageRequest) => VenueRequest;
+        /**
+         * @param payload - The venue's answer, already parsed from JSON.
+         * @param request - What was asked for, handed back because most venues name
+         *                  only where a candle opens, and the width is what turns
+         *                  that into the first instant it does not hold.
+         * @returns The candles it carried, oldest first.
+         */
+        readBars: (payload: unknown, request: BarPageRequest) => readonly VenueBar[];
     }
     /**
      * Where a connector contradicts itself.
@@ -1249,27 +1259,94 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
      * second is hours later, on a machine nobody is watching, and the contradiction
      * was already in the file.
      *
+     * The declaration is what claims; the methods are what can answer. A venue that
+     * declares a book and never wrote the methods behind one is a chart waiting for
+     * a message that never comes, and a venue with the methods and no declaration is
+     * one quietly doing more than the chart was told to expect.
+     *
      * @param connector - The connector being registered.
      * @returns One sentence per contradiction, empty where there are none.
      */
     /**
      * What a connector is written as.
      *
-     * Every member is abstract, including the four that may be \`null\`. A base class
-     * that defaulted them would undo the one rule the declaration is built on: an
-     * author has to type \`null\` to say no, and typing it is the moment they read
-     * what the engine does instead. Here the compiler is what asks.
+     * Methods on the class, not objects of functions hung off it. Every one a venue
+     * does not have is inherited from here and refuses, so a connector is only as
+     * long as what its venue can actually answer — and the declaration stays the one
+     * place a capability is claimed.
      *
-     * What it does carry is the two readings every connector repeats — a figure a
-     * venue sent as text, and a list that has to be somewhere in the answer.
+     * It also carries the two readings every connector repeats: a figure a venue
+     * sent as text, and a list that has to be somewhere in the answer.
      */
     export declare abstract class Connector implements VenueConnector {
         abstract readonly declaration: VenueDeclaration;
-        abstract readonly instruments: InstrumentReader;
-        abstract readonly planStream: ((symbol: string) => VenueStreamPlan) | null;
-        abstract readonly book: BookReader | null;
-        abstract readonly tape: TapeReader | null;
-        abstract readonly bars: BarReader | null;
+        abstract planInstruments(): VenueRequest;
+        abstract readInstruments(payload: unknown): readonly VenueInstrument[];
+        /**
+         * The next page of the listing. One page, unless a connector says otherwise.
+         *
+         * @returns Null, which is a listing served whole.
+         */
+        continueInstruments(payload: unknown, read: number): VenueRequest | null;
+        /**
+         * The socket to open.
+         *
+         * @returns Never; a venue declaring no book and no tape streams nothing.
+         * @throws Error, because nothing should have asked.
+         */
+        planStream(symbol: string, ticket: string): VenueStreamPlan;
+        /**
+         * The request that buys a socket. None, unless a connector says otherwise.
+         *
+         * @returns Null, which is a socket whose URL is fixed.
+         */
+        planStreamTicket(): VenueRequest | null;
+        /**
+         * What a ticket request answered. Nothing, for a venue that needs none.
+         *
+         * @returns The empty string.
+         */
+        readStreamTicket(payload: unknown): string;
+        /**
+         * Where the resting ladder is fetched from.
+         *
+         * @returns Never; a venue declaring no book has none to fetch.
+         * @throws Error, because nothing should have asked.
+         */
+        planSnapshot(symbol: string): VenueRequest;
+        /**
+         * The ladder out of that answer.
+         *
+         * @returns Never, for the same reason.
+         * @throws Error, because nothing should have asked.
+         */
+        readSnapshot(payload: unknown): DepthSnapshot;
+        /**
+         * One book update off the socket.
+         *
+         * @returns Null, which is how every message that is not one is answered.
+         */
+        readUpdate(payload: unknown): DepthDiff | null;
+        /**
+         * The prints one message carried.
+         *
+         * @returns None, which is how every message carrying none is answered.
+         */
+        readTrades(payload: unknown): readonly ExecutedTrade[];
+        /**
+         * Where one page of candles is fetched from.
+         *
+         * @returns Never; a venue declaring no bars serves none.
+         * @throws Error, because nothing should have asked.
+         */
+        planBars(request: BarPageRequest): VenueRequest;
+        /**
+         * The candles out of that answer.
+         *
+         * @returns Never, for the same reason.
+         * @throws Error, because nothing should have asked.
+         */
+        readBars(payload: unknown, request: BarPageRequest): readonly VenueBar[];
         /**
          * A figure as a number, or null where it does not read as one.
          *

@@ -52,15 +52,15 @@ const STARTER_CONNECTOR = `// A connector says what a venue can do and how to re
 // never fetches anything itself: it describes a request, the engine performs it,
 // and the connector reads what came back.
 import { Connector } from 'fathom';
-import type { VenueInstrument } from 'fathom';
+import type { VenueInstrument, VenueRequest } from 'fathom';
 
 export default class MyVenue extends Connector {
-    // Kept in here because nothing outside this class uses them.
+    // Kept in here because nothing outside this class uses it.
     private static readonly REST = 'https://api.example.com';
 
-    // What the venue can do. Every field is required, and every capability is
-    // either described or null — writing null is how the chart is told to stop
-    // offering the readings that would need it.
+    // What the venue can do. Every capability is either described or null —
+    // writing null is how the chart is told to stop offering the readings that
+    // would need it, and the methods behind it can then be left out entirely.
     readonly declaration = {
         book: null,
         tape: null,
@@ -68,28 +68,27 @@ export default class MyVenue extends Connector {
     };
 
     // Every venue lists what it trades; there is nothing to chart otherwise.
-    readonly instruments = {
-        planInstruments: () => ({ url: MyVenue.REST + '/api/v1/symbols' }),
-        readInstruments: (payload: unknown): VenueInstrument[] =>
-            this.requireList(payload, 'data').map((listing) => {
-                const entry = listing as Record<string, unknown>;
-                return {
-                    symbol: String(entry['symbol']),
-                    base: String(entry['baseCurrency']),
-                    quote: String(entry['quoteCurrency']),
-                    priceStep: this.readNumber(entry['priceIncrement']) ?? 0,
-                    // False for a listing that exists but is halted or not open.
-                    isTrading: entry['enableTrading'] === true,
-                };
-            }),
-    };
+    planInstruments(): VenueRequest {
+        return { url: MyVenue.REST + '/api/v1/symbols' };
+    }
 
-    // One socket carrying everything the venue streams, or null where it
-    // streams nothing. Fill these in once the listing works.
-    readonly planStream = null;
-    readonly book = null;
-    readonly tape = null;
-    readonly bars = null;
+    readInstruments(payload: unknown): VenueInstrument[] {
+        return this.requireList(payload, 'data').map((listing) => {
+            const entry = listing as Record<string, unknown>;
+            return {
+                symbol: String(entry['symbol']),
+                base: String(entry['baseCurrency']),
+                quote: String(entry['quoteCurrency']),
+                priceStep: this.readNumber(entry['priceIncrement']) ?? 0,
+                // False for a listing that exists but is halted or not open.
+                isTrading: entry['enableTrading'] === true,
+            };
+        });
+    }
+
+    // Once the listing works, describe a capability above and write its methods
+    // here: planBars and readBars for candles, planStream, planSnapshot,
+    // readSnapshot and readUpdate for a live book.
 }
 `;
 

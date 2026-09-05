@@ -6,7 +6,9 @@ import { tmpdir } from 'node:os';
 import { ADDON_SURFACE_TYPES } from '../../src/app/addons/addon-surface.generated.ts';
 
 const ROOT = join(import.meta.dirname, '../..');
-const COOKBOOK = join(ROOT, 'docs', 'en', 'connector-cookbook.md');
+/** Both translations, because the code on them is the same code. */
+const COOKBOOKS = ['en', 'pt-BR'].map((language) =>
+    join(ROOT, 'docs', language, 'connector-cookbook.md'));
 
 /** A whole connector begins by importing the base class. */
 const IS_WHOLE = /^import \{ Connector \}/m;
@@ -55,11 +57,11 @@ function typecheck(source: string): string {
     }
 }
 
-describe('the connector cookbook', () => {
+describe.each(COOKBOOKS)('the connector cookbook at %s', (cookbook) => {
     it('has recipes in it', () => {
         // A page whose blocks stopped being found would pass every check below
         // by having nothing to check.
-        const blocks = blocksIn(COOKBOOK);
+        const blocks = blocksIn(cookbook);
 
         expect(blocks.filter((block) => IS_WHOLE.test(block)).length).toBeGreaterThanOrEqual(3);
         expect(blocks.length).toBeGreaterThan(blocks.filter((block) => IS_WHOLE.test(block)).length);
@@ -67,8 +69,9 @@ describe('the connector cookbook', () => {
 
     it('compiles every whole connector on the page', () => {
         // The page is what a reader copies. A recipe that stopped compiling is
-        // an hour of somebody else's evening.
-        const refused = blocksIn(COOKBOOK)
+        // an hour of somebody else's evening — and a translation nobody
+        // compiles is where that hour actually gets spent.
+        const refused = blocksIn(cookbook)
             .filter((block) => IS_WHOLE.test(block))
             .map((block, index) => ({ index, said: typecheck(block) }))
             .filter((one) => one.said !== '');
@@ -77,8 +80,11 @@ describe('the connector cookbook', () => {
     }, 120_000);
 
     it('still catches a recipe that stopped agreeing with the surface', () => {
-        const whole = blocksIn(COOKBOOK).find((block) => IS_WHOLE.test(block))!;
+        const whole = blocksIn(cookbook).find((block) => IS_WHOLE.test(block))!;
 
-        expect(typecheck(whole.replace('readonly instruments = {', 'readonly instrument = {'))).not.toBe('');
+        // Renamed by one letter, which is what a rename in the surface looks
+        // like from the page's side: the method the base class asks for is
+        // suddenly unwritten.
+        expect(typecheck(whole.replace('planInstruments()', 'planInstrument()'))).not.toBe('');
     }, 60_000);
 });

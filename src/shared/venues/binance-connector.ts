@@ -3,10 +3,6 @@ import { Connector } from '../core/venue-connector.ts';
 import type { DepthDiff, DepthSnapshot, ExecutedTrade, SerializedPriceLevel } from '../core/depth-types.ts';
 import type {
     BarPageRequest,
-    BarReader,
-    BookReader,
-    InstrumentReader,
-    TapeReader,
     VenueBar,
     VenueConnector,
     VenueInstrument,
@@ -52,63 +48,66 @@ class BinanceFutures extends Connector {
 
     readonly declaration: VenueDeclaration = BINANCE_FUTURES;
 
-    readonly instruments: InstrumentReader = {
-        planInstruments: (): VenueRequest => ({ url: `${BinanceFutures.REST}/fapi/v1/exchangeInfo` }),
-        readInstruments: (payload: unknown): readonly VenueInstrument[] => this
-            .requireList(payload, 'symbols')
+    planInstruments(): VenueRequest {
+        return { url: `${BinanceFutures.REST}/fapi/v1/exchangeInfo` };
+    }
+
+    readInstruments(payload: unknown): readonly VenueInstrument[] {
+        return this.requireList(payload, 'symbols')
             .map((listed) => this.readInstrument(listed))
-            .filter((instrument) => instrument !== null),
-    };
+            .filter((instrument) => instrument !== null);
+    }
 
-    // One socket carrying both, which is what the venue sells and what the
-    // collector has been opening all along.
-    readonly planStream = (symbol: string): VenueStreamPlan => ({
-        url: `${BinanceFutures.SOCKET}/stream?streams=${symbol.toLowerCase()}@depth@100ms`
-            + `/${symbol.toLowerCase()}@trade`,
-    });
+    /**
+     * One socket carrying both, which is what the venue sells and what the
+     * collector has been opening all along.
+     */
+    override planStream(symbol: string): VenueStreamPlan {
+        return {
+            url: `${BinanceFutures.SOCKET}/stream?streams=${symbol.toLowerCase()}@depth@100ms`
+                + `/${symbol.toLowerCase()}@trade`,
+        };
+    }
 
-    readonly book: BookReader = {
-        planSnapshot: (symbol: string): VenueRequest => ({
+    override planSnapshot(symbol: string): VenueRequest {
+        return {
             url: `${BinanceFutures.REST}/fapi/v1/depth?symbol=${encodeURIComponent(symbol)}`
                 + `&limit=${String(BinanceFutures.SNAPSHOT_LEVELS)}`,
-        }),
-        readSnapshot: (payload: unknown): DepthSnapshot => {
-            const answer = payload as { lastUpdateId?: unknown };
-            if (typeof answer.lastUpdateId !== 'number') {
-                throw new Error('The venue answered with an unreadable ladder.');
-            }
-            return {
-                lastUpdateId: answer.lastUpdateId,
-                bidLevels: this.requireList(payload, 'bids') as readonly SerializedPriceLevel[],
-                askLevels: this.requireList(payload, 'asks') as readonly SerializedPriceLevel[],
-            };
-        },
-        readUpdate: (payload: unknown): DepthDiff | null => this.readDiff(payload),
-    };
+        };
+    }
 
-    readonly tape: TapeReader = {
-        readTrades: (payload: unknown): readonly ExecutedTrade[] => this.readPrint(payload),
-    };
+    override readSnapshot(payload: unknown): DepthSnapshot {
+        const answer = payload as { lastUpdateId?: unknown };
+        if (typeof answer.lastUpdateId !== 'number') {
+            throw new Error('The venue answered with an unreadable ladder.');
+        }
+        return {
+            lastUpdateId: answer.lastUpdateId,
+            bidLevels: this.requireList(payload, 'bids') as readonly SerializedPriceLevel[],
+            askLevels: this.requireList(payload, 'asks') as readonly SerializedPriceLevel[],
+        };
+    }
 
-    readonly bars: BarReader = {
-        planPage: (request: BarPageRequest): VenueRequest => {
-            const interval = nameVenueInterval(request.widthMs);
-            if (interval === null) {
-                throw new Error(`No venue candle of width ${String(request.widthMs)}ms`);
-            }
-            const url = new URL('/fapi/v1/klines', BinanceFutures.REST);
-            url.searchParams.set('symbol', request.symbol);
-            url.searchParams.set('interval', interval);
-            url.searchParams.set('startTime', String(Math.floor(request.fromMs)));
-            url.searchParams.set('endTime', String(Math.floor(request.toMs)));
-            url.searchParams.set('limit', String(request.limit));
-            return { url: url.toString() };
-        },
-        readPage: (payload: unknown): readonly VenueBar[] => this
-            .requireList(payload)
+    override readBars(payload: unknown): readonly VenueBar[] {
+        return this.requireList(payload)
             .map((entry) => this.readCandle(entry))
-            .filter((bar) => bar !== null),
-    };
+            .filter((bar) => bar !== null);
+    }
+
+    override planBars(request: BarPageRequest): VenueRequest {
+        const interval = nameVenueInterval(request.widthMs);
+        if (interval === null) {
+            throw new Error(`No venue candle of width ${String(request.widthMs)}ms`);
+        }
+
+        const url = new URL('/fapi/v1/klines', BinanceFutures.REST);
+        url.searchParams.set('symbol', request.symbol);
+        url.searchParams.set('interval', interval);
+        url.searchParams.set('startTime', String(Math.floor(request.fromMs)));
+        url.searchParams.set('endTime', String(Math.floor(request.toMs)));
+        url.searchParams.set('limit', String(request.limit));
+        return { url: url.toString() };
+    }
 
     /**
      * One listing, or null where the venue named something the chart cannot draw.
@@ -152,7 +151,7 @@ class BinanceFutures extends Connector {
     /**
      * One book update off the stream, or null for anything else on it.
      */
-    private readDiff(payload: unknown): DepthDiff | null {
+    override readUpdate(payload: unknown): DepthDiff | null {
         const update = this.readEnvelope(payload, 'depthUpdate');
         if (update === null) {
             return null;
@@ -178,7 +177,7 @@ class BinanceFutures extends Connector {
     /**
      * One print off the stream, or none for anything else on it.
      */
-    private readPrint(payload: unknown): readonly ExecutedTrade[] {
+    override readTrades(payload: unknown): readonly ExecutedTrade[] {
         const print = this.readEnvelope(payload, 'trade');
         if (print === null) {
             return [];

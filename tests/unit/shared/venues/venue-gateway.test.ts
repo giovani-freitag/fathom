@@ -79,13 +79,10 @@ describe('what the engine does with a plan', () => {
 
 describe('reading a listing through a connector', () => {
     it('hands the venue\'s answer to the connector that asked for it', async () => {
-        const connector = {
-            ...buildConnector(NOTHING),
-            instruments: {
-                planInstruments: () => ({ url: 'https://venue.test/pairs' }),
-                readInstruments: (payload: unknown) => (payload as { pairs: [] }).pairs,
-            },
-        };
+        const connector = Object.assign(buildConnector(NOTHING), {
+            planInstruments: () => ({ url: 'https://venue.test/pairs' }),
+            readInstruments: (payload: unknown) => (payload as { pairs: [] }).pairs,
+        });
         const gateway = new VenueGateway({
             fetch: answerWith({ pairs: [{ symbol: 'BTCUSDT', base: 'BTC', quote: 'USDT', priceStep: 0.1, isTrading: true }] }),
         });
@@ -96,13 +93,10 @@ describe('reading a listing through a connector', () => {
     });
 
     it('blames the connector when it cannot read what the venue sent', async () => {
-        const connector = {
-            ...buildConnector(NOTHING),
-            instruments: {
-                planInstruments: () => ({ url: 'https://venue.test/pairs' }),
-                readInstruments: () => { throw new Error('no symbols'); },
-            },
-        };
+        const connector = Object.assign(buildConnector(NOTHING), {
+            planInstruments: () => ({ url: 'https://venue.test/pairs' }),
+            readInstruments: (): never => { throw new Error('no symbols'); },
+        });
         const gateway = new VenueGateway({ fetch: answerWith({}) });
 
         await expect(gateway.fetchInstruments(connector)).rejects.toThrow(/could not read the listing/);

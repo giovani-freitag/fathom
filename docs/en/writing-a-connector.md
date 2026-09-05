@@ -41,23 +41,32 @@ export default class KuCoin extends Connector {
 
     readonly declaration = { book: null, tape: null, bars: null };
 
-    readonly instruments = {
-        planInstruments: () => ({ url: KuCoin.REST + '/api/v2/symbols' }),
-        readInstruments: (payload: unknown): VenueInstrument[] => [],
-    };
+    planInstruments() {
+        return { url: KuCoin.REST + '/api/v2/symbols' };
+    }
 
-    readonly planStream = null;
-    readonly book = null;
-    readonly tape = null;
-    readonly bars = null;
+    readInstruments(payload: unknown): VenueInstrument[] {
+        return [];
+    }
 }
 ```
 
-Six members, and five of them may be `null`.
+That is a whole connector. Three members, and there is no fourth to remember:
+a venue that declares nothing beyond its listing writes nothing beyond it.
 
-Every one is abstract on the base class, including those five. That is
-deliberate: you have to type `null` to say no, and typing it is the moment you
-read what Fathom does instead. Leave one out and the compiler asks for it.
+Everything else — the socket, the snapshot, the candles — is inherited from
+`Connector`, and everything inherited refuses. Ask a venue like this one for a
+page of candles and it says it serves none, in those words, rather than handing
+back an empty page that reads like a quiet market.
+
+So you add a method when, and only when, your declaration claims the capability
+behind it. The two are checked against each other the moment you save: declare a
+book without the methods to read one and Fathom names the ones you did not
+write, and write them without declaring it and Fathom says so too.
+
+Each of the three fields of `declaration` is required, and each is either
+described or `null`. You have to type the `null` — and typing it is the moment
+you read what Fathom does instead.
 
 `Connector` also carries the two readings every connector ends up repeating:
 
@@ -109,20 +118,22 @@ it works. Press save, and either the pairs appear in the picker or the venue
 tells you why not.
 
 ```ts
-readonly instruments = {
-    planInstruments: () => ({ url: KuCoin.REST + '/api/v2/symbols' }),
-    readInstruments: (payload: unknown): VenueInstrument[] =>
-        this.requireList(payload, 'data').map((listing) => {
-            const entry = listing as Record<string, unknown>;
-            return {
-                symbol: String(entry['symbol']),
-                base: String(entry['baseCurrency']),
-                quote: String(entry['quoteCurrency']),
-                priceStep: this.readNumber(entry['priceIncrement']) ?? 0,
-                isTrading: entry['enableTrading'] === true,
-            };
-        }),
-};
+planInstruments() {
+    return { url: KuCoin.REST + '/api/v2/symbols' };
+}
+
+readInstruments(payload: unknown): VenueInstrument[] {
+    return this.requireList(payload, 'data').map((listing) => {
+        const entry = listing as Record<string, unknown>;
+        return {
+            symbol: String(entry['symbol']),
+            base: String(entry['baseCurrency']),
+            quote: String(entry['quoteCurrency']),
+            priceStep: this.readNumber(entry['priceIncrement']) ?? 0,
+            isTrading: entry['enableTrading'] === true,
+        };
+    });
+}
 ```
 
 `payload` is whatever the venue answered, already parsed from JSON.
@@ -130,19 +141,45 @@ readonly instruments = {
 Anywhere else the shape surprises you, throw with a sentence of your own — the
 picker shows it to the reader.
 
+### A listing served in pages
+
+Some venues hand you a few hundred pairs at a time. Say where the next page is,
+and Fathom keeps asking until you say there is none.
+
+```ts
+continueInstruments(payload: unknown, read: number) {
+    const total = this.readNumber((payload as Record<string, unknown>)['total']) ?? 0;
+
+    return read < total
+        ? { url: KuCoin.REST + '/api/v2/symbols?offset=' + String(read) }
+        : null;
+}
+```
+
+`read` is how many instruments you have handed back so far, across every page.
+Returning `null` ends the listing, and so does a twentieth page — a venue whose
+answer never says it is finished stops on Fathom's count rather than yours.
+
 ## Reading candles
 
 ```ts
-readonly bars = {
-    planPage: (request: BarPageRequest) => ({
+override planBars(request: BarPageRequest) {
+    return {
         url: KuCoin.REST + '/api/v1/market/candles?type=1min'
             + '&symbol=' + encodeURIComponent(request.symbol)
             + '&startAt=' + String(Math.floor(request.fromMs / 1_000))
             + '&endAt=' + String(Math.floor(request.toMs / 1_000)),
-    }),
-    readPage: (payload: unknown, request: BarPageRequest): VenueBar[] => [],
-};
+    };
+}
+
+override readBars(payload: unknown, request: BarPageRequest): VenueBar[] {
+    return [];
+}
 ```
+
+The `override` is what says you are standing in for the refusal you inherited.
+Leave it off and the compiler tells you, which is the same check from the other
+side: a method spelled almost right is a method Fathom never calls.
 
 Three things catch everybody:
 
@@ -162,6 +199,41 @@ from one that was simply quiet.
 If the venue names only where a candle opens, leave `closedAtMs` equal to
 `openedAtMs`. Fathom fills the closing edge in from the width it asked for.
 
+## A socket you have to buy first
+
+Plenty of venues will not give you a fixed socket URL. You ask for one, they hand
+you a short-lived address, and you connect to that. A connector cannot fetch, so
+it describes both halves and Fathom performs them in order.
+
+```ts
+override planStreamTicket() {
+    return { url: KuCoin.REST + '/api/v1/bullet-public', method: 'POST' as const };
+}
+
+override readStreamTicket(payload: unknown): string {
+    const data = (payload as Record<string, Record<string, unknown>>)['data'];
+    return String((this.requireList(data, 'instanceServers')[0] as
+        Record<string, unknown>)['endpoint']) + '?token=' + String(data?.['token']);
+}
+
+override planStream(symbol: string, ticket: string) {
+    return {
+        url: ticket,
+        greetings: [JSON.stringify({ type: 'subscribe', topic: '/market/level2:' + symbol })],
+        heartbeat: { everyMs: 20_000, send: JSON.stringify({ type: 'ping' }) },
+    };
+}
+```
+
+Any request you describe may carry a `method`, a `body` and `headers` — that is
+the whole of what a `POST` needs here. What it may not carry is a secret: there
+is nowhere in Fathom to keep a key, so only endpoints that need no signature can
+be read.
+
+Fathom buys a fresh ticket every time it opens the socket, including after a
+reconnect, because a short-lived address is short-lived exactly when a stream
+drops. It owns that heartbeat timer too, for the reason at the top of the page.
+
 ## Installing it
 
 Save. The venue appears among the others in the contract picker, and Fathom asks
@@ -177,9 +249,9 @@ data will take them with it. Export anything you want to keep.
 
 ## What a connector cannot do yet
 
-- **`GET` only.** A connector names a URL. An exchange that hands out its socket
-  through a `POST` for a short-lived URL cannot be streamed from, which is
-  exactly why the KuCoin example declares `book: null`.
+- **No secrets.** A request carries headers, and there is nowhere to keep a key
+  that belongs in one. Only endpoints that need no signature can be read, which
+  rules out most of what an exchange puts behind an account.
 - **The chart, not the collector.** A connector you install lives in your
   browser, so the server that records order books cannot see it. A venue brought
   in this way gives you a pair listing and nothing more: with no recording behind

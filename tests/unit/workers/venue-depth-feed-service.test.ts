@@ -218,14 +218,13 @@ describe('BinanceDepthFeedService fetching a depth ladder', () => {
 
 describe('a venue that has to be spoken to', () => {
     /** A connector for a venue that subscribes over the socket and wants pings. */
-    const TALKATIVE = {
-        ...BINANCE_CONNECTOR,
+    const TALKATIVE = Object.assign(Object.create(BINANCE_CONNECTOR) as typeof BINANCE_CONNECTOR, {
         planStream: () => ({
             url: 'wss://venue.test/stream',
             greetings: ['{"op":"subscribe"}'],
             heartbeat: { everyMs: 5_000, send: '{"op":"ping"}' },
         }),
-    };
+    });
 
     function buildTalkative(): { feed: VenueDepthFeedService; sockets: FakeMarketDataSocket[] } {
         const sockets: FakeMarketDataSocket[] = [];

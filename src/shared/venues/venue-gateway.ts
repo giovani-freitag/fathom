@@ -9,6 +9,14 @@ const RESPONSE_BYTE_LIMIT = 8 * 1024 * 1024;
 /** Only these may be fetched: a connector must not reach a private network. */
 const ALLOWED_PROTOCOL = 'https:';
 
+/**
+ * Pages one listing may be asked for before the engine stops asking.
+ *
+ * A connector that answers every page with another page is one whose listing
+ * never returns, and the reader is looking at a spinner either way.
+ */
+const PAGES_PER_LISTING = 20;
+
 export interface VenueGatewayConfig {
     /** Injected so a test can answer without a network. */
     readonly fetch: typeof globalThis.fetch;
@@ -61,12 +69,23 @@ export class VenueGateway {
         connector: VenueConnector,
         signal?: AbortSignal,
     ): Promise<readonly VenueInstrument[]> {
-        const payload = await this.perform(connector.instruments.planInstruments(), signal);
-        try {
-            return connector.instruments.readInstruments(payload);
-        } catch (error) {
-            throw new VenueUnreachableError('The connector could not read the listing.', { cause: error });
+        const gathered: VenueInstrument[] = [];
+        let request: VenueRequest | null = connector.planInstruments();
+
+        // A venue that serves its listing in pages is asked for the next one
+        // until it says there is none. Capped, because a connector that always
+        // answers with another page is one that never returns.
+        for (let page = 0; request !== null && page < PAGES_PER_LISTING; page += 1) {
+            const payload = await this.perform(request, signal);
+            try {
+                gathered.push(...connector.readInstruments(payload));
+                request = connector.continueInstruments(payload, gathered.length);
+            } catch (error) {
+                throw new VenueUnreachableError('The connector could not read the listing.', { cause: error });
+            }
         }
+
+        return gathered;
     }
 
     /**
@@ -83,7 +102,7 @@ export class VenueGateway {
         const deadline = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
         const aborts = signal === undefined ? deadline : AbortSignal.any([signal, deadline]);
 
-        const response = await this.send(url, request.headers, aborts);
+        const response = await this.send(url, request, aborts);
         if (!response.ok) {
             throw new VenueUnreachableError(`The venue refused with ${String(response.status)}.`);
         }
@@ -105,7 +124,7 @@ export class VenueGateway {
      */
     private async send(
         url: string,
-        headers: Readonly<Record<string, string>> | undefined,
+        request: VenueRequest,
         signal: AbortSignal,
     ): Promise<Response> {
         try {
@@ -114,7 +133,9 @@ export class VenueGateway {
                 // Never the reader's cookies: a connector names its own URL, and
                 // a venue's own session must not ride along to it.
                 credentials: 'omit',
-                ...headers === undefined ? {} : { headers },
+                ...request.method === undefined ? {} : { method: request.method },
+                ...request.body === undefined ? {} : { body: request.body },
+                ...request.headers === undefined ? {} : { headers: request.headers },
             });
         } catch (error) {
             throw new VenueUnreachableError('The venue could not be reached.', { cause: error });

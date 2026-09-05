@@ -12,15 +12,14 @@ const ACROSS_TWO_FILES: StoredConnector = {
     installedAtMs: NOW_MS,
     files: {
         'main.ts': `
+            const fathom = require('fathom');
             const parse = require('./reading/parse.js');
-            exports.default = {
-                declaration: { book: null, tape: null, bars: null },
-                instruments: {
-                    planInstruments: () => ({ url: 'https://api.kucoin.test/symbols' }),
-                    readInstruments: parse.readInstruments,
-                },
-                planStream: null, book: null, tape: null, bars: null,
-            };
+            class KuCoin extends fathom.Connector {
+                get declaration() { return { book: null, tape: null, bars: null }; }
+                planInstruments() { return { url: 'https://api.kucoin.test/symbols' }; }
+                readInstruments(payload) { return parse.readInstruments(payload); }
+            }
+            exports.default = KuCoin;
         `,
         'reading/parse.ts': 'exports.readInstruments = () => [];',
     },
@@ -45,7 +44,7 @@ describe('putting a reader\'s venues back when the page opens', () => {
     it('leaves out one that no longer builds, rather than failing later', () => {
         restoreInstalledConnectors(preferencesHolding([{
             ...ACROSS_TWO_FILES,
-            files: { 'main.ts': 'exports.default = { this is not code };' },
+            files: { 'main.ts': 'exports.default = class { this is not code };' },
         }]));
 
         expect(listConnectors().map(([id]) => id)).not.toContain('kucoin');

@@ -41,8 +41,7 @@ export class VenueCandleService {
      *         answers with something the connector cannot read.
      */
     async fetchPriceBars(query: PriceBarQuery, signal?: AbortSignal): Promise<PriceBarWindow> {
-        const reader = this.config.connector.bars;
-        if (reader === null) {
+        if (this.config.connector.declaration.bars === null) {
             throw new Error('This venue serves no candles');
         }
 
@@ -92,7 +91,7 @@ export class VenueCandleService {
      * One request's worth of candles, ending at an instant.
      */
     private async fetchPage(page: PageRequest, signal?: AbortSignal): Promise<PriceBar[]> {
-        const reader = this.config.connector.bars!;
+        const { connector } = this.config;
         const asked = {
             symbol: page.request.query.symbol,
             widthMs: page.request.query.intervalMs,
@@ -101,8 +100,8 @@ export class VenueCandleService {
             limit: page.perRequest,
         };
 
-        const payload = await this.config.gateway.perform(reader.planPage(asked), signal);
-        return reader.readPage(payload, asked).map((bar) => this.toPriceBar(bar, asked.widthMs));
+        const payload = await this.config.gateway.perform(connector.planBars(asked), signal);
+        return connector.readBars(payload, asked).map((bar) => this.toPriceBar(bar, asked.widthMs));
     }
 
     /**

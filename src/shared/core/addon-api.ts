@@ -68,10 +68,7 @@ export { Connector } from './venue-connector.ts';
 
 export type {
     BarPageRequest,
-    BarReader,
-    BookReader,
-    InstrumentReader,
-    TapeReader,
+    RequestMethod,
     VenueBar,
     VenueConnector,
     VenueInstrument,
