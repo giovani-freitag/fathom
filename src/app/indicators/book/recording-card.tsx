@@ -286,7 +286,7 @@ function GridChip({ grid, isChosen, isSaving, translate, onPick }: {
             aria-current={isChosen}
             aria-label={translate('settings.perRow', { value: grid.priceBucketSize })}
             onClick={onPick}
-            className={`${CONTROL_CHIP_CLASSES} numeric h-11 justify-center px-2.5 sm:h-7 ${gridChipLook(
+            className={`${CONTROL_CHIP_CLASSES} numeric h-7 justify-center px-2.5 touch:h-11 ${gridChipLook(
                 isChosen,
                 grid.isSuggested,
             )}`}
@@ -399,7 +399,7 @@ function PairRow(props: PairRowProps): ReactElement {
                         aria-expanded={props.isOpen}
                         aria-label={props.translate('recording.regrid', { symbol: props.instrument.symbol })}
                         onClick={props.onOpen}
-                        className="numeric ml-auto flex min-h-11 shrink-0 items-center rounded px-1.5 py-0.5 pl-2 text-[11px] text-ink-500 transition-colors hover:bg-abyss-700 hover:text-ink-200 sm:min-h-0"
+                        className="numeric ml-auto flex shrink-0 items-center rounded px-1.5 py-0.5 pl-2 text-[11px] text-ink-500 transition-colors hover:bg-abyss-700 hover:text-ink-200 touch:min-h-11"
                     >
                         {props.translate('settings.perRow', { value: contract.priceBucketSize })}
                     </button>
@@ -417,7 +417,7 @@ function PairRow(props: PairRowProps): ReactElement {
                         disabled={props.isSaving}
                         aria-label={props.translate('recording.remove', { symbol: props.instrument.symbol })}
                         onClick={props.onRemove}
-                        className="grid size-11 shrink-0 place-items-center rounded text-ink-500 transition-colors hover:bg-abyss-700 hover:text-ask sm:size-7"
+                        className="grid size-7 shrink-0 place-items-center rounded text-ink-500 transition-colors hover:bg-abyss-700 hover:text-ask touch:size-11"
                     >
                         <Trash2 size={13} />
                     </button>
@@ -425,7 +425,7 @@ function PairRow(props: PairRowProps): ReactElement {
 
                 {props.isOpen && grids.length > 0 && (
                     <div className="border-t border-hairline/40 bg-abyss-900/40 px-3 py-2">
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-1">
+                        <div className="flex flex-wrap items-center gap-1 touch:gap-2">
                             <span className="mr-1 text-[11px] text-ink-500">
                                 {props.translate('recording.gridPrompt')}
                             </span>
@@ -468,7 +468,7 @@ function PairRow(props: PairRowProps): ReactElement {
             </button>
 
             {props.isOpen && grids.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2 border-t border-hairline/40 bg-abyss-900/40 px-3 py-2 sm:gap-1">
+                <div className="flex flex-wrap items-center gap-1 border-t border-hairline/40 bg-abyss-900/40 px-3 py-2 touch:gap-2">
                     <span className="mr-1 text-[11px] text-ink-500">
                         {props.translate('recording.gridPrompt')}
                     </span>

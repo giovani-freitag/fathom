@@ -291,3 +291,35 @@ describe('a reader is asked to pick in one way', () => {
         expect(rolled).toEqual([]);
     });
 });
+
+describe('a control is sized for whatever is pointing at it', () => {
+    /** Every class a file spells out, from either kind of string literal. */
+    function classesIn(path: string): string {
+        return read(path);
+    }
+
+    it('asks about the pointer rather than about the width of the window', () => {
+        // These were first written large under Tailwind's `sm`, which is a
+        // width. A phone held sideways is 667 pixels wide, so rotating one
+        // crossed the breakpoint and handed a thumb the desktop sizes — the
+        // delete button on a recording row halved, beside a switch of twenty
+        // pixels. Nothing about how wide a window is says what is touching it.
+        // Anything that decides how big a target is, or how far its hit area
+        // reaches, or whether a field is large enough not to be zoomed into.
+        const sizing = /\bsm:(size-|h-\d|min-h-|max-h-|gap-|p-|px-|py-|text-base|before:)/;
+        const offenders = sourceFiles.filter((path) => sizing.test(classesIn(path)));
+
+        expect(offenders).toEqual([]);
+    });
+
+    it('reads a variant the stylesheet actually defines', () => {
+        // Naming a variant Tailwind has never heard of generates nothing, and
+        // the control keeps whatever size it had with no sign anything failed.
+        const styles = read(join('src', 'app', 'styles', 'theme.css'));
+        const used = sourceFiles.filter((path) => /\btouch:/.test(classesIn(path)));
+
+        expect(styles).toContain('@custom-variant touch');
+        expect(styles).toContain('pointer: coarse');
+        expect(used.length).toBeGreaterThan(2);
+    });
+});

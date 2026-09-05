@@ -27,11 +27,11 @@ const readFailures = (state: ChartState): ChartState['layerFailures'] => state.l
  * does not do nothing, it moves the chart.
  */
 export const LAYER_BUTTON_CLASSES =
-    'grid size-10 shrink-0 place-items-center rounded-md text-ink-500 transition-colors'
-    + ' sm:size-8 hover:bg-abyss-700 hover:text-ink-100 disabled:opacity-30';
+    'grid size-8 shrink-0 place-items-center rounded-md text-ink-500 transition-colors'
+    + ' touch:size-10 hover:bg-abyss-700 hover:text-ink-100 disabled:opacity-30';
 
 /** Holds a slot open so the actions of every row line up in one column. */
-const LAYER_SLOT_CLASSES = 'size-10 shrink-0 sm:size-8';
+const LAYER_SLOT_CLASSES = 'size-8 shrink-0 touch:size-10';
 
 export const ICON_SIZE_PX = 15;
 

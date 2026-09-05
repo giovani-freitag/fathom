@@ -1,6 +1,18 @@
 @import 'tailwindcss';
 
 /*
+ * Sized for whatever is pointing at it, rather than for how wide the window is.
+ *
+ * The controls were first written large below Tailwind's `sm` and dense above
+ * it, which is a width. A phone held sideways is 667 pixels wide, so rotating
+ * one crossed the breakpoint and handed a thumb the desktop sizes: the delete
+ * button on a recording row went from forty-four pixels square to twenty-eight,
+ * beside a switch of twenty. What decides the size is the pointer, and this is
+ * how CSS asks about it.
+ */
+@custom-variant touch (@media (pointer: coarse));
+
+/*
  * Scanned explicitly because the demo builds from its own root, and Tailwind
  * looks beside the root by default — which would find the entry document and
  * none of the components it renders.

@@ -43,7 +43,7 @@ export const CONTROL_INPUT_CLASSES =
     // a focused field is smaller than that — and what it zooms away is the
     // chart the field was opened over. Fourteen from the first breakpoint up,
     // which is where every other control is sized.
-    + ' text-base sm:text-sm'
+    + ' text-sm touch:text-base'
     + ' outline-none transition-colors focus:border-phosphor/60';
 
 /** A control that is only a glyph, square at that height. */

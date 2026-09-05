@@ -59,7 +59,7 @@ export function RangeField({
                         + ' outline-none focus-visible:ring-2 focus-visible:ring-phosphor'
                         // Sixteen pixels is under four millimetres of glass, and
                         // it is the only thing here that has to be dragged.
-                        + ' before:absolute before:-inset-3 before:content-[""] sm:before:inset-0'}
+                        + ' before:absolute before:inset-0 before:content-[""] touch:before:-inset-3'}
                 />
             </Slider.Root>
         </label>
