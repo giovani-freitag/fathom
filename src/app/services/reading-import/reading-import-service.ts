@@ -87,6 +87,9 @@ const REPOSITORY_NAME = /^[\w.-]+\/[\w.-]+$/;
 const PACKAGE_NAME = /^(?:@[\w.-]+\/)?[\w.-]+$/;
 const PLAIN_VERSION = /^[\w.-]+$/;
 
+/** `user/repo`, optionally at a ref and into a folder, and nothing else. */
+const BARE_REPOSITORY = /^([\w.-]+\/[\w.-]+)(?:@([\w.-]+))?(?:\/([\w./-]*))?$/;
+
 /**
  * Brings a reading in from a repository or a package.
  *
@@ -292,6 +295,20 @@ export function readSpec(typed: string): ReadingSpec {
     const asPackage = /^npm\/((?:@[^@/\s]+\/)?[^@/\s]+)(?:@([^/\s]+))?(?:\/(.*))?$/.exec(rest);
     if (asPackage !== null && PACKAGE_NAME.test(asPackage[1]!)) {
         return buildSpec('npm', asPackage);
+    }
+
+    // `user/repo`, which is how GitHub itself names a repository everywhere but
+    // in its address bar. Read as a repository rather than refused: the prefix
+    // exists to tell two hosts apart, and only one of them writes names this way.
+    //
+    // Matched against the whole of what was typed rather than a leading part of
+    // it. Anything with a character a URL resolves — a backslash, a query, a
+    // fragment — falls through to the refusal, because reading half of a hostile
+    // address as a repository and the rest as a folder is how the two steps of
+    // this import stop showing a reader what they are about to run.
+    const asBareRepository = BARE_REPOSITORY.exec(rest);
+    if (asBareRepository !== null) {
+        return buildSpec('gh', asBareRepository);
     }
 
     throw new Error(

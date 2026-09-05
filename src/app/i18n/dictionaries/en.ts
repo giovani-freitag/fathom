@@ -211,7 +211,7 @@ export const EN_DICTIONARY = {
     'import.title': 'Bring one in',
     'import.body': 'From a GitHub repository or an npm package holding a reading written for this chart.',
     'import.where': 'The repository or package',
-    'import.example': 'gh/user/repo',
+    'import.example': 'user/repo, or gh/user/repo@main/folder',
     'import.look': 'Look',
     'import.files': 'What would be opened',
     'import.runsHere': 'This is somebody else’s code, and it runs in this page as soon as it opens. Only bring in what you would run yourself.',

@@ -213,7 +213,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'import.title': 'Trazer uma de fora',
     'import.body': 'De um repositório do GitHub ou de um pacote npm que contenha uma leitura escrita para este gráfico.',
     'import.where': 'O repositório ou pacote',
-    'import.example': 'gh/usuario/repo',
+    'import.example': 'user/repo, ou gh/user/repo@main/pasta',
     'import.look': 'Ver',
     'import.files': 'O que seria aberto',
     'import.runsHere': 'Este código é de outra pessoa e roda nesta página assim que abrir. Traga apenas o que você mesmo rodaria.',

@@ -97,6 +97,18 @@ describe('naming where a reading comes from', () => {
         expect(() => readSpec('somewhere else')).toThrow(/gh\/user\/repo/);
     });
 
+    it('takes the plain user/repo form GitHub itself writes', () => {
+        // The one a reader copies off a repository page or out of a readme. The
+        // prefix is there to tell two hosts apart, and only one of them names
+        // things this way.
+        expect(readSpec('giovani-freitag/fathom-example-addons')).toEqual({
+            host: 'gh', name: 'giovani-freitag/fathom-example-addons', version: null, folder: '',
+        });
+        expect(readSpec('user/repo@main/src/addons/kucoin')).toEqual({
+            host: 'gh', name: 'user/repo', version: 'main', folder: 'src/addons/kucoin',
+        });
+    });
+
     it('refuses a name a browser would read as a path of its own', () => {
         // A backslash is a separator to a URL, and the `..` around it resolve:
         // this fetched another package entirely while the panel went on showing
