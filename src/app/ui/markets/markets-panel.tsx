@@ -128,6 +128,16 @@ export function MarketsPanel({
             : translate('markets.noteNotRecorded')
     ), [translate]);
 
+    // Pointing the listing somewhere else clears what was typed at the last
+    // one. A search reads as a search of everything, and carried across it
+    // quietly answers a question about one venue with another venue's rows —
+    // or with none, and no sign of why.
+    const show = useCallback((wanted: Showing) => {
+        setShowing(wanted);
+        setQuery('');
+        setQuote('');
+    }, []);
+
     // What has been read, whether or not the reading has finished.
     const listed = useMemo((): readonly VenueInstrument[] | null => {
         if (listing.kind === 'read') {
@@ -224,12 +234,12 @@ export function MarketsPanel({
                     openTagId={openTag?.id ?? FAVOURITES_ID}
                     showing={showing}
                     translate={translate}
-                    onOpenTag={(tagId) => { markets.openTag(tagId); setShowing({ kind: 'tag' }); }}
-                    onBrowse={(venue) => { setShowing({ kind: 'venue', venue }); setQuote(''); }}
-                    onAddTag={(label) => { markets.addTag(label); setShowing({ kind: 'tag' }); }}
+                    onOpenTag={(tagId) => { markets.openTag(tagId); show({ kind: 'tag' }); }}
+                    onBrowse={(venue) => { show({ kind: 'venue', venue }); }}
+                    onAddTag={(label) => { markets.addTag(label); show({ kind: 'tag' }); }}
                     onRemoveTag={(tagId) => { markets.removeTag(tagId); }}
                     onRecolourTag={(tagId, tone) => { markets.recolourTag(tagId, tone); }}
-                    onRemoveVenue={(venue) => { markets.removeConnector(venue); setShowing({ kind: 'tag' }); }}
+                    onRemoveVenue={(venue) => { markets.removeConnector(venue); show({ kind: 'tag' }); }}
                     broughtVenues={brought}
                     onWriteConnector={onWriteConnector}
                 />
@@ -258,6 +268,7 @@ export function MarketsPanel({
                         showing={showing}
                         listing={listing}
                         rowCount={rows.length}
+                        query={query}
                         translate={translate}
                         onRetry={() => {
                             if (showing.kind === 'venue') {
@@ -346,6 +357,8 @@ interface BodyProps {
     readonly showing: Showing;
     readonly listing: Listing;
     readonly rowCount: number;
+    /** What the reader has typed, which they cannot see being read yet. */
+    readonly query: string;
     readonly translate: Translate;
     readonly onRetry: () => void;
     readonly children: ReactElement;
@@ -357,13 +370,16 @@ interface BodyProps {
  * Every state the listing can be in answers here rather than inside the table,
  * so the table only ever draws rows.
  */
-function Body({ showing, listing, rowCount, translate, onRetry, children }: BodyProps): ReactElement {
+function Body({ showing, listing, rowCount, query, translate, onRetry, children }: BodyProps): ReactElement {
     // Only until the first page lands: after that the rows are the answer, and
     // the line under them says the rest is still coming.
     const isEmptyStill = listing.kind === 'unread'
         || (listing.kind === 'reading' && listing.instruments.length === 0);
     if (showing.kind === 'venue' && isEmptyStill) {
-        return <Said said={translate('markets.reading')} />;
+        // Typing into a listing that has not arrived looks like typing into a
+        // box that is not listening, and a venue serving its whole listing in
+        // one answer leaves several seconds of exactly that.
+        return <Said said={translate(query.trim() === '' ? 'markets.reading' : 'markets.readingBeforeSearch')} />;
     }
 
     if (showing.kind === 'venue' && listing.kind === 'refused') {

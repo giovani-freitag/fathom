@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { CONTROL_CHOSEN_CLASSES, CONTROL_INPUT_CLASSES, SCROLLER_CLASSES } from '../control-shell.ts';
+import { ConfirmDialog } from '../confirm-dialog.tsx';
 import { FAVOURITES_ID, type PairTag, type TagColour } from '../../../shared/core/pair-tags.ts';
 import { labelOf } from '../../markets/tag-names.ts';
 import { TagColourPicker } from './tag-colour-picker.tsx';
@@ -47,6 +48,8 @@ interface MarketsRailProps {
 export function MarketsRail(props: MarketsRailProps): ReactElement {
     const { translate } = props;
     const [isNaming, setIsNaming] = useState(false);
+    // Which tag is being taken away, while the reader is being asked about it.
+    const [dropping, setDropping] = useState<PairTag | null>(null);
 
     return (
         <nav
@@ -71,7 +74,15 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
                     {...tag.id === FAVOURITES_ID
                         ? {}
                         : {
-                            onRemove: () => { props.onRemoveTag(tag.id); },
+                            // Asked about only where there is something to
+                            // lose: an empty tag is one press to make again.
+                            onRemove: () => {
+                                if (tag.pairs.length === 0) {
+                                    props.onRemoveTag(tag.id);
+                                    return;
+                                }
+                                setDropping(tag);
+                            },
                             removeLabel: translate('markets.removeTag'),
                         }}
                 />
@@ -119,6 +130,23 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
             {props.onWriteConnector !== undefined && (
                 <RailAdd said={translate('markets.addVenue')} onPress={props.onWriteConnector} />
             )}
+
+            <ConfirmDialog
+                isOpen={dropping !== null}
+                onOpenChange={(isOpen) => { if (!isOpen) { setDropping(null); } }}
+                title={translate('markets.removeTagTitle')}
+                body={translate('markets.removeTagBody', {
+                    tag: dropping === null ? '' : labelOf(dropping, translate),
+                    count: String(dropping?.pairs.length ?? 0),
+                })}
+                confirmLabel={translate('markets.removeTagConfirm')}
+                onConfirm={() => {
+                    if (dropping !== null) {
+                        props.onRemoveTag(dropping.id);
+                    }
+                    setDropping(null);
+                }}
+            />
         </nav>
     );
 }

@@ -106,6 +106,49 @@ describe('the card a reader picks a contract on', () => {
     });
 });
 
+describe('taking a tag away', () => {
+    it('asks first, where the tag holds pairs', async () => {
+        // A tag with a morning's work in it goes in one press and comes back in
+        // none, so the press that costs something is the one that asks.
+        renderPanel();
+        makeTag('Shitcoins');
+        await browse();
+        openTags('BTCUSDT');
+        fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'File BTCUSDT under Shitcoins' }));
+        fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+
+        fireEvent.click(screen.getByRole('button', { name: 'Delete this tag Shitcoins' }));
+
+        expect(screen.getByText(/holds 1 pairs/)).toBeDefined();
+        // Backed out of, the tag and its pair are still there.
+        fireEvent.click(screen.getByRole('button', { name: 'Keep it' }));
+        expect(railRow('Shitcoins').textContent).toContain('1');
+    });
+
+    it('takes an empty one away without asking, because nothing is lost', () => {
+        renderPanel();
+        makeTag('Shitcoins');
+
+        fireEvent.click(screen.getByRole('button', { name: 'Delete this tag Shitcoins' }));
+
+        expect(screen.queryByRole('button', { name: /^Shitcoins/ })).toBeNull();
+    });
+});
+
+describe('pointing the listing somewhere else', () => {
+    it('clears what was typed at the venue before it', async () => {
+        // Carried across, a search of one venue answers a question about the
+        // next one with no rows and no sign of why.
+        renderPanel();
+        await browse();
+        fireEvent.change(screen.getByLabelText('Search pairs'), { target: { value: 'NANO' } });
+
+        fireEvent.click(railRow('Favourites'));
+
+        expect(screen.getByLabelText('Search pairs').getAttribute('value')).toBe('');
+    });
+});
+
 describe('searching a venue that answers searches itself', () => {
     /** A venue whose listing is paged, and which matches typing on its own. */
     function registerSearchable(): void {

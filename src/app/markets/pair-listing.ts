@@ -65,9 +65,14 @@ export function summariseQuotes(instruments: readonly VenueInstrument[]): readon
 /**
  * The pairs a reader's search and chips leave, and how many that was.
  *
+ * Ranked as well as filtered, because a listing is cut at a hundred and fifty
+ * rows: typing `btc` on a venue with two thousand pairs matches every pair
+ * quoted in it, and the one the reader meant sat thirteenth behind LTC_BTC and
+ * DOGE_BTC — inside the cut on that venue, and outside it on the next.
+ *
  * @param instruments - Everything the venue listed.
  * @param filter - What the reader typed and which quote they picked.
- * @returns The rows to draw, and the total that matched.
+ * @returns The rows to draw, best first, and the total that matched.
  */
 export function narrowPairs(
     instruments: readonly VenueInstrument[],
@@ -76,11 +81,48 @@ export function narrowPairs(
     const wanted = filter.query.trim().toUpperCase();
     const matched = instruments.filter((instrument) => (
         (filter.quote === '' || instrument.quote === filter.quote)
-        && (wanted === ''
-            || instrument.symbol.toUpperCase().includes(wanted)
-            || instrument.base.toUpperCase().includes(wanted)
-            || instrument.quote.toUpperCase().includes(wanted))
+        && (wanted === '' || rankAgainst(instrument, wanted) < NO_MATCH)
     ));
 
-    return { shown: matched.slice(0, ROWS_SHOWN), matched: matched.length };
+    // Left in the venue's own order where nothing was typed: it opens on what
+    // that venue is known for, and sorting it puts a leveraged token first.
+    const shown = wanted === ''
+        ? matched
+        : [...matched].sort((one, other) => rankAgainst(one, wanted) - rankAgainst(other, wanted)
+            || one.symbol.localeCompare(other.symbol));
+
+    return { shown: shown.slice(0, ROWS_SHOWN), matched: matched.length };
+}
+
+/** What a pair scores against what was typed; lower is nearer. */
+const NO_MATCH = 9;
+
+/**
+ * How near a pair is to what was typed.
+ *
+ * The order a reader means it in: the asset they named first, then the pair
+ * whose name begins that way, and only then everything that merely contains it
+ * somewhere — which on most venues is every pair quoted in the thing they typed.
+ */
+function rankAgainst(instrument: VenueInstrument, wanted: string): number {
+    const symbol = instrument.symbol.toUpperCase();
+    const base = instrument.base.toUpperCase();
+    const quote = instrument.quote.toUpperCase();
+
+    if (symbol === wanted || base === wanted) {
+        return 0;
+    }
+    if (base.startsWith(wanted)) {
+        return 1;
+    }
+    if (symbol.startsWith(wanted)) {
+        return 2;
+    }
+    if (quote === wanted) {
+        return 3;
+    }
+    if (base.includes(wanted) || symbol.includes(wanted)) {
+        return 4;
+    }
+    return quote.includes(wanted) ? 5 : NO_MATCH;
 }

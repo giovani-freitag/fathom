@@ -100,8 +100,16 @@ export function PairTable(props: PairTableProps): ReactElement {
                             {/* Last, where an empty cell costs nothing, and
                                 allowed to shrink: held at its own width, one
                                 long note pushed every row wider than the card
-                                and gave the whole list a sideways scroll. */}
-                            <span className="ml-auto min-w-0 truncate pl-2 text-[11px] text-ink-500">
+                                and gave the whole list a sideways scroll.
+
+                                Lit where the row can be opened, because on a
+                                venue listing that is the rare fact: a thousand
+                                rows say the same thing in grey, and the four
+                                worth pressing are lost among them. */}
+                            <span className={`ml-auto min-w-0 truncate pl-2 text-[11px] ${
+                                row.isOpenable ? 'text-phosphor/80' : 'text-ink-500'
+                            }`}
+                            >
                                 {row.note}
                             </span>
                         </button>

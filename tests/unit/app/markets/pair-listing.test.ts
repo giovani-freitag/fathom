@@ -88,3 +88,40 @@ describe('narrowing a listing', () => {
         expect(narrowed.matched).toBe(ROWS_SHOWN + 40);
     });
 });
+
+describe('what a search puts first', () => {
+    /** A listing shaped the way a venue quoting everything in one asset is. */
+    function listing(): VenueInstrument[] {
+        return [
+            pair('LTC_BTC', 'LTC', 'BTC'),
+            pair('DOGE_BTC', 'DOGE', 'BTC'),
+            pair('BTC3L_USDT', 'BTC3L', 'USDT'),
+            pair('BTC_USDT', 'BTC', 'USDT'),
+        ];
+    }
+
+    it('puts the asset that was named ahead of every pair quoted in it', () => {
+        // Typing `btc` on a venue with two thousand pairs matches every pair
+        // quoted in it, and the one the reader meant sat thirteenth.
+        const found = narrowPairs(listing(), { query: 'btc', quote: '' });
+
+        expect(found.shown[0]?.symbol).toBe('BTC_USDT');
+    });
+
+    it('puts a name that begins with it ahead of one that merely contains it', () => {
+        // And where two rank the same — both quoted in what was typed — by
+        // their own names, so the order does not depend on the venue's.
+        const found = narrowPairs(listing(), { query: 'btc', quote: '' });
+
+        expect(found.shown.map((one) => one.symbol))
+            .toEqual(['BTC_USDT', 'BTC3L_USDT', 'DOGE_BTC', 'LTC_BTC']);
+    });
+
+    it('leaves an unsearched listing in the venue\'s own order', () => {
+        // A venue opens on what it is known for; sorted, it opens on a
+        // leveraged token whose name happens to start with a digit.
+        const found = narrowPairs(listing(), { query: '  ', quote: '' });
+
+        expect(found.shown.map((one) => one.symbol)).toEqual(listing().map((one) => one.symbol));
+    });
+});
