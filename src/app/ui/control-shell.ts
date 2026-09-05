@@ -72,11 +72,19 @@ export const FLOATING_SURFACE_CLASSES = 'border border-hairline bg-abyss-800/95 
  * fade reads as one that continues; a control cut by the frame reads as the
  * last one.
  */
-export const CONTROL_BAR_CLASSES =
-    'flex shrink-0 items-center gap-2 px-3 py-2 max-w-full overflow-x-auto'
-    + ' [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+/**
+ * A row that scrolls sideways, without a bar of its own to drag.
+ *
+ * The fade is the whole of it: a control cut by a fade reads as one that
+ * continues, and a control cut by the frame reads as the last one.
+ */
+export const SCROLLER_CLASSES =
+    '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
     + ' [mask-image:linear-gradient(to_right,transparent_0,black_14px,'
     + 'black_calc(100%-14px),transparent_100%)]';
+
+export const CONTROL_BAR_CLASSES =
+    `flex shrink-0 items-center gap-2 px-3 py-2 max-w-full overflow-x-auto ${SCROLLER_CLASSES}`;
 
 /** The shell every panel that opens over the chart shares. */
 export const FLOATING_CARD_CLASSES =

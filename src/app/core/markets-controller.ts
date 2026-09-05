@@ -9,7 +9,7 @@ import {
     withPairAdded,
     withPairRemoved,
 } from '../../shared/core/watch-lists.ts';
-import { listConnectors, registerConnector } from '../../shared/venues/venue-registry.ts';
+import { forgetConnector, listConnectors, registerConnector } from '../../shared/venues/venue-registry.ts';
 import type { PreferencesService } from '../services/preferences-service.ts';
 import type { ReadingFiles } from '../../shared/core/reading-files.ts';
 import type { StoredConnector } from '../../shared/core/stored-connector.ts';
@@ -240,6 +240,30 @@ export class MarketsController {
         // with a button on it does not answer that.
         void this.readListing(connectorId);
         return null;
+    }
+
+    /**
+     * Takes a venue a reader brought back off the chart.
+     *
+     * The pairs they kept from it are left where they are. A venue removed by
+     * mistake is one press to put back, and a list quietly emptied by that press
+     * is not.
+     *
+     * @param connectorId - Which venue.
+     */
+    removeConnector(connectorId: string): void {
+        forgetConnector(connectorId);
+        const kept = this.store.read().installed.filter((held) => held.id !== connectorId);
+        this.config.preferences.write({ connectorSources: kept });
+
+        this.store.update((current) => ({
+            ...current,
+            installed: kept,
+            venues: listConnectors().map(([id]) => id),
+            browsingVenue: current.browsingVenue === connectorId
+                ? listConnectors()[0]?.[0] ?? ''
+                : current.browsingVenue,
+        }));
     }
 
     private writeLists(lists: readonly WatchList[]): void {

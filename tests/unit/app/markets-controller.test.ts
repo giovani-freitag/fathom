@@ -178,6 +178,38 @@ describe('installing a venue a reader brought', () => {
         }]);
     });
 
+    it('takes one back off, and forgets it for next week too', () => {
+        const storage = buildStorage();
+        const markets = buildController(answerWith({}), storage);
+        markets.installConnector('kucoin', buildConnector({ book: null, tape: null, bars: null }), SOURCE);
+
+        markets.removeConnector('kucoin');
+
+        expect(markets.store.read().venues).not.toContain('kucoin');
+        expect(markets.store.read().installed).toEqual([]);
+        expect(new PreferencesService({ storage }).read().connectorSources).toEqual([]);
+    });
+
+    it('leaves the pairs a reader kept from a venue they removed', () => {
+        // A venue removed by mistake is one press to put back. A list quietly
+        // emptied by that press is not.
+        const markets = buildController(answerWith({}));
+        markets.installConnector('kucoin', buildConnector({ book: null, tape: null, bars: null }), SOURCE);
+        markets.addPair(FAVOURITES_ID, { venue: 'kucoin', symbol: 'BTC-USDC' });
+
+        markets.removeConnector('kucoin');
+
+        expect(markets.store.read().lists[0]?.pairs).toEqual([{ venue: 'kucoin', symbol: 'BTC-USDC' }]);
+    });
+
+    it('will not take away the venue this build ships against', () => {
+        const markets = buildController(answerWith({}));
+
+        markets.removeConnector(FIRST_VENUE);
+
+        expect(markets.store.read().venues).toContain(FIRST_VENUE);
+    });
+
     it('says why when the name is one the build already answers to', () => {
         const markets = buildController(answerWith({}));
 

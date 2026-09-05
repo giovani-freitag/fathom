@@ -1,7 +1,11 @@
 import { Coins } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
-import { DockPopover } from '../dock-popover.tsx';
-import { MarketsPanel } from './markets-panel.tsx';
+import {
+    CONTROL_ACTIVE_CLASSES,
+    CONTROL_BUTTON_CLASSES,
+    CONTROL_RESTING_CLASSES,
+} from '../control-shell.ts';
+import { MarketsDialog } from './markets-dialog.tsx';
 import { useTranslate } from '../../react/use-appearance.ts';
 import type { WatchedPair } from '../../../shared/core/watch-lists.ts';
 
@@ -10,8 +14,6 @@ interface MarketsButtonProps {
     readonly onPairOpen: (pair: WatchedPair) => void;
     /** What the trigger shows: the symbol, however this bar shortens it. */
     readonly said: string;
-    /** Which way the panel opens; above, where a dock is under it, by default. */
-    readonly side?: 'top' | 'bottom';
     /** Opens the editor on the connector starter, where this build has one. */
     readonly onWriteAConnector?: (() => void) | undefined;
     readonly iconSizePx: number;
@@ -20,16 +22,14 @@ interface MarketsButtonProps {
 /**
  * The way into the contracts, wherever the bar holding it sits.
  *
- * Written once because the header and the dock open the same panel, and the one
+ * Written once because the header and the dock open the same card, and the one
  * thing they have to agree on is what pressing "add a venue" does: the editor
- * opens behind this panel, so this closes on the way out. Left open, a reader is
- * looking at a list of pairs with the thing they asked for underneath it.
+ * opens behind this card, so this closes on the way out.
  */
 export function MarketsButton({
     openPair,
     onPairOpen,
     said,
-    side,
     onWriteAConnector,
     iconSizePx,
 }: MarketsButtonProps): ReactElement {
@@ -37,27 +37,36 @@ export function MarketsButton({
     const [isOpen, setIsOpen] = useState(false);
 
     return (
-        <DockPopover
-            {...side === undefined ? {} : { side }}
-            isOpen={isOpen}
-            onOpenChange={setIsOpen}
-            label={translate('markets.title')}
-            trigger={(
+        <>
+            <button
+                type="button"
+                aria-label={translate('markets.title')}
+                aria-haspopup="dialog"
+                aria-expanded={isOpen}
+                onClick={() => { setIsOpen(true); }}
+                className={`${CONTROL_BUTTON_CLASSES} ${isOpen ? CONTROL_ACTIVE_CLASSES : CONTROL_RESTING_CLASSES}`}
+            >
                 <span className="flex items-center gap-1 px-1 text-xs font-semibold">
                     <Coins size={iconSizePx} />
                     {said}
                 </span>
+            </button>
+
+            {/* Mounted only while it is open. The card subscribes to what is
+                recorded and asks a venue for its listing the moment it appears,
+                and a bar carrying this button should do neither until somebody
+                presses it. */}
+            {isOpen && (
+                <MarketsDialog
+                    isOpen
+                    onOpenChange={setIsOpen}
+                    open={openPair}
+                    onOpen={onPairOpen}
+                    {...onWriteAConnector === undefined
+                        ? {}
+                        : { onWriteConnector: () => { setIsOpen(false); onWriteAConnector(); } }}
+                />
             )}
-        >
-            {/* No title: the button it opened from is the title, and a panel
-                that repeats it is a line the reader has to read twice. */}
-            <MarketsPanel
-                open={openPair}
-                onOpen={onPairOpen}
-                {...onWriteAConnector === undefined
-                    ? {}
-                    : { onWriteConnector: () => { setIsOpen(false); onWriteAConnector(); } }}
-            />
-        </DockPopover>
+        </>
     );
 }
