@@ -10,6 +10,23 @@ import type { MarketDataSocketFactory } from './core/market-data-socket.ts';
 import { releaseTimerFromEventLoop, type TimerHandle } from '../shared/core/timers.ts';
 
 /**
+ * Whether a contract has been changed in a way a running collector cannot follow.
+ *
+ * The grid and the rate, which are what a collector writes with. Not the flag:
+ * a contract switched off is stopped rather than retuned, and a stop is not a
+ * restart.
+ *
+ * @param held - What the collector was started with.
+ * @param asked - What the registry says now.
+ * @returns True where the running one is writing something else.
+ */
+function isRetuned(held: RecordedContract, asked: RecordedContract): boolean {
+    return held.priceBucketSize !== asked.priceBucketSize
+        || held.frameIntervalMs !== asked.frameIntervalMs
+        || held.venue !== asked.venue;
+}
+
+/**
  * Collectors let go of at once, and brought up at once.
  *
  * Four, which is what one machine records: enough that a pass is not a queue of
@@ -55,6 +72,15 @@ export interface CollectorSupervisorConfig {
 export class CollectorSupervisor {
     private readonly config: CollectorSupervisorConfig;
     private readonly running = new Map<string, CollectorRuntime>();
+    /**
+     * What each running collector was started with.
+     *
+     * Kept because a contract can be changed as well as switched off: a grid
+     * edited in the registry means every column written from now on belongs on
+     * a different one, and a supervisor that only asks "is it running" would go
+     * on writing the old grid until the process was restarted.
+     */
+    private readonly startedWith = new Map<string, RecordedContract>();
     /** When each runtime was started, which is its liveness before its first frame. */
     private readonly startedAtMs = new Map<string, number>();
     private reconcileTimer: TimerHandle | null = null;
@@ -137,15 +163,34 @@ export class CollectorSupervisor {
     }
 
     private async stopDisabled(registered: readonly RecordedContract[]): Promise<void> {
-        const wanted = new Set(
+        const wanted = new Map(
             registered.filter((instrument) => instrument.isEnabled)
-                .map((instrument) => instrument.instrumentSymbol),
+                .map((instrument) => [instrument.instrumentSymbol, instrument] as const),
         );
 
         const dropping = [...this.running].filter(([symbol]) => !wanted.has(symbol));
         await this.discardAll(dropping);
         for (const [symbol] of dropping) {
             this.config.log.info('Stopped recording', { instrumentSymbol: symbol });
+        }
+
+        // A contract whose grid or rate was changed is let go of here and built
+        // again by the same pass. Left alone, it would keep writing the grid it
+        // was started on: the archive says which grid each block holds, so what
+        // is already stored stays readable, but every new column would be
+        // written on a grid nobody asked for any more.
+        const restarting = [...this.running].filter(([symbol, runtime]) => {
+            void runtime;
+            const asked = wanted.get(symbol);
+            const held = this.startedWith.get(symbol);
+            return asked !== undefined && held !== undefined && isRetuned(held, asked);
+        });
+
+        await this.discardAll(restarting);
+        for (const [symbol] of restarting) {
+            this.config.log.info('Recording again on the grid it was changed to', {
+                instrumentSymbol: symbol,
+            });
         }
     }
 
@@ -198,6 +243,7 @@ export class CollectorSupervisor {
     private async discard(symbol: string, runtime: CollectorRuntime): Promise<void> {
         await runtime.stop();
         this.running.delete(symbol);
+        this.startedWith.delete(symbol);
         this.startedAtMs.delete(symbol);
     }
 
@@ -259,6 +305,7 @@ export class CollectorSupervisor {
                 return;
             }
             this.running.set(instrument.instrumentSymbol, runtime);
+            this.startedWith.set(instrument.instrumentSymbol, instrument);
             this.startedAtMs.set(instrument.instrumentSymbol, this.config.readNowMs());
         } catch (error) {
             // One venue refusing must not stop the others: the next reconcile

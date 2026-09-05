@@ -1,4 +1,4 @@
-import { toLadders } from '../../shared/core/frame-fold.ts';
+import { foldFrameWindow, toLadders } from '../../shared/core/frame-fold.ts';
 import type {
     ChunkBlockRow,
     ChunkRowStore,
@@ -101,11 +101,11 @@ export interface ChunkWindowQuery {
      * block to find out costs between a twentieth and a fifth of a second; this
      * costs a row lookup and opens nothing.
      *
-     * @param resume - The block to look at.
+     * @param at - The block to look at.
      * @returns The mark, or null when nothing is stored there.
      */
-    readBlockRevision(resume: BlockResume): Promise<string | null> {
-        return this.config.rows.readRevision(resume);
+    readBlockRevision(at: BlockAddress): Promise<string | null> {
+        return this.config.rows.readRevision(at);
     }
 
     /**
@@ -161,6 +161,20 @@ export interface ChunkWindowQuery {
             return [];
         }
 
+        // A block written on another grid is not this recording's to carry on
+        // from. Its bucket indices count a different price each, so adopted as
+        // they are every wall in the block moves — and the block would then be
+        // stamped with the new grid, which makes the move unrecoverable.
+        //
+        // Folded where the new grid is a whole number of the stored one, and
+        // left behind where it is finer: the detail was never recorded, and a
+        // coarse column spread over fine rows is liquidity nobody offered.
+        const foldBy = resume.priceBucketSize / block.priceBucketSize;
+        if (block.priceBucketSize !== resume.priceBucketSize
+            && (!Number.isInteger(foldBy) || foldBy < 1)) {
+            return [];
+        }
+
         const squares = await this.readSquares({
             instrumentSymbol: resume.instrumentSymbol,
             detailLevel: resume.detailLevel,
@@ -171,7 +185,7 @@ export interface ChunkWindowQuery {
         return Array.from({ length: block.columnCount }, (_, column) => ({
             bestBidPrice: block.bestBidPrices[column] ?? 0,
             bestAskPrice: block.bestAskPrices[column] ?? 0,
-            steps: readColumnSteps(opened, column, block),
+            steps: foldSteps(readColumnSteps(opened, column, block), foldBy),
         }));
     }
 
@@ -199,26 +213,6 @@ export interface ChunkWindowQuery {
         const { detailLevel, blocks } = found;
         const first = blocks[0]!;
 
-        const band = resolveWindowBand({
-            lowPrice: query.lowPrice ?? null,
-            highPrice: query.highPrice ?? null,
-            maxRows: query.maxRows ?? null,
-            priceBucketSize: first.priceBucketSize,
-            // The highest touch across the blocks being read, doubled: that is
-            // the range the whole-book framing writes. Taken from one column it
-            // could be a place nobody recorded, whose touch is nought — and a
-            // ceiling of nought is no band at all, so the whole fine grid ships.
-            // Taken from the first column of a coarse block it would be months
-            // stale, and the top of the book would be cut off invisibly.
-            recordedCeiling: highestTouch(blocks) * 2,
-        });
-        const squares = await this.readSquares({
-            instrumentSymbol: query.instrumentSymbol,
-            detailLevel,
-            startedAt: blocks.map((one) => one.startedAtMs),
-            band,
-        });
-
         // A level is four times coarser than the one below it, so the level
         // that fits under the budget can still hold up to four times as many
         // columns as the reader asked for. Measured on a six hour window, that
@@ -226,14 +220,78 @@ export interface ChunkWindowQuery {
         // decoded, sent, and then thrown away by a chart that has no pixels for
         // them. What is left over is folded here, the same way the levels are.
         const columnStride = strideWithin(query, first.columnIntervalMs);
+        // The highest touch across the blocks being read, doubled: that is the
+        // range the whole-book framing writes. Taken from one column it could
+        // be a place nobody recorded, whose touch is nought — and a ceiling of
+        // nought is no band at all, so the whole fine grid ships. Taken from
+        // the first column of a coarse block it would be months stale, and the
+        // top of the book would be cut off invisibly.
+        const recordedCeiling = highestTouch(blocks) * 2;
+
+        // Grouped by the grid each block was written on, because a contract's
+        // grid can be changed and the archive says which one every block holds.
+        // Almost always one group, and then this is one band and one read.
+        const read = await Promise.all(gridsAcross(blocks).map(async (grid) => this.readGrid({
+            blocks: grid,
+            detailLevel,
+            query,
+            columnStride,
+            recordedCeiling,
+        })));
+
+        // Laid on the coarsest grid in the window. A fine stretch folds onto a
+        // coarse one; a coarse one cannot be spread over a fine one, because
+        // the detail was never recorded — so a window that reaches back past a
+        // change reads at the resolution the older half was written in.
+        const rowSize = Math.max(...read.map((one) => one.priceBucketSize));
+        const laid = read
+            .map((one) => foldFrameWindow(one, rowSize))
+            .filter((one) => one !== null);
+
+        return {
+            priceBucketSize: rowSize,
+            sampleIntervalMs: first.columnIntervalMs * columnStride,
+            // In time order across the groups: two grids interleave only where
+            // one was changed back, and a chart drawing columns out of order
+            // draws the past over the present.
+            frames: laid.flatMap((one) => one.frames)
+                .sort((one, other) => one.capturedAtMs - other.capturedAtMs),
+        };
+    }
+
+    /**
+     * The blocks written on one grid, as a window of their own.
+     */
+    private async readGrid(read: GridRead): Promise<LiquidityFrameWindow> {
+        const first = read.blocks[0]!;
+        const band = resolveWindowBand({
+            lowPrice: read.query.lowPrice ?? null,
+            highPrice: read.query.highPrice ?? null,
+            maxRows: read.query.maxRows ?? null,
+            priceBucketSize: first.priceBucketSize,
+            recordedCeiling: read.recordedCeiling,
+        });
+        const squares = await this.readSquares({
+            instrumentSymbol: read.query.instrumentSymbol,
+            detailLevel: read.detailLevel,
+            startedAt: read.blocks.map((one) => one.startedAtMs),
+            band,
+        });
 
         const frames: LiquidityFrame[] = [];
-        for (const block of blocks) {
-            frames.push(...buildFrames({ block, squares, band, query, columnStride }));
+        for (const block of read.blocks) {
+            frames.push(...buildFrames({
+                block,
+                squares,
+                band,
+                query: read.query,
+                columnStride: read.columnStride,
+            }));
         }
+
         return {
             priceBucketSize: first.priceBucketSize * (band?.bucketsPerRow ?? 1),
-            sampleIntervalMs: first.columnIntervalMs * columnStride,
+            sampleIntervalMs: first.columnIntervalMs * read.columnStride,
             frames,
         };
     }
@@ -328,10 +386,16 @@ export interface ChunkWindowQuery {
 }
 
 /** Which block a recorder is picking back up. */
-export interface BlockResume {
+/** Where one block sits: the instrument, the level, and when it starts. */
+export interface BlockAddress {
     readonly instrumentSymbol: string;
     readonly detailLevel: number;
     readonly startedAtMs: number;
+}
+
+export interface BlockResume extends BlockAddress {
+    /** The grid the recording asking for it is on, which may not be the stored one. */
+    readonly priceBucketSize: number;
 }
 
 /** Which squares a read wants: the blocks it found, and the band it draws. */
@@ -350,6 +414,61 @@ interface SquareWrite {
 }
 
 /** One block being read back, and what the reader can draw of it. */
+/**
+ * A column's steps on a coarser grid, largest winning within each row.
+ *
+ * The same rule the stored fold uses: a wall that stood anywhere in the row is
+ * a wall, and averaging it away is what a reader looking at a coarse grid is
+ * trying to see.
+ *
+ * @param steps - What rests at each bucket of the stored grid.
+ * @param foldBy - Stored buckets to one bucket of the new grid; one leaves it alone.
+ * @returns The steps on the new grid.
+ */
+function foldSteps(steps: Map<number, number>, foldBy: number): Map<number, number> {
+    if (foldBy === 1) {
+        return steps;
+    }
+
+    const folded = new Map<number, number>();
+    for (const [bucket, step] of steps) {
+        const row = Math.floor(bucket / foldBy);
+        folded.set(row, Math.max(folded.get(row) ?? 0, step));
+    }
+    return folded;
+}
+
+interface GridRead {
+    /** Blocks that were all written on the same grid. */
+    readonly blocks: readonly ChunkBlockRow[];
+    readonly detailLevel: number;
+    readonly query: ChunkWindowQuery;
+    readonly columnStride: number;
+    readonly recordedCeiling: number;
+}
+
+/**
+ * The blocks of a window, gathered by the grid each was written on.
+ *
+ * In the order they were recorded, so the group holding what the reader is
+ * looking at now is the one whose grid the rest are read against.
+ *
+ * @param blocks - Every block of the window, oldest first.
+ * @returns One group per grid, each in time order.
+ */
+function gridsAcross(blocks: readonly ChunkBlockRow[]): readonly (readonly ChunkBlockRow[])[] {
+    const byGrid = new Map<number, ChunkBlockRow[]>();
+    for (const block of blocks) {
+        const held = byGrid.get(block.priceBucketSize);
+        if (held === undefined) {
+            byGrid.set(block.priceBucketSize, [block]);
+        } else {
+            held.push(block);
+        }
+    }
+    return [...byGrid.values()];
+}
+
 interface BlockRead {
     readonly block: ChunkBlockRow;
     readonly squares: ReadonlyMap<string, ChunkSquareRow>;

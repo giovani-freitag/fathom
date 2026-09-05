@@ -304,3 +304,37 @@ describe('bringing several contracts up', () => {
         await harness.supervisor.stop();
     });
 });
+
+describe('a contract that was changed rather than switched off', () => {
+    it('is recorded again on the grid it was changed to', async () => {
+        // The archive says which grid each block holds, so what is stored stays
+        // readable. What a supervisor that only asked "is it running" would do
+        // is write every new column on a grid nobody asked for any more.
+        const harness = buildHarness([buildContract('BTCUSDT')]);
+        await harness.supervisor.start();
+        const registered = vi.mocked(harness.archive.registerInstrument);
+        registered.mockClear();
+
+        harness.setContracts([{ ...buildContract('BTCUSDT'), priceBucketSize: 50 }]);
+        await harness.supervisor.reconcileNow();
+
+        expect(harness.supervisor.recording).toEqual(['BTCUSDT']);
+        expect(registered).toHaveBeenCalledWith(expect.objectContaining({ priceBucketSize: 50 }));
+        await harness.supervisor.stop();
+    });
+
+    it('is left alone where nothing about it changed', async () => {
+        // A pass runs every fifteen seconds. Restarting on every one of them
+        // would be a socket reopened and a snapshot refetched four times a
+        // minute, and a gap in the ledger for each.
+        const harness = buildHarness([buildContract('BTCUSDT')]);
+        await harness.supervisor.start();
+        const registered = vi.mocked(harness.archive.registerInstrument);
+        registered.mockClear();
+
+        await harness.supervisor.reconcileNow();
+
+        expect(registered).not.toHaveBeenCalled();
+        await harness.supervisor.stop();
+    });
+});

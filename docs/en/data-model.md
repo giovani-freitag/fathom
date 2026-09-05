@@ -166,9 +166,19 @@ panel, which offers the pairs of every venue whose connector declares a book —
 a venue that publishes none has nothing to capture every second, so it is named
 there rather than left out silently.
 
-The grid is chosen when the row is made and not after. Re-recording a contract
-on a second grid leaves two of them in one history, and nothing downstream can
-say which rows belong to which.
+The grid can be changed after the fact, and three things make that safe. Every
+block carries the grid it was written on, so nothing already stored is
+reinterpreted. The supervisor compares a running collector against the contract
+it was started with, so a change is a collector let go of and built again rather
+than a new grid written into old columns. And a window that reaches across a
+change is read at the **coarser** of the grids in it: a fine stretch folds onto
+a coarse one, and a coarse one is never spread over rows it was never written
+on.
+
+What it costs is the block being written when the change lands. Where the new
+grid is a whole multiple of the stored one, that block's instants fold onto it
+and none are lost. Where it is finer, they cannot — the detail was never
+recorded — so the block starts again, and the loss is bounded by one block.
 
 ```sql
 CREATE TABLE instrument_registry (

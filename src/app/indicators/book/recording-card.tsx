@@ -209,11 +209,16 @@ function RecordingListing(props: RecordingCardProps): ReactElement {
                                 key={row.instrument.symbol}
                                 instrument={row.instrument}
                                 contract={row.contract}
-                                isOpen={false}
+                                isOpen={chosen === row.instrument.symbol}
                                 isSaving={props.isSaving}
                                 translate={props.translate}
-                                onOpen={() => undefined}
-                                onRecord={() => undefined}
+                                onOpen={() => {
+                                    setChosen(chosen === row.instrument.symbol ? null : row.instrument.symbol);
+                                }}
+                                onRecord={(priceBucketSize) => {
+                                    props.onRecord(venue, row.instrument, priceBucketSize);
+                                    setChosen(null);
+                                }}
                                 onToggle={(isEnabled) => {
                                     if (row.contract !== null) {
                                         props.onToggle(row.contract, isEnabled);
@@ -279,21 +284,58 @@ function PairRow(props: PairRowProps): ReactElement {
     if (props.contract !== null) {
         const contract = props.contract;
         return (
-            <li className="flex items-center gap-3 border-b border-hairline/40 px-3 py-2">
-                <PairIdentity
-                    symbol={props.instrument.symbol}
-                    base={props.instrument.base}
-                    quote={props.instrument.quote}
-                />
-                <span className="numeric ml-auto shrink-0 pl-2 text-[11px] text-ink-500">
-                    {props.translate('settings.perRow', { value: contract.priceBucketSize })}
-                </span>
-                <ToggleSwitch
-                    isOn={contract.isEnabled}
-                    isDisabled={props.isSaving}
-                    onChange={props.onToggle}
-                    label={props.translate('recording.toggle', { symbol: props.instrument.symbol })}
-                />
+            <li className="border-b border-hairline/40">
+                <div className="flex items-center gap-3 px-3 py-2">
+                    <PairIdentity
+                        symbol={props.instrument.symbol}
+                        base={props.instrument.base}
+                        quote={props.instrument.quote}
+                    />
+                    {/* The grid is a control here rather than a reading: it can
+                        be changed, and what that costs is worth one press to
+                        find out rather than a decision made once for ever. */}
+                    <button
+                        type="button"
+                        aria-expanded={props.isOpen}
+                        aria-label={props.translate('recording.regrid', { symbol: props.instrument.symbol })}
+                        onClick={props.onOpen}
+                        className="numeric ml-auto shrink-0 rounded px-1.5 py-0.5 pl-2 text-[11px] text-ink-500 transition-colors hover:bg-abyss-700 hover:text-ink-200"
+                    >
+                        {props.translate('settings.perRow', { value: contract.priceBucketSize })}
+                    </button>
+                    <ToggleSwitch
+                        isOn={contract.isEnabled}
+                        isDisabled={props.isSaving}
+                        onChange={props.onToggle}
+                        label={props.translate('recording.toggle', { symbol: props.instrument.symbol })}
+                    />
+                </div>
+
+                {props.isOpen && grids.length > 0 && (
+                    <div className="border-t border-hairline/40 bg-abyss-900/40 px-3 py-2">
+                        <div className="flex flex-wrap items-center gap-1">
+                            <span className="mr-1 text-[11px] text-ink-500">
+                                {props.translate('recording.gridPrompt')}
+                            </span>
+                            {grids.map((grid) => (
+                                <button
+                                    key={grid.ticks}
+                                    type="button"
+                                    disabled={props.isSaving || grid.priceBucketSize === contract.priceBucketSize}
+                                    onClick={() => { props.onRecord(grid.priceBucketSize); }}
+                                    className={`${CONTROL_CHIP_CLASSES} h-7 justify-center px-2.5 ${
+                                        grid.priceBucketSize === contract.priceBucketSize
+                                            ? 'border-phosphor/60 bg-phosphor/12 text-phosphor'
+                                            : CONTROL_OFFERED_CLASSES
+                                    }`}
+                                >
+                                    {props.translate('settings.perRow', { value: grid.priceBucketSize })}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="panel-note mt-1.5">{props.translate('recording.regridCost')}</p>
+                    </div>
+                )}
             </li>
         );
     }

@@ -182,6 +182,36 @@ describe('what else could be recorded', () => {
         });
     });
 
+    it('changes the grid of a contract already recording', async () => {
+        // Not a decision made once for ever: the archive says which grid each
+        // block holds, so what is stored stays readable and the collector is
+        // rebuilt on the new one.
+        const saveContract = vi.fn<(contract: RecordedContract) => Promise<void>>()
+            .mockResolvedValue(undefined);
+        renderInKernel(saveContract);
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Change the grid BTCUSDT records on' }));
+        fireEvent.click(await screen.findByRole('button', { name: '1 per row' }));
+
+        await waitFor(() => {
+            expect(saveContract).toHaveBeenCalledWith(expect.objectContaining({
+                instrumentSymbol: 'BTCUSDT',
+                priceBucketSize: 1,
+                isEnabled: true,
+            }));
+        });
+    });
+
+    it('says what changing the grid costs before it is changed', async () => {
+        renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Change the grid BTCUSDT records on' }));
+
+        expect(await screen.findByText(/keeps the grid it was written on/)).toBeDefined();
+    });
+
     it('lifts what is already being recorded to the top, with its switch on the row', async () => {
         // A reader who came to switch one off would otherwise be searching a
         // thousand rows for the four they own — and the switch for those four

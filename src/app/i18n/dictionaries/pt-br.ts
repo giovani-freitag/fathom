@@ -418,6 +418,8 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'recording.pickerTitle': 'Gravar um par',
     'recording.venuesWithBook': 'Corretoras com livro',
     'recording.gridPrompt': 'Cada linha do mapa de calor cobre',
+    'recording.regrid': 'Mudar a grade em que {symbol} grava',
+    'recording.regridCost': 'O que já foi gravado fica na grade em que foi escrito. Uma janela que alcança antes da mudança é lida na mais grossa das duas, e uma grade mais fina não mostra detalhe que o trecho antigo nunca teve.',
     'recording.done': 'Pronto',
     'recording.venuesWithoutBook': '{venues} não publicam livro que o Fathom consiga espelhar, então não há o que gravar nelas.',
     'recording.recordingHere': 'Gravando',

@@ -609,7 +609,7 @@ describe('rebuilding the levels above the finest', () => {
         for (const block of store.rows('block').filter((row) => row['detail_level'] === 0)) {
             const startedAtMs = (block['started_at'] as Date).getTime();
             const columns = await archive.readBlock({
-                instrumentSymbol: 'BTCUSDT', detailLevel: 0, startedAtMs,
+                instrumentSymbol: 'BTCUSDT', detailLevel: 0, startedAtMs, priceBucketSize: BUCKET_SIZE,
             });
             for (const [index, column] of columns.entries()) {
                 if (column.bestBidPrice > 0) {
@@ -657,7 +657,7 @@ describe('rebuilding the levels above the finest', () => {
         for (const block of store.rows('block').filter((row) => row['detail_level'] === 0)) {
             const startedAtMs = (block['started_at'] as Date).getTime();
             const columns = await archive.readBlock({
-                instrumentSymbol: 'BTCUSDT', detailLevel: 0, startedAtMs,
+                instrumentSymbol: 'BTCUSDT', detailLevel: 0, startedAtMs, priceBucketSize: BUCKET_SIZE,
             });
             for (const [index, column] of columns.entries()) {
                 if (column.bestBidPrice > 0) {
@@ -890,7 +890,10 @@ describe('two writers meeting on one block', () => {
         await write(live, recordingAt(LIVE_MS + 8 * INTERVAL_MS, 8));
 
         const block = await archive.readBlock({
-            instrumentSymbol: 'BTCUSDT', detailLevel: 1, startedAtMs: BLOCK_START_MS,
+            instrumentSymbol: 'BTCUSDT',
+            detailLevel: 1,
+            startedAtMs: BLOCK_START_MS,
+            priceBucketSize: BUCKET_SIZE,
         });
 
         expect([isRecordedAt(block, BACKFILLED_MS), isRecordedAt(block, LIVE_MS)])
@@ -946,7 +949,10 @@ describe('two writers meeting on one block', () => {
         }
 
         const block = await archive.readBlock({
-            instrumentSymbol: 'BTCUSDT', detailLevel: 1, startedAtMs: BLOCK_START_MS,
+            instrumentSymbol: 'BTCUSDT',
+            detailLevel: 1,
+            startedAtMs: BLOCK_START_MS,
+            priceBucketSize: BUCKET_SIZE,
         });
         const column = block[Math.floor((LIVE_MS - BLOCK_START_MS) / COLUMN_MS)];
         return column?.steps.get(HIGH_WALL_BUCKET) ?? 0;

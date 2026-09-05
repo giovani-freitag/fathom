@@ -416,6 +416,8 @@ export const EN_DICTIONARY = {
     'recording.pickerTitle': 'Record a pair',
     'recording.venuesWithBook': 'Venues with a book',
     'recording.gridPrompt': 'One row of the heat map covers',
+    'recording.regrid': 'Change the grid {symbol} records on',
+    'recording.regridCost': 'What is already recorded keeps the grid it was written on. A window reaching back past the change reads at the coarser of the two, and a finer grid cannot show detail the older stretch never held.',
     'recording.done': 'Done',
     'recording.venuesWithoutBook': '{venues} publish no book Fathom can mirror, so there is nothing to record on them.',
     'recording.recordingHere': 'Recording',

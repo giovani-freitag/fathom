@@ -105,6 +105,8 @@ interface BlockPickUp {
     readonly detailLevel: number;
     readonly level: Level;
     readonly startedAtMs: number;
+    /** The grid being recorded now, which the stored block may not be on. */
+    readonly priceBucketSize: number;
 }
 
 /** One level being written out, and whether its block is finished. */
@@ -306,6 +308,7 @@ export class ChunkTileRecorder {
                 detailLevel,
                 level,
                 startedAtMs: blockIndex * COLUMNS_PER_CHUNK * columnIntervalMs,
+                priceBucketSize: this.bucketSizes.get(instrumentSymbol) ?? 0,
             });
         }
         await level.resuming;
@@ -413,6 +416,7 @@ export class ChunkTileRecorder {
                 instrumentSymbol: pick.instrumentSymbol,
                 detailLevel: pick.detailLevel,
                 startedAtMs: pick.startedAtMs,
+                priceBucketSize: pick.priceBucketSize,
             });
             level.revision = await this.config.archive.readBlockRevision({
                 instrumentSymbol: pick.instrumentSymbol,
@@ -464,6 +468,7 @@ export class ChunkTileRecorder {
             instrumentSymbol: pick.instrumentSymbol,
             detailLevel: pick.detailLevel,
             startedAtMs: pick.startedAtMs,
+            priceBucketSize: pick.priceBucketSize,
         };
         let stored: readonly ChunkColumn[];
         try {
@@ -501,7 +506,7 @@ export class ChunkTileRecorder {
         const columnIntervalMs = this.config.intervalMs * columnsPerCell(detailLevel);
         const startedAtMs = level.blockIndex * COLUMNS_PER_CHUNK * columnIntervalMs;
         const columns = await this.gathered({
-            instrumentSymbol, detailLevel, level, startedAtMs,
+            instrumentSymbol, detailLevel, level, startedAtMs, priceBucketSize,
         });
         try {
             level.revision = await this.config.archive.writeBlock({
