@@ -18,7 +18,8 @@ recording.** Different questions, different sources, no overlap.
 
 **The bar ladder is the rungs that API publishes.** It started at a second, from
 when bars came out of the recorded book; a minute is the finest candle there is,
-so a minute is where it starts.
+so a minute is where it starts. Once a reader can bring their own venue this
+stops being one list and becomes a property of the connector — see ADR 25.
 
 **One source per question, with no fallback between them.** A bar that came from
 the venue on a good day and from the recording on a bad one would be a bar whose
