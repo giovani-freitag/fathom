@@ -1,4 +1,4 @@
-import { type ReactElement, useEffect, useMemo, useState } from 'react';
+import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Search, Star, Trash2 } from 'lucide-react';
 import {
     CONTROL_CHIP_CLASSES,
@@ -10,6 +10,7 @@ import {
 import { FAVOURITES_ID, findListsHolding, type WatchedPair, type WatchList } from '../../../shared/core/watch-lists.ts';
 import { ICON_SIZE_PX, LAYER_BUTTON_CLASSES } from '../indicators/layer-list.tsx';
 import type { Listing } from '../../core/markets-controller.ts';
+import { readFactsFor } from '../../../shared/venues/venue-registry.ts';
 import { PanelSection } from '../panel-section.tsx';
 import type { Translate } from '../../i18n/translator.ts';
 import { useMarkets } from '../../react/use-markets.ts';
@@ -54,6 +55,15 @@ export function MarketsPanel({ onOpen, open, onWriteConnector }: MarketsPanelPro
     );
     const [query, setQuery] = useState('');
     const [isNaming, setIsNaming] = useState(false);
+
+    // Two different answers, because a reader who reads the first one for the
+    // second goes looking for a broken recording instead of for the `null` their
+    // own connector declared.
+    const sayWhyNot = useCallback((pair: WatchedPair): string => (
+        readFactsFor(pair.venue).size === 0
+            ? translate('markets.nothingToDraw')
+            : translate('markets.notRecorded')
+    ), [translate]);
 
     const openList = state.lists.find((list) => list.id === state.openListId) ?? state.lists[0];
     const listing = state.listings[state.browsingVenue] ?? { kind: 'unread' as const };
@@ -116,6 +126,7 @@ export function MarketsPanel({ onOpen, open, onWriteConnector }: MarketsPanelPro
                         list={openList}
                         open={open}
                         recorded={recorded}
+                        sayWhyNot={sayWhyNot}
                         translate={translate}
                         onOpen={onOpen}
                         onDrop={(pair) => { markets.removePair(openList.id, pair); }}
@@ -191,6 +202,8 @@ interface KeptPairsProps {
     readonly open: WatchedPair | null;
     /** Which pairs have a recording behind them, keyed venue and symbol. */
     readonly recorded: ReadonlySet<string>;
+    /** Why one cannot be opened, which is not the same answer for every venue. */
+    readonly sayWhyNot: (pair: WatchedPair) => string;
     readonly translate: Translate;
     readonly onOpen: (pair: WatchedPair) => void;
     readonly onDrop: (pair: WatchedPair) => void;
@@ -198,7 +211,16 @@ interface KeptPairsProps {
 }
 
 /** What is in the open list, each one a way onto the chart. */
-function KeptPairs({ list, open, recorded, translate, onOpen, onDrop, onRemoveList }: KeptPairsProps): ReactElement {
+function KeptPairs({
+    list,
+    open,
+    recorded,
+    sayWhyNot,
+    translate,
+    onOpen,
+    onDrop,
+    onRemoveList,
+}: KeptPairsProps): ReactElement {
     if (list.pairs.length === 0) {
         return <p className="px-1 py-2 text-xs leading-snug text-ink-500">{translate('markets.emptyList')}</p>;
     }
@@ -213,9 +235,7 @@ function KeptPairs({ list, open, recorded, translate, onOpen, onDrop, onRemoveLi
                             disabled={!recorded.has(`${pair.venue}/${pair.symbol}`)}
                             onClick={() => { onOpen(pair); }}
                             aria-current={open !== null && open.venue === pair.venue && open.symbol === pair.symbol}
-                            title={recorded.has(`${pair.venue}/${pair.symbol}`)
-                                ? undefined
-                                : translate('markets.notRecorded')}
+                            title={recorded.has(`${pair.venue}/${pair.symbol}`) ? undefined : sayWhyNot(pair)}
                             className={`flex min-w-0 flex-1 items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-abyss-700 disabled:hover:bg-transparent ${
                                 open !== null && open.venue === pair.venue && open.symbol === pair.symbol
                                     ? 'text-phosphor'
@@ -229,7 +249,7 @@ function KeptPairs({ list, open, recorded, translate, onOpen, onDrop, onRemoveLi
                             <span className="truncate text-xs text-ink-500">{pair.venue}</span>
                             {!recorded.has(`${pair.venue}/${pair.symbol}`) && (
                                 <span className="ml-auto shrink-0 text-[10px] text-ink-500">
-                                    {translate('markets.notRecorded')}
+                                    {sayWhyNot(pair)}
                                 </span>
                             )}
                         </button>

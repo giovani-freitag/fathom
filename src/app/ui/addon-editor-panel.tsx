@@ -48,7 +48,7 @@ import { EDITOR_SHELL_CLASSES, RAIL, SHEET } from './editor-shell.ts';
 
 import { STARTER_CONNECTOR_FILES, STARTER_FILES } from './starter-reading.ts';
 import { useAppearance, useTranslate } from '../react/use-appearance.ts';
-import { GUIDE_URLS } from '../i18n/guide-urls.ts';
+import { CONNECTOR_GUIDE_URLS, GUIDE_URLS } from '../i18n/guide-urls.ts';
 
 /**
  * What the menu shows while the open reading has never been saved.
@@ -181,6 +181,7 @@ export function AddonEditorPanel({ onClose, openKey, starter = 'reading' }: Addo
                     onBringIn={() => { setIsBringingIn(true); }}
                     onAddFile={() => { setIsNamingFile(true); }}
                     isWide
+                    isConnector={isConnector}
                 />
             )}
             {isWide && (
@@ -281,6 +282,7 @@ export function AddonEditorPanel({ onClose, openKey, starter = 'reading' }: Addo
                     onBringIn={() => { setIsBringingIn(true); }}
                     onAddFile={() => { setIsNamingFile(true); }}
                     isWide={false}
+                    isConnector={isConnector}
                 />
             )}
         </aside>
@@ -450,9 +452,18 @@ interface EditorToolbarProps {
     readonly onAddFile: () => void;
     /** False on a phone, where the actions sit along the foot instead. */
     readonly isWide: boolean;
+    /** Whether the reader asked for a venue rather than a drawing. */
+    readonly isConnector: boolean;
 }
 
-function EditorToolbar({ editor, translate, onBringIn, onAddFile, isWide }: EditorToolbarProps): ReactElement {
+function EditorToolbar({
+    editor,
+    translate,
+    onBringIn,
+    onAddFile,
+    isWide,
+    isConnector,
+}: EditorToolbarProps): ReactElement {
     const { locale } = useAppearance();
     const fileRef = useRef<HTMLInputElement>(null);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -533,7 +544,7 @@ function EditorToolbar({ editor, translate, onBringIn, onAddFile, isWide }: Edit
                 onChange={handleFileChosen}
             />
             <a
-                href={GUIDE_URLS[locale]}
+                href={(isConnector ? CONNECTOR_GUIDE_URLS : GUIDE_URLS)[locale]}
                 target="_blank"
                 rel="noreferrer"
                 aria-label={translate('editor.help')}
@@ -545,7 +556,7 @@ function EditorToolbar({ editor, translate, onBringIn, onAddFile, isWide }: Edit
 
             <Divider />
             <PanelAction
-                label={translate('editor.delete')}
+                label={translate(isConnector ? 'editor.deleteConnector' : 'editor.delete')}
                 onPress={() => { setIsConfirmingDelete(true); }}
                 isDangerous
             >

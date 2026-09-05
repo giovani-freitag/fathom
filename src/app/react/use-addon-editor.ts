@@ -175,7 +175,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         (path: string) => translate('editor.badPath', { path }),
         [translate],
     );
-    const editorLabel = translate('editor.code');
+    const editorLabel = translate(isResumable ? 'editor.code' : 'editor.codeConnector');
     const [status, setStatus] = useState<EditorStatus | null>(null);
     const [isRunning, setIsRunning] = useState(false);
     const [saved, setSaved] = useState<readonly SavedReading[]>(() => library.list());
@@ -396,7 +396,7 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
             // Installed on save, under the key the reading was filed as: what a
             // recording is filed under has to be the name the reader can find
             // again, and the draft key is not one.
-            const refused = kernel.markets.installConnector(key, built.connector, compiled[ENTRY_FILE] ?? '');
+            const refused = kernel.markets.installConnector(key, built.connector, compiled);
             setStatus(refused === null ? { kind: 'connected', venue: key } : { kind: 'broken', message: refused });
         }
         setName(called);

@@ -13,7 +13,6 @@ import { buildAddon } from '../addons/addon-runtime.ts';
 import { PreferencesService } from '../services/preferences-service.ts';
 import { registerAddon } from '../addons/addon-registry.ts';
 import { speakIn } from '../../shared/core/reading-words.ts';
-import { ENTRY_FILE } from '../../shared/core/reading-files.ts';
 import { RecordingApiService } from '../services/recording-api-service.ts';
 import type { RecordingControl } from '../../shared/core/recording-control.ts';
 import { API_ROUTES } from '../../shared/core/api-contract.ts';
@@ -120,7 +119,7 @@ export function createServiceContainer(config: ServiceContainerConfig): ServiceC
  */
 export function restoreInstalledConnectors(preferences: Pick<PreferencesService, 'read'>): void {
     for (const stored of preferences.read().connectorSources) {
-        const built = buildAddon({ [ENTRY_FILE]: stored.source });
+        const built = buildAddon(stored.files);
         if (built.kind === 'connector') {
             try {
                 registerConnector(stored.id, built.connector);

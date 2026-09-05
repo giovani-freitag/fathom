@@ -11,6 +11,7 @@ import {
 } from '../../shared/core/watch-lists.ts';
 import { listConnectors, registerConnector } from '../../shared/venues/venue-registry.ts';
 import type { PreferencesService } from '../services/preferences-service.ts';
+import type { ReadingFiles } from '../../shared/core/reading-files.ts';
 import type { StoredConnector } from '../../shared/core/stored-connector.ts';
 import type { VenueConnector, VenueInstrument } from '../../shared/core/venue-connector.ts';
 import type { VenueGateway } from '../../shared/venues/venue-gateway.ts';
@@ -206,10 +207,10 @@ export class MarketsController {
      *
      * @param connectorId - What it answers to, which every recording repeats.
      * @param connector - What it declares and how it reads.
-     * @param source - The text it was built from, so it can be built again.
+     * @param files - Every file it was built from, so it can be built again.
      * @returns Null once it is installed, or why it could not be.
      */
-    installConnector(connectorId: string, connector: VenueConnector, source: string): string | null {
+    installConnector(connectorId: string, connector: VenueConnector, files: ReadingFiles): string | null {
         try {
             registerConnector(connectorId, connector);
         } catch (error) {
@@ -219,7 +220,7 @@ export class MarketsController {
         const installed: StoredConnector = {
             id: connectorId,
             name: connectorId,
-            source,
+            files,
             installedAtMs: this.config.readNowMs(),
         };
         const kept = [

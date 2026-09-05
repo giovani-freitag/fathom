@@ -1,13 +1,21 @@
-import { describe, expect, it } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { createIndicatorKernel, renderWithKernel } from '../../../../mocks/indicator-kernel.tsx';
 import { FIRST_VENUE } from '../../../../../src/shared/core/recording-control.ts';
+import { FAVOURITES_ID } from '../../../../../src/shared/core/watch-lists.ts';
 import { MarketsPanel } from '../../../../../src/app/ui/markets/markets-panel.tsx';
+import { buildConnector } from '../../../../mocks/venue-connectors.ts';
+import { forgetConnector, registerConnector } from '../../../../../src/shared/venues/venue-registry.ts';
 import type { WatchedPair } from '../../../../../src/shared/core/watch-lists.ts';
+
+afterEach(() => { forgetConnector('empty'); });
+
+let lastKernel: ReturnType<typeof createIndicatorKernel> | null = null;
 
 function renderPanel(): { opened: WatchedPair[] } {
     const opened: WatchedPair[] = [];
     const kernel = createIndicatorKernel();
+    lastKernel = kernel;
     kernel.setState((state) => ({
         ...state,
         instrumentSymbol: 'BTCUSDT',
@@ -115,5 +123,32 @@ describe('opening what is kept', () => {
 
         expect(kept.hasAttribute('disabled')).toBe(true);
         expect(opened).toEqual([]);
+    });
+});
+
+describe('why a kept pair cannot be opened', () => {
+    it('says nothing was recorded, on a venue that does publish a book', async () => {
+        const { opened } = renderPanel();
+        await browsedPairs();
+        fireEvent.click(screen.getByRole('button', { name: /Add NANOUSDT to Favourites/ }));
+
+        expect(screen.getAllByRole('button', { name: /NANOUSDT/ })[0]!.textContent)
+            .toContain('Nothing recorded here yet');
+        expect(opened).toEqual([]);
+    });
+
+    it('says the venue draws nothing, where its connector declared nothing', () => {
+        // Two different answers on purpose: a reader who reads the first one for
+        // the second goes looking for a broken recording instead of for the
+        // `null` their own connector declared.
+        registerConnector('empty', buildConnector({ book: null, tape: null, bars: null }));
+        renderPanel();
+
+        act(() => {
+            lastKernel!.container.markets.addPair(FAVOURITES_ID, { venue: 'empty', symbol: 'FOO-BAR' });
+        });
+
+        expect(screen.getAllByRole('button', { name: /FOO-BAR/ })[0]!.textContent)
+            .toContain('declares no book, tape or candles');
     });
 });

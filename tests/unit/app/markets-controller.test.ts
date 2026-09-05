@@ -8,6 +8,9 @@ import { forgetConnector } from '../../../src/shared/venues/venue-registry.ts';
 import { buildConnector } from '../../mocks/venue-connectors.ts';
 
 const NOW_MS = 1_700_000_000_000;
+
+/** A connector's files, as the editor hands them over: every one, not just the entry. */
+const SOURCE = { 'main.ts': 'exports.default = {};', 'reading/parse.ts': 'exports.read = () => [];' };
 const BTC = { venue: FIRST_VENUE, symbol: 'BTCUSDT' };
 
 /** A storage that keeps what it was given, the way a browser's does. */
@@ -154,7 +157,7 @@ describe('installing a venue a reader brought', () => {
 
         const refused = markets.installConnector('kucoin', buildConnector({
             book: null, tape: null, bars: null,
-        }), 'export default {}');
+        }), SOURCE);
 
         expect(refused).toBeNull();
         expect(markets.store.read().venues).toContain('kucoin');
@@ -164,14 +167,14 @@ describe('installing a venue a reader brought', () => {
         });
     });
 
-    it('keeps the source, so the venue is there again next week', () => {
+    it('keeps every file, so a venue written across three is there again next week', () => {
         const storage = buildStorage();
         const markets = buildController(answerWith({}), storage);
 
-        markets.installConnector('kucoin', buildConnector({ book: null, tape: null, bars: null }), 'export default {}');
+        markets.installConnector('kucoin', buildConnector({ book: null, tape: null, bars: null }), SOURCE);
 
         expect(new PreferencesService({ storage }).read().connectorSources).toEqual([{
-            id: 'kucoin', name: 'kucoin', source: 'export default {}', installedAtMs: NOW_MS,
+            id: 'kucoin', name: 'kucoin', files: SOURCE, installedAtMs: NOW_MS,
         }]);
     });
 
@@ -181,7 +184,7 @@ describe('installing a venue a reader brought', () => {
         const refused = markets.installConnector(
             FIRST_VENUE,
             buildConnector({ book: null, tape: null, bars: null }),
-            'export default {}',
+            SOURCE,
         );
 
         expect(refused).toContain('ships with');

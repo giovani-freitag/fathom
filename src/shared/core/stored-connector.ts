@@ -1,3 +1,5 @@
+import type { ReadingFiles } from './reading-files.ts';
+
 /** How long a connector's name may be before it stops fitting anywhere. */
 export const MAXIMUM_CONNECTOR_NAME_LENGTH = 32;
 
@@ -8,18 +10,22 @@ export const MAXIMUM_STORED_CONNECTORS = 10;
 export const MAXIMUM_CONNECTOR_SOURCE_BYTES = 256 * 1024;
 
 /**
- * A connector a reader brought, kept as the source they gave.
+ * A connector a reader brought, kept as the files they wrote.
  *
- * The source rather than what it evaluated to: a function cannot be written to
+ * The files rather than what they evaluated to: a function cannot be written to
  * storage, and re-reading the same text on every load is also the only way a
  * reader can be shown what they installed before it runs again.
+ *
+ * Every file, not only the entry. A connector split across three files whose
+ * entry alone was kept rebuilt into nothing on the next load — the venue was
+ * still in storage and simply never appeared in the picker again.
  */
 export interface StoredConnector {
     /** What the connector answers to, which is written into every recording. */
     readonly id: string;
     /** What the reader called it, for the interface to show. */
     readonly name: string;
-    readonly source: string;
+    readonly files: ReadingFiles;
     /** When it was installed, so a reader can tell two attempts apart. */
     readonly installedAtMs: number;
 }
@@ -40,14 +46,21 @@ export function readStoredConnectors(stored: unknown): readonly StoredConnector[
 
     return stored
         .filter(isStoredConnector)
-        .filter((connector) => connector.source.length <= MAXIMUM_CONNECTOR_SOURCE_BYTES)
+        .filter((connector) => measure(connector.files) <= MAXIMUM_CONNECTOR_SOURCE_BYTES)
         .slice(0, MAXIMUM_STORED_CONNECTORS)
         .map((connector) => ({
             id: connector.id,
             name: connector.name.slice(0, MAXIMUM_CONNECTOR_NAME_LENGTH),
-            source: connector.source,
+            files: connector.files,
             installedAtMs: connector.installedAtMs,
         }));
+}
+
+/**
+ * How much source a connector is, across every file of it.
+ */
+function measure(files: ReadingFiles): number {
+    return Object.values(files).reduce((total, source) => total + source.length, 0);
 }
 
 /**
@@ -57,6 +70,18 @@ function isStoredConnector(candidate: unknown): candidate is StoredConnector {
     const connector = candidate as Partial<StoredConnector> | null;
     return typeof connector?.id === 'string' && connector.id !== ''
         && typeof connector.name === 'string'
-        && typeof connector.source === 'string' && connector.source !== ''
+        && isFiles(connector.files)
         && typeof connector.installedAtMs === 'number' && Number.isFinite(connector.installedAtMs);
+}
+
+/**
+ * Whether something out of storage is a set of files with an entry among them.
+ */
+function isFiles(candidate: unknown): candidate is ReadingFiles {
+    if (typeof candidate !== 'object' || candidate === null) {
+        return false;
+    }
+    const entries = Object.entries(candidate as Record<string, unknown>);
+    return entries.length > 0
+        && entries.every(([path, source]) => path !== '' && typeof source === 'string' && source !== '');
 }
