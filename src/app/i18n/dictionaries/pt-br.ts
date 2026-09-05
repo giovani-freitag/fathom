@@ -426,6 +426,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'recording.remove': 'Excluir {symbol} e tudo que ele gravou',
     'recording.removeTitle': 'Excluir esta gravação?',
     'recording.removeBody': 'Tudo que foi gravado de {symbol} é apagado, e o espaço volta. Um livro de ofertas não pode ser gravado de novo, então o que sai daqui não volta. Desligar em vez disso para a gravação e mantém tudo.',
+    'recording.removeBodyOff': 'Tudo que foi gravado de {symbol} é apagado, e o espaço que ocupava volta. Um livro de ofertas não pode ser gravado de novo, então o que vai daqui foi. Ele já está desligado, então deixá-lo em paz não custa nada além do espaço.',
     'recording.removeConfirm': 'Excluir',
     'recording.regridCost': 'O que já foi gravado fica na grade em que foi escrito. Uma janela que alcança antes da mudança é lida na mais grossa das duas, e uma grade mais fina não mostra detalhe que o trecho antigo nunca teve.',
     'recording.done': 'Pronto',

@@ -424,6 +424,7 @@ export const EN_DICTIONARY = {
     'recording.remove': 'Delete {symbol} and everything it recorded',
     'recording.removeTitle': 'Delete this recording?',
     'recording.removeBody': 'Everything recorded for {symbol} is deleted, and the room it took comes back. An order book cannot be recorded again, so what goes here is gone. Switching it off instead stops the recording and keeps all of it.',
+    'recording.removeBodyOff': 'Everything recorded for {symbol} is deleted, and the room it took comes back. An order book cannot be recorded again, so what goes here is gone. It is already switched off, so leaving it alone costs nothing but the room.',
     'recording.removeConfirm': 'Delete it',
     'recording.regridCost': 'What is already recorded keeps the grid it was written on. A window reaching back past the change reads at the coarser of the two, and a finer grid cannot show detail the older stretch never held.',
     'recording.done': 'Done',

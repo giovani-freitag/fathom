@@ -232,6 +232,31 @@ describe('what else could be recorded', () => {
         });
     });
 
+    it('heads each group as a heading, and names the list under it', async () => {
+        // Read aloud, three unlabelled lists say "list, two items… list, three
+        // items" and nothing about which pairs are recording.
+        renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+
+        const heading = await screen.findByRole('heading', { name: 'Recording' });
+        expect(screen.getByRole('list', { name: 'Recording' })).toBeDefined();
+        expect(heading).toBeDefined();
+    });
+
+    it('does not offer to switch off a contract that is already off', async () => {
+        // The safer alternative it names has to exist: told to switch off what
+        // is already off, a reader hunts for a switch that would change nothing.
+        renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+
+        fireEvent.click(await screen.findByRole('button', {
+            name: 'Delete ETHUSDT and everything it recorded',
+        }));
+
+        expect(await screen.findByText(/already switched off/)).toBeDefined();
+    });
+
     it('says which grid is in force in the name the button answers to', async () => {
         // The value is written on the button, and the name it carried named
         // only the action — so a reader who cannot see it had to open the

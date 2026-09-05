@@ -215,13 +215,21 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
                     aria-label={props.translate('recording.pickerTitle')}
                     className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
                 >
-                    {GROUPS.map((group) => ({ said: group.said, rows: shown[group.of] }))
+                    {GROUPS.map((group) => ({ said: group.said, of: group.of, rows: shown[group.of] }))
                         .filter((group) => group.rows.length > 0).map((group) => (
                             <li key={group.said}>
-                                <p className="sticky top-0 z-10 bg-abyss-800/95 px-3 py-1 field-label">
+                                {/* A heading rather than a styled line, and
+                                    named onto the list it heads: read aloud,
+                                    three unlabelled lists of two, three and a
+                                    hundred and forty-six rows say nothing about
+                                    which pairs are recording and which are not. */}
+                                <h4
+                                    id={`recording-group-${group.of}`}
+                                    className="sticky top-0 z-10 bg-abyss-800/95 px-3 py-1 field-label"
+                                >
                                     {props.translate(group.said)}
-                                </p>
-                                <ul>
+                                </h4>
+                                <ul aria-labelledby={`recording-group-${group.of}`}>
                                     {group.rows.map((row) => (
                                         <PairRow
                                             key={row.instrument.symbol}
@@ -259,9 +267,14 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
                 isOpen={dropping !== null}
                 onOpenChange={(isOpen) => { if (!isOpen) { setDropping(null); } }}
                 title={props.translate('recording.removeTitle')}
-                body={props.translate('recording.removeBody', {
-                    symbol: dropping?.instrumentSymbol ?? '',
-                })}
+                // The safer alternative it offers has to exist. Told to switch
+                // off a contract that is already off, a reader looks for a
+                // switch that would change nothing and concludes the dialog is
+                // describing some other pair.
+                body={props.translate(
+                    dropping?.isEnabled === false ? 'recording.removeBodyOff' : 'recording.removeBody',
+                    { symbol: dropping?.instrumentSymbol ?? '' },
+                )}
                 confirmLabel={props.translate('recording.removeConfirm')}
                 onConfirm={() => {
                     if (dropping !== null) {
