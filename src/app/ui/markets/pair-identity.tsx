@@ -18,10 +18,13 @@ interface PairIdentityProps {
 export function PairIdentity({ symbol, base = '', quote = '' }: PairIdentityProps): ReactElement {
     return (
         <>
-            {/* Wide enough to line the rows up, but able to give way: on a phone a
-                row carrying a long grid figure ran its delete button off the
-                screen rather than shortening the name in front of it. */}
-            <span className="w-32 min-w-0 truncate text-sm font-semibold sm:w-40">{symbol}</span>
+            {/* Wide enough to line the rows up, able to give way, and with a
+                floor. Fixed, a long grid figure pushed the delete button off
+                the screen; free to shrink to nothing, four of five recorded
+                rows read "PAXGU…", "ETHU…", "LTCU…" — and LTCUSDC trades on the
+                same venue, so the stub was genuinely ambiguous on the one row
+                carrying a control that cannot be undone. */}
+            <span className="w-32 min-w-20 truncate text-sm font-semibold sm:w-40">{symbol}</span>
             {base !== '' && (
                 <span className="hidden w-28 shrink-0 truncate text-xs text-ink-400 sm:inline">
                     {base}/{quote}
