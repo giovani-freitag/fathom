@@ -57,3 +57,38 @@ describe('what the gateway is allowed to say', () => {
         expect(readInterfaceFields('src/shared/core/trade-cluster.ts', 'NoSuchInterface')).toEqual([]);
     });
 });
+
+/**
+ * The verbs the browser sends, against the ones a preflight admits.
+ *
+ * A cross-origin browser asks before it sends anything but a simple request, so
+ * a verb missing from the allow-list is a call that never leaves the page. The
+ * proxy in front of the dev server hides it by making the request same-origin,
+ * which is why this is read from the source rather than driven through one.
+ */
+function readSentMethods(path: string): string[] {
+    const source = readFileSync(join(ROOT, path), 'utf8');
+    return [...source.matchAll(/method:\s*'([A-Z]+)'/g)].map((found) => found[1]!);
+}
+
+function readAllowedMethods(path: string): string[] {
+    const source = readFileSync(join(ROOT, path), 'utf8');
+    const list = source.split('methods: [')[1]?.split(']')[0] ?? '';
+    return [...list.matchAll(/'([A-Z]+)'/g)].map((found) => found[1]!);
+}
+
+describe('what a browser is allowed to send', () => {
+    it('admits every method the recording service issues', () => {
+        const sent = readSentMethods('src/app/services/recording-api-service.ts');
+        const allowed = readAllowedMethods('src/server/http/server.ts');
+
+        expect(sent).toContain('DELETE');
+        expect(sent.filter((method) => !allowed.includes(method))).toEqual([]);
+    });
+
+    it('reads both lists from files that are actually there', () => {
+        expect(readSentMethods('src/app/services/recording-api-service.ts').length)
+            .toBeGreaterThan(1);
+        expect(readAllowedMethods('src/server/http/server.ts')).toContain('GET');
+    });
+});
