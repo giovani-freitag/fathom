@@ -109,3 +109,10 @@ by a test, because the one reading that declares a rung declares a constant
 depth, and the collector reads the shipped catalogue rather than an injected
 one. It is two lines and obviously right, and it will be exercised the first
 time a second such reading lands.
+
+The same idea now runs one level up. A reading also declares the *venue facts*
+it cannot be computed without — the taker split, a whole ladder rather than a
+window — and is put out of reach where the venue does not supply them. Sessions
+and facts are one sentence in two places: a reading says what it reads before it
+is asked to read it. See
+[ADR 25](0025-a-reader-brings-the-venue-as-well-as-the-indicator.md).

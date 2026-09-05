@@ -24,3 +24,10 @@ visible amber band rather than an invisible error.
 It also couples the design to venues that publish such a chain. A driver for a
 venue that does not will need a weaker check, and should say so rather than
 pretend the guarantee still holds.
+
+That sentence was made good by [ADR 25](0025-a-reader-brings-the-venue-as-well-as-the-indicator.md):
+a connector declares a `BookGrade`, where `linked` is the check described here
+and `ranged`, `stepped` and `unsequenced` are the weaker ones real venues
+support. The grade is declared and not yet acted on — the mirror still requires
+the chain — so a venue without one is refused honestly rather than recorded
+badly.

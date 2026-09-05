@@ -37,7 +37,7 @@ feature-detecting helper rather than called directly.
 
 ## Consequences
 
-`OrderBookService`, `OrderBookState`, `BinanceDepthFeedService`,
+`OrderBookService`, `OrderBookState`, `VenueDepthFeedService`,
 `buildLiquidityFrame`, `TradeClusterAccumulator`, `ArchiveWriteBuffer` and
 `LiquidityRecorderService` run unmodified in both registrations, and so does
 every part of the chart. The demo and the product cannot disagree about what a
