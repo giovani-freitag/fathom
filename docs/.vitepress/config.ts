@@ -25,6 +25,22 @@ function decisions() {
         .map((name) => ({ text: titleOf(name), link: `/en/adr/${name.replace(/\.md$/, '')}` }));
 }
 
+/**
+ * The pages that exist in one language, by the slug they answer to.
+ *
+ * Read from the folder rather than listed by hand: a page written in one
+ * language and not the other is the ordinary state here, and the interface has
+ * to know which is which without anybody remembering to say so.
+ *
+ * @param language - Which one.
+ * @returns Its slugs, the front page included as an empty string.
+ */
+function pagesIn(language: Language): readonly string[] {
+    return readdirSync(join(DOCS, language))
+        .filter((name) => name.endsWith('.md'))
+        .map((name) => (name === 'index.md' ? '' : name.replace(/\.md$/, '')));
+}
+
 /** A record's own heading, so the list reads as its author wrote it. */
 function titleOf(name: string): string {
     const held = readFileSync(join(DOCS, 'en', 'adr', name), 'utf8');
@@ -48,6 +64,8 @@ const WORDS = {
         dataModel: 'Data model', operations: 'Operations', decisions: 'Decisions',
         openTheChart: 'Open the chart', editThisPage: 'Edit this page',
         source: 'GitHub', chart: 'Live chart', addons: 'Example addons',
+        /* Written once, in English, and said so where the reader is not. */
+        inEnglish: '',
     },
     'pt-BR': {
         startHere: 'Primeiros passos', whatItIs: 'Introdução', runIt: 'Instalação',
@@ -57,6 +75,7 @@ const WORDS = {
         dataModel: 'Modelo de dados', operations: 'Operação', decisions: 'Decisões',
         openTheChart: 'Abrir o gráfico', editThisPage: 'Editar esta página',
         source: 'GitHub', chart: 'Gráfico ao vivo', addons: 'Addons de exemplo',
+        inEnglish: ' (em inglês)',
     },
 } as const;
 
@@ -78,6 +97,10 @@ function navigationIn(language: Language) {
     return {
         logo: '/brand.svg',
         outline: [2, 3] as [number, number],
+        // Handed to the theme so the flags know which pages the other language
+        // actually has: sent to one it does not, a reader lands on a refusal
+        // instead of on the language they asked for.
+        pages: { en: pagesIn('en'), 'pt-BR': pagesIn('pt-BR') },
 
         nav: [
             { text: said.whatItIs, link: at('/what-it-is') },
@@ -108,12 +131,12 @@ function navigationIn(language: Language) {
             {
                 text: said.howItWorks,
                 items: [
-                    { text: said.architecture, link: '/en/architecture' },
-                    { text: said.dataModel, link: '/en/data-model' },
-                    { text: said.operations, link: '/en/operations' },
+                    { text: said.architecture + said.inEnglish, link: '/en/architecture' },
+                    { text: said.dataModel + said.inEnglish, link: '/en/data-model' },
+                    { text: said.operations + said.inEnglish, link: '/en/operations' },
                 ],
             },
-            { text: said.decisions, collapsed: true, items: decisions() },
+            { text: said.decisions + said.inEnglish, collapsed: true, items: decisions() },
         ],
 
         socialLinks: [{ icon: 'github' as const, link: 'https://github.com/giovani-freitag/fathom' }],

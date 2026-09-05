@@ -10,9 +10,6 @@ segurou ou quebrou, e quanto tempo ela ficou lá antes.
 
 ![O gráfico](/screenshot.png)
 
-Não tem conta para criar, não tem teste para começar, e não tem plano pago
-escondendo a parte útil. Você abre e funciona.
-
 ## Por que ele precisa estar rodando
 
 Os candles vêm da corretora, então o gráfico já abre com histórico de verdade
@@ -46,8 +43,8 @@ sexta. Se instalar na sexta, você tem sexta. Não existe histórico para baixar
 
 ## Indicadores
 
-Dezoito indicadores já vêm com o Fathom: médias móveis, bandas, osciladores,
-volume e delta. Você adiciona pelo painel de camadas e ajusta por ali mesmo.
+O Fathom já vem com médias móveis, bandas, osciladores, volume e delta. Você
+adiciona pelo painel de camadas e ajusta por ali mesmo.
 
 Além desses, você escreve os seus. Um **indicador** é um arquivo TypeScript que
 você escreve na própria página, contra exatamente a mesma interface que os
@@ -62,12 +59,11 @@ Fathom mostra cada arquivo, o tamanho e de onde veio antes de buscar um byte.
 
 ## Corretoras
 
-O Fathom grava perpétuos USD-M da Binance, e já vem lendo mais cinco
-corretoras: Bybit, OKX, Coinbase, Kraken e Gate. Se você quer uma que não está
-aí, escreve um **conector** — o mesmo tipo de addon, no mesmo editor, e a mesma
-interface contra a qual os seis que já vêm juntos foram escritos. Um conector
-diz ao Fathom o que aquela corretora consegue responder e como ler a resposta,
-e o Fathom faz as chamadas.
+O Fathom grava perpétuos USD-M da Binance, e já vem lendo outras: Bybit, OKX,
+Coinbase, Kraken e Gate. Se você quer uma que não está aí, escreve um
+**conector** — o mesmo tipo de addon, no mesmo editor, contra a mesma interface
+que as nativas usam. Um conector diz ao Fathom o que aquela corretora consegue
+responder e como ler a resposta, e o Fathom faz as chamadas.
 
 Um conector também declara o que a corretora **não** faz. A maioria não publica
 a separação por lado agressor nos candles, por exemplo. Quando um conector diz

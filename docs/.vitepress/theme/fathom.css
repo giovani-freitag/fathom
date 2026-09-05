@@ -215,8 +215,18 @@
 .nav-extras--screen {
     justify-content: space-between;
     margin: 0;
-    padding-top: 16px;
+    padding: 16px 0;
     border-top: 1px solid var(--vp-c-divider);
+}
+
+/*
+ * The repository, as a line of the menu rather than a mark in the middle of it.
+ *
+ * The block being hidden is the theme's own: one twenty-pixel glyph, centred,
+ * ruled off above and below, with nothing saying what it is.
+ */
+.VPNavScreen .social-links {
+    display: none;
 }
 
 /* The links along the foot, with nothing else on the line. */

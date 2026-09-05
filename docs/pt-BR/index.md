@@ -5,8 +5,8 @@ hero:
   name: Fathom
   text: O livro de ofertas, gravado segundo a segundo
   tagline: >
-    Um mapa de calor da liquidez com candles por cima, dezoito indicadores
-    prontos para adicionar, e um editor para escrever os seus. Abriu, funciona.
+    Um mapa de calor da liquidez com candles por cima, indicadores prontos
+    para adicionar, e um editor para escrever os seus. Abriu, funciona.
   image:
     src: /brand.svg
     alt: Fathom
@@ -36,8 +36,8 @@ features:
     details: >
       A profundidade em repouso desenhada como mapa de calor, os negócios por
       cima dimensionados pelo volume e coloridos pelo lado que cruzou, candles e
-      volume no topo. Dezoito indicadores já vêm juntos, da média móvel ao delta
-      acumulado.
+      volume no topo. Médias móveis, bandas, osciladores e delta acumulado já
+      vêm juntos.
     link: /pt-BR/what-it-is
     linkText: Ver o que ele desenha
   - icon: ✏️

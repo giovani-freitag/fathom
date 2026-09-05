@@ -122,3 +122,5 @@ de você.
 [Arquitetura →](/en/architecture) ·
 [Modelo de dados →](/en/data-model) ·
 [Rodando como serviço →](/en/operations)
+
+<small>Essas três estão só em inglês.</small>

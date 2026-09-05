@@ -327,4 +327,5 @@ página invertida.
 ---
 
 O raciocínio por trás de tudo isto está no
-[ADR 25](/en/adr/0025-a-reader-brings-the-venue-as-well-as-the-indicator).
+[ADR 25](/en/adr/0025-a-reader-brings-the-venue-as-well-as-the-indicator)
+(em inglês).

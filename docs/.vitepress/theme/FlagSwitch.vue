@@ -14,7 +14,7 @@ const LANGUAGES = [
     { code: 'pt-BR', label: 'Português' },
 ] as const;
 
-const { page } = useData();
+const { page, theme } = useData();
 const router = useRouter();
 
 /** Which language the page being read belongs to. */
@@ -24,14 +24,16 @@ const spoken = computed(() => (page.value.relativePath.startsWith('pt-BR/') ? 'p
  * The same page in the other language, or that language's front page.
  *
  * The deeper pages and the decision records are written once, in English, so a
- * reader switching from one of those has nowhere to land: they go to the front
- * page of the language they asked for rather than to a link that leads nowhere.
+ * reader switching from one of those has nowhere to land. Which pages those are
+ * is read from the site itself rather than guessed at here: guessed at, the
+ * flag sent a reader from the architecture page to a translation of it that
+ * does not exist, and answered a request for their own language with a refusal.
  */
 function goTo(code: string): void {
     const path = page.value.relativePath.replace(/\.md$/, '');
     const rest = path.replace(/^(en|pt-BR)\//, '');
-    const isShared = !/^(en|pt-BR)\//.test(path) || path.includes('/adr/');
-    const wanted = isShared || code === spoken.value ? `${code}/` : `${code}/${rest}`;
+    const held: string[] = (theme.value as { pages?: Record<string, string[]> }).pages?.[code] ?? [];
+    const wanted = code === spoken.value || !held.includes(rest) ? `${code}/` : `${code}/${rest}`;
     router.go(withBase(`/${wanted}`));
 }
 </script>

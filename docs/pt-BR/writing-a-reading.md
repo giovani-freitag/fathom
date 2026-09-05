@@ -541,4 +541,4 @@ vai ter eles. Exporte o que você quiser manter.
 ---
 
 O raciocínio por trás de tudo isto está no
-[ADR 23](/en/adr/0023-a-reader-writes-an-indicator-in-the-page).
+[ADR 23](/en/adr/0023-a-reader-writes-an-indicator-in-the-page) (em inglês).

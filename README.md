@@ -51,7 +51,7 @@ be running before you need the data.
 - 📱 **Touch first** — one finger pans, two pinch both axes, the axes are scale handles
 - ⚡ **Live tail** — a WebSocket appends each new second without refetching the window
 - 🎛️ **Recording control** — pick which contracts record and cap the disk, from the chart itself
-- 🔌 **Venue-neutral core** — six exchanges ship read-ready (Binance USD-M, Bybit, OKX, Coinbase, Kraken, Gate), and a reader adds their own
+- 🔌 **Venue-neutral core** — Binance USD-M, Bybit, OKX, Coinbase, Kraken and Gate ship read-ready, and a reader adds their own
 - 🌐 **Runs with no backend** — the same collector registers as a Web Worker and records into IndexedDB
 
 ## 🚀 Run it

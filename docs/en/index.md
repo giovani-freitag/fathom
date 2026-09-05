@@ -5,8 +5,8 @@ hero:
   name: Fathom
   text: The order book, recorded second by second
   tagline: >
-    A liquidity heat map with candles on top, eighteen indicators ready to add,
-    and an editor for writing your own. Open it and it works.
+    A liquidity heat map with candles on top, indicators ready to add, and an
+    editor for writing your own. Open it and it works.
   image:
     src: /brand.svg
     alt: Fathom
@@ -34,8 +34,8 @@ features:
     title: Candles, book and indicators
     details: >
       Resting depth drawn as a heat map, trades over it sized by volume and
-      coloured by the side that crossed, candles and volume on top. Eighteen
-      indicators ship with it, from moving averages to cumulative delta.
+      coloured by the side that crossed, candles and volume on top. Moving
+      averages, bands, oscillators and cumulative delta come with it.
     link: /en/what-it-is
     linkText: See what it draws
   - icon: ✏️

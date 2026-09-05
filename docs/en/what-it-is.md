@@ -9,9 +9,6 @@ can see whether a wall held or broke, and how long it stood there first.
 
 ![The chart](/screenshot.png)
 
-There is no account to create, no trial to start, and no paid tier hiding the
-useful part. You open it and it works.
-
 ## Why it has to be running
 
 Candles come from the exchange, so the chart opens on real history from the
@@ -45,8 +42,8 @@ If you install it on Friday, you get Friday. There is no history to download.
 
 ## Indicators
 
-Eighteen indicators ship with Fathom: moving averages, bands, oscillators,
-volume and delta. You add them from the layer panel and tune them from there.
+Fathom ships with moving averages, bands, oscillators, volume and delta. You
+add them from the layer panel and tune them from there.
 
 Beyond those, you write your own. An **indicator** is a TypeScript file you
 write in the page, against the exact interface the built-in ones use. It
@@ -60,12 +57,11 @@ shows you every file, its size and where it came from before it fetches a byte.
 
 ## Exchanges
 
-Fathom records Binance USD-M perpetuals, and reads five more exchanges out of
-the box: Bybit, OKX, Coinbase, Kraken and Gate. If you want one that is not
-there, you write a **connector** — the same kind of addon, in the same editor,
-and the same interface the six shipped ones are written against. A connector
-tells Fathom what a venue can answer and how to read its replies, and Fathom
-does the fetching.
+Fathom records Binance USD-M perpetuals, and reads several more out of the box:
+Bybit, OKX, Coinbase, Kraken and Gate. If you want one that is not there, you
+write a **connector** — the same kind of addon, in the same editor, against the
+same interface the shipped ones are written to. A connector tells Fathom what a
+venue can answer and how to read its replies, and Fathom does the fetching.
 
 A connector also declares what its venue *cannot* do. Most exchanges publish no
 taker split in their candles, for example. When a connector says so, Fathom
