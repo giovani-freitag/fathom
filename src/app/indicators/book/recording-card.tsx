@@ -7,7 +7,7 @@ import {
 import { ConfirmDialog } from '../../ui/confirm-dialog.tsx';
 import { Popover } from 'radix-ui';
 import { Trash2 } from 'lucide-react';
-import { offerGrids } from '../../markets/recordable.ts';
+import { type GridChoice, offerGrids } from '../../markets/recordable.ts';
 import { ListingCard, SearchField } from '../../ui/markets/listing-card.tsx';
 import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
 import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from 'react';
@@ -283,6 +283,39 @@ function RecordingListing(props: RecordingCardProps): ReactElement {
     );
 }
 
+/**
+ * One grid on offer, carrying the figure and nothing else.
+ *
+ * The words are on the line that asks — "one row of the heat map covers" — and
+ * repeating them on each of three chips makes the reader read the same phrase
+ * three times to compare three numbers. Said in full where it is read out,
+ * because a button announced as "point one" alone says nothing.
+ */
+function GridChip({ grid, isChosen, isSaving, translate, onPick }: {
+    readonly grid: GridChoice;
+    /** True where the contract already records on it. */
+    readonly isChosen: boolean;
+    readonly isSaving: boolean;
+    readonly translate: Translate;
+    readonly onPick: () => void;
+}): ReactElement {
+    return (
+        <button
+            type="button"
+            disabled={isSaving || isChosen}
+            aria-label={translate('settings.perRow', { value: grid.priceBucketSize })}
+            onClick={onPick}
+            className={`${CONTROL_CHIP_CLASSES} numeric h-7 justify-center px-2.5 ${
+                isChosen || grid.isSuggested
+                    ? 'border-phosphor/60 bg-phosphor/12 text-phosphor'
+                    : CONTROL_OFFERED_CLASSES
+            }`}
+        >
+            {grid.priceBucketSize}
+        </button>
+    );
+}
+
 interface PairRowProps {
     readonly instrument: VenueInstrument;
     /** The contract recording it, or null where nothing is. */
@@ -360,19 +393,14 @@ function PairRow(props: PairRowProps): ReactElement {
                                 {props.translate('recording.gridPrompt')}
                             </span>
                             {grids.map((grid) => (
-                                <button
+                                <GridChip
                                     key={grid.priceBucketSize}
-                                    type="button"
-                                    disabled={props.isSaving || grid.priceBucketSize === contract.priceBucketSize}
-                                    onClick={() => { props.onRecord(grid.priceBucketSize); }}
-                                    className={`${CONTROL_CHIP_CLASSES} h-7 justify-center px-2.5 ${
-                                        grid.priceBucketSize === contract.priceBucketSize
-                                            ? 'border-phosphor/60 bg-phosphor/12 text-phosphor'
-                                            : CONTROL_OFFERED_CLASSES
-                                    }`}
-                                >
-                                    {props.translate('settings.perRow', { value: grid.priceBucketSize })}
-                                </button>
+                                    grid={grid}
+                                    isChosen={grid.priceBucketSize === contract.priceBucketSize}
+                                    isSaving={props.isSaving}
+                                    translate={props.translate}
+                                    onPick={() => { props.onRecord(grid.priceBucketSize); }}
+                                />
                             ))}
                         </div>
                         <p className="panel-note mt-1.5">{props.translate('recording.regridCost')}</p>
@@ -408,17 +436,14 @@ function PairRow(props: PairRowProps): ReactElement {
                         {props.translate('recording.gridPrompt')}
                     </span>
                     {grids.map((grid) => (
-                        <button
+                        <GridChip
                             key={grid.priceBucketSize}
-                            type="button"
-                            disabled={props.isSaving}
-                            onClick={() => { props.onRecord(grid.priceBucketSize); }}
-                            className={`${CONTROL_CHIP_CLASSES} h-7 justify-center px-2.5 ${
-                                grid.isSuggested ? 'border-phosphor/60 text-phosphor' : CONTROL_OFFERED_CLASSES
-                            }`}
-                        >
-                            {props.translate('settings.perRow', { value: grid.priceBucketSize })}
-                        </button>
+                            grid={grid}
+                            isChosen={false}
+                            isSaving={props.isSaving}
+                            translate={props.translate}
+                            onPick={() => { props.onRecord(grid.priceBucketSize); }}
+                        />
                     ))}
                 </div>
             )}

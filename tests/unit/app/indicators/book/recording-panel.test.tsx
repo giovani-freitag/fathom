@@ -244,6 +244,48 @@ describe('what else could be recorded', () => {
         });
     });
 
+    it('takes a deleted contract out of what is recording', async () => {
+        // The row it was on is a row about a machine that is running. Deleted
+        // and left where it was, the panel says a recording exists that does
+        // not, and the switch on it would build one nobody asked for.
+        let contracts = [...CONTRACTS];
+        const recording = {
+            // A fresh list each time, as every real one answers: the archive is
+            // read again, not handed back the array it gave last time.
+            listContracts: () => Promise.resolve([...contracts]),
+            readBudget: () => Promise.resolve(budget),
+            saveContract: vi.fn().mockResolvedValue(undefined),
+            removeContract: vi.fn((venue: string, symbol: string) => {
+                contracts = contracts.filter((one) => !(one.venue === venue
+                    && one.instrumentSymbol === symbol));
+                return Promise.resolve();
+            }),
+            setBudget: vi.fn().mockResolvedValue(undefined),
+            pruneToBudget: vi.fn().mockResolvedValue(0),
+        } as unknown as RecordingControl;
+
+        renderWithKernel(createIndicatorKernel(), (
+            <RecordingPanel
+                recording={recording}
+                onContractsChanged={() => undefined}
+                translate={buildTranslate('en')}
+            />
+        ));
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+        fireEvent.click(await screen.findByRole('button', {
+            name: 'Delete BTCUSDT and everything it recorded',
+        }));
+        fireEvent.click(screen.getByRole('button', { name: 'Delete it' }));
+
+        await waitFor(() => {
+            expect(screen.queryByRole('switch', { name: 'Record BTCUSDT' })).toBeNull();
+        });
+        // Back among the pairs the venue offers, where it can be recorded again.
+        const listing = await screen.findByRole('list', { name: 'Record a pair' });
+        expect(within(listing).getByRole('button', { name: /BTCUSDT/ }).textContent)
+            .toContain('choose a grid');
+    });
+
     it('lifts what is already being recorded to the top, with its switch on the row', async () => {
         // A reader who came to switch one off would otherwise be searching a
         // thousand rows for the four they own — and the switch for those four
