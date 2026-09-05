@@ -66,6 +66,8 @@ export interface ChartDockProps {
     readonly openPair: WatchedPair | null;
     /** Puts a pair from a list on the chart. */
     readonly onPairOpen: (pair: WatchedPair) => void;
+    /** Opens the editor on the connector starter, where this build has one. */
+    readonly onWriteAConnector?: (() => void) | undefined;
     readonly time: TimeControls;
     /**
      * Opens the editor, where this build offers one.
@@ -125,9 +127,7 @@ export function ChartDock(props: ChartDockProps): ReactElement {
                             <MarketsPanel
                                 open={props.openPair}
                                 onOpen={props.onPairOpen}
-                                {...props.onWriteAReading === undefined
-                                    ? {}
-                                    : { onWriteConnector: () => { props.onWriteAReading?.(); } }}
+                                onWriteConnector={props.onWriteAConnector}
                             />
                         </DockPopover>
 

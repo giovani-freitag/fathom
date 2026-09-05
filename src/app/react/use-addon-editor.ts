@@ -39,6 +39,8 @@ export type EditorStatus =
     | { readonly kind: 'ready'; readonly label: string }
     /** A venue was installed rather than a reading put on the chart. */
     | { readonly kind: 'connected'; readonly venue: string }
+    /** It builds as a connector, and installing it is what saving does. */
+    | { readonly kind: 'connectorDraft' }
     | { readonly kind: 'faulted'; readonly faults: readonly SourceFault[] }
     | { readonly kind: 'broken'; readonly message: string };
 
@@ -205,13 +207,11 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
 
         service?.showRuntimeFault(null);
         if (build.kind === 'connector') {
-            // A connector is not put on the chart the way a reading is: it adds
-            // a venue to read, which the reader then picks a pair from. Putting
-            // it on the chart would add a layer that draws nothing.
-            const refused = kernel.markets.installConnector(key, build.connector, '');
-            setStatus(refused === null
-                ? { kind: 'connected', venue: key }
-                : { kind: 'broken', message: refused });
+            // Not installed here. A reading is rebuilt on the chart as it is
+            // typed, which costs a repaint; a connector installed as it is typed
+            // would register a venue per keystroke and write each one to
+            // storage. It is added when the reader saves it.
+            setStatus({ kind: 'connectorDraft' });
             return;
         }
 
@@ -382,6 +382,13 @@ export function useAddonEditor(request: AddonEditorRequest): AddonEditorControls
         }
         if (openKey === null && built.kind === 'ready') {
             adoptDraft(kernel, key, built.indicator);
+        }
+        if (built.kind === 'connector') {
+            // Installed on save, under the key the reading was filed as: what a
+            // recording is filed under has to be the name the reader can find
+            // again, and the draft key is not one.
+            const refused = kernel.markets.installConnector(key, built.connector, compiled[ENTRY_FILE] ?? '');
+            setStatus(refused === null ? { kind: 'connected', venue: key } : { kind: 'broken', message: refused });
         }
         setName(called);
         setOpenKey(key);

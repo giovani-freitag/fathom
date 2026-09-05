@@ -9,6 +9,8 @@ export type EditorReport =
     | { readonly kind: 'drawing'; readonly label: string }
     /** It builds, and it added a venue rather than a drawing. */
     | { readonly kind: 'connected'; readonly venue: string }
+    /** It builds as a connector, and saving is what adds the venue. */
+    | { readonly kind: 'connectorDraft' }
     /** It built, and threw while the chart drew it. */
     | { readonly kind: 'threw'; readonly message: string }
     /** The compiler refused it. */
@@ -40,6 +42,9 @@ export function reportOn(status: EditorStatus | null, drawFailure: string | null
     }
     if (status.kind === 'connected') {
         return { kind: 'connected', venue: status.venue };
+    }
+    if (status.kind === 'connectorDraft') {
+        return { kind: 'connectorDraft' };
     }
     if (status.kind === 'broken') {
         return { kind: 'broken', message: status.message };

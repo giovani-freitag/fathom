@@ -46,7 +46,7 @@ import { useIsViewportAtLeast } from '../react/use-viewport-width.ts';
 import { usePanelSize } from '../react/use-panel-size.ts';
 import { EDITOR_SHELL_CLASSES, RAIL, SHEET } from './editor-shell.ts';
 
-import { STARTER_FILES } from './starter-reading.ts';
+import { STARTER_CONNECTOR_FILES, STARTER_FILES } from './starter-reading.ts';
 import { useAppearance, useTranslate } from '../react/use-appearance.ts';
 import { GUIDE_URLS } from '../i18n/guide-urls.ts';
 
@@ -76,6 +76,14 @@ interface AddonEditorPanelProps {
     readonly onClose: () => void;
     /** Which saved reading to open on, when the reader picked one. */
     readonly openKey?: string | undefined;
+    /**
+     * Which starter an empty editor opens on.
+     *
+     * A reader who pressed "add a venue" is not writing an indicator, and
+     * handing them a moving average to delete first is handing them the wrong
+     * half of the documentation.
+     */
+    readonly starter?: 'reading' | 'connector' | undefined;
 }
 
 /**
@@ -84,7 +92,7 @@ interface AddonEditorPanelProps {
  * Beside rather than over: what a reader is checking is what their arithmetic
  * does to the chart, and a panel that covers it hides the answer.
  */
-export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): ReactElement {
+export function AddonEditorPanel({ onClose, openKey, starter = 'reading' }: AddonEditorPanelProps): ReactElement {
     const translate = useTranslate();
     const isWide = useIsViewportAtLeast('lg');
     const size = usePanelSize(isWide ? RAIL : SHEET);
@@ -105,7 +113,7 @@ export function AddonEditorPanel({ onClose, openKey }: AddonEditorPanelProps): R
     const returnFocusTo = useRef<Element | null>(null);
 
     const { mountInto, status, drawFailure, ...editor } = useAddonEditor({
-        starter: STARTER_FILES,
+        starter: starter === 'connector' ? STARTER_CONNECTOR_FILES : STARTER_FILES,
         openOn: openKey,
         buildEditor,
         // Monaco eats Tab, so escape is the way out of it. Forward, onto the
@@ -355,6 +363,9 @@ function spokenStatus(request: SpokenStatusRequest): string {
     }
     if (report.kind === 'connected') {
         return translate('editor.connected', { name: report.venue });
+    }
+    if (report.kind === 'connectorDraft') {
+        return translate('editor.connectorDraft');
     }
     if (report.kind === 'broken') {
         return report.message;
@@ -612,12 +623,14 @@ function EditorStatusLine({ status, drawFailure, translate }: EditorStatusLinePr
         );
     }
 
-    if (report.kind === 'connected') {
+    if (report.kind === 'connected' || report.kind === 'connectorDraft') {
         return (
             <footer className="flex items-center gap-2 border-t border-hairline px-4 py-2.5 text-xs text-phosphor">
                 <CircleCheck className="size-3.5 shrink-0" />
                 <span className="truncate">
-                    {translate('editor.connected', { name: report.venue })}
+                    {report.kind === 'connected'
+                        ? translate('editor.connected', { name: report.venue })
+                        : translate('editor.connectorDraft')}
                 </span>
             </footer>
         );

@@ -28,6 +28,12 @@ import { useDrawings } from '../react/use-drawings.ts';
 import { ChartDock } from './chart-dock.tsx';
 import { ChartProperties } from './chart-properties.tsx';
 
+/** What the editor is being opened on: a saved reading, or an empty starter. */
+interface EditorRequest {
+    readonly key: string | undefined;
+    readonly starter: 'reading' | 'connector';
+}
+
 /** Enough to clear the time axis the renderer reserves along the bottom. */
 const TIME_AXIS_CLEARANCE_PX = 32;
 
@@ -109,6 +115,14 @@ export function HeatmapPage(): ReactElement {
         kernel.chart.selectInstrument(pair.symbol);
     }, [kernel]);
 
+    const [editing, setEditing] = useState<EditorRequest | null>(null);
+    const handleWriteAReading = useCallback((key?: string): void => {
+        setEditing((open) => (open !== null && key === undefined ? null : { key, starter: 'reading' }));
+    }, []);
+    const handleWriteAConnector = useCallback((): void => {
+        setEditing({ key: undefined, starter: 'connector' });
+    }, []);
+
     const handleIntervalSelect = useCallback((intervalMs: BarIntervalMs | null) => {
         kernel.chart.selectBarInterval(intervalMs);
     }, [kernel]);
@@ -145,6 +159,7 @@ export function HeatmapPage(): ReactElement {
             ? null
             : { venue: openVenue, symbol: instrumentSymbol },
         onPairOpen: handlePairOpen,
+        onWriteAConnector: handleWriteAConnector,
         time: {
             visibleSpanMs,
             onSpanSelect: handleSpanSelect,
@@ -154,10 +169,6 @@ export function HeatmapPage(): ReactElement {
             ...columnSummary === null ? {} : { columnSummary },
         },
     };
-    const [editing, setEditing] = useState<{ readonly key: string | undefined } | null>(null);
-    const handleWriteAReading = useCallback((key?: string): void => {
-        setEditing((open) => (open !== null && key === undefined ? null : { key }));
-    }, []);
     const settings = (
         <SettingsDrawer
             isFloating={!isWide}
@@ -257,8 +268,9 @@ export function HeatmapPage(): ReactElement {
                 {editing !== null && (
                     <Suspense fallback={<EditorPlaceholder />}>
                         <AddonEditorPanel
-                            key={editing.key ?? 'new'}
+                            key={editing.key ?? `new-${editing.starter}`}
                             openKey={editing.key}
+                            starter={editing.starter}
                             onClose={() => { setEditing(null); }}
                         />
                     </Suspense>

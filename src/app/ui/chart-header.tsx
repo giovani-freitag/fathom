@@ -62,7 +62,7 @@ export function ChartHeader(props: ChartHeaderProps): ReactElement {
                 <MarketsPanel
                     open={props.openPair}
                     onOpen={props.onPairOpen}
-                    onWriteConnector={() => { props.onWriteAReading(); }}
+                    onWriteConnector={props.onWriteAConnector}
                 />
             </DockPopover>
 

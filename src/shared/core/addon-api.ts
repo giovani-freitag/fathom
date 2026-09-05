@@ -64,6 +64,33 @@ export { BAR_SOURCES, collectSource, readBarSource, SOURCE } from './bar-source.
 
 export { holdLastClosed } from './settled-sessions.ts';
 
+export type {
+    BarPageRequest,
+    BarReader,
+    BookReader,
+    InstrumentReader,
+    TapeReader,
+    VenueBar,
+    VenueConnector,
+    VenueInstrument,
+    VenueRequest,
+    VenueStreamPlan,
+} from './venue-connector.ts';
+
+export type {
+    BarCapability,
+    BarRung,
+    BookCapability,
+    BookGrade,
+    EventClock,
+    TapeCapability,
+    TapeSiding,
+    VenueDeclaration,
+    VenueFact,
+} from './venue-plan.ts';
+
+export type { DepthDiff, DepthSnapshot, ExecutedTrade, SerializedPriceLevel } from './depth-types.ts';
+
 export type { PlotValues } from './plot-builder.ts';
 export type { ChoiceBuilder, NumericBuilder, ToggleBuilder } from './parameter-builder.ts';
 

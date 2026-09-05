@@ -200,6 +200,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'editor.compilerLost': 'O compilador desta página parou de responder. Reabrir o editor costuma resolver.',
     'editor.drawing': 'Desenhando “{name}” no gráfico.',
     'editor.connected': '{name} adicionada. Escolha um par dela no seletor de contrato.',
+    'editor.connectorDraft': 'Isto é um conector. Salve para adicionar a corretora.',
     'files.title': 'Os arquivos em que esta leitura foi escrita',
     'files.add': 'Adicionar um arquivo',
     'files.name': 'Como chamar o arquivo',

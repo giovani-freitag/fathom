@@ -47,3 +47,61 @@ export default class MyMean implements Indicator {
 
 /** What a reader with an empty shelf opens on: a whole, working reading. */
 export const STARTER_FILES: ReadingFiles = { [ENTRY_FILE]: STARTER_MAIN };
+
+const STARTER_CONNECTOR = `// A connector says what a venue can do and how to read what it answers. It
+// never fetches anything itself: it describes a request, the engine performs it,
+// and the connector reads what came back. Nothing here leaves this browser.
+import type { VenueBar, VenueConnector, VenueInstrument } from 'fathom';
+
+// Replace these with the venue you are connecting to.
+const REST = 'https://api.example.com';
+
+export default {
+    // What the venue can do. Every field is required, and every capability is
+    // either described or null — writing null is how the chart is told to stop
+    // offering the readings that would need it.
+    declaration: {
+        book: null,
+        tape: null,
+        bars: null,
+    },
+
+    // Every venue lists what it trades; there is nothing to chart otherwise.
+    instruments: {
+        planInstruments: () => ({ url: REST + '/api/v1/symbols' }),
+        readInstruments: (payload: unknown): VenueInstrument[] => {
+            const listed = (payload as { data?: unknown }).data;
+            if (!Array.isArray(listed)) {
+                throw new Error('The venue listed no symbols.');
+            }
+            return listed.map((listing) => {
+                const entry = listing as Record<string, unknown>;
+                return {
+                    symbol: String(entry['symbol']),
+                    base: String(entry['baseCurrency']),
+                    quote: String(entry['quoteCurrency']),
+                    priceStep: Number(entry['priceIncrement']),
+                    // False for a listing that exists but is halted or not open.
+                    isTrading: entry['enableTrading'] === true,
+                };
+            });
+        },
+    },
+
+    // One socket carrying everything the venue streams, or null where it
+    // streams nothing. Fill this in once the listing works.
+    planStream: null,
+    book: null,
+    tape: null,
+    bars: null,
+} satisfies VenueConnector;
+`;
+
+/**
+ * What a reader adding a venue opens on: the shape, with one half filled in.
+ *
+ * The listing rather than the book, because the listing is the half that can be
+ * checked in a second — press save, and either the pairs appear or the venue
+ * said why not.
+ */
+export const STARTER_CONNECTOR_FILES: ReadingFiles = { [ENTRY_FILE]: STARTER_CONNECTOR };
