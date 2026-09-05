@@ -196,6 +196,12 @@ Limpar os dados do site leva eles junto. Exporte o que quiser manter.
   sem alcançar nada da rede do próprio servidor. Na demo só-navegador não há a
   quem pedir, então só dá para ler corretora que deixa a página entrar.
 
+## Mais receitas
+
+Conectores inteiros para os formatos em que as corretoras vêm — tuplas, um livro
+ao vivo, um socket com quem é preciso falar, um livro do qual você só recebe uma
+janela — estão no [livro de receitas](/pt-BR/connector-cookbook).
+
 ## Um exemplo pronto
 
 O [exemplo `kucoin`](https://github.com/giovani-freitag/fathom-example-addons/tree/main/src/addons/kucoin)

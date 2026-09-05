@@ -193,6 +193,12 @@ data will take them with it. Export anything you want to keep.
   network reachable. In the browser-only demo there is nobody to ask, so only an
   exchange that lets a page in can be read.
 
+## More recipes
+
+Whole connectors for the shapes real exchanges come in — tuples, a live book, a
+socket that has to be spoken to, a book you only get a window of — are in the
+[cookbook](/en/connector-cookbook).
+
 ## A worked one
 
 The [`kucoin` example](https://github.com/giovani-freitag/fathom-example-addons/tree/main/src/addons/kucoin)

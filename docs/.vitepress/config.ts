@@ -42,7 +42,7 @@ function titleOf(name: string): string {
 const WORDS = {
     en: {
         startHere: 'Getting started', whatItIs: 'Introduction', runIt: 'Installation',
-        writeOne: 'Addons', theGuide: 'Writing an indicator', connectors: 'Writing a connector',
+        writeOne: 'Addons', theGuide: 'Writing an indicator', connectors: 'Writing a connector', cookbook: 'Connector cookbook',
         reference: 'API reference',
         examples: 'Worked examples', howItWorks: 'Under the hood', architecture: 'Architecture',
         dataModel: 'Data model', operations: 'Operations', decisions: 'Decisions',
@@ -51,7 +51,7 @@ const WORDS = {
     },
     'pt-BR': {
         startHere: 'Primeiros passos', whatItIs: 'Introdução', runIt: 'Instalação',
-        writeOne: 'Addons', theGuide: 'Escrevendo um indicador', connectors: 'Escrevendo um conector',
+        writeOne: 'Addons', theGuide: 'Escrevendo um indicador', connectors: 'Escrevendo um conector', cookbook: 'Receitas de conectores',
         reference: 'Referência da API',
         examples: 'Exemplos prontos', howItWorks: 'Por dentro', architecture: 'Arquitetura',
         dataModel: 'Modelo de dados', operations: 'Operação', decisions: 'Decisões',
@@ -100,6 +100,7 @@ function navigationIn(language: Language) {
                 items: [
                     { text: said.theGuide, link: at('/writing-a-reading') },
                     { text: said.connectors, link: at('/writing-a-connector') },
+                    { text: said.cookbook, link: at('/connector-cookbook') },
                     { text: said.reference, link: '/api/' },
                     { text: said.examples, link: 'https://github.com/giovani-freitag/fathom-example-addons' },
                 ],
