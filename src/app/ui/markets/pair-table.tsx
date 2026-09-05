@@ -47,7 +47,7 @@ export function PairTable(props: PairTableProps): ReactElement {
     const { translate } = props;
 
     return (
-        <ul className="min-h-0 flex-1 overflow-y-auto">
+        <ul className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
             {props.rows.map((row) => {
                 const isShowing = props.open !== null
                     && props.open.venue === row.pair.venue
@@ -104,9 +104,11 @@ export function PairTable(props: PairTableProps): ReactElement {
                                     {row.pair.venue}
                                 </span>
                             )}
-                            {/* The one column that is usually empty, so it sits
-                                at the end where an empty cell costs nothing. */}
-                            <span className="ml-auto shrink-0 truncate pl-2 text-[11px] text-ink-500">
+                            {/* Last, where an empty cell costs nothing, and
+                                allowed to shrink: held at its own width, one
+                                long note pushed every row wider than the card
+                                and gave the whole list a sideways scroll. */}
+                            <span className="ml-auto min-w-0 truncate pl-2 text-[11px] text-ink-500">
                                 {row.note}
                             </span>
                         </button>

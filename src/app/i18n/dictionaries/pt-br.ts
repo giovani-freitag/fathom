@@ -271,6 +271,8 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'markets.pairsIn': '{count} pares',
     'markets.halted': 'fora de negociação',
     'markets.recorded': 'gravado',
+    'markets.noteNotRecorded': 'não gravado',
+    'markets.noteNothingToDraw': 'nada a desenhar',
     'markets.openIt': 'Abrir {symbol} no gráfico',
     'markets.close': 'Fechar',
     'markets.emptyVenue': 'Esta corretora não listou nada',

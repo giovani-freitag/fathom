@@ -269,6 +269,8 @@ export const EN_DICTIONARY = {
     'markets.pairsIn': '{count} pairs',
     'markets.halted': 'not trading',
     'markets.recorded': 'recorded',
+    'markets.noteNotRecorded': 'not recorded',
+    'markets.noteNothingToDraw': 'nothing to draw',
     'markets.openIt': 'Open {symbol} on the chart',
     'markets.close': 'Close',
     'markets.emptyVenue': 'This venue listed nothing',

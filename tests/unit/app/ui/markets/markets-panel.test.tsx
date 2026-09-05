@@ -181,8 +181,11 @@ describe('what each half marks', () => {
         fireEvent.click(screen.getByRole('button', { name: /Add NANOUSDT to Favourites/ }));
         fireEvent.click(railRow('Favourites'));
 
-        expect(screen.getByRole('button', { name: /NANOUSDT — Nothing recorded here yet/ }).textContent)
-            .toContain('Nothing recorded here yet');
+        // Two words in the row, the whole sentence on the row's own label: one
+        // long note held at its own width gave the list a sideways scroll.
+        const row = screen.getByRole('button', { name: /NANOUSDT — Nothing recorded here yet/ });
+        expect(row.textContent).toContain('not recorded');
+        expect(row.textContent).not.toContain('Nothing recorded here yet');
     });
 });
 

@@ -95,6 +95,15 @@ export function MarketsPanel({
             : translate('markets.notRecorded')
     ), [translate]);
 
+    // The same answer in two words, for the column at the end of a row. The
+    // whole sentence is on the row's own label and its tooltip, where there is
+    // room for it.
+    const noteWhyNot = useCallback((pair: WatchedPair): string => (
+        readFactsFor(pair.venue).size === 0
+            ? translate('markets.noteNothingToDraw')
+            : translate('markets.noteNotRecorded')
+    ), [translate]);
+
     const quotes = useMemo(
         () => (listing.kind === 'read' ? summariseQuotes(listing.instruments) : []),
         [listing],
@@ -117,7 +126,7 @@ export function MarketsPanel({
                     whyNot: sayWhyNot(pair),
                     // On a list, what a reader wants to know is why the one they
                     // kept will not open.
-                    note: isOpenable ? '' : sayWhyNot(pair),
+                    note: isOpenable ? '' : noteWhyNot(pair),
                 };
             }).filter((row) => matchesQuery(row.pair.symbol, query));
         }
@@ -138,7 +147,7 @@ export function MarketsPanel({
                 note: markNote(instrument.isTrading, isOpenable, translate),
             };
         });
-    }, [showing, openList, recorded, sayWhyNot, narrowed, state.lists, query, translate]);
+    }, [showing, openList, recorded, sayWhyNot, noteWhyNot, narrowed, state.lists, query, translate]);
 
     return (
         <div className="flex min-h-0 flex-1 flex-col">
