@@ -2,7 +2,7 @@ import { releaseTimerFromEventLoop, type TimerHandle } from '../../shared/core/t
 import { type LiquidityFrame } from '../../shared/core/liquidity-frame.ts';
 import { floorToInterval } from '../../shared/core/price-bucket.ts';
 import type { LiquidityArchive } from '../../database/services/liquidity-archive.ts';
-import type { ExecutedTrade, OrderBookReading } from '../core/depth-types.ts';
+import type { ExecutedTrade, OrderBookReading } from '../../shared/core/depth-types.ts';
 import type { OrderBookService } from '../core/order-book-service.ts';
 
 /**

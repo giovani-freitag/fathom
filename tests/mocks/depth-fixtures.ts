@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { DepthDiff, DepthSnapshot } from '../../src/workers/core/depth-types.ts';
+import type { DepthDiff, DepthSnapshot } from '../../src/shared/core/depth-types.ts';
 
 /**
  * A ladder spanning 99 to 101.

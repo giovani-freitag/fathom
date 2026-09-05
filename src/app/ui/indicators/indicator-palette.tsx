@@ -12,7 +12,7 @@ import type { VenueFact } from '../../../shared/core/venue-plan.ts';
 import { CHART_LAYERS } from '../../indicators/indicator-catalogue.ts';
 import { findUnreachable, openingSettings } from '../../indicators/venue-reach.ts';
 import { sayUnreachable } from '../../indicators/venue-reach-phrases.ts';
-import { readFactsFor } from '../../venues/venue-registry.ts';
+import { readFactsFor } from '../../../shared/venues/venue-registry.ts';
 import { listAddons } from '../../addons/addon-registry.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
 import { ICON_SIZE_PX, LAYER_BUTTON_CLASSES } from './layer-list.tsx';

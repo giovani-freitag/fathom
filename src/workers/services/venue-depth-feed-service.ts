@@ -1,16 +1,13 @@
 import { releaseTimerFromEventLoop, type TimerHandle } from '../../shared/core/timers.ts';
 import { describeError } from '../core/collector-log.ts';
-import type { DepthDiff, DepthSnapshot, ExecutedTrade } from '../core/depth-types.ts';
+import type { DepthDiff, DepthSnapshot, ExecutedTrade } from '../../shared/core/depth-types.ts';
 import type { MarketDataSocket, MarketDataSocketFactory } from '../core/market-data-socket.ts';
-import type { BinanceDepthLadderPayload } from './binance-payloads.ts';
-import { parseStreamPayload, toDepthDiff, toExecutedTrade } from './binance-payload-reader.ts';
+import type { VenueConnector, VenueStreamPlan } from '../../shared/core/venue-connector.ts';
 
-export interface BinanceDepthFeedServiceConfig {
+export interface VenueDepthFeedServiceConfig {
     readonly instrumentSymbol: string;
-    readonly restApiBaseUrl: string;
-    readonly webSocketBaseUrl: string;
-    readonly depthSnapshotLevelLimit: number;
-    readonly depthUpdateIntervalLabel: string;
+    /** What the venue can do, and how to read what it says. */
+    readonly connector: VenueConnector;
     readonly proactiveReconnectIntervalMs: number;
     readonly inboundSilenceTimeoutMs: number;
     readonly initialReconnectDelayMs: number;
@@ -33,11 +30,17 @@ export class DepthLadderUnavailableError extends Error {
 }
 
 /**
- * The only place the venue's API is spoken.
+ * One venue's live feed, kept open.
+ *
+ * Everything here is about staying connected: the backoff, the silence
+ * watchdog, the reconnect ahead of the venue's own cutoff. What the venue says
+ * and where it says it comes from the connector, so a venue this build has
+ * never seen needs no change to any of it.
  */
-export class BinanceDepthFeedService {
-    private readonly config: BinanceDepthFeedServiceConfig;
-    private readonly streamUrl: string;
+export class VenueDepthFeedService {
+    private readonly config: VenueDepthFeedServiceConfig;
+    private readonly plan: VenueStreamPlan;
+    private heartbeatTimer: TimerHandle | null = null;
 
     private activeSocket: MarketDataSocket | null = null;
     private consecutiveFailureCount = 0;
@@ -46,9 +49,12 @@ export class BinanceDepthFeedService {
     private proactiveReconnectTimer: TimerHandle | null = null;
     private reconnectTimer: TimerHandle | null = null;
 
-    constructor(config: BinanceDepthFeedServiceConfig) {
+    constructor(config: VenueDepthFeedServiceConfig) {
         this.config = config;
-        this.streamUrl = buildStreamUrl(config);
+        if (config.connector.planStream === null) {
+            throw new Error('This venue streams nothing, so there is nothing to keep open');
+        }
+        this.plan = config.connector.planStream(config.instrumentSymbol);
 
         this.handleSocketOpen = this.handleSocketOpen.bind(this);
         this.handleSocketMessage = this.handleSocketMessage.bind(this);
@@ -57,6 +63,7 @@ export class BinanceDepthFeedService {
         this.handleSilenceElapse = this.handleSilenceElapse.bind(this);
         this.handleProactiveReconnectDue = this.handleProactiveReconnectDue.bind(this);
         this.handleReconnectDue = this.handleReconnectDue.bind(this);
+        this.handleHeartbeatDue = this.handleHeartbeatDue.bind(this);
     }
 
     /**
@@ -66,7 +73,7 @@ export class BinanceDepthFeedService {
         if (this.wasShutdownRequested) {
             throw new Error('This feed service was disconnected and cannot be reconnected');
         }
-        const socket = this.config.openSocket(this.streamUrl);
+        const socket = this.config.openSocket(this.plan.url);
         this.activeSocket = socket;
         this.listen(socket);
     }
@@ -94,14 +101,17 @@ export class BinanceDepthFeedService {
      * @throws DepthLadderUnavailableError when the venue rejects or times out the request.
      */
     async fetchDepthSnapshot(): Promise<DepthSnapshot> {
-        const requestUrl = new URL('/fapi/v1/depth', this.config.restApiBaseUrl);
-        requestUrl.searchParams.set('symbol', this.config.instrumentSymbol);
-        requestUrl.searchParams.set('limit', String(this.config.depthSnapshotLevelLimit));
+        const reader = this.config.connector.book;
+        if (reader === null) {
+            throw new DepthLadderUnavailableError('This venue publishes no book');
+        }
 
+        const request = reader.planSnapshot(this.config.instrumentSymbol);
         let response: Response;
         try {
-            response = await fetch(requestUrl, {
+            response = await fetch(request.url, {
                 signal: AbortSignal.timeout(this.config.snapshotRequestTimeoutMs),
+                ...request.headers === undefined ? {} : { headers: request.headers },
             });
         } catch (error) {
             throw new DepthLadderUnavailableError('Depth ladder request did not complete', { cause: error });
@@ -111,12 +121,21 @@ export class BinanceDepthFeedService {
             throw new DepthLadderUnavailableError(`Depth ladder request returned status ${response.status}`);
         }
 
-        const payload = await readLadderPayload(response);
-        return {
-            lastUpdateId: payload.lastUpdateId,
-            bidLevels: payload.bids,
-            askLevels: payload.asks,
-        };
+        let body: unknown;
+        try {
+            body = await response.json();
+        } catch (error) {
+            throw new DepthLadderUnavailableError('Depth ladder response was not JSON', { cause: error });
+        }
+
+        try {
+            return reader.readSnapshot(body);
+        } catch (error) {
+            // The venue answers some rejections with HTTP 200 and a code/message
+            // body. Read as a ladder, that yields undefined sides, and an
+            // undefined side reaches the mirror as a book with nothing in it.
+            throw new DepthLadderUnavailableError('Depth ladder response carried no ladder', { cause: error });
+        }
     }
 
     private listen(socket: MarketDataSocket): void {
@@ -130,21 +149,54 @@ export class BinanceDepthFeedService {
         this.consecutiveFailureCount = 0;
         this.restartSilenceWatchdog();
         this.scheduleProactiveReconnect();
+        this.startHeartbeat();
+
+        for (const greeting of this.plan.greetings ?? []) {
+            this.activeSocket?.send(greeting);
+        }
         this.config.onConnected();
+    }
+
+    /**
+     * Keeps the socket alive on a venue that asks to be told it is still wanted.
+     *
+     * The timer is the engine's, not the connector's: a connector that owned one
+     * could keep the process alive after the recording it belonged to was gone.
+     */
+    private startHeartbeat(): void {
+        const beat = this.plan.heartbeat;
+        if (beat === undefined || beat === null) {
+            return;
+        }
+        this.heartbeatTimer = setInterval(this.handleHeartbeatDue, beat.everyMs);
+        releaseTimerFromEventLoop(this.heartbeatTimer);
+    }
+
+    private handleHeartbeatDue(): void {
+        const beat = this.plan.heartbeat;
+        if (beat !== undefined && beat !== null) {
+            this.activeSocket?.send(beat.send);
+        }
     }
 
     private handleSocketMessage(frameText: string): void {
         this.restartSilenceWatchdog();
 
-        const payload = parseStreamPayload(frameText);
-        if (payload === null) {
+        let payload: unknown;
+        try {
+            payload = JSON.parse(frameText);
+        } catch {
             return;
         }
-        if (payload.e === 'depthUpdate') {
-            this.config.onDepthDiff(toDepthDiff(payload));
+
+        const update = this.config.connector.book?.readUpdate(payload) ?? null;
+        if (update !== null) {
+            this.config.onDepthDiff(update);
             return;
         }
-        this.config.onExecutedTrade(toExecutedTrade(payload));
+        for (const trade of this.config.connector.tape?.readTrades(payload) ?? []) {
+            this.config.onExecutedTrade(trade);
+        }
     }
 
     private handleSocketError(reason: unknown): void {
@@ -221,54 +273,12 @@ export class BinanceDepthFeedService {
                 clearTimeout(timer);
             }
         }
+        if (this.heartbeatTimer !== null) {
+            clearInterval(this.heartbeatTimer);
+        }
         this.silenceWatchdogTimer = null;
         this.proactiveReconnectTimer = null;
         this.reconnectTimer = null;
+        this.heartbeatTimer = null;
     }
-}
-
-/**
- * Reads a ladder out of a response the venue called successful.
- *
- * @param response - The answered ladder request.
- * @returns The ladder payload, once the body turns out to be one.
- * @throws DepthLadderUnavailableError when the body carries no ladder.
- */
-async function readLadderPayload(response: Response): Promise<BinanceDepthLadderPayload> {
-    let body: unknown;
-    try {
-        body = await response.json();
-    } catch (error) {
-        throw new DepthLadderUnavailableError('Depth ladder response was not JSON', { cause: error });
-    }
-
-    if (!isDepthLadderPayload(body)) {
-        throw new DepthLadderUnavailableError('Depth ladder response carried no ladder');
-    }
-    return body;
-}
-
-/**
- * Whether a decoded body is a depth ladder.
- *
- * @param body - Whatever the response decoded to.
- * @returns True when both sides and the update identifier are there.
- */
-function isDepthLadderPayload(body: unknown): body is BinanceDepthLadderPayload {
-    // The venue answers some rejections with HTTP 200 and a `code`/`msg` body.
-    // Read as a ladder that yields undefined sides, and an undefined side reaches
-    // the mirror as a book with nothing in it.
-    const candidate = body as Partial<BinanceDepthLadderPayload> | null;
-    return typeof candidate?.lastUpdateId === 'number'
-        && Array.isArray(candidate.bids)
-        && Array.isArray(candidate.asks);
-}
-
-function buildStreamUrl(config: BinanceDepthFeedServiceConfig): string {
-    const lowercaseSymbol = config.instrumentSymbol.toLowerCase();
-    const subscribedStreams = [
-        `${lowercaseSymbol}@depth@${config.depthUpdateIntervalLabel}`,
-        `${lowercaseSymbol}@trade`,
-    ].join('/');
-    return `${config.webSocketBaseUrl}/stream?streams=${subscribedStreams}`;
 }

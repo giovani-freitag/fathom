@@ -19,6 +19,11 @@ export function openNodeMarketDataSocket(streamUrl: string): MarketDataSocket {
         }),
         onError: (handler) => socket.on('error', handler),
         onClose: (handler) => socket.on('close', handler),
+        send: (message) => {
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(message);
+            }
+        },
         close: async () => {
             if (wasClosed) {
                 return;

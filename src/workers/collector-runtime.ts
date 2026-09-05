@@ -1,14 +1,14 @@
+import { readConnector } from '../shared/venues/venue-registry.ts';
 import type { LiquidityArchive } from '../database/services/liquidity-archive.ts';
 import {
-    BINANCE_ENDPOINTS,
     type CollectorConfiguration,
     RESILIENCE_SETTINGS,
     WRITE_SETTINGS,
 } from './core/collector-configuration.ts';
 import type { CollectorLog } from './core/collector-log.ts';
 import type { MarketDataSocketFactory } from './core/market-data-socket.ts';
-import { BinanceDepthFeedService } from './services/binance-depth-feed-service.ts';
-import type { DepthDiff, DepthSnapshot, ExecutedTrade } from './core/depth-types.ts';
+import { VenueDepthFeedService } from './services/venue-depth-feed-service.ts';
+import type { DepthDiff, DepthSnapshot, ExecutedTrade } from '../shared/core/depth-types.ts';
 import { OrderBookService } from './core/order-book-service.ts';
 import {
     LiquidityRecorderService,
@@ -44,7 +44,7 @@ export class CollectorRuntime {
     private readonly configuration: CollectorConfiguration;
     private readonly archive: LiquidityArchive;
     private readonly log: CollectorLog;
-    private readonly feed: BinanceDepthFeedService;
+    private readonly feed: VenueDepthFeedService;
     private readonly orderBook: OrderBookService;
     private readonly recorder: LiquidityRecorderService;
 
@@ -63,12 +63,9 @@ export class CollectorRuntime {
         this.archive = config.archive;
         this.log = config.log;
 
-        this.feed = new BinanceDepthFeedService({
+        this.feed = new VenueDepthFeedService({
             instrumentSymbol: configuration.instrumentSymbol,
-            restApiBaseUrl: BINANCE_ENDPOINTS.restApiBaseUrl,
-            webSocketBaseUrl: BINANCE_ENDPOINTS.webSocketBaseUrl,
-            depthSnapshotLevelLimit: BINANCE_ENDPOINTS.depthSnapshotLevelLimit,
-            depthUpdateIntervalLabel: BINANCE_ENDPOINTS.depthUpdateIntervalLabel,
+            connector: readConnector(configuration.venue),
             proactiveReconnectIntervalMs: RESILIENCE_SETTINGS.proactiveReconnectIntervalMs,
             inboundSilenceTimeoutMs: RESILIENCE_SETTINGS.inboundSilenceTimeoutMs,
             initialReconnectDelayMs: RESILIENCE_SETTINGS.initialReconnectDelayMs,

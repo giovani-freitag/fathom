@@ -1,4 +1,4 @@
-import type { SerializedPriceLevel, TopOfBook } from './depth-types.ts';
+import type { SerializedPriceLevel, TopOfBook } from '../../shared/core/depth-types.ts';
 
 /**
  * The venue's book, mirrored locally.

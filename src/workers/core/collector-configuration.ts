@@ -17,22 +17,7 @@ export interface CollectorConfiguration {
     readonly deepRepairIntervalMs: number;
 }
 
-/**
- * Reads the collector's configuration from the process environment.
- *
- * @returns A validated configuration.
- * @throws ConfigurationError when a required variable is missing, or a numeric
- *         one is absent from the positive reals, or the retained price range is
- *         not wider than the recorded one.
- */
-export const BINANCE_ENDPOINTS = {
-    restApiBaseUrl: 'https://fapi.binance.com',
-    webSocketBaseUrl: 'wss://fstream.binance.com',
-    /** The deepest ladder the REST endpoint serves in one call. */
-    depthSnapshotLevelLimit: 1_000,
-    depthUpdateIntervalLabel: '100ms',
-} as const;
-
+/** What the feed does about a socket that stalls, fails, or is about to be cut. */
 export const RESILIENCE_SETTINGS = {
     /** The venue closes any stream connection at 24 hours; reconnect before it does. */
     proactiveReconnectIntervalMs: 23 * 60 * 60 * 1_000,
@@ -44,6 +29,7 @@ export const RESILIENCE_SETTINGS = {
     snapshotRetryDelayMs: 1_000,
 } as const;
 
+/** Write pacing for a server, where a batch per flush amortises the round trip. */
 export const WRITE_SETTINGS = {
     flushIntervalMs: 1_000,
     framesPerFlush: 60,
@@ -54,7 +40,6 @@ export const WRITE_SETTINGS = {
     maximumBufferedTradeClusters: 20_000,
 } as const;
 
-/** Write pacing for a server, where a batch per flush amortises the round trip. */
 /**
  * How the whole book is written down beside the recorded band.
  *
@@ -74,6 +59,7 @@ export const WHOLE_BOOK_FRAMING = {
     frameIntervalMs: 1_000,
 } as const;
 
+/** The same pacing in a page, where the archive is a millisecond away. */
 export const BROWSER_WRITE_SETTINGS = {
     ...WRITE_SETTINGS,
     // One frame per flush in a page: the archive is local, a batch buys nothing,

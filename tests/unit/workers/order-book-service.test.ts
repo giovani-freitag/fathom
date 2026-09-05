@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DepthSnapshot } from '../../../src/workers/core/depth-types.ts';
+import type { DepthSnapshot } from '../../../src/shared/core/depth-types.ts';
 import { OrderBookService } from '../../../src/workers/core/order-book-service.ts';
 import { buildDiff, buildSnapshot, createSnapshotSource } from '../../mocks/depth-fixtures.ts';
 

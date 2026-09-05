@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildLiquidityFrame } from '../../../src/workers/core/depth-ladder-builder.ts';
-import type { OrderBookReading } from '../../../src/workers/core/depth-types.ts';
+import type { OrderBookReading } from '../../../src/shared/core/depth-types.ts';
 
 function buildReading(overrides: Partial<OrderBookReading> = {}): OrderBookReading {
     return {

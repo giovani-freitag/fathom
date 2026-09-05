@@ -1,6 +1,6 @@
 import { type LiquidityFrame } from '../../shared/core/liquidity-frame.ts';
 import { toPriceBucketIndex } from '../../shared/core/price-bucket.ts';
-import type { OrderBookReading } from './depth-types.ts';
+import type { OrderBookReading } from '../../shared/core/depth-types.ts';
 
 /** What a bucket holds when several of the book's prices fall into it. */
 export type BucketCombine = 'sum' | 'largest';

@@ -5,15 +5,15 @@ import {
     listConnectors,
     readFactsFor,
     registerConnector,
-} from '../../../../src/app/venues/venue-registry.ts';
+} from '../../../../src/shared/venues/venue-registry.ts';
 import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
-import type { VenueDeclaration } from '../../../../src/shared/core/venue-plan.ts';
+import { buildConnector } from '../../../mocks/venue-connectors.ts';
 
-const BOOK_ONLY: VenueDeclaration = {
+const BOOK_ONLY = buildConnector({
     book: { grade: 'stepped', levelsPerSide: 50, publishIntervalMs: 100, clock: 'venue' },
     tape: null,
     bars: null,
-};
+});
 
 afterEach(() => { forgetConnector('kucoin'); });
 

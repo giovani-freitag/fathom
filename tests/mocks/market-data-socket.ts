@@ -10,6 +10,8 @@ export interface FakeMarketDataSocket extends MarketDataSocket {
     fail: (reason: unknown) => void;
     /** Reports the venue closing the connection. */
     hangUp: () => void;
+    /** Everything the feed has said to the venue, in order. */
+    readonly said: () => readonly string[];
     readonly wasClosed: () => boolean;
 }
 
@@ -20,6 +22,7 @@ export interface FakeMarketDataSocket extends MarketDataSocket {
  */
 export function openFakeMarketDataSocket(): FakeMarketDataSocket {
     const handlers: Record<string, ((value: never) => void) | null> = {};
+    const said: string[] = [];
     let wasClosed = false;
 
     return {
@@ -27,11 +30,13 @@ export function openFakeMarketDataSocket(): FakeMarketDataSocket {
         onMessage: (handler) => { handlers['message'] = handler; },
         onError: (handler) => { handlers['error'] = handler; },
         onClose: (handler) => { handlers['close'] = handler; },
+        send: (message) => { said.push(message); },
         close: () => { wasClosed = true; return Promise.resolve(); },
         open: () => handlers['open']?.(undefined as never),
         deliver: (payload) => handlers['message']?.(payload as never),
         fail: (reason) => handlers['error']?.(reason as never),
         hangUp: () => handlers['close']?.(undefined as never),
+        said: () => said,
         wasClosed: () => wasClosed,
     };
 }

@@ -15,6 +15,11 @@ export function openBrowserMarketDataSocket(streamUrl: string): MarketDataSocket
         }),
         onError: (handler) => socket.addEventListener('error', (event) => { handler(event); }),
         onClose: (handler) => socket.addEventListener('close', () => { handler(); }),
+        send: (message) => {
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(message);
+            }
+        },
         close: async () => {
             if (wasClosed) {
                 return;

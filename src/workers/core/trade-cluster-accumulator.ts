@@ -1,6 +1,6 @@
 import { floorToInterval, toPriceBucketIndex } from '../../shared/core/price-bucket.ts';
 import { type TradeCluster } from '../../shared/core/trade-cluster.ts';
-import type { ExecutedTrade } from './depth-types.ts';
+import type { ExecutedTrade } from '../../shared/core/depth-types.ts';
 
 export interface TradeClusterAccumulatorConfig {
     readonly priceBucketSize: number;

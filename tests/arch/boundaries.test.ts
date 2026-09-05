@@ -146,14 +146,14 @@ describe('package confinement', () => {
             || path.startsWith('src/app/'))).toBe(true);
     });
 
-    it('reaches the venue over the network from two places, both named', () => {
-        // The collector, which records the book, and the wiring that hands the
-        // chart its candles — public history the venue serves for any past day.
-        // A third caller is the venue leaking into the rest of the product.
+    it('names the venue in its connector and nowhere else', () => {
+        // Every URL, every field name and every tuple index one venue uses lives
+        // in the file that declares it. A second file naming the venue is the
+        // venue leaking back into the engine, which is what makes a build that
+        // can only ever read one of them.
         const callers = sourceFiles.filter((path) => /binance\.com/.test(read(path)));
 
-        expect(callers.every((path) => path.startsWith('src/workers/')
-            || path === 'src/app/core/venue-candles.ts')).toBe(true);
+        expect(callers).toEqual(['src/shared/venues/binance-connector.ts']);
     });
 });
 

@@ -1,30 +1,12 @@
 import { BAR_BUDGET, type PriceBar, type PriceBarQuery, type PriceBarWindow } from '../../shared/core/price-bar.ts';
-import { nameVenueInterval } from '../../shared/core/venue-bar-interval.ts';
-
-/** Candles one request may return, which is the venue's own cap. */
-const CANDLES_PER_REQUEST = 1_500;
-
-/**
- * A venue's candle, as the wire sends it: a tuple, not an object.
- *
- * Indices rather than names because that is what arrives. Only the first six
- * and the taker split are read; the rest are the venue's own bookkeeping.
- */
-const OPENED_AT = 0;
-const OPEN_PRICE = 1;
-const HIGH_PRICE = 2;
-const LOW_PRICE = 3;
-const CLOSE_PRICE = 4;
-const VOLUME = 5;
-const CLOSED_AT = 6;
-const TRADE_COUNT = 8;
-const TAKER_BUY_VOLUME = 9;
+import type { VenueBar, VenueConnector } from '../../shared/core/venue-connector.ts';
+import type { VenueGateway } from '../../shared/venues/venue-gateway.ts';
 
 export interface VenueCandleServiceConfig {
-    /** Origin the venue's REST surface is served from. */
-    readonly restApiBaseUrl: string;
-    /** Injected so a test can answer without a network. */
-    readonly fetch: typeof globalThis.fetch;
+    /** What the venue can do, and how to read what it answers. */
+    readonly connector: VenueConnector;
+    /** Performs what the connector describes. */
+    readonly gateway: VenueGateway;
     /** The instant a still-forming candle is measured against. */
     readonly readNowMs: () => number;
 }
@@ -37,6 +19,10 @@ export interface VenueCandleServiceConfig {
  * both from the recording opened on an empty screen and stayed that way until
  * the reader had left it running. The book is what must be recorded; the price
  * that moved through it never was.
+ *
+ * The paging, the budget and the clock live here; which URL to ask and how to
+ * read the answer live in the connector. That is the whole division: a venue
+ * this build has never seen needs no change to anything in this file.
  */
 export class VenueCandleService {
     private readonly config: VenueCandleServiceConfig;
@@ -51,16 +37,17 @@ export class VenueCandleService {
      * @param query - The instrument, the range, the rung, and the warm-up.
      * @param signal - Aborts the fetch when the window it was for has moved on.
      * @returns The bars the venue published, warm-up included at the front.
-     * @throws Error when the venue refuses or answers with something unreadable.
+     * @throws Error when the venue serves no candle of that width, refuses, or
+     *         answers with something the connector cannot read.
      */
     async fetchPriceBars(query: PriceBarQuery, signal?: AbortSignal): Promise<PriceBarWindow> {
-        const interval = nameVenueInterval(query.intervalMs);
-        if (interval === null) {
-            throw new Error(`No venue candle of width ${query.intervalMs}ms`);
+        const reader = this.config.connector.bars;
+        if (reader === null) {
+            throw new Error('This venue serves no candles');
         }
 
         const fromMs = query.fromMs - query.warmupBars * query.intervalMs;
-        const bars = await this.fetchRange({ interval, fromMs, toMs: query.toMs, query }, signal);
+        const bars = await this.fetchRange({ fromMs, toMs: query.toMs, query }, signal);
         return {
             instrumentSymbol: query.symbol,
             intervalMs: query.intervalMs,
@@ -77,12 +64,13 @@ export class VenueCandleService {
      * range too wide for the budget should lose its oldest bars, not the price.
      */
     private async fetchRange(request: RangeRequest, signal?: AbortSignal): Promise<PriceBar[]> {
+        const perRequest = this.config.connector.declaration.bars?.barsPerRequest ?? BAR_BUDGET.maximumBars;
         const collected: PriceBar[][] = [];
         let endMs = request.toMs;
         let held = 0;
 
         while (endMs > request.fromMs && held < BAR_BUDGET.maximumBars) {
-            const page = await this.fetchPage(request, endMs, signal);
+            const page = await this.fetchPage({ request, endMs, perRequest }, signal);
             const wanted = page.filter((bar) => bar.openedAtMs >= request.fromMs);
             if (wanted.length === 0) {
                 break;
@@ -92,7 +80,7 @@ export class VenueCandleService {
             held += wanted.length;
             endMs = wanted[0]!.openedAtMs - 1;
             // A page short of the cap is the venue saying it has no more.
-            if (page.length < CANDLES_PER_REQUEST) {
+            if (page.length < perRequest) {
                 break;
             }
         }
@@ -103,92 +91,63 @@ export class VenueCandleService {
     /**
      * One request's worth of candles, ending at an instant.
      */
-    private async fetchPage(
-        request: RangeRequest,
-        endMs: number,
-        signal?: AbortSignal,
-    ): Promise<PriceBar[]> {
-        const url = new URL('/fapi/v1/klines', this.config.restApiBaseUrl);
-        url.searchParams.set('symbol', request.query.symbol);
-        url.searchParams.set('interval', request.interval);
-        url.searchParams.set('startTime', String(Math.floor(request.fromMs)));
-        url.searchParams.set('endTime', String(Math.floor(endMs)));
-        url.searchParams.set('limit', String(CANDLES_PER_REQUEST));
+    private async fetchPage(page: PageRequest, signal?: AbortSignal): Promise<PriceBar[]> {
+        const reader = this.config.connector.bars!;
+        const plan = reader.planPage({
+            symbol: page.request.query.symbol,
+            widthMs: page.request.query.intervalMs,
+            fromMs: page.request.fromMs,
+            toMs: page.endMs,
+            limit: page.perRequest,
+        });
 
-        const response = await this.config.fetch(url, signal === undefined ? {} : { signal });
-        if (!response.ok) {
-            throw new Error(`Venue refused candles with ${String(response.status)}`);
-        }
-
-        const rows: unknown = await response.json();
-        if (!Array.isArray(rows)) {
-            throw new Error('Venue answered candles with something that is not a list');
-        }
-        return rows
-            .map((row) => this.toPriceBar(row, request.query.intervalMs))
-            .filter((bar) => bar !== null);
+        const payload = await this.config.gateway.perform(plan, signal);
+        return reader.readPage(payload).map((bar) => this.toPriceBar(bar, page.request.query.intervalMs));
     }
 
     /**
-     * Reads one candle off the wire, or nothing when it cannot be read.
+     * Fills in what only the engine knows: the split it is allowed to claim,
+     * and whether the bar has closed.
      */
-    private toPriceBar(row: unknown, intervalMs: number): PriceBar | null {
-        if (!Array.isArray(row) || row.length <= TAKER_BUY_VOLUME) {
-            return null;
-        }
-
-        const openedAtMs = readNumber(row[OPENED_AT]);
-        const closedAtMs = readNumber(row[CLOSED_AT]);
-        const volume = readNumber(row[VOLUME]);
-        const takerBuyVolume = readNumber(row[TAKER_BUY_VOLUME]);
-        if (openedAtMs === null || closedAtMs === null || volume === null || takerBuyVolume === null) {
-            return null;
-        }
-
-        const prices = [row[OPEN_PRICE], row[HIGH_PRICE], row[LOW_PRICE], row[CLOSE_PRICE]]
-            .map(readNumber);
-        if (prices.some((price) => price === null)) {
-            return null;
-        }
-        const [openPrice, highPrice, lowPrice, closePrice] = prices as [number, number, number, number];
+    private toPriceBar(bar: VenueBar, intervalMs: number): PriceBar {
+        const volume = bar.volume ?? 0;
+        // Zero rather than half: a venue that publishes no split has not said
+        // the sides were even, and drawing them even is the invention the whole
+        // declaration exists to prevent. A reading that needs the split is out
+        // of reach on this venue and never sees these figures.
+        const buyVolume = bar.buyVolume ?? 0;
 
         return {
-            openedAtMs,
-            closedAtMs: closedAtMs + 1,
-            openPrice,
-            highPrice,
-            lowPrice,
-            closePrice,
-            // The venue reports what crossed the spread upward; the rest sold.
-            buyVolume: takerBuyVolume,
-            sellVolume: Math.max(0, volume - takerBuyVolume),
-            tradeCount: readNumber(row[TRADE_COUNT]) ?? 0,
+            openedAtMs: bar.openedAtMs,
+            closedAtMs: bar.closedAtMs,
+            openPrice: bar.openPrice,
+            highPrice: bar.highPrice,
+            lowPrice: bar.lowPrice,
+            closePrice: bar.closePrice,
+            buyVolume,
+            sellVolume: Math.max(0, volume - buyVolume),
+            tradeCount: bar.tradeCount ?? 0,
             // A venue candle covers the whole of its own width, whatever this
             // chart happened to record of it. Whether the book was recorded
             // through it is a different fact, drawn from the gap ledger.
             expectedFrames: 1,
             frameCount: 1,
-            isClosed: closedAtMs < this.config.readNowMs(),
-            firstFrameAtMs: openedAtMs,
-            lastFrameAtMs: openedAtMs + intervalMs,
+            isClosed: bar.closedAtMs <= this.config.readNowMs(),
+            firstFrameAtMs: bar.openedAtMs,
+            lastFrameAtMs: bar.openedAtMs + intervalMs,
         };
     }
 }
 
 interface RangeRequest {
-    readonly interval: string;
     readonly fromMs: number;
     readonly toMs: number;
     readonly query: PriceBarQuery;
 }
 
-/**
- * Reads a figure the venue sent as a string, as they all are.
- *
- * @param value - Whatever arrived in that position.
- * @returns The number, or null when it is not one.
- */
-function readNumber(value: unknown): number | null {
-    const parsed = typeof value === 'string' || typeof value === 'number' ? Number(value) : Number.NaN;
-    return Number.isFinite(parsed) ? parsed : null;
+interface PageRequest {
+    readonly request: RangeRequest;
+    /** The instant this page ends at, walking backwards through the range. */
+    readonly endMs: number;
+    readonly perRequest: number;
 }

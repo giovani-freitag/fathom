@@ -1,5 +1,5 @@
 import { delay, releaseTimerFromEventLoop, type TimerHandle } from '../../shared/core/timers.ts';
-import type { DepthDiff, DepthSnapshot, OrderBookReading } from './depth-types.ts';
+import type { DepthDiff, DepthSnapshot, OrderBookReading } from '../../shared/core/depth-types.ts';
 import { OrderBookState } from './order-book-state.ts';
 
 type SynchronizationState = 'stopped' | 'desynchronized' | 'awaitingSnapshot' | 'synchronized';

@@ -1,5 +1,5 @@
-import { FIRST_VENUE } from '../../shared/core/recording-control.ts';
-import type { VenueDeclaration } from '../../shared/core/venue-plan.ts';
+import { FIRST_VENUE } from '../core/recording-control.ts';
+import type { VenueDeclaration } from '../core/venue-plan.ts';
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;

@@ -1,3 +1,5 @@
+import { BINANCE_CONNECTOR } from '../../../../src/shared/venues/binance-connector.ts';
+import { VenueGateway } from '../../../../src/shared/venues/venue-gateway.ts';
 import { describe, expect, it, vi } from 'vitest';
 import type { PriceBarQuery } from '../../../../src/shared/core/price-bar.ts';
 import { VenueCandleService } from '../../../../src/app/services/venue-candle-service.ts';
@@ -19,15 +21,17 @@ interface Answered {
 
 function buildService(pages: unknown[][], answered: Answered = { urls: [] }): VenueCandleService {
     let page = 0;
+    const fetch = vi.fn((input: URL | RequestInfo) => {
+        answered.urls.push(typeof input === 'string' ? input : '');
+        const body = pages[Math.min(page, pages.length - 1)] ?? [];
+        page += 1;
+        return Promise.resolve(new Response(JSON.stringify(body)));
+    }) as unknown as typeof globalThis.fetch;
+
     return new VenueCandleService({
-        restApiBaseUrl: 'https://venue.example',
+        connector: BINANCE_CONNECTOR,
+        gateway: new VenueGateway({ fetch }),
         readNowMs: () => NOW_MS,
-        fetch: vi.fn((input: URL | RequestInfo) => {
-            answered.urls.push(input instanceof URL ? input.href : '');
-            const body = pages[Math.min(page, pages.length - 1)] ?? [];
-            page += 1;
-            return Promise.resolve({ ok: true, json: () => Promise.resolve(body) } as Response);
-        }),
     });
 }
 
@@ -119,10 +123,11 @@ describe('VenueCandleService', () => {
     });
 
     it('refuses an answer the venue would not stand behind', async () => {
+        const refusing = (() => Promise.resolve(new Response('{}', { status: 418 }))) as typeof globalThis.fetch;
         const service = new VenueCandleService({
-            restApiBaseUrl: 'https://venue.example',
+            connector: BINANCE_CONNECTOR,
+            gateway: new VenueGateway({ fetch: refusing }),
             readNowMs: () => NOW_MS,
-            fetch: () => Promise.resolve({ ok: false, status: 418 } as Response),
         });
 
         await expect(service.fetchPriceBars(QUERY)).rejects.toThrow('418');

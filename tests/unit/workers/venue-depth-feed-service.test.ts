@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-    BinanceDepthFeedService,
+    VenueDepthFeedService,
     DepthLadderUnavailableError,
-} from '../../../src/workers/services/binance-depth-feed-service.ts';
+} from '../../../src/workers/services/venue-depth-feed-service.ts';
+import { BINANCE_CONNECTOR } from '../../../src/shared/venues/binance-connector.ts';
 import { type FakeMarketDataSocket, openFakeMarketDataSocket } from '../../mocks/market-data-socket.ts';
 
 const SILENCE_TIMEOUT_MS = 20_000;
@@ -11,7 +12,7 @@ const INITIAL_BACKOFF_MS = 1_000;
 const MAXIMUM_BACKOFF_MS = 8_000;
 
 interface Harness {
-    readonly feed: BinanceDepthFeedService;
+    readonly feed: VenueDepthFeedService;
     readonly sockets: FakeMarketDataSocket[];
     readonly disconnections: string[];
     readonly diffs: unknown[];
@@ -22,12 +23,9 @@ function buildHarness(): Harness {
     const disconnections: string[] = [];
     const diffs: unknown[] = [];
 
-    const feed = new BinanceDepthFeedService({
+    const feed = new VenueDepthFeedService({
         instrumentSymbol: 'BTCUSDT',
-        restApiBaseUrl: 'https://example.invalid',
-        webSocketBaseUrl: 'wss://example.invalid',
-        depthSnapshotLevelLimit: 1_000,
-        depthUpdateIntervalLabel: '100ms',
+        connector: BINANCE_CONNECTOR,
         proactiveReconnectIntervalMs: PROACTIVE_INTERVAL_MS,
         inboundSilenceTimeoutMs: SILENCE_TIMEOUT_MS,
         initialReconnectDelayMs: INITIAL_BACKOFF_MS,
@@ -53,7 +51,7 @@ function failAndReconnect(harness: Harness): void {
     vi.advanceTimersByTime(MAXIMUM_BACKOFF_MS);
 }
 
-describe('BinanceDepthFeedService', () => {
+describe('VenueDepthFeedService', () => {
     let harness: Harness;
 
     beforeEach(() => {
@@ -215,5 +213,78 @@ describe('BinanceDepthFeedService fetching a depth ladder', () => {
         answerLadderWith(Response.json({ lastUpdateId: 42, bids: 'none', asks: [] }));
 
         await expect(feed.fetchDepthSnapshot()).rejects.toThrow(DepthLadderUnavailableError);
+    });
+});
+
+describe('a venue that has to be spoken to', () => {
+    /** A connector for a venue that subscribes over the socket and wants pings. */
+    const TALKATIVE = {
+        ...BINANCE_CONNECTOR,
+        planStream: () => ({
+            url: 'wss://venue.test/stream',
+            greetings: ['{"op":"subscribe"}'],
+            heartbeat: { everyMs: 5_000, send: '{"op":"ping"}' },
+        }),
+    };
+
+    function buildTalkative(): { feed: VenueDepthFeedService; sockets: FakeMarketDataSocket[] } {
+        const sockets: FakeMarketDataSocket[] = [];
+        const feed = new VenueDepthFeedService({
+            instrumentSymbol: 'BTCUSDT',
+            connector: TALKATIVE,
+            proactiveReconnectIntervalMs: PROACTIVE_INTERVAL_MS,
+            inboundSilenceTimeoutMs: SILENCE_TIMEOUT_MS,
+            initialReconnectDelayMs: INITIAL_BACKOFF_MS,
+            maximumReconnectDelayMs: MAXIMUM_BACKOFF_MS,
+            snapshotRequestTimeoutMs: 5_000,
+            onDepthDiff: () => undefined,
+            onExecutedTrade: () => undefined,
+            onConnected: () => undefined,
+            onDisconnected: () => undefined,
+            openSocket: () => {
+                const socket = openFakeMarketDataSocket();
+                sockets.push(socket);
+                return socket;
+            },
+        });
+        feed.connect();
+        return { feed, sockets };
+    }
+
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => { vi.useRealTimers(); });
+
+    it('says what the connector asked it to say, once the venue accepts', () => {
+        const { sockets } = buildTalkative();
+
+        sockets[0]!.open();
+
+        expect(sockets[0]!.said()).toEqual(['{"op":"subscribe"}']);
+    });
+
+    it('keeps saying it on the interval the connector named', () => {
+        // The timer is the engine's: a connector holding one could keep the
+        // process alive after the recording it belonged to was torn down.
+        // Stopped short of the silence timeout, which would recycle the socket
+        // out from under the count.
+        const { sockets } = buildTalkative();
+        sockets[0]!.open();
+
+        vi.advanceTimersByTime(SILENCE_TIMEOUT_MS - 1_000);
+
+        expect(sockets[0]!.said().filter((said) => said.includes('ping'))).toHaveLength(3);
+    });
+
+    it('leaves no timer running once the feed is disconnected', async () => {
+        // The count rather than the silence: a heartbeat nobody cancelled goes
+        // on firing for as long as the process lives, one per recording ever
+        // started, and each one only looks harmless because the socket it would
+        // have spoken on is already gone.
+        const { feed, sockets } = buildTalkative();
+        sockets[0]!.open();
+
+        await feed.disconnect();
+
+        expect(vi.getTimerCount()).toBe(0);
     });
 });

@@ -1,4 +1,5 @@
-import { forgetConnector, registerConnector } from '../../../../../src/app/venues/venue-registry.ts';
+import { buildConnector } from '../../../../mocks/venue-connectors.ts';
+import { forgetConnector, registerConnector } from '../../../../../src/shared/venues/venue-registry.ts';
 import { FIRST_VENUE } from '../../../../../src/shared/core/recording-control.ts';
 import { afterEach, describe, expect, it } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
@@ -105,11 +106,11 @@ describe('what the venue cannot answer', () => {
     it('is offered but cannot be added, with the reason in place of the description', () => {
         // A delta of nought on a venue that publishes no sides is a claim that
         // buying and selling were even, and it reads exactly like the truth.
-        registerConnector('sideless', {
+        registerConnector('sideless', buildConnector({
             book: { grade: 'stepped', levelsPerSide: 50, publishIntervalMs: 100, clock: 'venue' },
             tape: { siding: 'unsided', clock: 'venue', hasStableIds: true },
             bars: null,
-        });
+        }));
 
         renderPalette({ venue: 'sideless' });
 
@@ -119,11 +120,11 @@ describe('what the venue cannot answer', () => {
     });
 
     it('leaves within reach whatever the venue does answer', () => {
-        registerConnector('sideless', {
+        registerConnector('sideless', buildConnector({
             book: { grade: 'stepped', levelsPerSide: 50, publishIntervalMs: 100, clock: 'venue' },
             tape: { siding: 'unsided', clock: 'venue', hasStableIds: true },
             bars: null,
-        });
+        }));
 
         renderPalette({ venue: 'sideless' });
 

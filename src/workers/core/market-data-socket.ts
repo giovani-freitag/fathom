@@ -10,6 +10,14 @@ export interface MarketDataSocket {
     onError: (handler: (reason: unknown) => void) => void;
     /** Fired once the socket is closed, however it got there. */
     onClose: (handler: () => void) => void;
+    /**
+     * Says something to the venue.
+     *
+     * Needed by venues that take their subscription over the socket rather than
+     * in the URL, and by those that drop a connection nothing has said anything
+     * on. Dropped silently once the socket is closed.
+     */
+    send: (message: string) => void;
     /** Closes the socket and releases every listener. Safe to call twice. */
     close: () => Promise<void>;
 }
