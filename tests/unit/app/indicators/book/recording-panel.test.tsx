@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createIndicatorKernel, renderWithKernel } from '../../../../mocks/indicator-kernel.tsx';
 import { FIRST_VENUE } from '../../../../../src/shared/core/recording-control.ts';
 import type { RecordedContract, RecordingControl, StorageBudget } from '../../../../../src/shared/core/recording-control.ts';
 import { buildTranslate } from '../../../../../src/app/i18n/translator.ts';
+import { stubViewport } from '../../../../fixtures/viewport.ts';
 import { RecordingPanel } from '../../../../../src/app/indicators/book/recording-panel.tsx';
 
 const CONTRACTS: RecordedContract[] = [
@@ -98,7 +99,13 @@ describe('RecordingPanel', () => {
 });
 
 
+const showAt = stubViewport();
+
 describe('what else could be recorded', () => {
+    // The rail and the phone's select are different trees. These describe
+    // the rail unless they say otherwise.
+    afterEach(() => { showAt(1_280); });
+
     const budget: StorageBudget = {
         maximumBytes: 10_737_418_240,
         usedBytes: 1_073_741_824,
@@ -160,11 +167,25 @@ describe('what else could be recorded', () => {
 
         // The rail of the card that opens over the chart, which is the same
         // rail the contract picker has.
+        showAt(1_280);
         const rail = await screen.findByRole('navigation', { name: 'Record a pair' });
         expect(rail.textContent).toContain('bybit');
         expect(rail.textContent).toContain('gate');
         // Declared `book: null`, so there is nothing on them to capture.
         expect(rail.textContent).not.toContain('okx ');
+        expect(screen.getByText(/publish no book/)).toBeDefined();
+    });
+
+    it('asks which venue outright on a phone, and still says why three of six are offered', async () => {
+        // Laid down as a strip the rail hid its own heading and dropped the
+        // line explaining why the chart lists six venues and this offers three.
+        showAt(390);
+        renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+
+        expect(await screen.findByRole('combobox', { name: 'Record a pair' })).toBeDefined();
+        expect(screen.queryByRole('navigation', { name: 'Record a pair' })).toBeNull();
         expect(screen.getByText(/publish no book/)).toBeDefined();
     });
 

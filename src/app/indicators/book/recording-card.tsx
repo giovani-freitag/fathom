@@ -8,12 +8,13 @@ import { Trash2 } from 'lucide-react';
 import { type GridChoice, offerGrids } from '../../markets/recordable.ts';
 import { ListingCard, SearchField } from '../../ui/markets/listing-card.tsx';
 import { ListingRefusal } from '../../ui/markets/listing-refusal.tsx';
+import { Select } from '../../ui/select.tsx';
+import { useIsViewportAtLeast } from '../../react/use-viewport-width.ts';
 import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
 import { type ReactElement, useEffect, useMemo, useState } from 'react';
 import { PairIdentity } from '../../ui/markets/pair-identity.tsx';
 import { RailHeading, RailRow } from '../../ui/markets/rail-row.tsx';
 import type { RecordedContract } from '../../../shared/core/recording-control.ts';
-import { SCROLLER_CLASSES } from '../../ui/control-shell.ts';
 import { ToggleSwitch } from '../../ui/toggle-switch.tsx';
 import type { Translate } from '../../i18n/translator.ts';
 import { useMarkets } from '../../react/use-markets.ts';
@@ -54,6 +55,9 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
     const [query, setQuery] = useState('');
     const [quote, setQuote] = useState('');
     const [chosen, setChosen] = useState<string | null>(null);
+    // One layout or the other, never both: two rails in the tree is two
+    // controls answering to the same name.
+    const isWide = useIsViewportAtLeast('lg');
     // Which contract is being deleted, while the reader is being asked about it.
     const [dropping, setDropping] = useState<RecordedContract | null>(null);
 
@@ -121,31 +125,57 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
                     onChange={setQuery}
                 />
             )}
-            rail={(
-                <nav
-                    aria-label={props.translate('recording.pickerTitle')}
-                    className={`flex shrink-0 gap-1 overflow-x-auto border-hairline p-2 ${SCROLLER_CLASSES}`
-                                    + ' lg:w-56 lg:flex-col lg:overflow-y-auto lg:border-r lg:[mask-image:none]'}
-                >
-                    <RailHeading said={props.translate('recording.venuesWithBook')} />
-                    {props.venues.map((one) => (
-                        <RailRow
-                            key={one}
-                            said={one}
-                            isOn={one === venue}
-                            count={props.contracts.filter((held) => held.venue === one).length}
-                            onPress={() => { setVenue(one); setChosen(null); setQuery(''); setQuote(''); }}
+            rail={isWide
+                ? (
+                    <nav
+                        aria-label={props.translate('recording.pickerTitle')}
+                        className="flex w-56 shrink-0 flex-col gap-1 overflow-y-auto border-r border-hairline p-2"
+                    >
+                        <RailHeading said={props.translate('recording.venuesWithBook')} />
+                        {props.venues.map((one) => (
+                            <RailRow
+                                key={one}
+                                said={one}
+                                isOn={one === venue}
+                                count={props.contracts.filter((held) => held.venue === one).length}
+                                onPress={() => { setVenue(one); setChosen(null); setQuery(''); setQuote(''); }}
+                            />
+                        ))}
+                        {props.silent.length > 0 && (
+                            <p className="panel-note">
+                                {props.translate('recording.venuesWithoutBook', {
+                                    venues: props.silent.join(', '),
+                                })}
+                            </p>
+                        )}
+                    </nav>
+                )
+                : (
+                    // The same question the contracts picker asks on a phone,
+                    // asked the same way. Laid down as a strip it hid its own
+                    // heading and dropped the line saying why three venues are
+                    // offered where the chart lists six.
+                    <div className="flex shrink-0 flex-col gap-2 border-b border-hairline p-2">
+                        <Select
+                            label={props.translate('recording.pickerTitle')}
+                            value={venue}
+                            choices={props.venues.map((one) => ({
+                                value: one,
+                                label: one,
+                                detail: String(props.contracts.filter((held) => held.venue === one).length),
+                                group: props.translate('recording.venuesWithBook'),
+                            }))}
+                            onSelect={(one) => { setVenue(one); setChosen(null); setQuery(''); setQuote(''); }}
                         />
-                    ))}
-                    {props.silent.length > 0 && (
-                        <p className="hidden panel-note lg:block">
-                            {props.translate('recording.venuesWithoutBook', {
-                                venues: props.silent.join(', '),
-                            })}
-                        </p>
-                    )}
-                </nav>
-            )}
+                        {props.silent.length > 0 && (
+                            <p className="panel-note">
+                                {props.translate('recording.venuesWithoutBook', {
+                                    venues: props.silent.join(', '),
+                                })}
+                            </p>
+                        )}
+                    </div>
+                )}
             banner={(
                 <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
                     <span className="text-[11px] text-ink-500">{venue}</span>
