@@ -7,8 +7,12 @@ import {
 } from '../control-shell.ts';
 import { type ReactElement, useMemo, useState } from 'react';
 import type { FieldLayer, Indicator, Registered } from '../../../shared/core/draw-plan.ts';
+import type { VenueFact } from '../../../shared/core/venue-plan.ts';
 
 import { CHART_LAYERS } from '../../indicators/indicator-catalogue.ts';
+import { findUnreachable, openingSettings } from '../../indicators/venue-reach.ts';
+import { sayUnreachable } from '../../indicators/venue-reach-phrases.ts';
+import { readFactsFor } from '../../venues/venue-registry.ts';
 import { listAddons } from '../../addons/addon-registry.ts';
 import { findFieldLayer } from '../../indicators/field-layers.ts';
 import { ICON_SIZE_PX, LAYER_BUTTON_CLASSES } from './layer-list.tsx';
@@ -25,6 +29,8 @@ type Shelf = 'shipped' | 'yours';
 
 interface IndicatorPaletteProps {
     readonly onAdd: (indicatorId: string) => void;
+    /** The venue the chart is on, which decides what can be offered at all. */
+    readonly venue: string;
     readonly isFull: boolean;
     /** How many copies of each indicator the chart already holds. */
     readonly addedCounts: ReadonlyMap<string, number>;
@@ -44,6 +50,7 @@ interface IndicatorPaletteProps {
  */
 export function IndicatorPalette({
     onAdd,
+    venue,
     isFull,
     addedCounts,
     hasAutoFocus = false,
@@ -53,6 +60,7 @@ export function IndicatorPalette({
     const [query, setQuery] = useState('');
     const [shelf, setShelf] = useState<Shelf>('shipped');
 
+    const venueFacts = useMemo(() => readFactsFor(venue), [venue]);
     const shipped = useMemo(() => findMatches(query, translate, CHART_LAYERS), [query, translate]);
     const yours = useMemo(() => findMatches(query, translate, listAddons()), [query, translate]);
 
@@ -136,13 +144,22 @@ export function IndicatorPalette({
                     ? (
                         <YourShelf
                             readings={shown}
+                            venueFacts={venueFacts}
                             isFull={isFull}
                             addedCounts={addedCounts}
                             onAdd={onAdd}
                             {...onEdit === undefined ? {} : { onEdit }}
                         />
                     )
-                    : <ShippedShelf shown={shown} isFull={isFull} addedCounts={addedCounts} onAdd={onAdd} />}
+                    : (
+                        <ShippedShelf
+                            shown={shown}
+                            venueFacts={venueFacts}
+                            isFull={isFull}
+                            addedCounts={addedCounts}
+                            onAdd={onAdd}
+                        />
+                    )}
             </div>
         </div>
     );
@@ -177,34 +194,36 @@ function ShelfTab({ shelf, active, label, count, onSelect }: ShelfTabProps): Rea
 
 interface ShippedShelfProps {
     readonly shown: readonly Offered[];
+    readonly venueFacts: ReadonlySet<VenueFact>;
     readonly isFull: boolean;
     readonly addedCounts: ReadonlyMap<string, number>;
     readonly onAdd: (indicatorId: string) => void;
 }
 
-function ShippedShelf({ shown, isFull, addedCounts, onAdd }: ShippedShelfProps): ReactElement {
+function ShippedShelf({ shown, venueFacts, isFull, addedCounts, onAdd }: ShippedShelfProps): ReactElement {
     const theChart = shown.filter((entry) => !isIndicator(entry.layer));
     const overPrice = shown.filter((entry) => isIndicator(entry.layer) && !needsOwnBand(entry.layer.scale));
     const ownPane = shown.filter((entry) => isIndicator(entry.layer) && needsOwnBand(entry.layer.scale));
 
     return (
         <>
-            <IndicatorGroup titleKey="indicators.theChart" indicators={theChart} isFull={isFull} addedCounts={addedCounts} onAdd={onAdd} />
-            <IndicatorGroup titleKey="indicators.overPrice" indicators={overPrice} isFull={isFull} addedCounts={addedCounts} onAdd={onAdd} />
-            <IndicatorGroup titleKey="indicators.ownPane" indicators={ownPane} isFull={isFull} addedCounts={addedCounts} onAdd={onAdd} />
+            <IndicatorGroup titleKey="indicators.theChart" indicators={theChart} venueFacts={venueFacts} isFull={isFull} addedCounts={addedCounts} onAdd={onAdd} />
+            <IndicatorGroup titleKey="indicators.overPrice" indicators={overPrice} venueFacts={venueFacts} isFull={isFull} addedCounts={addedCounts} onAdd={onAdd} />
+            <IndicatorGroup titleKey="indicators.ownPane" indicators={ownPane} venueFacts={venueFacts} isFull={isFull} addedCounts={addedCounts} onAdd={onAdd} />
         </>
     );
 }
 
 interface YourShelfProps {
     readonly readings: readonly Offered[];
+    readonly venueFacts: ReadonlySet<VenueFact>;
     readonly isFull: boolean;
     readonly addedCounts: ReadonlyMap<string, number>;
     readonly onAdd: (indicatorId: string) => void;
     readonly onEdit?: ((key?: string) => void) | undefined;
 }
 
-function YourShelf({ readings, isFull, addedCounts, onAdd, onEdit }: YourShelfProps): ReactElement {
+function YourShelf({ readings, venueFacts, isFull, addedCounts, onAdd, onEdit }: YourShelfProps): ReactElement {
     const translate = useTranslate();
 
     return (
@@ -213,42 +232,53 @@ function YourShelf({ readings, isFull, addedCounts, onAdd, onEdit }: YourShelfPr
                 <WriteOneButton onPress={() => { onEdit(); }} translate={translate} />
             )}
 
-            {readings.map(({ id, layer }) => (
-                <div key={id} className="flex items-stretch gap-1">
-                    <button
-                        type="button"
-                        disabled={isFull}
-                        onClick={() => { onAdd(id); }}
-                        className={`flex min-w-0 flex-1 flex-col items-start gap-0.5 rounded px-2 py-2 text-left transition-colors hover:bg-abyss-700 ${isFull ? 'disabled:opacity-40' : ''}`}
-                    >
-                        <span className="flex w-full items-center gap-2 text-sm font-semibold text-ink-100">
-                            <span className="truncate">{translateLabel(translate, layer.label)}</span>
-                            {(addedCounts.get(id) ?? 0) > 0 && (
-                                <span className="rounded-full bg-phosphor/15 px-1.5 text-[10px] font-semibold text-phosphor">
-                                    {addedCounts.get(id)}
-                                </span>
-                            )}
-                        </span>
-                        {layer.about !== undefined && (
-                            <span className="w-full truncate text-xs leading-snug text-ink-500">
-                                {translateLabel(translate, layer.about)}
-                            </span>
-                        )}
-                    </button>
+            {readings.map(({ id, layer }) => {
+                const beyond = sayUnreachable(
+                    translate, findUnreachable(layer, openingSettings(layer), venueFacts),
+                );
 
-                    {onEdit !== undefined && (
+                return (
+                    <div key={id} className="flex items-stretch gap-1">
                         <button
                             type="button"
-                            aria-label={`${translate('indicators.edit')} ${translateLabel(translate, layer.label)}`}
-                            title={`${translate('indicators.edit')} ${translateLabel(translate, layer.label)}`}
-                            onClick={() => { onEdit(id.replace(/^addon:/, '')); }}
-                            className={LAYER_BUTTON_CLASSES}
+                            disabled={isFull || beyond !== null}
+                            onClick={() => { onAdd(id); }}
+                            className={`flex min-w-0 flex-1 flex-col items-start gap-0.5 rounded px-2 py-2 text-left transition-colors hover:bg-abyss-700 ${isFull ? 'disabled:opacity-40' : ''}`}
                         >
-                            <Pencil size={ICON_SIZE_PX} />
+                            <span className="flex w-full items-center gap-2 text-sm font-semibold text-ink-100">
+                                <span className="truncate">{translateLabel(translate, layer.label)}</span>
+                                {(addedCounts.get(id) ?? 0) > 0 && (
+                                    <span className="rounded-full bg-phosphor/15 px-1.5 text-[10px] font-semibold text-phosphor">
+                                        {addedCounts.get(id)}
+                                    </span>
+                                )}
+                            </span>
+                            {/* Wrapped rather than truncated, unlike the description
+                            above it: a reason cut off at one line is a reader
+                            told there is one without being told what it is. */}
+                            {beyond !== null
+                                ? <span className="w-full text-xs leading-snug text-amber">{beyond}</span>
+                                : layer.about !== undefined && (
+                                    <span className="w-full truncate text-xs leading-snug text-ink-500">
+                                        {translateLabel(translate, layer.about)}
+                                    </span>
+                                )}
                         </button>
-                    )}
-                </div>
-            ))}
+
+                        {onEdit !== undefined && (
+                            <button
+                                type="button"
+                                aria-label={`${translate('indicators.edit')} ${translateLabel(translate, layer.label)}`}
+                                title={`${translate('indicators.edit')} ${translateLabel(translate, layer.label)}`}
+                                onClick={() => { onEdit(id.replace(/^addon:/, '')); }}
+                                className={LAYER_BUTTON_CLASSES}
+                            >
+                                <Pencil size={ICON_SIZE_PX} />
+                            </button>
+                        )}
+                    </div>
+                );
+            })}
         </section>
     );
 }
@@ -293,12 +323,13 @@ function EmptyShelf({ shelf, hasQuery, translate, onWrite }: EmptyShelfProps): R
 interface IndicatorGroupProps {
     readonly titleKey: 'indicators.theChart' | 'indicators.overPrice' | 'indicators.ownPane';
     readonly indicators: readonly Offered[];
+    readonly venueFacts: ReadonlySet<VenueFact>;
     readonly isFull: boolean;
     readonly addedCounts: ReadonlyMap<string, number>;
     readonly onAdd: (indicatorId: string) => void;
 }
 
-function IndicatorGroup({ titleKey, indicators, isFull, addedCounts, onAdd }: IndicatorGroupProps): ReactElement | null {
+function IndicatorGroup({ titleKey, indicators, venueFacts, isFull, addedCounts, onAdd }: IndicatorGroupProps): ReactElement | null {
     const translate = useTranslate();
     if (indicators.length === 0) {
         return null;
@@ -309,34 +340,49 @@ function IndicatorGroup({ titleKey, indicators, isFull, addedCounts, onAdd }: In
             <h3 className="px-1 py-1 field-label">
                 {translate(titleKey)}
             </h3>
-            {indicators.map(({ id, layer }) => (
-                <button
-                    key={id}
-                    type="button"
-                    disabled={isFull || (findFieldLayer(id) !== null && (addedCounts.get(id) ?? 0) > 0)}
-                    onClick={() => { onAdd(id); }}
-                    // Dimmed only where nothing more can be added at all. A
-                    // layer already on the chart is said so by its own count,
-                    // and washing the row out takes the sentence explaining
-                    // what the layer *is* down to 1.6 to 1 — the same sentence
-                    // a reader reads for anything they might add.
-                    className={`flex w-full flex-col items-start gap-0.5 rounded px-2 py-2 text-left transition-colors hover:bg-abyss-700 disabled:hover:bg-transparent ${isFull ? 'disabled:opacity-40' : ''}`}
-                >
-                    <span className="flex w-full items-center gap-2 text-sm font-semibold text-ink-100">
-                        {translateLabel(translate, layer.label)}
-                        {(addedCounts.get(id) ?? 0) > 0 && (
-                            <span className="rounded-full bg-phosphor/15 px-1.5 text-[10px] font-semibold text-phosphor">
-                                {addedCounts.get(id)}
-                            </span>
-                        )}
-                    </span>
-                    {layer.about !== undefined && (
-                        <span className="text-xs leading-snug text-ink-500">
-                            {translateLabel(translate, layer.about)}
+            {indicators.map(({ id, layer }) => {
+                const beyond = sayUnreachable(
+                    translate, findUnreachable(layer, openingSettings(layer), venueFacts),
+                );
+
+                return (
+                    <button
+                        key={id}
+                        type="button"
+                        disabled={isFull
+                            || beyond !== null
+                            || (findFieldLayer(id) !== null && (addedCounts.get(id) ?? 0) > 0)}
+                        onClick={() => { onAdd(id); }}
+                        // Dimmed only where nothing more can be added at all. A
+                        // layer already on the chart is said so by its own count,
+                        // and washing the row out takes the sentence explaining
+                        // what the layer *is* down to 1.6 to 1 — the same sentence
+                        // a reader reads for anything they might add. A layer out
+                        // of reach keeps its contrast for the same reason: the
+                        // sentence saying why is the one that has to be read.
+                        className={`flex w-full flex-col items-start gap-0.5 rounded px-2 py-2 text-left transition-colors hover:bg-abyss-700 disabled:hover:bg-transparent ${isFull ? 'disabled:opacity-40' : ''}`}
+                    >
+                        <span className="flex w-full items-center gap-2 text-sm font-semibold text-ink-100">
+                            {translateLabel(translate, layer.label)}
+                            {(addedCounts.get(id) ?? 0) > 0 && (
+                                <span className="rounded-full bg-phosphor/15 px-1.5 text-[10px] font-semibold text-phosphor">
+                                    {addedCounts.get(id)}
+                                </span>
+                            )}
                         </span>
-                    )}
-                </button>
-            ))}
+                        {/* The reason replaces the description rather than
+                            joining it: a reader who cannot add this layer is
+                            asking why, not what it would have drawn. */}
+                        {beyond !== null
+                            ? <span className="text-xs leading-snug text-amber">{beyond}</span>
+                            : layer.about !== undefined && (
+                                <span className="text-xs leading-snug text-ink-500">
+                                    {translateLabel(translate, layer.about)}
+                                </span>
+                            )}
+                    </button>
+                );
+            })}
         </section>
     );
 }

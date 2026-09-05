@@ -9,6 +9,7 @@ import { findLayerContribution, isLayerRecolourable } from '../../indicators/lay
 import { IndicatorParameters } from './indicator-parameters.tsx';
 import { translateLabel } from '../../i18n/translator.ts';
 import { useChartState } from '../../react/use-chart-state.ts';
+import { useVenue } from '../../react/use-venue.ts';
 import { useTranslate } from '../../react/use-appearance.ts';
 
 interface LayerPanelProps {
@@ -37,6 +38,7 @@ type PanelView = { readonly kind: 'list' } | { readonly kind: 'add' } | {
  */
 export function LayerPanel({ controls, onEditReading }: LayerPanelProps): ReactElement {
     const translate = useTranslate();
+    const venue = useVenue();
     const [view, setView] = useState<PanelView>({ kind: 'list' });
     const showList = (): void => { setView({ kind: 'list' }); };
 
@@ -45,6 +47,7 @@ export function LayerPanel({ controls, onEditReading }: LayerPanelProps): ReactE
             <PanelStep onBack={showList} title={translate('indicators.onTheChart')}>
                 <IndicatorPalette
                     hasAutoFocus
+                    venue={venue}
                     onAdd={(indicatorId) => {
                         controls.add(indicatorId);
                         showList();

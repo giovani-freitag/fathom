@@ -241,6 +241,14 @@ export const EN_DICTIONARY = {
     'indicators.overPrice': 'Over the price',
     'indicators.ownPane': 'In its own band',
     'indicators.unconverged': 'Not enough history behind this window for the reading to have settled',
+    'indicators.outOfReach': 'Needs {facts}, which this venue does not publish',
+
+    'venue.fact.book': 'resting size per price',
+    'venue.fact.wholeBook': 'the whole ladder, not the nearest few levels',
+    'venue.fact.tape': 'what actually traded',
+    'venue.fact.volume': 'how much traded in a bar',
+    'venue.fact.takerSplit': 'volume split by the side that crossed',
+    'venue.fact.tradeCount': 'how many prints made a bar',
 
     'instrument.label': 'Contract',
 

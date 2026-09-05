@@ -1,9 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { forgetConnector, registerConnector } from '../../../../../src/app/venues/venue-registry.ts';
+import { FIRST_VENUE } from '../../../../../src/shared/core/recording-control.ts';
+import { afterEach, describe, expect, it } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import { createIndicatorKernel, renderWithKernel } from '../../../../mocks/indicator-kernel.tsx';
 import { IndicatorPalette } from '../../../../../src/app/ui/indicators/indicator-palette.tsx';
 
-function renderPalette(options: { isFull?: boolean; counts?: [string, number][] } = {}): {
+function renderPalette(options: {
+    isFull?: boolean;
+    counts?: [string, number][];
+    venue?: string;
+} = {}): {
     added: string[];
     container: HTMLElement;
 } {
@@ -13,6 +19,7 @@ function renderPalette(options: { isFull?: boolean; counts?: [string, number][] 
     const { container } = renderWithKernel(kernel, (
         <IndicatorPalette
             onAdd={(indicatorId) => { added.push(indicatorId); }}
+            venue={options.venue ?? FIRST_VENUE}
             isFull={options.isFull ?? false}
             addedCounts={new Map(options.counts ?? [])}
         />
@@ -20,6 +27,8 @@ function renderPalette(options: { isFull?: boolean; counts?: [string, number][] 
 
     return { added, container };
 }
+
+afterEach(() => { forgetConnector('sideless'); });
 
 describe('IndicatorPalette', () => {
     it('separates what draws over the price from what needs a band of its own', () => {
@@ -89,5 +98,41 @@ describe('IndicatorPalette leaving the scrolling to the panel it opens in', () =
         const field = screen.getByRole('searchbox').closest('[class*="sticky"]');
 
         expect(field).not.toBeNull();
+    });
+});
+
+describe('what the venue cannot answer', () => {
+    it('is offered but cannot be added, with the reason in place of the description', () => {
+        // A delta of nought on a venue that publishes no sides is a claim that
+        // buying and selling were even, and it reads exactly like the truth.
+        registerConnector('sideless', {
+            book: { grade: 'stepped', levelsPerSide: 50, publishIntervalMs: 100, clock: 'venue' },
+            tape: { siding: 'unsided', clock: 'venue', hasStableIds: true },
+            bars: null,
+        });
+
+        renderPalette({ venue: 'sideless' });
+
+        const delta = screen.getByRole('button', { name: /^Delta/ });
+        expect(delta.hasAttribute('disabled')).toBe(true);
+        expect(delta.textContent).toContain('volume split by the side that crossed');
+    });
+
+    it('leaves within reach whatever the venue does answer', () => {
+        registerConnector('sideless', {
+            book: { grade: 'stepped', levelsPerSide: 50, publishIntervalMs: 100, clock: 'venue' },
+            tape: { siding: 'unsided', clock: 'venue', hasStableIds: true },
+            bars: null,
+        });
+
+        renderPalette({ venue: 'sideless' });
+
+        expect(screen.getByRole('button', { name: /Money flow/ }).hasAttribute('disabled')).toBe(false);
+    });
+
+    it('offers everything on the venue the build ships against', () => {
+        renderPalette();
+
+        expect(screen.getByRole('button', { name: /^Delta/ }).hasAttribute('disabled')).toBe(false);
     });
 });

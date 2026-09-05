@@ -243,6 +243,14 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'indicators.overPrice': 'Sobre o preço',
     'indicators.ownPane': 'Em faixa própria',
     'indicators.unconverged': 'Histórico insuficiente atrás desta janela para a leitura ter assentado',
+    'indicators.outOfReach': 'Precisa de {facts}, que esta corretora não publica',
+
+    'venue.fact.book': 'tamanho em repouso por preço',
+    'venue.fact.wholeBook': 'o livro inteiro, não os níveis mais próximos',
+    'venue.fact.tape': 'o que de fato foi negociado',
+    'venue.fact.volume': 'quanto foi negociado no candle',
+    'venue.fact.takerSplit': 'volume separado pelo lado que atravessou',
+    'venue.fact.tradeCount': 'quantas execuções formaram o candle',
 
     'instrument.label': 'Contrato',
 
