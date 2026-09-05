@@ -1,3 +1,4 @@
+import pMap from 'p-map';
 import type { VenueConnector, VenueInstrument, VenueRequest } from '../core/venue-connector.ts';
 
 /** How long the engine waits before deciding a venue is not going to answer. */
@@ -18,12 +19,15 @@ const ALLOWED_PROTOCOL = 'https:';
 const PAGES_PER_LISTING = 20;
 
 /**
- * Pages asked for at once, where the venue said how many there are.
+ * Pages in the air at once, where the venue said how many there are.
  *
  * A listing is a reader waiting, so the pages go out together rather than one
  * after another. Bounded because a venue answering forty requests in one breath
  * is a venue that starts refusing them, and a rate limit costs the whole listing
  * rather than the page it landed on.
+ *
+ * A pool rather than a batch: the next page starts the moment a slot frees,
+ * instead of every page waiting on the slowest of the five it was grouped with.
  */
 const PAGES_AT_ONCE = 5;
 
@@ -39,6 +43,29 @@ export interface VenueGatewayConfig {
      * reach a venue that lets it.
      */
     readonly reachThrough?: string | undefined;
+}
+
+/**
+ * Everything gathered so far that is still in the venue's own order.
+ *
+ * Stops at the first page that has not landed: reporting past it would show a
+ * later page's pairs above an earlier page's, and then move them once the gap
+ * filled — a listing that rearranges itself under the reader's cursor.
+ *
+ * @param landed - Each page at its own place, with holes for what is in flight.
+ * @returns The instruments up to the first hole.
+ */
+function readUpToGap(
+    landed: readonly (readonly VenueInstrument[] | undefined)[],
+): readonly VenueInstrument[] {
+    const gathered: VenueInstrument[] = [];
+    for (const page of landed) {
+        if (page === undefined) {
+            return gathered;
+        }
+        gathered.push(...page);
+    }
+    return gathered;
 }
 
 /**
@@ -125,7 +152,7 @@ export class VenueGateway {
     }
 
     /**
-     * The pages after the first, asked for together.
+     * The pages after the first, read through a pool of that many at a time.
      *
      * Kept in the order the venue serves them rather than in the order they
      * answer: a listing that reshuffles itself between two readings is one a
@@ -147,15 +174,18 @@ export class VenueGateway {
             wanted.push(from);
         }
 
-        const pages: VenueInstrument[][] = [];
-        for (let at = 0; at < wanted.length; at += PAGES_AT_ONCE) {
-            const batch = wanted.slice(at, at + PAGES_AT_ONCE);
-            const read = await Promise.all(batch.map(async (from) =>
-                this.readPage(connector, await this.perform(connector.planInstruments(from), signal))));
-
-            pages.push(...read.map((page) => [...page]));
-            onRead?.([...opening, ...pages.flat()], total);
-        }
+        // Filled in at each page's own place, so what has landed can be handed
+        // over without the pages that landed early jumping the queue.
+        const landed: (readonly VenueInstrument[] | undefined)[] = [];
+        const pages = await pMap(wanted, async (from, at) => {
+            const page = this.readPage(connector, await this.perform(connector.planInstruments(from), signal));
+            landed[at] = page;
+            onRead?.([...opening, ...readUpToGap(landed)], total);
+            return page;
+        }, {
+            concurrency: PAGES_AT_ONCE,
+            ...signal === undefined ? {} : { signal },
+        });
 
         return pages.flat();
     }

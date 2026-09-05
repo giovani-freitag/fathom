@@ -156,6 +156,39 @@ describe('reading a listing through a connector', () => {
         expect(asked).toHaveLength(3);
     });
 
+    it('starts the next page the moment a slot frees, rather than in batches', async () => {
+        // A batch of five waits for the slowest of the five before the sixth
+        // request is even sent. On a venue with one slow page that is the whole
+        // listing held up by it, over and over.
+        let inFlight = 0;
+        let mostAtOnce = 0;
+        let started = 0;
+        let startedWhenSlowLanded = 0;
+        const fetch = vi.fn(async (url: string) => {
+            const from = Number(new URL(url).searchParams.get('from'));
+            started += 1;
+            inFlight += 1;
+            mostAtOnce = Math.max(mostAtOnce, inFlight);
+            // The first page of the pool answers last, which is what holds a
+            // batch up and what a pool reads straight past.
+            await new Promise((wake) => { setTimeout(wake, from === 500 ? 40 : 0); });
+            inFlight -= 1;
+            if (from === 500) {
+                startedWhenSlowLanded = started;
+            }
+            return new Response(JSON.stringify({
+                pairs: Array.from({ length: 500 }, (_, at) => instrument(`P${String(from + at)}`)),
+                total: 4_000,
+            }));
+        }) as unknown as typeof globalThis.fetch;
+
+        await new VenueGateway({ fetch }).fetchInstruments(pagedConnector());
+
+        // Eight pages in all: the first, then seven through the pool.
+        expect(startedWhenSlowLanded).toBe(8);
+        expect(mostAtOnce).toBeLessThanOrEqual(5);
+    });
+
     it('keeps the venue\'s own order, whichever page answers first', async () => {
         // The pages go out together and come back in whatever order the network
         // hands them over. A listing that reshuffles itself between two readings
