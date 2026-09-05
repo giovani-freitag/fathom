@@ -591,24 +591,40 @@ bars: {
 The temptation is to leave a flag `true` and hope. What that buys is a delta of
 zero drawn across the whole chart, which reads exactly like balanced trading.
 
-## What the API will not do for you today
+## What the engine decides, and what your driver decides
 
-Written down because finding out by trying is worse, and because these are the
-edges where a real venue will stop you.
+Written down because finding out by trying is worse. Most of this list is yours
+the moment you need it. Two of them are the engine's, and those are the ones
+worth complaining about.
 
-- **No secrets.** A request carries headers, and there is nowhere in Fathom to
-  keep a key that belongs in one. Only endpoints that need no signature can be
-  read, which is most public data and almost nothing behind an account.
-- **No memory between calls.** A connector holds nothing: no cursor, no clock,
-  no last message. Everything a method needs is in what it was handed, which is
-  why `continueInstruments` is given the count and `readBars` the request.
-- **Twenty pages to a listing.** Enough for every venue anybody has pointed at
-  this, and a ceiling rather than a race for one whose answer never ends.
-- **Five pages in the air at once.** A venue answering forty requests in one
-  breath is a venue that starts refusing them, and a rate limit costs the whole
-  listing rather than the page it landed on.
+Yours, inside your own class:
+
+- **Headers, tokens, cookies.** A `VenueRequest` carries `headers`, and you
+  construct the connector yourself before handing it to `registerConnector`, so
+  a value held in a private field reaches the venue like any other. What Fathom
+  does not have is somewhere to *keep* that value for you — no store, no prompt,
+  nothing that outlives the build — and in a browser it ships to the page along
+  with everything else. That is a reason to think hard about which key you use,
+  not a reason a signed endpoint cannot be read.
+- **Private methods, and private state.** The contract fixes the shape the
+  engine calls, not the inside of the class. `findContradictions` compares the
+  declaration against the contract methods you overrode and looks at nothing
+  else, so helpers, a cache, a cursor, a backoff of your own are all yours to
+  write. The engine still hands each method what it needs —
+  `continueInstruments` the count, `readBars` the request — so that a connector
+  *can* be written holding nothing, which is worth doing where you can: what you
+  hold is yours to keep correct across a reconnect, a second chart, and a replay.
+
+The engine's, today:
+
+- **Twenty pages to a listing, five in the air at once.** `PAGES_PER_LISTING`
+  and `PAGES_AT_ONCE` are constants in the gateway, and nothing a connector
+  declares reaches them. A venue that wants fewer than five at a time, or a
+  listing longer than twenty pages, has no way to say so. This is the real gap
+  on the page.
 - **The declared grade is recorded, not acted on.** Fathom's mirror still wants
   the back reference a `linked` book publishes, whatever a connector declares.
 
-Each of those is a real limit, not an oversight waiting to be found. If one is
-in your way, it is worth saying so: they are the next things to change.
+Those last two are limits, not oversights waiting to be found — but they are
+limits in the engine rather than in what you are allowed to write. If one is in
+your way, it is worth saying so: they are the next things to change.

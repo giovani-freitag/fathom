@@ -602,27 +602,42 @@ A tentação é deixar a flag em `true` e torcer. O que isso compra é um delta 
 zero desenhado no gráfico inteiro, que se lê exatamente como compra e venda
 equilibradas.
 
-## O que a API ainda não faz por você
+## O que o motor decide, e o que o seu driver decide
 
-Escrito aqui porque descobrir tentando é pior, e porque estas são as bordas em
-que uma corretora de verdade vai te parar.
+Escrito aqui porque descobrir tentando é pior. A maior parte desta lista é sua
+no momento em que você precisar. Dois itens são do motor, e são justamente os
+que valem reclamação.
 
-- **Sem segredos.** Uma requisição carrega cabeçalhos, e não existe no Fathom
-  onde guardar a chave que iria em um deles. Só dá para ler endpoint que não
-  pede assinatura, o que é quase todo dado público e quase nada atrás de conta.
-- **Sem memória entre chamadas.** Um conector não segura nada: nem cursor, nem
-  relógio, nem a última mensagem. Tudo que um método precisa está no que ele
-  recebeu, e é por isso que `continueInstruments` recebe a contagem e o
-  `readBars` recebe a requisição.
-- **Vinte páginas por listagem.** Suficiente para toda corretora que apontaram
-  para isto, e um teto em vez de uma corrida para aquela cuja resposta nunca
-  termina.
-- **Cinco páginas no ar por vez.** Uma corretora que recebe quarenta requisições
-  de uma vez é uma corretora que começa a recusar, e um limite de taxa custa a
-  listagem inteira em vez da página em que ele caiu.
+Seus, dentro da sua própria classe:
+
+- **Cabeçalhos, tokens, cookies.** Uma `VenueRequest` carrega `headers`, e é
+  você quem constrói o conector antes de entregá-lo ao `registerConnector`, então
+  um valor guardado num campo privado chega à corretora como qualquer outro. O
+  que o Fathom não tem é onde *guardar* esse valor por você — nenhum cofre,
+  nenhum campo para digitar, nada que sobreviva ao build — e no navegador ele vai
+  para a página junto com o resto. Isso é motivo para pensar bem em qual chave
+  usar, não motivo para um endpoint assinado não poder ser lido.
+- **Métodos privados, e estado privado.** O contrato fixa a forma que o motor
+  chama, não o interior da classe. O `findContradictions` compara a declaração
+  com os métodos do contrato que você sobrescreveu e não olha mais nada, então
+  auxiliares, um cache, um cursor, um backoff seu são todos seus para escrever. O
+  motor continua entregando a cada método o que ele precisa — a contagem para o
+  `continueInstruments`, a requisição para o `readBars` — para que um conector
+  *possa* ser escrito sem segurar nada, o que vale a pena onde der: o que você
+  segura é seu para manter correto ao longo de uma reconexão, de um segundo
+  gráfico e de um replay.
+
+Do motor, hoje:
+
+- **Vinte páginas por listagem, cinco no ar por vez.** `PAGES_PER_LISTING` e
+  `PAGES_AT_ONCE` são constantes no gateway, e nada que um conector declare chega
+  até elas. Uma corretora que queira menos de cinco por vez, ou uma listagem mais
+  longa que vinte páginas, não tem como dizer isso. Esta é a lacuna de verdade
+  desta página.
 - **O grau declarado é registrado, não usado.** O espelho do Fathom ainda quer a
   referência anterior que um livro `linked` publica, seja lá o que um conector
   declare.
 
-Cada um desses é um limite de verdade, não um descuido esperando ser achado. Se
-um deles estiver no seu caminho, vale dizer: são as próximas coisas a mudar.
+Esses dois últimos são limites, não descuidos esperando ser achados — mas são
+limites do motor, e não do que você pode escrever. Se um deles estiver no seu
+caminho, vale dizer: são as próximas coisas a mudar.

@@ -266,9 +266,9 @@ override planStream(symbol: string, ticket: string) {
 ```
 
 Any request you describe may carry a `method`, a `body` and `headers` — that is
-the whole of what a `POST` needs here. What it may not carry is a secret: there
-is nowhere in Fathom to keep a key, so only endpoints that need no signature can
-be read.
+the whole of what a `POST` needs here, signed endpoints included: you build the
+connector, so a key held in a private field goes out in a header like any other
+value. What Fathom does not give you is somewhere to keep that key.
 
 Fathom buys a fresh ticket every time it opens the socket, including after a
 reconnect, because a short-lived address is short-lived exactly when a stream
@@ -289,9 +289,11 @@ data will take them with it. Export anything you want to keep.
 
 ## What a connector cannot do yet
 
-- **No secrets.** A request carries headers, and there is nowhere to keep a key
-  that belongs in one. Only endpoints that need no signature can be read, which
-  rules out most of what an exchange puts behind an account.
+- **Nowhere safe to keep a key.** A request carries headers and your connector
+  can fill them, so a signed endpoint is not refused. But a connector installed
+  here lives in your browser's local storage, in plain text, where anything with
+  the page can read it. That is why the endpoints worth reading from a browser
+  are the ones that need no signature.
 - **The chart, not the collector.** A connector you install lives in your
   browser, so the server that records order books cannot see it. A venue brought
   in this way gives you a pair listing and nothing more: with no recording behind

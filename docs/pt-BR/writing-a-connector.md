@@ -268,9 +268,9 @@ override planStream(symbol: string, ticket: string) {
 ```
 
 Qualquer pedido que você descrever pode levar `method`, `body` e `headers` — é
-tudo que um `POST` precisa aqui. O que ele não pode levar é segredo: não existe
-lugar no Fathom para guardar uma chave, então só dá para ler endpoint que não
-pede assinatura.
+tudo que um `POST` precisa aqui, endpoint assinado incluído: é você quem constrói
+o conector, então uma chave guardada num campo privado sai num cabeçalho como
+qualquer outro valor. O que o Fathom não te dá é onde guardar essa chave.
 
 O Fathom compra um bilhete novo toda vez que abre o socket, inclusive depois de
 uma reconexão, porque um endereço de curta duração é curto justamente quando a
@@ -294,9 +294,12 @@ Limpar os dados do site leva eles junto. Exporte o que quiser manter.
 
 ## O que um conector ainda não faz
 
-- **Sem segredos.** Um pedido leva cabeçalhos, e não existe onde guardar a chave
-  que iria em um deles. Só dá para ler endpoint que não pede assinatura, o que
-  deixa de fora quase tudo que uma corretora põe atrás de uma conta.
+- **Nenhum lugar seguro para guardar uma chave.** Um pedido leva cabeçalhos e o
+  seu conector pode preenchê-los, então um endpoint assinado não é recusado. Mas
+  um conector instalado aqui vive no armazenamento local do seu navegador, em
+  texto puro, onde qualquer coisa com acesso à página consegue lê-lo. É por isso
+  que os endpoints que valem a pena ler de um navegador são os que não pedem
+  assinatura.
 - **O gráfico, não o coletor.** Um conector que você instala vive no seu
   navegador, então o servidor que grava livros de ofertas não o enxerga. Uma
   corretora trazida assim te dá uma listagem de pares e nada além: sem gravação
