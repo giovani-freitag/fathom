@@ -617,11 +617,18 @@ Yours, inside your own class:
 
 The engine's, today:
 
-- **Twenty pages to a listing, five in the air at once.** `PAGES_PER_LISTING`
-  and `PAGES_AT_ONCE` are constants in the gateway, and nothing a connector
-  declares reaches them. A venue that wants fewer than five at a time, or a
-  listing longer than twenty pages, has no way to say so. This is the real gap
-  on the page.
+- **How fast the venue may be asked** — but only the shape of it. A connector
+  carries a `pacing`, and the engine reads it rather than a figure of its own:
+
+  ```ts
+  readonly pacing: VenuePacing = { pagesPerListing: 60, requestsAtOnce: 2 };
+  ```
+
+  Say nothing and you inherit twenty pages and five requests at once, which is
+  what the shipped venues tolerate. The engine still refuses a count below one,
+  and refuses more than five hundred pages or twenty requests at once — a guard
+  against the typo that gets your own address refused by the venue, not a second
+  opinion on a rate limit the connector has read and the engine has not.
 - **The declared grade is recorded, not acted on.** Fathom's mirror still wants
   the back reference a `linked` book publishes, whatever a connector declares.
 

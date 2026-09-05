@@ -16,7 +16,6 @@ const ALLOWED_PROTOCOL = 'https:';
  * A connector that answers every page with another page is one whose listing
  * never returns, and the reader is looking at a spinner either way.
  */
-const PAGES_PER_LISTING = 20;
 
 /**
  * Pages in the air at once, where the venue said how many there are.
@@ -29,7 +28,6 @@ const PAGES_PER_LISTING = 20;
  * A pool rather than a batch: the next page starts the moment a slot frees,
  * instead of every page waiting on the slowest of the five it was grouped with.
  */
-const PAGES_AT_ONCE = 5;
 
 export interface VenueGatewayConfig {
     /** Injected so a test can answer without a network. */
@@ -170,7 +168,8 @@ export class VenueGateway {
         // somewhere else and then not honoured.
         const perPage = opening.length;
         const wanted: number[] = [];
-        for (let from = perPage; from < total && wanted.length < PAGES_PER_LISTING - 1; from += perPage) {
+        const { pagesPerListing, requestsAtOnce } = connector.pacing;
+        for (let from = perPage; from < total && wanted.length < pagesPerListing - 1; from += perPage) {
             wanted.push(from);
         }
 
@@ -183,7 +182,7 @@ export class VenueGateway {
             onRead?.([...opening, ...readUpToGap(landed)], total);
             return page;
         }, {
-            concurrency: PAGES_AT_ONCE,
+            concurrency: requestsAtOnce,
             ...signal === undefined ? {} : { signal },
         });
 
@@ -206,7 +205,7 @@ export class VenueGateway {
 
         // Capped, because a connector that always answers with another page is
         // one whose listing never returns.
-        for (let page = 1; request !== null && page < PAGES_PER_LISTING; page += 1) {
+        for (let page = 1; request !== null && page < connector.pacing.pagesPerListing; page += 1) {
             payload = await this.perform(request, signal);
             gathered.push(...this.readPage(connector, payload));
             request = this.readNext(connector, payload, opening.length + gathered.length);

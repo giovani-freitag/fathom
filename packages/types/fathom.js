@@ -393,6 +393,13 @@ function walkSettled(bars, higher) {
 //#endregion
 //#region src/shared/core/venue-connector.ts
 /**
+* What the shipped venues tolerate, and what a connector gets for saying nothing.
+*/
+const DEFAULT_PACING = {
+	pagesPerListing: 20,
+	requestsAtOnce: 5
+};
+/**
 * What a connector is written as.
 *
 * Methods on the class, not objects of functions hung off it. Every one a venue
@@ -404,6 +411,8 @@ function walkSettled(bars, higher) {
 * sent as text, and a list that has to be somewhere in the answer.
 */
 var Connector = class {
+	/** What the shipped venues tolerate, until a connector says otherwise. */
+	pacing = DEFAULT_PACING;
 	/**
 	* How many the venue says it lists. None said, unless a connector says so.
 	*

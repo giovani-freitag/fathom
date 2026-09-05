@@ -3,15 +3,6 @@ import pMap from 'p-map';
 import type { VenueBar, VenueConnector } from '../../shared/core/venue-connector.ts';
 import type { VenueGateway } from '../../shared/venues/venue-gateway.ts';
 
-/**
- * Pages of candles in the air at once, past the first.
- *
- * A venue that serves a hundred bars a request needs twenty of them to fill the
- * budget, and asked one after the other that is twenty round trips a reader
- * waits through before the chart draws anything at all.
- */
-const PAGES_AT_ONCE = 4;
-
 export interface VenueCandleServiceConfig {
     /** What the venue can do, and how to read what it answers. */
     readonly connector: VenueConnector;
@@ -89,7 +80,7 @@ export class VenueCandleService {
         const older = await pMap(
             this.windowsBefore(request, span, perRequest),
             async (window) => this.fetchPage({ request, ...window, perRequest }, signal),
-            { concurrency: PAGES_AT_ONCE, ...signal === undefined ? {} : { signal } },
+            { concurrency: this.config.connector.pacing.requestsAtOnce, ...signal === undefined ? {} : { signal } },
         );
 
         return this.settle([...older.flat(), ...newest], request);

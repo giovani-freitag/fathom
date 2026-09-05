@@ -224,6 +224,51 @@ describe('reading a listing through a connector', () => {
         expect(asked).toHaveLength(20);
     });
 
+    it('stops where the connector says its listing stops, not where the engine used to', async () => {
+        // The venue publishes the limit, in its own units, and the connector is
+        // the only thing in the build that has read it.
+        const asked: string[] = [];
+        const connector = Object.assign(pagedConnector(), {
+            pacing: { pagesPerListing: 4, requestsAtOnce: 2 },
+        });
+        const gateway = new VenueGateway({ fetch: pagesOf(1_000_000, asked) });
+
+        await gateway.fetchInstruments(connector);
+
+        expect(asked).toHaveLength(4);
+    });
+
+    it('keeps to the number of requests the connector says the venue tolerates', async () => {
+        // Above that a venue starts refusing, and a refusal costs the whole
+        // listing rather than the page it landed on.
+        let inFlight = 0;
+        let atMost = 0;
+        const connector = Object.assign(pagedConnector(), {
+            pacing: { pagesPerListing: 20, requestsAtOnce: 2 },
+        });
+        const gateway = new VenueGateway({
+            fetch: vi.fn(async (url: string) => {
+                inFlight += 1;
+                atMost = Math.max(atMost, inFlight);
+                // Held open across a turn of the event loop, so the pool fills
+                // to its limit before anything leaves it. A microtask is not
+                // long enough: each request would finish before the next began,
+                // and the count would read one however wide the pool was.
+                await new Promise((resolve) => { setTimeout(resolve, 5); });
+                const from = Number(new URL(url).searchParams.get('from'));
+                inFlight -= 1;
+                return new Response(JSON.stringify({
+                    total: 5_000,
+                    pairs: everySymbol(5_000).slice(from, from + PER_PAGE).map(instrument),
+                }));
+            }) as unknown as typeof globalThis.fetch,
+        });
+
+        await gateway.fetchInstruments(connector);
+
+        expect(atMost).toBeLessThanOrEqual(2);
+    });
+
     it('walks page by page where the venue only hands out a cursor', async () => {
         // The other shape: a token that cannot be guessed, so the pages can
         // only be asked for in order.

@@ -2,7 +2,7 @@ import { BINANCE_CONNECTOR } from './binance-connector.ts';
 import { BINANCE_FUTURES_ID } from './binance-futures.ts';
 import { BYBIT_CONNECTOR, BYBIT_ID } from './bybit-connector.ts';
 import { COINBASE_CONNECTOR, COINBASE_ID } from './coinbase-connector.ts';
-import { findContradictions, type VenueConnector } from '../core/venue-connector.ts';
+import { findContradictions, findPacingFaults, type VenueConnector } from '../core/venue-connector.ts';
 import { GATE_CONNECTOR, GATE_ID } from './gate-connector.ts';
 import { KRAKEN_CONNECTOR, KRAKEN_ID } from './kraken-connector.ts';
 import { OKX_CONNECTOR, OKX_ID } from './okx-connector.ts';
@@ -77,9 +77,9 @@ export function registerConnector(connectorId: string, connector: VenueConnector
 
     // Refused now rather than when a recording starts, which is hours later on a
     // machine nobody is watching, with the contradiction already in the file.
-    const contradictions = findContradictions(connector);
-    if (contradictions.length > 0) {
-        throw new Error(contradictions.join(' '));
+    const faults = [...findContradictions(connector), ...findPacingFaults(connector)];
+    if (faults.length > 0) {
+        throw new Error(faults.join(' '));
     }
 
     REGISTERED.set(connectorId, connector);

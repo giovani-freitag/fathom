@@ -629,11 +629,19 @@ Seus, dentro da sua própria classe:
 
 Do motor, hoje:
 
-- **Vinte páginas por listagem, cinco no ar por vez.** `PAGES_PER_LISTING` e
-  `PAGES_AT_ONCE` são constantes no gateway, e nada que um conector declare chega
-  até elas. Uma corretora que queira menos de cinco por vez, ou uma listagem mais
-  longa que vinte páginas, não tem como dizer isso. Esta é a lacuna de verdade
-  desta página.
+- **Com que velocidade a corretora pode ser consultada** — mas só a forma disso.
+  Um conector carrega um `pacing`, e o motor lê ele em vez de um número próprio:
+
+  ```ts
+  readonly pacing: VenuePacing = { pagesPerListing: 60, requestsAtOnce: 2 };
+  ```
+
+  Não dizer nada é herdar vinte páginas e cinco requisições por vez, que é o que
+  as corretoras que já vêm no build toleram. O motor ainda recusa contagem menor
+  que um, e recusa mais de quinhentas páginas ou vinte requisições por vez — uma
+  proteção contra o erro de digitação que faz a corretora recusar o seu próprio
+  endereço, não uma segunda opinião sobre um limite que o conector leu e o motor
+  não.
 - **O grau declarado é registrado, não usado.** O espelho do Fathom ainda quer a
   referência anterior que um livro `linked` publica, seja lá o que um conector
   declare.

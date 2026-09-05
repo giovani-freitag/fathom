@@ -28,6 +28,26 @@ describe('the connectors the chart can reach', () => {
         expect(listConnectors().map(([id]) => id)).toContain('kucoin');
     });
 
+    it('takes the pacing a connector asks for, and refuses one that counts nothing', () => {
+        // A listing capped at nought pages fetches nothing, and the reader finds
+        // out when the chart stays empty rather than when the file was written.
+        expect(() => registerConnector('paced', Object.assign(buildConnector({
+            book: null, tape: null, bars: null,
+        }), { pacing: { pagesPerListing: 60, requestsAtOnce: 2 } }))).not.toThrow();
+        expect(() => registerConnector('unpaced', Object.assign(buildConnector({
+            book: null, tape: null, bars: null,
+        }), { pacing: { pagesPerListing: 0, requestsAtOnce: 2 } }))).toThrow(/not a count/);
+    });
+
+    it('refuses a pacing past what the engine will perform', () => {
+        // Not a second opinion on the venue's rate limit, which the connector
+        // knows better: a guard against the typo that gets a reader's own
+        // address refused before they can read the error.
+        expect(() => registerConnector('greedy', Object.assign(buildConnector({
+            book: null, tape: null, bars: null,
+        }), { pacing: { pagesPerListing: 20, requestsAtOnce: 5_000 } }))).toThrow(/past the/);
+    });
+
     it('refuses a name that could be read as the shipped venue', () => {
         // A recording filed under the wrong venue cannot be filed again, and the
         // venue is half the key every row is now written under.

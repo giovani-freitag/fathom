@@ -33,6 +33,44 @@ export interface VenueRequest {
     readonly headers?: Readonly<Record<string, string>>;
 }
 
+/**
+ * How fast the engine may ask this venue for things.
+ *
+ * The one thing about a venue that only its own connector can know. A rate
+ * limit is published per exchange, in that exchange's units, so a figure picked
+ * in the engine is a guess that is wrong for everybody: too high and the venue
+ * refuses the whole listing rather than the page it landed on, too low and a
+ * reader waits through round trips the venue would have answered together.
+ *
+ * Inherited from the base class, so a connector writes this only where its
+ * venue differs from the shipped ones.
+ */
+export interface VenuePacing {
+    /**
+     * Most pages the engine asks a listing for before it stops asking.
+     *
+     * A ceiling rather than a race: a venue that always answers with another
+     * page is one whose listing never returns.
+     */
+    readonly pagesPerListing: number;
+    /** How many requests may be in the air at this venue at once. */
+    readonly requestsAtOnce: number;
+}
+
+/**
+ * What the shipped venues tolerate, and what a connector gets for saying nothing.
+ */
+export const DEFAULT_PACING: VenuePacing = { pagesPerListing: 20, requestsAtOnce: 5 };
+
+/**
+ * The widest pacing the engine will perform, whatever a connector asks for.
+ *
+ * Not a second opinion on the venue's rate limit, which the connector knows
+ * better: a guard against the typo that would have a reader's own address
+ * refused by the venue before they could read the error.
+ */
+const PACING_CEILING: VenuePacing = { pagesPerListing: 500, requestsAtOnce: 20 };
+
 /** A socket to open, and what to say once it is open. */
 export interface VenueStreamPlan {
     readonly url: string;
@@ -110,6 +148,9 @@ export interface BarPageRequest {
  */
 export interface VenueConnector {
     readonly declaration: VenueDeclaration;
+
+    /** How fast this venue may be asked; the base class answers for most. */
+    readonly pacing: VenuePacing;
 
     /**
      * Every venue lists what it trades; there is nothing to chart otherwise.
@@ -253,6 +294,34 @@ export function findContradictions(connector: VenueConnector): readonly string[]
 }
 
 /**
+ * Where a connector asks to be paced in a way the engine will not perform.
+ *
+ * Read at registration beside the contradictions, and for the same reason: a
+ * listing capped at nought pages fetches nothing, and the reader finds out when
+ * the chart stays empty rather than when the file was written.
+ *
+ * @param connector - The connector being registered.
+ * @returns One sentence per fault, empty where there are none.
+ */
+export function findPacingFaults(connector: VenueConnector): readonly string[] {
+    const found: string[] = [];
+    const { pacing } = connector;
+
+    for (const field of ['pagesPerListing', 'requestsAtOnce'] as const) {
+        const asked = pacing[field];
+        if (!Number.isInteger(asked) || asked < 1) {
+            found.push(`Its ${field} is ${String(asked)}, which is not a count of anything.`);
+            continue;
+        }
+        if (asked > PACING_CEILING[field]) {
+            found.push(`Its ${field} is ${asked}, past the ${PACING_CEILING[field]} this engine performs.`);
+        }
+    }
+
+    return found;
+}
+
+/**
  * Whether a connector wrote a method rather than inheriting the refusal.
  */
 function isWritten(connector: VenueConnector, name: keyof VenueConnector): boolean {
@@ -272,6 +341,9 @@ function isWritten(connector: VenueConnector, name: keyof VenueConnector): boole
  */
 export abstract class Connector implements VenueConnector {
     abstract readonly declaration: VenueDeclaration;
+
+    /** What the shipped venues tolerate, until a connector says otherwise. */
+    readonly pacing: VenuePacing = DEFAULT_PACING;
 
     abstract planInstruments(from: number): VenueRequest;
 
