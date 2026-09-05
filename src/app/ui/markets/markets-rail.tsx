@@ -85,7 +85,17 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
 
     return (
         <>
-            {!isWide && (
+            {!isWide && isNaming && (
+                <div className="flex shrink-0 items-center gap-2 border-b border-hairline p-2">
+                    <TagNameField
+                        translate={translate}
+                        onName={(label) => { props.onAddTag(label); setIsNaming(false); }}
+                        onGiveUp={() => { setIsNaming(false); }}
+                    />
+                </div>
+            )}
+
+            {!isWide && !isNaming && (
                 <div className="flex shrink-0 items-center gap-2 border-b border-hairline p-2">
                     <Select
                         label={translate('markets.title')}
@@ -176,23 +186,10 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
 
                     {isNaming
                         ? (
-                            <input
-                                autoFocus
-                                type="text"
-                                name="tagLabel"
-                                aria-label={translate('markets.tagLabel')}
-                                placeholder={translate('markets.tagLabel')}
-                                className={`${CONTROL_INPUT_CLASSES} h-9 w-36 shrink-0 px-2 lg:w-full`}
-                                onBlur={(event) => { props.onAddTag(event.target.value); setIsNaming(false); }}
-                                onKeyDown={(event) => {
-                                    if (event.key === 'Enter') {
-                                        props.onAddTag(event.currentTarget.value);
-                                        setIsNaming(false);
-                                    }
-                                    if (event.key === 'Escape') {
-                                        setIsNaming(false);
-                                    }
-                                }}
+                            <TagNameField
+                                translate={translate}
+                                onName={(label) => { props.onAddTag(label); setIsNaming(false); }}
+                                onGiveUp={() => { setIsNaming(false); }}
                             />
                         )
                         : <RailAdd said={translate('markets.newTag')} onPress={() => { setIsNaming(true); }} />}
@@ -237,6 +234,43 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
                 }}
             />
         </>
+    );
+}
+
+interface TagNameFieldProps {
+    readonly translate: Translate;
+    readonly onName: (label: string) => void;
+    readonly onGiveUp: () => void;
+}
+
+/**
+ * Where a new tag is given its name.
+ *
+ * One field shared by both layouts rather than one inside the rail: the rail is
+ * not built on a phone, so the press that asked for a name changed the state
+ * and drew nothing at all.
+ */
+function TagNameField({ translate, onName, onGiveUp }: TagNameFieldProps): ReactElement {
+    return (
+        <input
+            autoFocus
+            type="text"
+            name="tagLabel"
+            aria-label={translate('markets.tagLabel')}
+            placeholder={translate('markets.tagLabel')}
+            autoCapitalize="off"
+            autoCorrect="off"
+            className={`${CONTROL_INPUT_CLASSES} h-9 w-36 shrink-0 px-2 lg:w-full`}
+            onBlur={(event) => { onName(event.target.value); }}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                    onName(event.currentTarget.value);
+                }
+                if (event.key === 'Escape') {
+                    onGiveUp();
+                }
+            }}
+        />
     );
 }
 

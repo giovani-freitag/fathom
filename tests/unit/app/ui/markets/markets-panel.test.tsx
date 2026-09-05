@@ -437,6 +437,32 @@ describe('the card on a phone', () => {
         expect(await screen.findByText('Venues')).toBeDefined();
     });
 
+    it('asks for a name when a new tag is called for, on a phone too', async () => {
+        // The field used to live inside the rail, which a phone does not build:
+        // the press changed the state and drew nothing, so the button read as
+        // dead.
+        showAt(390);
+        renderPanel();
+
+        fireEvent.click(await screen.findByRole('button', { name: 'New tag' }));
+
+        expect(await screen.findByRole('textbox', { name: 'Name this tag' })).toBeDefined();
+    });
+
+    it('files a tag named on a phone under the reader\'s own tags', async () => {
+        showAt(390);
+        renderPanel();
+        fireEvent.click(await screen.findByRole('button', { name: 'New tag' }));
+
+        const field = await screen.findByRole('textbox', { name: 'Name this tag' });
+        fireEvent.change(field, { target: { value: 'Majors' } });
+        fireEvent.keyDown(field, { key: 'Enter' });
+
+        // Made and left open, so the select is now showing it.
+        expect((await screen.findByRole('combobox', { name: 'Contracts' })).textContent)
+            .toContain('Majors');
+    });
+
     it('keeps only one of the two layouts in the tree at a time', async () => {
         // Both mounted is two of every control with the same name, and two of
         // every dialog behind them.
