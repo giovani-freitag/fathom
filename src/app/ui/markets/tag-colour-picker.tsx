@@ -1,4 +1,5 @@
 import { INSTANCE_TONES } from '../../../shared/core/draw-plan.ts';
+import { Pipette } from 'lucide-react';
 import { Popover } from 'radix-ui';
 import type { ReactElement } from 'react';
 import type { TagColour } from '../../../shared/core/pair-tags.ts';
@@ -26,6 +27,10 @@ interface TagColourPickerProps {
  * reader on their eighth tag has run out of palette, not out of tags.
  */
 export function TagColourPicker({ colour, label, translate, onPick }: TagColourPickerProps): ReactElement {
+    // A colour the reader named rather than took, which is the one case this
+    // control has something of its own to show.
+    const isNamed = colour.startsWith('#');
+
     return (
         <Popover.Root>
             <Popover.Trigger
@@ -59,18 +64,28 @@ export function TagColourPicker({ colour, label, translate, onPick }: TagColourP
                             </button>
                         ))}
 
-                        {/* The browser's own, which is the one control on this
-                            page that can offer every colour there is without
-                            teaching the reader a new one. */}
-                        <label className="grid size-7 cursor-pointer place-items-center rounded-md border border-hairline transition-colors hover:border-hairline-bright">
-                            <span className="sr-only">{translate('markets.anyColour')}</span>
+                        {/* The browser's own picker, behind an icon rather than
+                            behind its own swatch: a sixth circle of colour in a
+                            row of five reads as a sixth colour to choose, and
+                            the one thing this control is not is a colour. */}
+                        <label
+                            title={translate('markets.anyColour')}
+                            className={`relative grid size-7 cursor-pointer place-items-center rounded-md border transition-colors ${
+                                isNamed ? 'border-phosphor/60 bg-abyss-700' : 'border-hairline hover:border-hairline-bright'
+                            }`}
+                        >
+                            <Pipette
+                                size={14}
+                                className={isNamed ? '' : 'text-ink-400'}
+                                {...isNamed ? { style: { color: colour } } : {}}
+                            />
                             <input
                                 type="color"
                                 name="tagColour"
                                 aria-label={translate('markets.anyColour')}
-                                value={colour.startsWith('#') ? colour : OPENS_ON}
+                                value={isNamed ? colour : OPENS_ON}
                                 onChange={(event) => { onPick(event.target.value as TagColour); }}
-                                className="colour-well size-4 cursor-pointer"
+                                className="absolute inset-0 cursor-pointer opacity-0"
                             />
                         </label>
                     </div>
