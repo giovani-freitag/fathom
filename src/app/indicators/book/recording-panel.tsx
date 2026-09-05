@@ -1,5 +1,9 @@
+import { CONTROL_CHIP_CLASSES, CONTROL_OFFERED_CLASSES } from '../../ui/control-shell.ts';
+import { isRecordable } from '../../markets/recordable.ts';
+import { listConnectors } from '../../../shared/venues/venue-registry.ts';
 import { PanelSection } from '../../ui/panel-section.tsx';
-import { type ReactElement, useCallback, useEffect, useState } from 'react';
+import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { RecordingPicker } from './recording-picker.tsx';
 import { ToggleSwitch } from '../../ui/toggle-switch.tsx';
 import type { RecordedContract, RecordingControl, StorageBudget } from '../../../shared/core/recording-control.ts';
 import { formatFixed } from '../../core/formatting.ts';
@@ -33,6 +37,18 @@ export function RecordingPanel({ recording, onContractsChanged, translate }: Rec
     const [state, setState] = useState<PanelState | null>(null);
     const [hasFailed, setHasFailed] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isPicking, setIsPicking] = useState(false);
+
+    // Which venues have a book to record, and which have none. Read from the
+    // registry rather than from what is already being recorded: the answer to
+    // "what else could I record" is not in the list of what already is.
+    const venues = useMemo(() => {
+        const registered = listConnectors();
+        return {
+            offered: registered.filter(([, one]) => isRecordable(one.declaration)).map(([id]) => id),
+            silent: registered.filter(([, one]) => !isRecordable(one.declaration)).map(([id]) => id),
+        };
+    }, []);
 
     const read = useCallback(async (): Promise<PanelState> => {
         const [contracts, budget] = await Promise.all([
@@ -80,28 +96,90 @@ export function RecordingPanel({ recording, onContractsChanged, translate }: Rec
                 {translate('recording.contractsHelp')}
             </p>
 
-            <ul className="space-y-1.5">
-                {state.contracts.map((instrument) => (
-                    <li key={instrument.instrumentSymbol} className="flex items-center justify-between gap-3">
-                        <span className="numeric text-xs text-ink-200">
-                            {instrument.instrumentSymbol}
-                            <span className="ml-2 text-[10px] text-ink-600">
-                                {translate('settings.perRow', { value: instrument.priceBucketSize })}
-                            </span>
-                        </span>
-                        <ToggleSwitch
-                            isOn={instrument.isEnabled}
-                            isDisabled={isSaving}
-                            onChange={(isEnabled) => {
-                                void apply(
-                                    recording.saveContract({ ...instrument, isEnabled }),
-                                ).then(onContractsChanged);
+            {/* Under the venue that publishes them, because two of them list
+                BTCUSDT and the row that says only the symbol is a row about
+                whichever one the reader assumed. */}
+            {venues.offered.map((venue) => (
+                <div key={venue} className="space-y-1.5">
+                    <h4 className="field-label">{venue}</h4>
+                    {state.contracts.filter((one) => one.venue === venue).length === 0
+                        ? <p className="panel-note">{translate('recording.nothingYet')}</p>
+                        : (
+                            <ul className="space-y-1.5">
+                                {state.contracts.filter((one) => one.venue === venue).map((instrument) => (
+                                    <li
+                                        key={`${instrument.venue}/${instrument.instrumentSymbol}`}
+                                        className="flex items-center justify-between gap-3"
+                                    >
+                                        <span className="numeric text-xs text-ink-200">
+                                            {instrument.instrumentSymbol}
+                                            <span className="ml-2 text-[10px] text-ink-600">
+                                                {translate('settings.perRow', { value: instrument.priceBucketSize })}
+                                            </span>
+                                        </span>
+                                        <ToggleSwitch
+                                            isOn={instrument.isEnabled}
+                                            isDisabled={isSaving}
+                                            onChange={(isEnabled) => {
+                                                void apply(
+                                                    recording.saveContract({ ...instrument, isEnabled }),
+                                                ).then(onContractsChanged);
+                                            }}
+                                            label={translate('recording.toggle', {
+                                                symbol: instrument.instrumentSymbol,
+                                            })}
+                                        />
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                </div>
+            ))}
+
+            {isPicking
+                ? (
+                    <div className="space-y-2 rounded-lg border border-hairline/60 p-2">
+                        <div className="flex items-center justify-between gap-2">
+                            <h4 className="field-label">{translate('recording.pickerTitle')}</h4>
+                            <button
+                                type="button"
+                                onClick={() => { setIsPicking(false); }}
+                                className={`${CONTROL_CHIP_CLASSES} h-7 justify-center px-2.5 ${CONTROL_OFFERED_CLASSES}`}
+                            >
+                                {translate('recording.done')}
+                            </button>
+                        </div>
+                        <RecordingPicker
+                            venues={venues.offered}
+                            silent={venues.silent}
+                            contracts={state.contracts}
+                            isSaving={isSaving}
+                            translate={translate}
+                            onRecord={(venue, instrument, priceBucketSize) => {
+                                void apply(recording.saveContract({
+                                    venue,
+                                    instrumentSymbol: instrument.symbol,
+                                    priceBucketSize,
+                                    // The rate every contract here is recorded
+                                    // at; the panel offers no choice because
+                                    // nothing downstream reads a second one.
+                                    frameIntervalMs: 1_000,
+                                    isEnabled: true,
+                                })).then(onContractsChanged);
                             }}
-                            label={translate('recording.toggle', { symbol: instrument.instrumentSymbol })}
                         />
-                    </li>
-                ))}
-            </ul>
+                        <p className="panel-note">{translate('recording.gridHelp')}</p>
+                    </div>
+                )
+                : (
+                    <button
+                        type="button"
+                        onClick={() => { setIsPicking(true); }}
+                        className={`${CONTROL_CHIP_CLASSES} h-8 w-full justify-center ${CONTROL_OFFERED_CLASSES}`}
+                    >
+                        {translate('recording.addPair')}
+                    </button>
+                )}
 
             <BudgetChooser
                 budget={state.budget}

@@ -16,6 +16,15 @@ const DEFAULT_QUOTA_SHARE = 0.25;
 /** Bytes one frame costs in the store, measured on a 325-bucket ladder. */
 const BYTES_PER_FRAME = 1_300;
 
+/**
+ * Contracts one page may record at once.
+ *
+ * Each is a socket, a mirror of a ladder and a write every second. A server
+ * records four of them and is a server; a phone asked for twenty stops being a
+ * phone, and the recording it was already making goes down with it.
+ */
+export const CONTRACTS_PER_PAGE = 6;
+
 interface StoredChoice {
     readonly contracts: readonly RecordedContract[];
     readonly maximumBytes: number | null;
@@ -27,6 +36,16 @@ export interface BrowserRecordingControlConfig {
     readonly estimateStorage: () => Promise<StorageEstimate>;
     /** What a first-time visitor records, and what else they may switch on. */
     readonly catalogue: readonly RecordedContract[];
+}
+
+/**
+ * Whether two entries name the same contract.
+ *
+ * By the venue as well as the symbol: two venues both list BTCUSDT, and keyed
+ * by the symbol alone switching one off switched off the other's recording.
+ */
+function isSameContract(one: RecordedContract, other: RecordedContract): boolean {
+    return one.venue === other.venue && one.instrumentSymbol === other.instrumentSymbol;
 }
 
 /**
@@ -45,26 +64,42 @@ export class BrowserRecordingControl implements RecordingControl {
      * @returns The catalogue, with stored choices applied over it.
      */
     async listContracts(): Promise<readonly RecordedContract[]> {
-        const stored = await this.read();
-        return this.config.catalogue.map((offered) => {
-            const chosen = stored?.contracts.find(
-                (contract) => contract.instrumentSymbol === offered.instrumentSymbol,
-            );
-            return chosen === undefined ? offered : { ...offered, isEnabled: chosen.isEnabled };
+        const stored = (await this.read())?.contracts ?? [];
+        const offered = this.config.catalogue.map((one) => {
+            const chosen = stored.find((contract) => isSameContract(contract, one));
+            return chosen === undefined ? one : { ...one, isEnabled: chosen.isEnabled };
         });
+
+        // What the reader added themselves, after what this build opens with:
+        // the catalogue is where a first visit starts, not the whole of what a
+        // page may record.
+        return [
+            ...offered,
+            ...stored.filter((contract) => !this.config.catalogue.some(
+                (one) => isSameContract(one, contract),
+            )),
+        ];
     }
 
     /**
-     * Remembers a contract being switched on or off.
+     * Remembers a contract being switched on or off, or one being added.
      *
      * @param contract - The contract and what it should be.
+     * @throws Error when the page is already recording as many as it will.
      */
     async saveContract(contract: RecordedContract): Promise<void> {
         const current = await this.listContracts();
+        const isKnown = current.some((existing) => isSameContract(existing, contract));
+        if (!isKnown && current.length >= CONTRACTS_PER_PAGE) {
+            throw new Error(`A page records at most ${String(CONTRACTS_PER_PAGE)} contracts at once.`);
+        }
+
+        const kept = isKnown
+            ? current.map((existing) => (isSameContract(existing, contract) ? contract : existing))
+            : [...current, contract];
+
         await this.write({
-            contracts: current.map((existing) => (
-                existing.instrumentSymbol === contract.instrumentSymbol ? contract : existing
-            )),
+            contracts: kept,
             maximumBytes: (await this.read())?.maximumBytes ?? null,
         });
     }

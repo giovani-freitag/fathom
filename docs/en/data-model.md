@@ -161,7 +161,14 @@ Two things a reader chooses from the interface are stored rather than configured
 
 `instrument_registry` carries the grid each contract records on, and an
 `is_enabled` flag. The row exists because something has been recorded for that
-contract, and the flag says whether it still is.
+contract, and the flag says whether it still is. A row is added from the book
+panel, which offers the pairs of every venue whose connector declares a book —
+a venue that publishes none has nothing to capture every second, so it is named
+there rather than left out silently.
+
+The grid is chosen when the row is made and not after. Re-recording a contract
+on a second grid leaves two of them in one history, and nothing downstream can
+say which rows belong to which.
 
 ```sql
 CREATE TABLE instrument_registry (

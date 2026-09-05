@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { createIndicatorKernel, renderWithKernel } from '../../../../mocks/indicator-kernel.tsx';
 import { FIRST_VENUE } from '../../../../../src/shared/core/recording-control.ts';
 import type { RecordedContract, RecordingControl, StorageBudget } from '../../../../../src/shared/core/recording-control.ts';
 import { buildTranslate } from '../../../../../src/app/i18n/translator.ts';
@@ -106,5 +107,81 @@ describe('RecordingPanel', () => {
 
         expect(await screen.findByText('That change could not be saved.')).toBeTruthy();
         expect(screen.queryByText(/aborted a transaction/)).toBeNull();
+    });
+});
+
+
+describe('what else could be recorded', () => {
+    const budget: StorageBudget = {
+        maximumBytes: 10_737_418_240,
+        usedBytes: 1_073_741_824,
+        availableBytes: null,
+    };
+
+    function renderInKernel(saveContract: Mock<(contract: RecordedContract) => Promise<void>>): void {
+        const recording = {
+            listContracts: () => Promise.resolve(CONTRACTS),
+            readBudget: () => Promise.resolve(budget),
+            saveContract,
+            setBudget: vi.fn().mockResolvedValue(undefined),
+            pruneToBudget: vi.fn().mockResolvedValue(0),
+        } as unknown as RecordingControl;
+
+        renderWithKernel(createIndicatorKernel(), (
+            <RecordingPanel
+                recording={recording}
+                onContractsChanged={() => undefined}
+                translate={buildTranslate('en')}
+            />
+        ));
+    }
+
+    it('files each contract under the venue that publishes it', async () => {
+        // Two venues both list BTCUSDT. A row that says only the symbol is a
+        // row about whichever one the reader assumed.
+        renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
+
+        expect(await screen.findByText(FIRST_VENUE)).toBeDefined();
+    });
+
+    it('offers the venues that publish a book, and names the ones that do not', async () => {
+        renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Record another pair' }));
+
+        expect(screen.getByRole('button', { name: FIRST_VENUE, pressed: true })).toBeDefined();
+        // Declared `book: null`, so there is nothing on them to capture.
+        expect(screen.queryByRole('button', { name: 'okx' })).toBeNull();
+        expect(screen.getByText(/publish no book/)).toBeDefined();
+    });
+
+    it('records a pair on the grid that was chosen for it', async () => {
+        // The grid cannot be changed later without two of them ending up in one
+        // history, so it is asked before the recording starts rather than after.
+        const saveContract = vi.fn<(contract: RecordedContract) => Promise<void>>()
+            .mockResolvedValue(undefined);
+        renderInKernel(saveContract);
+        fireEvent.click(await screen.findByRole('button', { name: 'Record another pair' }));
+
+        fireEvent.click(await screen.findByRole('button', { name: /NANOUSDT/ }));
+        fireEvent.click(await screen.findByRole('button', { name: '0.001 per row' }));
+
+        expect(saveContract).toHaveBeenCalledWith({
+            venue: FIRST_VENUE,
+            instrumentSymbol: 'NANOUSDT',
+            priceBucketSize: 0.001,
+            frameIntervalMs: 1_000,
+            isEnabled: true,
+        });
+    });
+
+    it('says a pair is already on the list rather than offering it twice', async () => {
+        renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
+        fireEvent.click(await screen.findByRole('button', { name: 'Record another pair' }));
+
+        const btc = await screen.findByRole('button', { name: /BTCUSDT/ });
+
+        expect(btc.textContent).toContain('on the list');
+        expect(btc.hasAttribute('disabled')).toBe(true);
     });
 });
