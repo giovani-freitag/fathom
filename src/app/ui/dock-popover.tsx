@@ -5,6 +5,7 @@ import {
     CONTROL_ACTIVE_CLASSES,
     CONTROL_BUTTON_CLASSES,
     CONTROL_RESTING_CLASSES,
+    ROOMY_CARD_CLASSES,
 } from './control-shell.ts';
 
 interface DockPopoverProps {
@@ -70,17 +71,7 @@ export function DockPopover({
                     sideOffset={10}
                     collisionPadding={12}
                     className={`${FLOATING_CARD_CLASSES} z-50 ${
-                        isRoomy
-                            // Radix measures the room it has and hands it over;
-                            // taken rather than guessed, the card is as tall as
-                            // the window allows and no taller.
-                            // A minimum as well as a maximum: a list holding one
-                            // pair and a venue listing nine hundred are the same
-                            // card, and one that collapses to a single row
-                            // between them moves the targets under the cursor.
-                            ? 'flex h-[min(34rem,var(--radix-popover-content-available-height))]'
-                              + ' w-[min(52rem,calc(100vw-1.5rem))] flex-col overflow-hidden !p-0'
-                            : 'max-h-[60dvh] overflow-y-auto'
+                        isRoomy ? ROOMY_CARD_CLASSES : 'max-h-[60dvh] overflow-y-auto'
                     }`}
                 >
                     {children}

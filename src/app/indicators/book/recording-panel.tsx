@@ -136,41 +136,38 @@ export function RecordingPanel({ recording, onContractsChanged, translate }: Rec
                 </div>
             ))}
 
-            <button
-                type="button"
-                onClick={() => { setIsPicking(true); }}
-                className={`${CONTROL_CHIP_CLASSES} h-8 w-full justify-center ${CONTROL_OFFERED_CLASSES}`}
-            >
-                {translate('recording.addPair')}
-            </button>
-
-            {/* Over the chart rather than inside this rail: a venue lists a
-                thousand pairs, and the panel it would be listed in is three
-                hundred pixels wide. Built only once it is asked for, so a panel
-                nobody opened fetches nothing. */}
-            {isPicking && (
-                <RecordingCard
-                    isOpen={isPicking}
-                    onOpenChange={setIsPicking}
-                    venues={venues.offered}
-                    silent={venues.silent}
-                    contracts={state.contracts}
-                    isSaving={isSaving}
-                    translate={translate}
-                    onRecord={(venue, instrument, priceBucketSize) => {
-                        void apply(recording.saveContract({
-                            venue,
-                            instrumentSymbol: instrument.symbol,
-                            priceBucketSize,
-                            // The rate every contract here is recorded at; the panel
-                            // offers no choice because nothing downstream reads a
-                            // second one.
-                            frameIntervalMs: 1_000,
-                            isEnabled: true,
-                        })).then(onContractsChanged);
-                    }}
-                />
-            )}
+            {/* Beside this rail rather than inside it: a venue lists a thousand
+                pairs, and the panel it would be listed in is three hundred
+                pixels wide. */}
+            <RecordingCard
+                isOpen={isPicking}
+                onOpenChange={setIsPicking}
+                trigger={(
+                    <button
+                        type="button"
+                        className={`${CONTROL_CHIP_CLASSES} h-8 w-full justify-center ${CONTROL_OFFERED_CLASSES}`}
+                    >
+                        {translate('recording.addPair')}
+                    </button>
+                )}
+                venues={venues.offered}
+                silent={venues.silent}
+                contracts={state.contracts}
+                isSaving={isSaving}
+                translate={translate}
+                onRecord={(venue, instrument, priceBucketSize) => {
+                    void apply(recording.saveContract({
+                        venue,
+                        instrumentSymbol: instrument.symbol,
+                        priceBucketSize,
+                        // The rate every contract here is recorded at; the panel
+                        // offers no choice because nothing downstream reads a
+                        // second one.
+                        frameIntervalMs: 1_000,
+                        isEnabled: true,
+                    })).then(onContractsChanged);
+                }}
+            />
 
             <BudgetChooser
                 budget={state.budget}

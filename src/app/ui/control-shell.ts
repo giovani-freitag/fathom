@@ -116,4 +116,17 @@ export const PANEL_ADD_CLASSES =
  */
 export const OVERLAY_CLASSES = 'fixed inset-0 z-40 bg-black/25';
 
+/**
+ * A card wide enough to read a listing on.
+ *
+ * Radix measures the room it has and hands it over, so the card is as tall as
+ * the window allows and no taller. A minimum as well as a maximum: a list
+ * holding one pair and a venue listing nine hundred are the same card, and one
+ * that collapses to a single row between them moves the targets under the
+ * cursor.
+ */
+export const ROOMY_CARD_CLASSES =
+    'flex h-[min(34rem,var(--radix-popover-content-available-height))]'
+    + ' w-[min(52rem,calc(100vw-1.5rem))] flex-col overflow-hidden !p-0';
+
 export const PANEL_TITLE_CLASSES = 'text-sm font-semibold tracking-wide text-ink-100';
