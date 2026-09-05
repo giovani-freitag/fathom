@@ -49,10 +49,14 @@ place that can say so.
 is two recordings with two different pasts, and a tag holding only the symbol
 opens whichever the chart finds first.
 
-**A tag's colour comes from the rotation the chart hands its own layers**, not
-from a picker. The palette is already the one thing on this build that says
-which of two things is which, and a free colour lets a reader pick one the
-theme cannot show and one the chart means something else by.
+**A tag is given a colour from the rotation the chart hands its own layers, and
+a reader may name any other.** The rotation is what a new tag gets, because it
+is already the set that reads on both grounds and the one the chart uses to say
+which of two things is which. It is not a limit: there is no cap on how many
+tags a reader makes and there are five colours, so the picker offers those five
+and then the whole spectrum. A colour from the rotation is stored as the token
+and follows the reader between themes; one they named is stored as they named
+it, and checked on the way back in, because it is written into a style.
 
 **The first tag is named by the interface, not by storage.** It is stored with
 an empty label and rendered as "Favourites" or "Favoritos". A name written into

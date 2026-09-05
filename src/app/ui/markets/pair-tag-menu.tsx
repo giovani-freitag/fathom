@@ -3,7 +3,7 @@ import { DropdownMenu } from 'radix-ui';
 import { labelOf } from '../../markets/tag-names.ts';
 import type { MarketPair, PairTag } from '../../../shared/core/pair-tags.ts';
 import type { ReactElement } from 'react';
-import { ToneSwatch } from '../indicators/tone-swatch.tsx';
+import { TagSwatch } from './tag-swatch.tsx';
 import type { Translate } from '../../i18n/translator.ts';
 
 /** How many marks a row shows before it stops being a row and starts being a list. */
@@ -52,7 +52,7 @@ export function PairTagMenu({ pair, tags, held, translate, onToggle }: PairTagMe
                             {tags
                                 .filter((tag) => held.has(tag.id))
                                 .slice(0, MARKS_SHOWN)
-                                .map((tag) => <ToneSwatch key={tag.id} tone={tag.tone} className="size-2.5" />)}
+                                .map((tag) => <TagSwatch key={tag.id} colour={tag.colour} className="size-2.5" />)}
                         </span>
                     )}
             </DropdownMenu.Trigger>
@@ -82,7 +82,7 @@ export function PairTagMenu({ pair, tags, held, translate, onToggle }: PairTagMe
                                 onCheckedChange={(wanted) => { onToggle(tag.id, wanted); }}
                                 className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs text-ink-200 outline-none data-[highlighted]:bg-abyss-700 data-[highlighted]:text-ink-100"
                             >
-                                <ToneSwatch tone={tag.tone} className="size-2.5 shrink-0" />
+                                <TagSwatch colour={tag.colour} className="size-2.5 shrink-0" />
                                 <span className="min-w-0 flex-1 truncate">{said}</span>
                                 {isOn && <Check size={13} className="shrink-0 text-phosphor" />}
                             </DropdownMenu.CheckboxItem>

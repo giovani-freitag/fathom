@@ -44,9 +44,20 @@ function buildShelf(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
  * What a venue answers a test that asks it what it trades.
  *
  * Two pairs, shaped the way the shipped venue shapes its listing, so a panel
- * test drives the real connector rather than a stand-in for it.
+ * test drives the real connector rather than a stand-in for it. A URL carrying
+ * a search answers with the one pair only the venue could have matched, which
+ * is how a test tells the venue's answer from a search of what it had read.
  */
-function readListings(): Promise<Response> {
+function readListings(url: RequestInfo | URL): Promise<Response> {
+    if (addressOf(url).includes('search=')) {
+        return Promise.resolve(new Response(JSON.stringify({
+            symbols: [{
+                symbol: 'FOUNDUSDT', baseAsset: 'FOUND', quoteAsset: 'USDT', status: 'TRADING',
+                filters: [{ filterType: 'PRICE_FILTER', tickSize: '0.1' }],
+            }],
+        })));
+    }
+
     return Promise.resolve(new Response(JSON.stringify({
         symbols: [
             {
@@ -59,6 +70,16 @@ function readListings(): Promise<Response> {
             },
         ],
     })));
+}
+
+/**
+ * The address a fetch was called with, whichever of the three shapes it took.
+ */
+function addressOf(url: RequestInfo | URL): string {
+    if (typeof url === 'string') {
+        return url;
+    }
+    return url instanceof URL ? url.href : url.url;
 }
 
 /** Enough bars that every shipped indicator has something to say. */

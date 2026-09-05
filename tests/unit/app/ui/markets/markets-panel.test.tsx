@@ -106,6 +106,60 @@ describe('the card a reader picks a contract on', () => {
     });
 });
 
+describe('searching a venue that answers searches itself', () => {
+    /** A venue whose listing is paged, and which matches typing on its own. */
+    function registerSearchable(): void {
+        registerConnector('searchable', Object.assign(
+            buildConnector({ book: null, tape: null, bars: null }),
+            {
+                planInstruments: () => ({ url: 'https://venue.test/symbols' }),
+                readInstruments: (payload: unknown) => (payload as { symbols: [] }).symbols.map((one) => {
+                    const listed = one as { symbol: string; baseAsset: string; quoteAsset: string };
+                    return {
+                        symbol: listed.symbol,
+                        base: listed.baseAsset,
+                        quote: listed.quoteAsset,
+                        priceStep: 0.1,
+                        isTrading: true,
+                    };
+                }),
+                planInstrumentSearch: (term: string) => ({ url: `https://venue.test/symbols?search=${term}` }),
+            },
+        ));
+    }
+
+    afterEach(() => { forgetConnector('searchable'); });
+
+    it('shows what the venue matched, not what the page happened to hold', async () => {
+        // The reason it exists: a listing still arriving is a listing whose
+        // search says "not listed" about pairs that are.
+        registerSearchable();
+        renderPanel();
+        fireEvent.click(screen.getByRole('button', { name: 'searchable' }));
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: 'Tags on BTCUSDT' })).toBeDefined();
+        });
+
+        fireEvent.change(screen.getByLabelText('Search pairs'), { target: { value: 'found' } });
+
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: 'Tags on FOUNDUSDT' })).toBeDefined();
+        });
+    });
+
+    it('searches what it has read where the venue offers no search of its own', async () => {
+        renderPanel();
+        await browse();
+
+        fireEvent.change(screen.getByLabelText('Search pairs'), { target: { value: 'NANO' } });
+
+        await waitFor(() => {
+            expect(screen.queryByRole('button', { name: 'Tags on BTCUSDT' })).toBeNull();
+        });
+        expect(screen.getByRole('button', { name: 'Tags on NANOUSDT' })).toBeDefined();
+    });
+});
+
 describe('narrowing a venue listing', () => {
     it('searches by asset as well as by symbol', async () => {
         renderPanel();
@@ -207,6 +261,34 @@ describe('keeping a pair', () => {
         makeTag('Shitcoins');
 
         expect(railRow('Shitcoins').getAttribute('aria-current')).toBe('true');
+    });
+});
+
+describe('the colour a tag is marked in', () => {
+    /** The swatch on a tag's row in the rail, which is also its colour control. */
+    function colourControl(name: string): HTMLElement {
+        return screen.getByRole('button', { name: `Change this tag's colour — ${name}` });
+    }
+
+    it('offers the chart\'s own colours, which follow the reader between themes', () => {
+        renderPanel();
+
+        fireEvent.click(colourControl('Favourites'));
+        fireEvent.click(screen.getByRole('button', { name: 'Blue' }));
+
+        expect(colourControl('Favourites').querySelector('.bg-cyan')).not.toBeNull();
+    });
+
+    it('takes any colour a reader names, because tags outnumber the palette', () => {
+        // Five colours and no limit on tags: a reader on their eighth has run
+        // out of palette, not out of tags.
+        renderPanel();
+
+        fireEvent.click(colourControl('Favourites'));
+        fireEvent.change(screen.getByLabelText('Any other colour'), { target: { value: '#ff8800' } });
+
+        expect(colourControl('Favourites').querySelector('span[style]')?.getAttribute('style'))
+            .toContain('rgb(255, 136, 0)');
     });
 });
 

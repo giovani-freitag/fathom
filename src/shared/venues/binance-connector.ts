@@ -49,7 +49,7 @@ class BinanceFutures extends Connector {
     readonly declaration: VenueDeclaration = BINANCE_FUTURES;
 
     planInstruments(): VenueRequest {
-        return { url: `${BinanceFutures.REST}/fapi/v1/exchangeInfo` };
+        return { url: this.address(BinanceFutures.REST, '/fapi/v1/exchangeInfo') };
     }
 
     readInstruments(payload: unknown): readonly VenueInstrument[] {
@@ -63,16 +63,21 @@ class BinanceFutures extends Connector {
      * collector has been opening all along.
      */
     override planStream(symbol: string): VenueStreamPlan {
-        return {
-            url: `${BinanceFutures.SOCKET}/stream?streams=${symbol.toLowerCase()}@depth@100ms`
-                + `/${symbol.toLowerCase()}@trade`,
-        };
+        const named = symbol.toLowerCase();
+        const url = new URL('/stream', BinanceFutures.SOCKET);
+        // Written into the query as it stands rather than through
+        // `searchParams`: the venue names its streams with `@` and separates
+        // them with `/`, and a percent-encoded name subscribes to nothing.
+        url.search = `streams=${named}@depth@100ms/${named}@trade`;
+        return { url: url.href };
     }
 
     override planSnapshot(symbol: string): VenueRequest {
         return {
-            url: `${BinanceFutures.REST}/fapi/v1/depth?symbol=${encodeURIComponent(symbol)}`
-                + `&limit=${String(BinanceFutures.SNAPSHOT_LEVELS)}`,
+            url: this.address(BinanceFutures.REST, '/fapi/v1/depth', {
+                symbol,
+                limit: BinanceFutures.SNAPSHOT_LEVELS,
+            }),
         };
     }
 
@@ -100,13 +105,15 @@ class BinanceFutures extends Connector {
             throw new Error(`No venue candle of width ${String(request.widthMs)}ms`);
         }
 
-        const url = new URL('/fapi/v1/klines', BinanceFutures.REST);
-        url.searchParams.set('symbol', request.symbol);
-        url.searchParams.set('interval', interval);
-        url.searchParams.set('startTime', String(Math.floor(request.fromMs)));
-        url.searchParams.set('endTime', String(Math.floor(request.toMs)));
-        url.searchParams.set('limit', String(request.limit));
-        return { url: url.toString() };
+        return {
+            url: this.address(BinanceFutures.REST, '/fapi/v1/klines', {
+                symbol: request.symbol,
+                interval,
+                startTime: Math.floor(request.fromMs),
+                endTime: Math.floor(request.toMs),
+                limit: request.limit,
+            }),
+        };
     }
 
     /**

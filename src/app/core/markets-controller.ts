@@ -3,6 +3,7 @@ import {
     FAVOURITES_ID,
     type MarketPair,
     type PairTag,
+    type TagColour,
     withPairTagged,
     withPairUntagged,
     withTagAdded,
@@ -15,14 +16,19 @@ import type { PreferencesService } from '../services/preferences-service.ts';
 import type { ReadingFiles } from '../../shared/core/reading-files.ts';
 import type { StoredConnector } from '../../shared/core/stored-connector.ts';
 import type { VenueConnector, VenueInstrument } from '../../shared/core/venue-connector.ts';
-import type { PlotTone } from '../../shared/core/draw-plan.ts';
 import type { VenueGateway } from '../../shared/venues/venue-gateway.ts';
 import { VenueUnreachableError } from '../../shared/venues/venue-gateway.ts';
 
 /** What is known about one venue's listing, and how it got that way. */
 export type Listing =
     | { readonly kind: 'unread' }
-    | { readonly kind: 'reading' }
+    | {
+        readonly kind: 'reading';
+        /** What has arrived so far, which the picker shows rather than hides. */
+        readonly instruments: readonly VenueInstrument[];
+        /** How many there will be, where the venue said. */
+        readonly total: number | null;
+    }
     | { readonly kind: 'read'; readonly instruments: readonly VenueInstrument[] }
     | {
         readonly kind: 'refused';
@@ -36,6 +42,20 @@ export type Listing =
         readonly said: string | null;
     };
 
+/**
+ * What a venue answered about what a reader typed.
+ *
+ * Held apart from the listing rather than merged into it: a search is the
+ * venue's answer to one question asked once, and folding it into the listing
+ * would leave the picker unable to say which rows it had actually read.
+ */
+export interface VenueSearch {
+    readonly venue: string;
+    readonly term: string;
+    readonly kind: 'reading' | 'read' | 'refused';
+    readonly instruments: readonly VenueInstrument[];
+}
+
 export interface MarketsState {
     readonly tags: readonly PairTag[];
     /** Which tag the picker is showing, and which one a press files under. */
@@ -46,6 +66,13 @@ export interface MarketsState {
     readonly browsingVenue: string;
     /** What each venue lists, once anybody has asked. */
     readonly listings: Readonly<Record<string, Listing>>;
+    /**
+     * The venue's own answer to what the reader typed, where it offers one.
+     *
+     * Null where nothing has been typed, or where the venue answers no such
+     * question — and then the picker searches what it has read instead.
+     */
+    readonly search: VenueSearch | null;
     /** The connectors the reader installed, for the interface to show and undo. */
     readonly installed: readonly StoredConnector[];
 }
@@ -68,6 +95,7 @@ export class MarketsController {
 
     private readonly config: MarketsControllerConfig;
     private readonly inFlight = new Map<string, AbortController>();
+    private searching: AbortController | null = null;
 
     constructor(config: MarketsControllerConfig) {
         this.config = config;
@@ -79,6 +107,7 @@ export class MarketsController {
             venues: listConnectors().map(([id]) => id),
             browsingVenue: listConnectors()[0]?.[0] ?? '',
             listings: {},
+            search: null,
             installed: stored.connectorSources,
         } });
     }
@@ -150,10 +179,10 @@ export class MarketsController {
      * Marks a tag in a different colour.
      *
      * @param tagId - Which tag.
-     * @param tone - What to mark it in.
+     * @param colour - What to mark it in.
      */
-    recolourTag(tagId: string, tone: PlotTone): void {
-        this.writeTags(withTagRecoloured(this.store.read().tags, tagId, tone));
+    recolourTag(tagId: string, colour: TagColour): void {
+        this.writeTags(withTagRecoloured(this.store.read().tags, tagId, colour));
     }
 
     /**
@@ -196,10 +225,21 @@ export class MarketsController {
         this.inFlight.get(venue)?.abort();
         const aborts = new AbortController();
         this.inFlight.set(venue, aborts);
-        this.writeListing(venue, { kind: 'reading' });
+        this.writeListing(venue, { kind: 'reading', instruments: [], total: null });
 
         try {
-            const instruments = await this.config.gateway.fetchInstruments(connector, aborts.signal);
+            const instruments = await this.config.gateway.fetchInstruments(
+                connector,
+                // Shown as it lands. A card that stays empty until the last page
+                // of four thousand pairs arrives cannot be told from a broken
+                // one, and the reader is usually after a pair on the first page.
+                (gathered, total) => {
+                    if (this.inFlight.get(venue) === aborts) {
+                        this.writeListing(venue, { kind: 'reading', instruments: gathered, total });
+                    }
+                },
+                aborts.signal,
+            );
             if (this.inFlight.get(venue) === aborts) {
                 this.writeListing(venue, { kind: 'read', instruments });
             }
@@ -210,6 +250,51 @@ export class MarketsController {
         } finally {
             if (this.inFlight.get(venue) === aborts) {
                 this.inFlight.delete(venue);
+            }
+        }
+    }
+
+    /**
+     * Asks a venue what it lists under what the reader typed.
+     *
+     * Only where the venue offers a search of its own: everywhere else the
+     * picker searches what it has already read, and this leaves nothing behind
+     * for it to have to ignore.
+     *
+     * @param venue - Which venue is being browsed.
+     * @param term - What the reader typed, empty where they cleared it.
+     */
+    async searchListing(venue: string, term: string): Promise<void> {
+        const wanted = term.trim();
+        this.searching?.abort();
+        this.searching = null;
+
+        const connector = listConnectors().find(([id]) => id === venue)?.[1];
+        if (wanted === '' || connector === undefined) {
+            this.writeSearch(null);
+            return;
+        }
+
+        const aborts = new AbortController();
+        this.searching = aborts;
+        const asked: VenueSearch = { venue, term: wanted, kind: 'reading', instruments: [] };
+        this.writeSearch(asked);
+
+        try {
+            const found = await this.config.gateway.searchInstruments(connector, wanted, aborts.signal);
+            if (this.searching !== aborts) {
+                return;
+            }
+            // Null is the venue saying it has no such endpoint, which is not a
+            // failure and must not be shown as one.
+            this.writeSearch(found === null ? null : { ...asked, kind: 'read', instruments: found });
+        } catch {
+            if (this.searching === aborts) {
+                this.writeSearch({ ...asked, kind: 'refused' });
+            }
+        } finally {
+            if (this.searching === aborts) {
+                this.searching = null;
             }
         }
     }
@@ -281,6 +366,10 @@ export class MarketsController {
     private writeTags(tags: readonly PairTag[]): void {
         this.config.preferences.write({ pairTags: tags });
         this.store.update((current) => ({ ...current, tags }));
+    }
+
+    private writeSearch(search: VenueSearch | null): void {
+        this.store.update((current) => ({ ...current, search }));
     }
 
     private writeListing(venue: string, listing: Listing): void {

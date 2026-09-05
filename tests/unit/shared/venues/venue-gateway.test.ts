@@ -8,6 +8,57 @@ function answerWith(body: unknown, init: ResponseInit = {}): typeof globalThis.f
     return vi.fn(() => Promise.resolve(new Response(JSON.stringify(body), init)));
 }
 
+/** How many a venue serving its listing in pages hands over at a time. */
+const PER_PAGE = 500;
+
+function instrument(symbol: string) {
+    return { symbol, base: symbol.slice(0, 3), quote: 'USDT', priceStep: 0.1, isTrading: true };
+}
+
+/** Every symbol a listing of that many holds, in the venue's own order. */
+function everySymbol(total: number): string[] {
+    return Array.from({ length: Math.min(total, 20 * PER_PAGE) }, (_, at) => `P${String(at)}`);
+}
+
+/**
+ * A connector for a venue that pages, and says how many it has.
+ */
+function pagedConnector() {
+    return Object.assign(buildConnector(NOTHING), {
+        planInstruments: (from: number) => ({ url: `https://venue.test/pairs?from=${String(from)}` }),
+        readInstruments: (payload: unknown) => (payload as { pairs: [] }).pairs,
+        readInstrumentTotal: (payload: unknown) => (payload as { total: number }).total,
+    });
+}
+
+/**
+ * A venue serving a listing of that size, five hundred at a time.
+ *
+ * @param total - How many it says it lists.
+ * @param asked - Filled in with every URL it was asked for.
+ * @param order - `slowest: 'first'` answers the earliest page last, which is
+ *                what a network does to requests sent together.
+ */
+function pagesOf(
+    total: number,
+    asked: string[],
+    order: { slowest?: 'first' } = {},
+): typeof globalThis.fetch {
+    return vi.fn(async (url: string) => {
+        asked.push(url);
+        const from = Number(new URL(url).searchParams.get('from'));
+        if (order.slowest === 'first') {
+            await new Promise((wake) => { setTimeout(wake, from === 0 ? 0 : 20 - (from / PER_PAGE)); });
+        }
+
+        const pairs = Array.from(
+            { length: Math.max(0, Math.min(PER_PAGE, total - from)) },
+            (_, at) => instrument(`P${String(from + at)}`),
+        );
+        return new Response(JSON.stringify({ pairs, total }));
+    }) as unknown as typeof globalThis.fetch;
+}
+
 describe('what the engine does with a plan', () => {
     it('fetches the URL the connector named and hands back what it answered', async () => {
         const fetch = answerWith({ ok: true });
@@ -90,6 +141,103 @@ describe('reading a listing through a connector', () => {
         const listed = await gateway.fetchInstruments(connector);
 
         expect(listed).toHaveLength(1);
+    });
+
+    it('asks for every remaining page at once, where the venue said how many', async () => {
+        // The difference between a listing and a wait: four thousand pairs at
+        // five hundred a page is eight requests, and asking for each only after
+        // the one before it has answered is eight round trips a reader watches.
+        const asked: string[] = [];
+        const gateway = new VenueGateway({ fetch: pagesOf(1_250, asked) });
+
+        const listed = await gateway.fetchInstruments(pagedConnector());
+
+        expect(listed.map((one) => one.symbol)).toEqual(everySymbol(1_250));
+        expect(asked).toHaveLength(3);
+    });
+
+    it('keeps the venue\'s own order, whichever page answers first', async () => {
+        // The pages go out together and come back in whatever order the network
+        // hands them over. A listing that reshuffles itself between two readings
+        // is one a reader cannot learn the shape of.
+        const gateway = new VenueGateway({ fetch: pagesOf(1_250, [], { slowest: 'first' }) });
+
+        const listed = await gateway.fetchInstruments(pagedConnector());
+
+        expect(listed.map((one) => one.symbol)).toEqual(everySymbol(1_250));
+    });
+
+    it('hands over each page as it lands, so the picker can show it', async () => {
+        const seen: number[] = [];
+        const gateway = new VenueGateway({ fetch: pagesOf(1_250, []) });
+
+        await gateway.fetchInstruments(pagedConnector(), (gathered, total) => {
+            seen.push(gathered.length);
+            expect(total).toBe(1_250);
+        });
+
+        expect(seen[0]).toBe(500);
+        expect(seen.at(-1)).toBe(1_250);
+    });
+
+    it('stops at the page the engine will not read past', async () => {
+        // A venue claiming a million pairs is a venue the engine reads twenty
+        // pages of, rather than one it reads until the reader gives up.
+        const asked: string[] = [];
+        const gateway = new VenueGateway({ fetch: pagesOf(1_000_000, asked) });
+
+        await gateway.fetchInstruments(pagedConnector());
+
+        expect(asked).toHaveLength(20);
+    });
+
+    it('walks page by page where the venue only hands out a cursor', async () => {
+        // The other shape: a token that cannot be guessed, so the pages can
+        // only be asked for in order.
+        const connector = Object.assign(buildConnector(NOTHING), {
+            planInstruments: () => ({ url: 'https://venue.test/pairs' }),
+            readInstruments: (payload: unknown) => (payload as { pairs: [] }).pairs,
+            continueInstruments: (payload: unknown) => {
+                const next = (payload as { next?: string }).next;
+                return next === undefined ? null : { url: next };
+            },
+        });
+        const fetch = vi.fn((url: string) => Promise.resolve(new Response(JSON.stringify(
+            url.includes('after=1')
+                ? { pairs: [instrument('B')] }
+                : { pairs: [instrument('A')], next: 'https://venue.test/pairs?after=1' },
+        )))) as unknown as typeof globalThis.fetch;
+
+        const listed = await new VenueGateway({ fetch }).fetchInstruments(connector);
+
+        expect(listed.map((one) => one.symbol)).toEqual(['A', 'B']);
+    });
+
+    it('asks the venue what a reader typed, where the venue answers that', async () => {
+        const connector = Object.assign(buildConnector(NOTHING), {
+            planInstruments: () => ({ url: 'https://venue.test/pairs' }),
+            readInstruments: (payload: unknown) => (payload as { pairs: [] }).pairs,
+            planInstrumentSearch: (term: string) => ({ url: `https://venue.test/find?q=${term}` }),
+        });
+        const fetch = answerWith({ pairs: [instrument('NANOUSDT')] });
+
+        const found = await new VenueGateway({ fetch }).searchInstruments(connector, 'nano');
+
+        expect(found?.map((one) => one.symbol)).toEqual(['NANOUSDT']);
+        expect(fetch).toHaveBeenCalledWith('https://venue.test/find?q=nano', expect.anything());
+    });
+
+    it('says nothing rather than nothing found, where the venue offers no search', async () => {
+        // The two are opposite answers: one means the pair is not listed, the
+        // other means the question has to be asked of what was already read.
+        const fetch = answerWith({});
+        const connector = Object.assign(buildConnector(NOTHING), {
+            planInstruments: () => ({ url: 'https://venue.test/pairs' }),
+            readInstruments: () => [],
+        });
+
+        expect(await new VenueGateway({ fetch }).searchInstruments(connector, 'nano')).toBeNull();
+        expect(fetch).not.toHaveBeenCalled();
     });
 
     it('blames the connector when it cannot read what the venue sent', async () => {

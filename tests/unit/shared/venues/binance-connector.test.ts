@@ -36,6 +36,28 @@ describe('the connector for the venue every recording came from', () => {
     });
 });
 
+describe('the addresses it names', () => {
+    it('subscribes to both streams on one socket, unescaped', () => {
+        // The one URL a live recording opens. The venue names its streams with
+        // `@` and separates them with `/`, and a query built the careful way
+        // escapes both — subscribing to a stream nothing publishes, on a socket
+        // that stays open and silent.
+        expect(BINANCE_CONNECTOR.planStream('BTCUSDT', '').url)
+            .toBe('wss://fstream.binance.com/stream?streams=btcusdt@depth@100ms/btcusdt@trade');
+    });
+
+    it('asks for the deepest ladder the endpoint serves', () => {
+        expect(BINANCE_CONNECTOR.planSnapshot('BTCUSDT').url)
+            .toBe('https://fapi.binance.com/fapi/v1/depth?symbol=BTCUSDT&limit=1000');
+    });
+
+    it('escapes what belongs to the reader', () => {
+        // A symbol reaches this from a listing the venue served, but the same
+        // method is what a reader's own connector calls with their own text.
+        expect(BINANCE_CONNECTOR.planSnapshot('BTC&USDT').url).toContain('symbol=BTC%26USDT');
+    });
+});
+
 describe('its listing', () => {
     it('names each pair by its base and its quote', () => {
         const listed = BINANCE_CONNECTOR.readInstruments(EXCHANGE_INFO);

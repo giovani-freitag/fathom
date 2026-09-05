@@ -17,6 +17,16 @@ const ALLOWED_PROTOCOL = 'https:';
  */
 const PAGES_PER_LISTING = 20;
 
+/**
+ * Pages asked for at once, where the venue said how many there are.
+ *
+ * A listing is a reader waiting, so the pages go out together rather than one
+ * after another. Bounded because a venue answering forty requests in one breath
+ * is a venue that starts refusing them, and a rate limit costs the whole listing
+ * rather than the page it landed on.
+ */
+const PAGES_AT_ONCE = 5;
+
 export interface VenueGatewayConfig {
     /** Injected so a test can answer without a network. */
     readonly fetch: typeof globalThis.fetch;
@@ -59,33 +69,155 @@ export class VenueGateway {
     /**
      * Everything a venue lists, as the chart names instruments.
      *
+     * Handed over as it arrives rather than only at the end: a venue with four
+     * thousand pairs is several requests, and a reader watching an empty card
+     * until the last one lands has no way of telling a slow listing from a
+     * broken one.
+     *
      * @param connector - The connector for that venue.
+     * @param onRead - Called with each page gathered so far, and the total the
+     *                 venue named if it named one.
      * @param signal - Aborts the fetch when the reader has moved on.
-     * @returns Its listing, in the order the venue gave it.
+     * @returns Its listing, in the venue's own order.
      * @throws VenueUnreachableError when the venue refuses, stalls, or answers
      *         with something the connector cannot read.
      */
     async fetchInstruments(
         connector: VenueConnector,
+        onRead?: (gathered: readonly VenueInstrument[], total: number | null) => void,
         signal?: AbortSignal,
     ): Promise<readonly VenueInstrument[]> {
-        const gathered: VenueInstrument[] = [];
-        let request: VenueRequest | null = connector.planInstruments();
+        const first = await this.perform(connector.planInstruments(0), signal);
+        const opening = this.readPage(connector, first);
+        const total = this.readTotal(connector, first);
+        onRead?.(opening, total);
 
-        // A venue that serves its listing in pages is asked for the next one
-        // until it says there is none. Capped, because a connector that always
-        // answers with another page is one that never returns.
-        for (let page = 0; request !== null && page < PAGES_PER_LISTING; page += 1) {
-            const payload = await this.perform(request, signal);
-            try {
-                gathered.push(...connector.readInstruments(payload));
-                request = connector.continueInstruments(payload, gathered.length);
-            } catch (error) {
-                throw new VenueUnreachableError('The connector could not read the listing.', { cause: error });
-            }
+        // Two shapes of paging, and a venue answers to one of them. Where it
+        // says how many it has, every remaining page can be asked for at once;
+        // where it only hands out a cursor, they can only be walked.
+        const rest = total !== null && opening.length > 0 && total > opening.length
+            ? await this.fetchPagesAtOnce(connector, opening, total, onRead, signal)
+            : await this.walkPages(connector, first, opening, onRead, signal);
+
+        return [...opening, ...rest];
+    }
+
+    /**
+     * What a venue matches against a reader's typing, where it offers that.
+     *
+     * @param connector - The connector for that venue.
+     * @param term - What the reader typed.
+     * @param signal - Aborts the fetch when the reader types again.
+     * @returns What the venue answered, or null where it offers no search.
+     * @throws VenueUnreachableError on the same failures as every other request.
+     */
+    async searchInstruments(
+        connector: VenueConnector,
+        term: string,
+        signal?: AbortSignal,
+    ): Promise<readonly VenueInstrument[] | null> {
+        const request = connector.planInstrumentSearch(term);
+        if (request === null) {
+            return null;
+        }
+
+        return this.readPage(connector, await this.perform(request, signal));
+    }
+
+    /**
+     * The pages after the first, asked for together.
+     *
+     * Kept in the order the venue serves them rather than in the order they
+     * answer: a listing that reshuffles itself between two readings is one a
+     * reader cannot learn the shape of, and the venue's own order is usually the
+     * one worth keeping.
+     */
+    private async fetchPagesAtOnce(
+        connector: VenueConnector,
+        opening: readonly VenueInstrument[],
+        total: number,
+        onRead: ((gathered: readonly VenueInstrument[], total: number | null) => void) | undefined,
+        signal: AbortSignal | undefined,
+    ): Promise<readonly VenueInstrument[]> {
+        // The page size the venue actually served, rather than one declared
+        // somewhere else and then not honoured.
+        const perPage = opening.length;
+        const wanted: number[] = [];
+        for (let from = perPage; from < total && wanted.length < PAGES_PER_LISTING - 1; from += perPage) {
+            wanted.push(from);
+        }
+
+        const pages: VenueInstrument[][] = [];
+        for (let at = 0; at < wanted.length; at += PAGES_AT_ONCE) {
+            const batch = wanted.slice(at, at + PAGES_AT_ONCE);
+            const read = await Promise.all(batch.map(async (from) =>
+                this.readPage(connector, await this.perform(connector.planInstruments(from), signal))));
+
+            pages.push(...read.map((page) => [...page]));
+            onRead?.([...opening, ...pages.flat()], total);
+        }
+
+        return pages.flat();
+    }
+
+    /**
+     * The pages after the first, for a venue that names each in the one before.
+     */
+    private async walkPages(
+        connector: VenueConnector,
+        first: unknown,
+        opening: readonly VenueInstrument[],
+        onRead: ((gathered: readonly VenueInstrument[], total: number | null) => void) | undefined,
+        signal: AbortSignal | undefined,
+    ): Promise<readonly VenueInstrument[]> {
+        const gathered: VenueInstrument[] = [];
+        let payload = first;
+        let request = this.readNext(connector, payload, opening.length);
+
+        // Capped, because a connector that always answers with another page is
+        // one whose listing never returns.
+        for (let page = 1; request !== null && page < PAGES_PER_LISTING; page += 1) {
+            payload = await this.perform(request, signal);
+            gathered.push(...this.readPage(connector, payload));
+            request = this.readNext(connector, payload, opening.length + gathered.length);
+            onRead?.([...opening, ...gathered], null);
         }
 
         return gathered;
+    }
+
+    /**
+     * One page read by the connector, with its own failures named as the venue's.
+     */
+    private readPage(connector: VenueConnector, payload: unknown): readonly VenueInstrument[] {
+        try {
+            return connector.readInstruments(payload);
+        } catch (error) {
+            throw new VenueUnreachableError('The connector could not read the listing.', { cause: error });
+        }
+    }
+
+    /**
+     * How many the venue said it lists, or null where it said nothing readable.
+     */
+    private readTotal(connector: VenueConnector, payload: unknown): number | null {
+        try {
+            const total = connector.readInstrumentTotal(payload);
+            return total !== null && Number.isFinite(total) && total > 0 ? Math.floor(total) : null;
+        } catch (error) {
+            throw new VenueUnreachableError('The connector could not read the listing.', { cause: error });
+        }
+    }
+
+    /**
+     * Where the connector says the next page is.
+     */
+    private readNext(connector: VenueConnector, payload: unknown, read: number): VenueRequest | null {
+        try {
+            return connector.continueInstruments(payload, read);
+        } catch (error) {
+            throw new VenueUnreachableError('The connector could not read the listing.', { cause: error });
+        }
     }
 
     /**

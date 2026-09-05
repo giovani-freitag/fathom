@@ -13,6 +13,17 @@ const NOW_MS = 1_700_000_000_000;
 const SOURCE = { 'main.ts': 'exports.default = {};', 'reading/parse.ts': 'exports.read = () => [];' };
 const BTC = { venue: FIRST_VENUE, symbol: 'BTCUSDT' };
 
+/** One instrument, as a venue's own search answers with it. */
+const PAIR = { symbol: 'BTC-USDC', base: 'BTC', quote: 'USDC', priceStep: 0.1, isTrading: true };
+
+/** A venue that matches typing itself, rather than leaving it to the picker. */
+function searchingConnector() {
+    return Object.assign(buildConnector({ book: null, tape: null, bars: null }), {
+        readInstruments: (payload: unknown) => (payload as { pairs: [] }).pairs,
+        planInstrumentSearch: (term: string) => ({ url: `https://venue.test/find?q=${term}` }),
+    });
+}
+
 /** A storage that keeps what it was given, the way a browser's does. */
 function buildStorage(): Storage {
     const held = new Map<string, string>();
@@ -92,6 +103,22 @@ describe('the tags a reader keeps', () => {
 });
 
 describe('asking a venue what it trades', () => {
+    it('shows the first page while the rest is still coming', async () => {
+        // A card that stays empty until the last page of four thousand pairs
+        // lands cannot be told from a broken one, and the pair the reader wants
+        // is usually on the first page.
+        const markets = buildController(answerWith(EXCHANGE_INFO));
+        const seen: (number | null)[] = [];
+        markets.store.subscribe((state) => {
+            const listing = state.listings[FIRST_VENUE];
+            seen.push(listing?.kind === 'reading' ? listing.instruments.length : null);
+        });
+
+        await markets.readListing(FIRST_VENUE);
+
+        expect(seen).toContain(1);
+    });
+
     it('says it is reading before it has an answer', async () => {
         const markets = buildController(answerWith(EXCHANGE_INFO));
 
@@ -188,6 +215,37 @@ describe('installing a venue a reader brought', () => {
         expect(markets.store.read().venues).not.toContain('kucoin');
         expect(markets.store.read().installed).toEqual([]);
         expect(new PreferencesService({ storage }).read().connectorSources).toEqual([]);
+    });
+
+    it('keeps the venue\'s own answer to what the reader typed', async () => {
+        const markets = buildController(answerWith({ pairs: [PAIR] }));
+        markets.installConnector('kucoin', searchingConnector(), SOURCE);
+
+        await markets.searchListing('kucoin', 'btc');
+
+        expect(markets.store.read().search?.kind).toBe('read');
+        expect(markets.store.read().search?.instruments).toEqual([PAIR]);
+    });
+
+    it('leaves nothing behind where the venue answers no such question', async () => {
+        // Null from the gateway is the venue saying it has no search, which is
+        // not a failure: shown as one, every venue but a handful looks broken.
+        const markets = buildController(answerWith({}));
+        markets.installConnector('kucoin', buildConnector({ book: null, tape: null, bars: null }), SOURCE);
+
+        await markets.searchListing('kucoin', 'btc');
+
+        expect(markets.store.read().search).toBeNull();
+    });
+
+    it('drops what was typed before, rather than answering the wrong word', async () => {
+        const markets = buildController(answerWith({ pairs: [PAIR] }));
+        markets.installConnector('kucoin', searchingConnector(), SOURCE);
+        await markets.searchListing('kucoin', 'btc');
+
+        await markets.searchListing('kucoin', '');
+
+        expect(markets.store.read().search).toBeNull();
     });
 
     it('leaves the pairs a reader kept from a venue they removed', () => {

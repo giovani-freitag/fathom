@@ -11,8 +11,9 @@ import { MarketsRail, type Showing } from './markets-rail.tsx';
 import { labelOf } from '../../markets/tag-names.ts';
 import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
 import { PairTable, type PairRow } from './pair-table.tsx';
-import { ToneSwatch } from '../indicators/tone-swatch.tsx';
+import { TagSwatch } from './tag-swatch.tsx';
 import type { Listing } from '../../core/markets-controller.ts';
+import type { VenueInstrument } from '../../../shared/core/venue-connector.ts';
 import type { Translate } from '../../i18n/translator.ts';
 import { readFactsFor } from '../../../shared/venues/venue-registry.ts';
 import { useChartSlice } from '../../react/use-chart-state.ts';
@@ -21,6 +22,14 @@ import { useTranslate } from '../../react/use-appearance.ts';
 
 /** What is known about a venue nobody has asked about yet. */
 const UNREAD: Listing = { kind: 'unread' };
+
+/**
+ * How long typing settles before the venue is asked about it.
+ *
+ * Long enough that a word is one question rather than five, short enough that
+ * the answer arrives while the reader is still looking at what they typed.
+ */
+const TYPING_SETTLES_MS = 250;
 
 interface MarketsPanelProps {
     /** Closes the card the panel is in, once a pair has been picked. */
@@ -74,7 +83,7 @@ export function MarketsPanel({
     );
     const openTag = state.tags.find((tag) => tag.id === state.openTagId) ?? state.tags[0];
     const tagLabel = openTag === undefined ? '' : labelOf(openTag, translate);
-    const tagTone = openTag?.tone ?? 'phosphor';
+    const tagColour = openTag?.colour ?? 'phosphor';
     const listing: Listing = useMemo(
         () => (showing.kind === 'venue' ? state.listings[showing.venue] ?? UNREAD : UNREAD),
         [showing, state.listings],
@@ -87,6 +96,19 @@ export function MarketsPanel({
             void markets.readListing(showing.venue);
         }
     }, [listing.kind, markets, showing]);
+
+    // Asked of the venue itself, where it answers such questions. The listing
+    // may still be arriving, and searching the part that happens to have landed
+    // is how a reader concludes a pair is not there.
+    useEffect(() => {
+        if (showing.kind !== 'venue') {
+            return undefined;
+        }
+
+        const venue = showing.venue;
+        const asking = setTimeout(() => { void markets.searchListing(venue, query); }, TYPING_SETTLES_MS);
+        return () => { clearTimeout(asking); };
+    }, [markets, query, showing]);
 
     // Two different answers, because a reader who reads the first one for the
     // second goes looking for a broken recording instead of for the `null` their
@@ -106,14 +128,35 @@ export function MarketsPanel({
             : translate('markets.noteNotRecorded')
     ), [translate]);
 
-    const quotes = useMemo(
-        () => (listing.kind === 'read' ? summariseQuotes(listing.instruments) : []),
-        [listing],
-    );
-    const narrowed = useMemo(
-        () => (listing.kind === 'read' ? narrowPairs(listing.instruments, { query, quote }) : null),
-        [listing, query, quote],
-    );
+    // What has been read, whether or not the reading has finished.
+    const listed = useMemo((): readonly VenueInstrument[] | null => {
+        if (listing.kind === 'read') {
+            return listing.instruments;
+        }
+        return listing.kind === 'reading' ? listing.instruments : null;
+    }, [listing]);
+
+    // The venue's own answer, where it gave one for what is typed now. Matched
+    // on the term as well as the venue: an answer to the previous word is worse
+    // than no answer at all.
+    const answered = useMemo(() => {
+        const search = state.search;
+        return showing.kind === 'venue' && search !== null && search.venue === showing.venue
+            && search.term === query.trim() && search.kind === 'read'
+            ? search.instruments
+            : null;
+    }, [state.search, showing, query]);
+
+    const quotes = useMemo(() => (listed === null ? [] : summariseQuotes(listed)), [listed]);
+    const narrowed = useMemo(() => {
+        if (answered !== null) {
+            // Narrowed by the chip alone: the venue has already decided what
+            // the typing matched, and matching it again with our own rule drops
+            // the rows it read more generously than we would have.
+            return narrowPairs(answered, { query: '', quote });
+        }
+        return listed === null ? null : narrowPairs(listed, { query, quote });
+    }, [answered, listed, query, quote]);
 
     // What a row is filed under, which its own first cell both shows and
     // changes. Read per row rather than per tag: a pair carries several, and
@@ -198,7 +241,7 @@ export function MarketsPanel({
                             row itself, so this says nothing about where a press
                             would put anything. */}
                         <span className="flex items-center gap-1.5 text-[11px] text-ink-500">
-                            {showing.kind === 'tag' && <ToneSwatch tone={tagTone} className="size-2" />}
+                            {showing.kind === 'tag' && <TagSwatch colour={tagColour} className="size-2" />}
                             {showing.kind === 'tag' ? tagLabel : showing.venue}
                         </span>
                         {quotes.length > 0 && (
@@ -239,18 +282,64 @@ export function MarketsPanel({
                         />
                     </Body>
 
-                    {narrowed !== null && narrowed.matched > narrowed.shown.length && (
-                        <p className="shrink-0 border-t border-hairline px-3 py-2 text-[11px] text-ink-500">
-                            {translate('markets.shownOf', {
-                                shown: String(narrowed.shown.length),
-                                matched: String(narrowed.matched),
-                            })}
-                        </p>
-                    )}
+                    <Footing
+                        listing={listing}
+                        shown={narrowed?.shown.length ?? 0}
+                        matched={narrowed?.matched ?? 0}
+                        isAsking={state.search?.kind === 'reading'}
+                        translate={translate}
+                    />
                 </section>
             </div>
         </div>
     );
+}
+
+interface FootingProps {
+    readonly listing: Listing;
+    readonly shown: number;
+    readonly matched: number;
+    /** True while the venue is being asked about what was typed. */
+    readonly isAsking: boolean;
+    readonly translate: Translate;
+}
+
+/**
+ * The line under the listing: what it is still doing, or what it left out.
+ *
+ * Two things a reader cannot work out from the rows themselves — that more are
+ * coming, and that more matched than fitted — and one strip at the bottom for
+ * both, rather than a spinner where the rows should be.
+ */
+function Footing({ listing, shown, matched, isAsking, translate }: FootingProps): ReactElement | null {
+    const said = readFooting({ listing, shown, matched, isAsking, translate });
+    if (said === null) {
+        return null;
+    }
+
+    return (
+        <p className="shrink-0 border-t border-hairline px-3 py-2 text-[11px] text-ink-500">{said}</p>
+    );
+}
+
+/**
+ * Which of those two it is, in the order that matters to a reader.
+ */
+function readFooting({ listing, shown, matched, isAsking, translate }: FootingProps): string | null {
+    if (isAsking) {
+        return translate('markets.askingVenue');
+    }
+    if (listing.kind === 'reading' && listing.instruments.length > 0) {
+        return listing.total === null
+            ? translate('markets.readingSome', { read: String(listing.instruments.length) })
+            : translate('markets.readingOf', {
+                read: String(listing.instruments.length),
+                total: String(listing.total),
+            });
+    }
+    return matched > shown
+        ? translate('markets.shownOf', { shown: String(shown), matched: String(matched) })
+        : null;
 }
 
 interface BodyProps {
@@ -269,7 +358,11 @@ interface BodyProps {
  * so the table only ever draws rows.
  */
 function Body({ showing, listing, rowCount, translate, onRetry, children }: BodyProps): ReactElement {
-    if (showing.kind === 'venue' && (listing.kind === 'unread' || listing.kind === 'reading')) {
+    // Only until the first page lands: after that the rows are the answer, and
+    // the line under them says the rest is still coming.
+    const isEmptyStill = listing.kind === 'unread'
+        || (listing.kind === 'reading' && listing.instruments.length === 0);
+    if (showing.kind === 'venue' && isEmptyStill) {
         return <Said said={translate('markets.reading')} />;
     }
 

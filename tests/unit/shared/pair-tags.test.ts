@@ -10,7 +10,6 @@ import {
     withTagRemoved,
     withTagRelabelled,
     withPairTagged,
-    nextTagTone,
     withPairUntagged,
     withTagRecoloured,
 } from '../../../src/shared/core/pair-tags.ts';
@@ -151,55 +150,63 @@ describe('the colour a tag is marked in', () => {
             tags = withTagAdded(tags, label);
         }
 
-        expect(new Set(tags.map((tag) => tag.tone)).size).toBe(tags.length);
+        expect(new Set(tags.map((tag) => tag.colour)).size).toBe(tags.length);
     });
 
-    it('comes back round once every colour is taken', () => {
-        // A reader with more tags than colours gets one twice, which is the
-        // point where colour has stopped saying which is which anyway.
+    it('comes back round once every colour in the rotation is taken', () => {
+        // The rotation is what a tag is *given*; a reader who wants a sixth
+        // colour names one, which is the next test.
         let tags = openingTags();
         for (let index = 0; index < INSTANCE_TONES.length; index += 1) {
             tags = withTagAdded(tags, `Tag ${String(index)}`);
         }
 
-        expect(new Set(tags.map((tag) => tag.tone)).size).toBe(INSTANCE_TONES.length);
+        expect(new Set(tags.map((tag) => tag.colour)).size).toBe(INSTANCE_TONES.length);
     });
 
-    it('cycles past a colour another tag is already marked in', () => {
-        // Two tags in one colour is the state the marks stop meaning anything
-        // in, and stepping one at a time walks a reader straight into it.
-        const tags = withTagAdded(withTagAdded(openingTags(), 'Shitcoins'), 'Majors');
+    it('takes any colour a reader names, because tags outnumber the palette', () => {
+        const tags = withTagRecoloured(withTagAdded(openingTags(), 'Shitcoins'), 'shitcoins', '#ff8800');
 
-        const next = nextTagTone(tags, tags[0]!.id);
-
-        expect([tags[1]?.tone, tags[2]?.tone]).not.toContain(next);
+        expect(tags[1]?.colour).toBe('#ff8800');
     });
 
-    it('moves anyway once there is no free colour left to move to', () => {
-        // A control that answers a press with nothing reads as a broken one,
-        // and a reader with more tags than colours has already accepted the
-        // repeat by making the sixth tag.
-        let tags = openingTags();
-        for (let index = 1; index < INSTANCE_TONES.length; index += 1) {
-            tags = withTagAdded(tags, `Tag ${String(index)}`);
-        }
+    it('keeps one of the chart\'s own as a token, so it follows the theme', () => {
+        // Written as a colour it would be right on one ground and wrong on the
+        // other: the palette resolves differently in the light theme.
+        const tags = withTagRecoloured(withTagAdded(openingTags(), 'Shitcoins'), 'shitcoins', 'cyan');
 
-        expect(nextTagTone(tags, tags[0]!.id)).not.toBe(tags[0]?.tone);
+        expect(tags[1]?.colour).toBe('cyan');
+    });
+
+    it('refuses one that is not a colour at all', () => {
+        // A tag's colour reaches a style attribute, and a tag coloured with a
+        // sentence is a sentence in the page's own CSS.
+        const named = withTagAdded(openingTags(), 'Shitcoins');
+
+        const tags = withTagRecoloured(named, 'shitcoins', 'red; content: bad' as never);
+
+        expect(tags[1]?.colour).toBe(named[1]?.colour);
     });
 
     it('is changed on the one asked for and no other', () => {
         const tags = withTagRecoloured(withTagAdded(openingTags(), 'Shitcoins'), 'shitcoins', 'cyan');
 
-        expect(tags[1]?.tone).toBe('cyan');
-        expect(tags[0]?.tone).toBe(openingTags()[0]?.tone);
+        expect(tags[1]?.colour).toBe('cyan');
+        expect(tags[0]?.colour).toBe(openingTags()[0]?.colour);
     });
 });
 
 describe('reading tags back out of storage', () => {
     it('keeps what a reader saved', () => {
-        const saved = [{ id: FAVOURITES_ID, label: '', tone: 'violet', pairs: [BTC] }];
+        const saved = [{ id: FAVOURITES_ID, label: '', colour: '#ff8800', pairs: [BTC] }];
 
         expect(readTags(JSON.parse(JSON.stringify(saved)))).toEqual(saved);
+    });
+
+    it('reads a tag kept before a reader could name its colour', () => {
+        const tags = readTags([{ id: FAVOURITES_ID, label: '', tone: 'violet', pairs: [] }]);
+
+        expect(tags[0]?.colour).toBe('violet');
     });
 
     it('reads a list a reader kept before tags as the tag it became', () => {
@@ -217,15 +224,15 @@ describe('reading tags back out of storage', () => {
             { id: 'shitcoins', name: 'Shitcoins', pairs: [] },
         ]);
 
-        expect(new Set(tags.map((tag) => tag.tone)).size).toBe(2);
+        expect(new Set(tags.map((tag) => tag.colour)).size).toBe(2);
     });
 
-    it('refuses a colour the chart does not hand out', () => {
-        // Stored is a file a reader can edit, and a tone outside the rotation
-        // reaches a lookup table that has no row for it.
-        const tags = readTags([{ id: FAVOURITES_ID, label: '', tone: 'chartreuse', pairs: [] }]);
+    it('refuses a colour that is neither the chart\'s nor one that can be shown', () => {
+        // Storage is a file a reader can edit, and what it holds is written
+        // into a style attribute.
+        const tags = readTags([{ id: FAVOURITES_ID, label: '', colour: 'chartreuse', pairs: [] }]);
 
-        expect(INSTANCE_TONES).toContain(tags[0]?.tone);
+        expect(INSTANCE_TONES).toContain(tags[0]?.colour);
     });
 
     it('answers with the opening set when storage held something else', () => {

@@ -34,7 +34,7 @@ export default class Simple extends Connector {
     };
 
     planInstruments() {
-        return { url: Simple.REST + '/markets' };
+        return { url: this.address(Simple.REST, '/markets') };
     }
 
     readInstruments(payload: unknown): VenueInstrument[] {
@@ -51,9 +51,15 @@ export default class Simple extends Connector {
     }
 
     override planBars(request: BarPageRequest) {
+        // Montada em vez de escrita à mão: o `address` escapa o que recebe,
+        // então um símbolo com `&` pede o par em vez de pedir dois parâmetros
+        // que a corretora nunca ouviu falar.
         return {
-            url: Simple.REST + '/candles?market=' + encodeURIComponent(request.symbol)
-                + '&from=' + String(request.fromMs) + '&to=' + String(request.toMs),
+            url: this.address(Simple.REST, '/candles', {
+                market: request.symbol,
+                from: request.fromMs,
+                to: request.toMs,
+            }),
         };
     }
 
@@ -82,8 +88,8 @@ Essa é uma corretora completa e instalável. Tudo abaixo é uma variação dela
 ## Uma listagem que chega em páginas
 
 Uma corretora com quatro mil pares raramente entrega todos de uma vez. Diga onde
-está a próxima página e o Fathom continua pedindo, para o seletor terminar com
-todos eles em vez de com os primeiros quinhentos.
+uma página está e quantos existem no total, e o Fathom calcula o resto dos
+endereços sozinho — pedindo todos juntos em vez de um depois do outro.
 
 ```ts
 import { Connector } from 'fathom';
@@ -95,8 +101,10 @@ export default class Paged extends Connector {
 
     readonly declaration = { book: null, tape: null, bars: null };
 
-    planInstruments(): VenueRequest {
-        return { url: Paged.pageFrom(0) };
+    planInstruments(from: number): VenueRequest {
+        return {
+            url: this.address(Paged.REST, '/symbols', { limit: Paged.PER_PAGE, offset: from }),
+        };
     }
 
     readInstruments(payload: unknown): VenueInstrument[] {
@@ -112,28 +120,55 @@ export default class Paged extends Connector {
         });
     }
 
-    override continueInstruments(payload: unknown, read: number): VenueRequest | null {
-        // Quantos a corretora diz que existem, contra quantos já chegaram. Uma
-        // corretora que não publica o total responde à mesma pergunta com uma
-        // página que veio curta.
-        const total = this.readNumber((payload as Record<string, unknown>)['total']) ?? 0;
-
-        return read < total ? { url: Paged.pageFrom(read) } : null;
-    }
-
-    /** Uma página, a partir de um deslocamento. */
-    private static pageFrom(offset: number): string {
-        return Paged.REST + '/symbols?limit=' + String(Paged.PER_PAGE)
-            + '&offset=' + String(offset);
+    override readInstrumentTotal(payload: unknown): number | null {
+        return this.readNumber((payload as Record<string, unknown>)['total']);
     }
 }
 ```
 
-`read` é a contagem acumulada de todas as páginas até aqui, que é o cursor que a
-maioria das corretoras quer e a conferência para as que querem o próprio.
-Devolver `null` encerra a listagem; o Fathom também para na vigésima página, então
-uma corretora cuja resposta nunca diz que acabou para na conta dele, não pagina
-para sempre.
+O `planInstruments` recebe o deslocamento que estão pedindo, e o
+`readInstrumentTotal` diz quantos existem no total. Com os dois, o Fathom sabe o
+endereço de todas as páginas assim que lê a primeira — então pede o resto
+**junto**, em vez de esperar cada uma nomear a próxima. Uma listagem de quatro
+mil pares vira uma ida e uma leva, não oito idas em fila.
+
+O Fathom para na vigésima página, diga a corretora o que disser, e entrega cada
+página ao seletor conforme ela chega: o leitor vê os primeiros quinhentos pares
+enquanto o resto ainda está no ar.
+
+### Quando a corretora só entrega um cursor
+
+Algumas corretoras dão um token junto com cada página, e nenhum total. Essas
+páginas só dá para caminhar, porque o segundo endereço não existe antes de a
+primeira resposta chegar.
+
+```ts
+override continueInstruments(payload: unknown, read: number) {
+    void read;
+    const next = (payload as { cursor?: string }).cursor;
+
+    return next === undefined ? null : { url: this.address(Paged.REST, '/symbols', { cursor: next }) };
+}
+```
+
+Escreva um ou outro, não os dois: o total é o que compra a leitura em paralelo,
+e o cursor é o que a corretora oferece no lugar dele.
+
+### Quando a corretora busca por você
+
+Um leitor digitando no seletor enquanto quatro mil pares ainda chegam está
+buscando no que por acaso já caiu. Onde a corretora casa o texto por conta
+própria, diga isso e o Fathom pergunta a ela.
+
+```ts
+override planInstrumentSearch(term: string) {
+    return { url: this.address(Paged.REST, '/symbols', { query: term, limit: 50 }) };
+}
+```
+
+A resposta volta pelo seu próprio `readInstruments`. Deixe o método de fora — que
+é o padrão, e o certo para a maioria — e o seletor busca no que já leu, avisando
+enquanto a leitura não terminou.
 
 ## Candles que chegam como tuplas
 
@@ -145,6 +180,8 @@ import { Connector } from 'fathom';
 import type { BarPageRequest, VenueBar } from 'fathom';
 
 export default class Tuples extends Connector {
+    private static readonly REST = 'https://api.example.com';
+
     private static readonly OPENED_AT = 0;
     private static readonly OPEN_PRICE = 1;
     private static readonly HIGH_PRICE = 2;
@@ -168,7 +205,7 @@ export default class Tuples extends Connector {
     };
 
     planInstruments() {
-        return { url: 'https://api.example.com/markets' };
+        return { url: this.address(Tuples.REST, '/markets') };
     }
 
     readInstruments() {
@@ -176,7 +213,7 @@ export default class Tuples extends Connector {
     }
 
     override planBars(request: BarPageRequest) {
-        return { url: 'https://api.example.com/klines?symbol=' + encodeURIComponent(request.symbol) };
+        return { url: this.address(Tuples.REST, '/klines', { symbol: request.symbol }) };
     }
 
     override readBars(payload: unknown): VenueBar[] {
@@ -277,7 +314,7 @@ export default class Live extends Connector {
     };
 
     planInstruments() {
-        return { url: Live.REST + '/markets' };
+        return { url: this.address(Live.REST, '/markets') };
     }
 
     readInstruments() {
@@ -285,11 +322,11 @@ export default class Live extends Connector {
     }
 
     override planStream(symbol: string) {
-        return { url: Live.SOCKET + '/book/' + symbol.toLowerCase() };
+        return { url: this.address(Live.SOCKET, '/book/' + symbol.toLowerCase()) };
     }
 
     override planSnapshot(symbol: string) {
-        return { url: Live.REST + '/book?symbol=' + encodeURIComponent(symbol) + '&depth=1000' };
+        return { url: this.address(Live.REST, '/book', { symbol, depth: 1_000 }) };
     }
 
     override readSnapshot(payload: unknown): DepthSnapshot {
@@ -371,7 +408,7 @@ export default class Ticketed extends Connector {
     };
 
     planInstruments(): VenueRequest {
-        return { url: Ticketed.REST + '/symbols' };
+        return { url: this.address(Ticketed.REST, '/symbols') };
     }
 
     readInstruments(): [] {
@@ -383,7 +420,7 @@ export default class Ticketed extends Connector {
         // simples. Tudo que uma requisição pode levar está aqui; uma chave não,
         // porque não existe onde guardar uma no Fathom.
         return {
-            url: Ticketed.REST + '/bullet-public',
+            url: this.address(Ticketed.REST, '/bullet-public'),
             method: 'POST',
             body: JSON.stringify({ scope: 'level2' }),
             headers: { 'content-type': 'application/json' },
@@ -405,7 +442,7 @@ export default class Ticketed extends Connector {
     }
 
     override planSnapshot(symbol: string): VenueRequest {
-        return { url: Ticketed.REST + '/book?symbol=' + encodeURIComponent(symbol) };
+        return { url: this.address(Ticketed.REST, '/book', { symbol }) };
     }
 
     override readSnapshot(payload: unknown): DepthSnapshot {
@@ -505,6 +542,9 @@ que uma corretora de verdade vai te parar.
 - **Vinte páginas por listagem.** Suficiente para toda corretora que apontaram
   para isto, e um teto em vez de uma corrida para aquela cuja resposta nunca
   termina.
+- **Cinco páginas no ar por vez.** Uma corretora que recebe quarenta requisições
+  de uma vez é uma corretora que começa a recusar, e um limite de taxa custa a
+  listagem inteira em vez da página em que ele caiu.
 - **O grau declarado é registrado, não usado.** O espelho do Fathom ainda quer a
   referência anterior que um livro `linked` publica, seja lá o que um conector
   declare.

@@ -1190,8 +1190,14 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
      */
     export interface VenueConnector {
         readonly declaration: VenueDeclaration;
-        /** Every venue lists what it trades; there is nothing to chart otherwise. */
-        planInstruments: () => VenueRequest;
+        /**
+         * Every venue lists what it trades; there is nothing to chart otherwise.
+         *
+         * @param from - How many instruments come before the page being asked for,
+         *               nought for the first. Ignored by a venue that serves its
+         *               listing whole, which is most of them.
+         */
+        planInstruments: (from: number) => VenueRequest;
         /**
          * @param payload - Whatever the venue answered, already parsed from JSON.
          * @returns Every instrument this page listed.
@@ -1199,13 +1205,39 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
          */
         readInstruments: (payload: unknown) => readonly VenueInstrument[];
         /**
-         * The next page of the listing, for a venue that serves it in several.
+         * How many instruments the venue says it lists in all.
+         *
+         * The difference between a listing read one page at a time and one read at
+         * once: knowing the total, the engine asks for every remaining page
+         * together rather than waiting for each to name the next.
+         *
+         * @param payload - The first page, as it arrived.
+         * @returns The count, or null where the venue does not publish one.
+         */
+        readInstrumentTotal: (payload: unknown) => number | null;
+        /**
+         * The next page, for a venue whose pages can only be reached in order.
+         *
+         * The other shape of paging: a cursor the venue hands out with each page,
+         * which cannot be guessed and so cannot be asked for in parallel.
          *
          * @param payload - The page just read.
          * @param read - How many instruments have been gathered so far.
          * @returns What to fetch next, or null once the listing is whole.
          */
         continueInstruments: (payload: unknown, read: number) => VenueRequest | null;
+        /**
+         * What the venue itself matches against a reader's typing.
+         *
+         * Where a venue offers this, a reader searching a listing that is still
+         * arriving gets the venue's own answer instead of a search across the part
+         * that happens to have loaded.
+         *
+         * @param term - What the reader typed, trimmed and not empty.
+         * @returns The request, read by \`readInstruments\`, or null where the venue
+         *          offers no such endpoint — which is most of them.
+         */
+        planInstrumentSearch: (term: string) => VenueRequest | null;
         /**
          * One socket carrying everything the venue streams.
          *
@@ -1280,14 +1312,26 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
      */
     export declare abstract class Connector implements VenueConnector {
         abstract readonly declaration: VenueDeclaration;
-        abstract planInstruments(): VenueRequest;
+        abstract planInstruments(from: number): VenueRequest;
         abstract readInstruments(payload: unknown): readonly VenueInstrument[];
+        /**
+         * How many the venue says it lists. None said, unless a connector says so.
+         *
+         * @returns Null, which is a listing whose length is only known by reading it.
+         */
+        readInstrumentTotal(payload: unknown): number | null;
         /**
          * The next page of the listing. One page, unless a connector says otherwise.
          *
          * @returns Null, which is a listing served whole.
          */
         continueInstruments(payload: unknown, read: number): VenueRequest | null;
+        /**
+         * What the venue matches against typing. Nothing, unless it offers it.
+         *
+         * @returns Null, which is a venue whose listing is searched where it lands.
+         */
+        planInstrumentSearch(term: string): VenueRequest | null;
         /**
          * The socket to open.
          *
@@ -1347,6 +1391,21 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
          * @throws Error, because nothing should have asked.
          */
         readBars(payload: unknown, request: BarPageRequest): readonly VenueBar[];
+        /**
+         * An address, built rather than spelled out.
+         *
+         * Through \`URL\` and its own query, because a URL joined by hand is a URL
+         * with a reader's symbol pasted into it unescaped — and because the pieces
+         * are easier to read down a list than inside one long sum of strings.
+         *
+         * @param base - The venue's origin, as its own constant.
+         * @param path - The endpoint, from the root.
+         * @param query - What to ask for, in the order given. An entry left
+         *                undefined is left out, so an optional parameter needs no
+         *                branch around it.
+         * @returns The whole address.
+         */
+        protected address(base: string, path: string, query?: Readonly<Record<string, string | number | undefined>>): string;
         /**
          * A figure as a number, or null where it does not read as one.
          *

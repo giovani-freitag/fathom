@@ -42,7 +42,7 @@ export default class KuCoin extends Connector {
     readonly declaration = { book: null, tape: null, bars: null };
 
     planInstruments() {
-        return { url: KuCoin.REST + '/api/v2/symbols' };
+        return { url: this.address(KuCoin.REST, '/api/v2/symbols') };
     }
 
     readInstruments(payload: unknown): VenueInstrument[] {
@@ -72,8 +72,13 @@ O `Connector` também traz as duas leituras que todo conector acaba repetindo:
 
 | | |
 |---|---|
+| `this.address(base, caminho, query)` | Uma URL, montada com `URL` e escapada para você. |
 | `this.readNumber(campo)` | Um número, ou `null` quando não dá para ler como um. |
 | `this.requireList(payload, 'data')` | Uma lista dentro da resposta, ou um erro dizendo que não veio nenhuma. |
+
+Todo endereço deste guia passa pelo `address`. Uma URL colada à mão é uma URL
+com um símbolo dentro sem escape, e o único par com `&` no nome é justamente o
+que pede outra coisa sem avisar.
 
 ## Declarando o que a corretora não faz
 
@@ -119,7 +124,7 @@ por que não.
 
 ```ts
 planInstruments() {
-    return { url: KuCoin.REST + '/api/v2/symbols' };
+    return { url: this.address(KuCoin.REST, '/api/v2/symbols') };
 }
 
 readInstruments(payload: unknown): VenueInstrument[] {
@@ -143,32 +148,68 @@ frase sua — o seletor mostra ela para quem estiver lendo.
 
 ### Uma listagem servida em páginas
 
-Algumas corretoras entregam algumas centenas de pares por vez. Diga onde está a
-próxima página, e o Fathom continua pedindo até você dizer que não há mais.
+Algumas corretoras entregam algumas centenas de pares por vez. O
+`planInstruments` recebe o deslocamento que estão pedindo, então diga onde uma
+página está e quantos existem no total:
 
 ```ts
-override continueInstruments(payload: unknown, read: number) {
-    const total = this.readNumber((payload as Record<string, unknown>)['total']) ?? 0;
+planInstruments(from: number) {
+    return { url: this.address(KuCoin.REST, '/api/v2/symbols', { offset: from, limit: 500 }) };
+}
 
-    return read < total
-        ? { url: KuCoin.REST + '/api/v2/symbols?offset=' + String(read) }
-        : null;
+override readInstrumentTotal(payload: unknown) {
+    return this.readNumber((payload as Record<string, unknown>)['total']);
 }
 ```
 
-`read` é quantos instrumentos você já devolveu, somando todas as páginas.
-Devolver `null` encerra a listagem, e uma vigésima página também — uma corretora
-cuja resposta nunca diz que acabou para na conta do Fathom, não na sua.
+Esse par é o que dá ao leitor uma listagem em vez de uma espera. Sabendo o
+total, o Fathom calcula o endereço de todas as páginas a partir da primeira e
+pede **junto** — cinco no ar por vez, e cada uma entregue ao seletor conforme
+chega, então os primeiros quinhentos pares já estão na tela enquanto o resto
+vem.
+
+Uma corretora que entrega um cursor em vez de um total tem páginas que só dá
+para caminhar, e o `continueInstruments` é onde você diz isso:
+
+```ts
+override continueInstruments(payload: unknown, read: number) {
+    void read;
+    const cursor = (payload as { cursor?: string }).cursor;
+
+    return cursor === undefined ? null : { url: this.address(KuCoin.REST, '/api/v2/symbols', { cursor }) };
+}
+```
+
+De um jeito ou de outro o Fathom para na vigésima página, então uma corretora
+cuja resposta nunca diz que acabou para na conta dele, não na sua.
+
+### Uma corretora que busca por você
+
+Um leitor digitando enquanto quatro mil pares ainda chegam está buscando no que
+já caiu. Onde a corretora casa o texto por conta própria, passe a pergunta para
+ela:
+
+```ts
+override planInstrumentSearch(term: string) {
+    return { url: this.address(KuCoin.REST, '/api/v2/symbols', { query: term }) };
+}
+```
+
+A resposta é lida pelo seu próprio `readInstruments`. Deixe o método de fora — o
+padrão, e o certo para a maioria — e o seletor busca no que já leu, avisando
+enquanto a leitura não terminou.
 
 ## Lendo candles
 
 ```ts
 override planBars(request: BarPageRequest) {
     return {
-        url: KuCoin.REST + '/api/v1/market/candles?type=1min'
-            + '&symbol=' + encodeURIComponent(request.symbol)
-            + '&startAt=' + String(Math.floor(request.fromMs / 1_000))
-            + '&endAt=' + String(Math.floor(request.toMs / 1_000)),
+        url: this.address(KuCoin.REST, '/api/v1/market/candles', {
+            type: '1min',
+            symbol: request.symbol,
+            startAt: Math.floor(request.fromMs / 1_000),
+            endAt: Math.floor(request.toMs / 1_000),
+        }),
     };
 }
 
@@ -208,7 +249,7 @@ nada, então ele descreve as duas metades e o Fathom executa na ordem.
 
 ```ts
 override planStreamTicket() {
-    return { url: KuCoin.REST + '/api/v1/bullet-public', method: 'POST' as const };
+    return { url: this.address(KuCoin.REST, '/api/v1/bullet-public'), method: 'POST' as const };
 }
 
 override readStreamTicket(payload: unknown): string {

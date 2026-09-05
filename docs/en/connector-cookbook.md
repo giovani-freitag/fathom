@@ -33,7 +33,7 @@ export default class Simple extends Connector {
     };
 
     planInstruments() {
-        return { url: Simple.REST + '/markets' };
+        return { url: this.address(Simple.REST, '/markets') };
     }
 
     readInstruments(payload: unknown): VenueInstrument[] {
@@ -50,9 +50,15 @@ export default class Simple extends Connector {
     }
 
     override planBars(request: BarPageRequest) {
+        // Built rather than spelled out: `address` escapes what it is given, so
+        // a symbol with an `&` in it asks for the pair rather than for two
+        // parameters the venue has never heard of.
         return {
-            url: Simple.REST + '/candles?market=' + encodeURIComponent(request.symbol)
-                + '&from=' + String(request.fromMs) + '&to=' + String(request.toMs),
+            url: this.address(Simple.REST, '/candles', {
+                market: request.symbol,
+                from: request.fromMs,
+                to: request.toMs,
+            }),
         };
     }
 
@@ -80,9 +86,9 @@ That is a complete, installable venue. Everything below is a variation on it.
 
 ## A listing that arrives in pages
 
-A venue with four thousand pairs rarely hands them over at once. Say where the
-next page is and Fathom keeps asking, so the picker ends up with all of them
-rather than with the first five hundred.
+A venue with four thousand pairs rarely hands them over at once. Say where a
+page is and how many there are in all, and Fathom works out the rest of the
+addresses itself — asking for them together rather than one after another.
 
 ```ts
 import { Connector } from 'fathom';
@@ -94,8 +100,10 @@ export default class Paged extends Connector {
 
     readonly declaration = { book: null, tape: null, bars: null };
 
-    planInstruments(): VenueRequest {
-        return { url: Paged.pageFrom(0) };
+    planInstruments(from: number): VenueRequest {
+        return {
+            url: this.address(Paged.REST, '/symbols', { limit: Paged.PER_PAGE, offset: from }),
+        };
     }
 
     readInstruments(payload: unknown): VenueInstrument[] {
@@ -111,27 +119,53 @@ export default class Paged extends Connector {
         });
     }
 
-    override continueInstruments(payload: unknown, read: number): VenueRequest | null {
-        // How many the venue says there are, against how many have arrived. A
-        // venue that publishes no total answers the same question with a page
-        // that came back short.
-        const total = this.readNumber((payload as Record<string, unknown>)['total']) ?? 0;
-
-        return read < total ? { url: Paged.pageFrom(read) } : null;
-    }
-
-    /** One page, from a given offset. */
-    private static pageFrom(offset: number): string {
-        return Paged.REST + '/symbols?limit=' + String(Paged.PER_PAGE)
-            + '&offset=' + String(offset);
+    override readInstrumentTotal(payload: unknown): number | null {
+        return this.readNumber((payload as Record<string, unknown>)['total']);
     }
 }
 ```
 
-`read` is the running count across every page so far, which is the cursor most
-venues want and the sanity check for the ones that want their own. Return `null`
-and the listing is finished; Fathom also stops at twenty pages, so a venue whose
-answer never says it is done stops on Fathom's count rather than paging for ever.
+`planInstruments` takes the offset it is asked for, and `readInstrumentTotal`
+says how many there are in all. Between them Fathom knows every page's address
+after reading the first, so it asks for the rest **together** — five in the air
+at a time, and each handed to the picker as it lands. A listing of four thousand
+pairs is one round trip and a batch, not eight round trips in a queue.
+
+### When the venue only hands out a cursor
+
+Some venues give you a token with each page and no total. Those pages can only
+be walked, because the second address cannot be known until the first answer
+arrives.
+
+```ts
+override continueInstruments(payload: unknown, read: number) {
+    void read;
+    const cursor = (payload as { cursor?: string }).cursor;
+
+    return cursor === undefined ? null : { url: this.address(Paged.REST, '/symbols', { cursor }) };
+}
+```
+
+Write one or the other, not both: a total is what buys the parallel read, and a
+cursor is what a venue offers instead of one. Either way Fathom stops at twenty
+pages, so a venue whose answer never says it is done stops on Fathom's count
+rather than paging for ever.
+
+### When the venue searches for you
+
+A reader typing into the picker while four thousand pairs are still arriving is
+searching whatever happened to have landed. Where the venue matches on its own,
+say so and Fathom asks it instead.
+
+```ts
+override planInstrumentSearch(term: string) {
+    return { url: this.address(Paged.REST, '/symbols', { query: term, limit: 50 }) };
+}
+```
+
+The answer comes back through your own `readInstruments`. Leave the method out —
+which is the default, and right for most venues — and the picker searches what
+it has read, saying so while the reading is unfinished.
 
 ## Candles that arrive as tuples
 
@@ -143,6 +177,8 @@ import { Connector } from 'fathom';
 import type { BarPageRequest, VenueBar } from 'fathom';
 
 export default class Tuples extends Connector {
+    private static readonly REST = 'https://api.example.com';
+
     private static readonly OPENED_AT = 0;
     private static readonly OPEN_PRICE = 1;
     private static readonly HIGH_PRICE = 2;
@@ -166,7 +202,7 @@ export default class Tuples extends Connector {
     };
 
     planInstruments() {
-        return { url: 'https://api.example.com/markets' };
+        return { url: this.address(Tuples.REST, '/markets') };
     }
 
     readInstruments() {
@@ -174,7 +210,7 @@ export default class Tuples extends Connector {
     }
 
     override planBars(request: BarPageRequest) {
-        return { url: 'https://api.example.com/klines?symbol=' + encodeURIComponent(request.symbol) };
+        return { url: this.address(Tuples.REST, '/klines', { symbol: request.symbol }) };
     }
 
     override readBars(payload: unknown): VenueBar[] {
@@ -272,7 +308,7 @@ export default class Live extends Connector {
     };
 
     planInstruments() {
-        return { url: Live.REST + '/markets' };
+        return { url: this.address(Live.REST, '/markets') };
     }
 
     readInstruments() {
@@ -280,11 +316,11 @@ export default class Live extends Connector {
     }
 
     override planStream(symbol: string) {
-        return { url: Live.SOCKET + '/book/' + symbol.toLowerCase() };
+        return { url: this.address(Live.SOCKET, '/book/' + symbol.toLowerCase()) };
     }
 
     override planSnapshot(symbol: string) {
-        return { url: Live.REST + '/book?symbol=' + encodeURIComponent(symbol) + '&depth=1000' };
+        return { url: this.address(Live.REST, '/book', { symbol, depth: 1_000 }) };
     }
 
     override readSnapshot(payload: unknown): DepthSnapshot {
@@ -365,7 +401,7 @@ export default class Ticketed extends Connector {
     };
 
     planInstruments(): VenueRequest {
-        return { url: Ticketed.REST + '/symbols' };
+        return { url: this.address(Ticketed.REST, '/symbols') };
     }
 
     readInstruments(): [] {
@@ -377,7 +413,7 @@ export default class Ticketed extends Connector {
         // Everything a request may carry is here; a key is not, because there
         // is nowhere in Fathom to keep one.
         return {
-            url: Ticketed.REST + '/bullet-public',
+            url: this.address(Ticketed.REST, '/bullet-public'),
             method: 'POST',
             body: JSON.stringify({ scope: 'level2' }),
             headers: { 'content-type': 'application/json' },
@@ -399,7 +435,7 @@ export default class Ticketed extends Connector {
     }
 
     override planSnapshot(symbol: string): VenueRequest {
-        return { url: Ticketed.REST + '/book?symbol=' + encodeURIComponent(symbol) };
+        return { url: this.address(Ticketed.REST, '/book', { symbol }) };
     }
 
     override readSnapshot(payload: unknown): DepthSnapshot {
@@ -494,6 +530,9 @@ edges where a real venue will stop you.
   why `continueInstruments` is given the count and `readBars` the request.
 - **Twenty pages to a listing.** Enough for every venue anybody has pointed at
   this, and a ceiling rather than a race for one whose answer never ends.
+- **Five pages in the air at once.** A venue answering forty requests in one
+  breath is a venue that starts refusing them, and a rate limit costs the whole
+  listing rather than the page it landed on.
 - **The declared grade is recorded, not acted on.** Fathom's mirror still wants
   the back reference a `linked` book publishes, whatever a connector declares.
 

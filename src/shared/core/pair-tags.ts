@@ -1,6 +1,19 @@
 import { INSTANCE_TONES, type PlotTone } from './draw-plan.ts';
 
 /**
+ * What a tag is marked in: one of the chart's own colours, or any other.
+ *
+ * A token where the reader took what was offered, because a token follows them
+ * between the light theme and the dark one. A plain colour where they wanted
+ * one the chart does not have — there is no limit on how many tags a reader
+ * makes, and five colours run out long before they do.
+ */
+export type TagColour = PlotTone | `#${string}`;
+
+/** A colour written the one way storage is allowed to hold one. */
+const IS_COLOUR = /^#[0-9a-f]{6}$/i;
+
+/**
  * One pair a reader kept, named by the venue as well as the symbol.
  *
  * Both, because BTCUSDT on two venues is two different recordings with two
@@ -23,8 +36,8 @@ export interface PairTag {
     readonly id: string;
     /** Empty on the tag every reader starts with, which the interface names. */
     readonly label: string;
-    /** The colour it is marked in, from the palette the chart already uses. */
-    readonly tone: PlotTone;
+    /** The colour it is marked in, from the chart's palette or the reader's own. */
+    readonly colour: TagColour;
     readonly pairs: readonly MarketPair[];
 }
 
@@ -50,7 +63,7 @@ export const MAXIMUM_TAG_LABEL_LENGTH = 24;
  * @returns The opening set of tags.
  */
 export function openingTags(): readonly PairTag[] {
-    return [{ id: FAVOURITES_ID, label: '', tone: 'phosphor', pairs: [] }];
+    return [{ id: FAVOURITES_ID, label: '', colour: 'phosphor', pairs: [] }];
 }
 
 /**
@@ -124,7 +137,7 @@ export function withTagAdded(tags: readonly PairTag[], label: string): readonly 
     return [...tags, {
         id: buildTagId(wanted, tags),
         label: wanted,
-        tone: chooseTagTone(tags),
+        colour: chooseTagColour(tags),
         pairs: [],
     }];
 }
@@ -171,15 +184,37 @@ export function withTagRelabelled(
  *
  * @param tags - The tags as they stand.
  * @param tagId - Which to recolour.
- * @param tone - What to mark it in.
- * @returns The tags, in the order they were already in.
+ * @param colour - What to mark it in.
+ * @returns The tags, unchanged where the colour is not one that can be shown.
  */
 export function withTagRecoloured(
     tags: readonly PairTag[],
     tagId: string,
-    tone: PlotTone,
+    colour: TagColour,
 ): readonly PairTag[] {
-    return tags.map((tag) => (tag.id === tagId ? { ...tag, tone } : tag));
+    if (readColour(colour) === null) {
+        return tags;
+    }
+    return tags.map((tag) => (tag.id === tagId ? { ...tag, colour } : tag));
+}
+
+/**
+ * A colour as it can be shown, or null where it is neither kind.
+ *
+ * Checked rather than trusted because a colour reaches a style attribute: a tag
+ * whose colour is a sentence is a sentence in the page's own CSS.
+ *
+ * @param candidate - Whatever named the colour.
+ * @returns The colour, or null.
+ */
+export function readColour(candidate: unknown): TagColour | null {
+    if (typeof candidate !== 'string') {
+        return null;
+    }
+    if (INSTANCE_TONES.some((tone) => tone === candidate)) {
+        return candidate as PlotTone;
+    }
+    return IS_COLOUR.test(candidate) ? candidate as `#${string}` : null;
 }
 
 /**
@@ -220,7 +255,7 @@ export function readTags(stored: unknown): readonly PairTag[] {
         read.push({
             id: candidate.id,
             label: readLabel(candidate),
-            tone: INSTANCE_TONES.find((tone) => tone === candidate.tone) ?? chooseTagTone(read),
+            colour: readColour(candidate.colour) ?? readColour(candidate.tone) ?? chooseTagColour(read),
             pairs: candidate.pairs.filter(isMarketPair).slice(0, MAXIMUM_PAIRS_PER_TAG),
         });
     }
@@ -229,44 +264,19 @@ export function readTags(stored: unknown): readonly PairTag[] {
 }
 
 /**
- * A colour no tag is already marked in.
+ * A colour no tag is already marked in, for one nobody has coloured yet.
+ *
+ * From the chart's own rotation rather than from anywhere in the spectrum: a
+ * tag made in a colour picked at random is one the reader then has to change,
+ * and the rotation is already the set that reads on both grounds.
  *
  * @param tags - The tags as they stand.
  * @returns A free tone, or the next in rotation once every one is taken.
  */
-export function chooseTagTone(tags: readonly PairTag[]): PlotTone {
-    const taken = new Set(tags.map((tag) => tag.tone));
+export function chooseTagColour(tags: readonly PairTag[]): PlotTone {
+    const taken = new Set(tags.map((tag) => tag.colour));
     return INSTANCE_TONES.find((tone) => !taken.has(tone))
         ?? INSTANCE_TONES[taken.size % INSTANCE_TONES.length]!;
-}
-
-/**
- * The colour after this tag's, skipping any another tag already carries.
- *
- * Skipping rather than stepping, because two tags in one colour is the state
- * the marks stop meaning anything in — and a reader cycling to a free colour
- * would otherwise have to press past every taken one to reach it.
- *
- * With more tags than colours there is nothing free to reach, and it steps to
- * the next one regardless: a control that answers a press with nothing reads as
- * a broken one, and the reader pressing it is the one asking for the repeat.
- *
- * @param tags - The tags as they stand.
- * @param tagId - Which tag is being recoloured.
- * @returns The next free tone, or the next in rotation once every one is taken.
- */
-export function nextTagTone(tags: readonly PairTag[], tagId: string): PlotTone {
-    const held = tags.find((tag) => tag.id === tagId);
-    const taken = new Set(tags.filter((tag) => tag.id !== tagId).map((tag) => tag.tone));
-    const at = INSTANCE_TONES.findIndex((tone) => tone === held?.tone);
-
-    for (let step = 1; step < INSTANCE_TONES.length; step += 1) {
-        const tone = INSTANCE_TONES[(at + step) % INSTANCE_TONES.length]!;
-        if (!taken.has(tone)) {
-            return tone;
-        }
-    }
-    return INSTANCE_TONES[(at + 1) % INSTANCE_TONES.length]!;
 }
 
 /**
@@ -294,8 +304,8 @@ function readLabel(stored: StoredTag): string {
     return (label ?? '').slice(0, MAXIMUM_TAG_LABEL_LENGTH);
 }
 
-/** A tag as storage may hold it, which includes how lists held one. */
-type StoredTag = Partial<PairTag> & { readonly name?: string };
+/** A tag as storage may hold it, which includes how lists and tones held one. */
+type StoredTag = Partial<PairTag> & { readonly name?: string; readonly tone?: unknown };
 
 /**
  * Whether something out of storage is a tag.

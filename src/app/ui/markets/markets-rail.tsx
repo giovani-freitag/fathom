@@ -1,11 +1,9 @@
 import type { ReactElement } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { CONTROL_CHOSEN_CLASSES, CONTROL_INPUT_CLASSES, SCROLLER_CLASSES } from '../control-shell.ts';
-import { FAVOURITES_ID, nextTagTone, type PairTag } from '../../../shared/core/pair-tags.ts';
-import type { PlotTone } from '../../../shared/core/draw-plan.ts';
+import { FAVOURITES_ID, type PairTag, type TagColour } from '../../../shared/core/pair-tags.ts';
 import { labelOf } from '../../markets/tag-names.ts';
-import { TONE_LABEL_KEYS } from '../indicators/tone-labels.ts';
-import { ToneSwatch } from '../indicators/tone-swatch.tsx';
+import { TagColourPicker } from './tag-colour-picker.tsx';
 import type { Translate } from '../../i18n/translator.ts';
 import { useState } from 'react';
 
@@ -25,7 +23,7 @@ interface MarketsRailProps {
     readonly onBrowse: (venue: string) => void;
     readonly onAddTag: (label: string) => void;
     readonly onRemoveTag: (tagId: string) => void;
-    readonly onRecolourTag: (tagId: string, tone: PlotTone) => void;
+    readonly onRecolourTag: (tagId: string, colour: TagColour) => void;
     /** Takes a venue the reader brought back off. The shipped one has no such offer. */
     readonly onRemoveVenue: (venue: string) => void;
     /** Which venues the reader brought, and so may take away again. */
@@ -64,12 +62,12 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
                 <TagRow
                     key={tag.id}
                     said={labelOf(tag, translate)}
-                    tone={tag.tone}
+                    colour={tag.colour}
                     count={tag.pairs.length}
                     isOn={props.showing.kind === 'tag' && props.openTagId === tag.id}
                     translate={translate}
                     onPress={() => { props.onOpenTag(tag.id); }}
-                    onRecolour={() => { props.onRecolourTag(tag.id, nextTagTone(props.tags, tag.id)); }}
+                    onRecolour={(colour) => { props.onRecolourTag(tag.id, colour); }}
                     {...tag.id === FAVOURITES_ID
                         ? {}
                         : {
@@ -176,34 +174,27 @@ function RailRow({ said, count, isOn, onPress, onRemove, removeLabel, children }
 }
 
 interface TagRowProps extends Omit<RailRowProps, 'children'> {
-    readonly tone: PlotTone;
+    readonly colour: TagColour;
     readonly translate: Translate;
-    readonly onRecolour: () => void;
+    readonly onRecolour: (colour: TagColour) => void;
 }
 
 /**
  * One tag in the rail, with the colour it marks its pairs in.
  *
- * The swatch is the control as well as the mark: pressing it moves the tag to
- * the next colour in the same rotation the chart hands out to its own layers.
- * A picker here would be a second card opened over the one the reader is
- * already reading a listing in.
+ * The swatch is the control as well as the mark: it is where the tag's colour
+ * is read and where it is changed, so the reader looking for one is already
+ * pointing at the other.
  */
-function TagRow({ tone, translate, onRecolour, ...row }: TagRowProps): ReactElement {
+function TagRow({ colour, translate, onRecolour, ...row }: TagRowProps): ReactElement {
     return (
         <RailRow {...row}>
-            <button
-                type="button"
-                onClick={onRecolour}
-                // Named by the colour it is in rather than by the colour it
-                // would move to, because the swatch is what a reader is being
-                // told about; where it goes next is what pressing it shows.
-                aria-label={`${translate('markets.recolourTag')} — ${translate(TONE_LABEL_KEYS[tone])}`}
-                title={translate('markets.recolourTag')}
-                className="grid size-7 shrink-0 place-items-center rounded transition-colors hover:bg-abyss-700"
-            >
-                <ToneSwatch tone={tone} className="size-2.5" />
-            </button>
+            <TagColourPicker
+                colour={colour}
+                label={row.said}
+                translate={translate}
+                onPick={onRecolour}
+            />
         </RailRow>
     );
 }

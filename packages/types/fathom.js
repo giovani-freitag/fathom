@@ -405,11 +405,27 @@ function walkSettled(bars, higher) {
 */
 var Connector = class {
 	/**
+	* How many the venue says it lists. None said, unless a connector says so.
+	*
+	* @returns Null, which is a listing whose length is only known by reading it.
+	*/
+	readInstrumentTotal(payload) {
+		return null;
+	}
+	/**
 	* The next page of the listing. One page, unless a connector says otherwise.
 	*
 	* @returns Null, which is a listing served whole.
 	*/
 	continueInstruments(payload, read) {
+		return null;
+	}
+	/**
+	* What the venue matches against typing. Nothing, unless it offers it.
+	*
+	* @returns Null, which is a venue whose listing is searched where it lands.
+	*/
+	planInstrumentSearch(term) {
 		return null;
 	}
 	/**
@@ -488,6 +504,25 @@ var Connector = class {
 	*/
 	readBars(payload, request) {
 		throw new Error("This venue serves no candles.");
+	}
+	/**
+	* An address, built rather than spelled out.
+	*
+	* Through `URL` and its own query, because a URL joined by hand is a URL
+	* with a reader's symbol pasted into it unescaped — and because the pieces
+	* are easier to read down a list than inside one long sum of strings.
+	*
+	* @param base - The venue's origin, as its own constant.
+	* @param path - The endpoint, from the root.
+	* @param query - What to ask for, in the order given. An entry left
+	*                undefined is left out, so an optional parameter needs no
+	*                branch around it.
+	* @returns The whole address.
+	*/
+	address(base, path, query = {}) {
+		const built = new URL(path, base);
+		for (const [name, value] of Object.entries(query)) if (value !== void 0) built.searchParams.set(name, String(value));
+		return built.href;
 	}
 	/**
 	* A figure as a number, or null where it does not read as one.
