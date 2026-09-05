@@ -422,7 +422,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'recording.pickerTitle': 'Gravar um par',
     'recording.venuesWithBook': 'Corretoras com livro',
     'recording.gridPrompt': 'Cada linha do mapa de calor cobre',
-    'recording.regrid': 'Mudar a grade em que {symbol} grava',
+    'recording.regrid': 'Mudar a grade em que {symbol} grava — agora {grid}',
     'recording.remove': 'Excluir {symbol} e tudo que ele gravou',
     'recording.removeTitle': 'Excluir esta gravação?',
     'recording.removeBody': 'Tudo que foi gravado de {symbol} é apagado, e o espaço volta. Um livro de ofertas não pode ser gravado de novo, então o que sai daqui não volta. Desligar em vez disso para a gravação e mantém tudo.',

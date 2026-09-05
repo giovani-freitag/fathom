@@ -220,7 +220,7 @@ describe('what else could be recorded', () => {
         renderInKernel(saveContract);
         fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
 
-        fireEvent.click(await screen.findByRole('button', { name: 'Change the grid BTCUSDT records on' }));
+        fireEvent.click(await screen.findByRole('button', { name: /Change the grid BTCUSDT records on/ }));
         fireEvent.click(await screen.findByRole('button', { name: '2 per row' }));
 
         await waitFor(() => {
@@ -232,11 +232,37 @@ describe('what else could be recorded', () => {
         });
     });
 
+    it('says which grid is in force in the name the button answers to', async () => {
+        // The value is written on the button, and the name it carried named
+        // only the action — so a reader who cannot see it had to open the
+        // chooser to find out what they were on.
+        renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+
+        const grid = await screen.findByRole('button', { name: /Change the grid BTCUSDT records on/ });
+
+        // The figure itself, not merely a place where one could go.
+        expect(grid.getAttribute('aria-label')).toContain('10 per row');
+    });
+
+    it('leaves the grid in force reachable, rather than skipping it', async () => {
+        // Disabled, it fell out of the tab order: a reader tabbing the options
+        // never met the one they were on, and heard "unavailable" if they did.
+        renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+
+        fireEvent.click(await screen.findByRole('button', { name: /Change the grid BTCUSDT records on/ }));
+
+        const current = await screen.findByRole('button', { name: '10 per row', current: true });
+        expect(current.hasAttribute('disabled')).toBe(false);
+    });
+
     it('says what changing the grid costs before it is changed', async () => {
         renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
         fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
 
-        fireEvent.click(await screen.findByRole('button', { name: 'Change the grid BTCUSDT records on' }));
+        fireEvent.click(await screen.findByRole('button', { name: /Change the grid BTCUSDT records on/ }));
 
         expect(await screen.findByText(/keeps the grid it was written on/)).toBeDefined();
     });
@@ -323,8 +349,12 @@ describe('what else could be recorded', () => {
         }]);
         fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
 
-        fireEvent.click(await screen.findByRole('button', { name: 'Change the grid NANOUSDT records on' }));
-        fireEvent.click((await screen.findAllByRole('button', { name: /per row/ }))[1]!);
+        fireEvent.click(await screen.findByRole('button', { name: /Change the grid NANOUSDT records on/ }));
+        // One the contract is not already on: pressing the current grid does
+        // nothing now, which is the point of it staying reachable.
+        // A grid it is not already on: pressing the one in force does nothing
+        // now, which is the point of it staying reachable.
+        fireEvent.click(await screen.findByRole('button', { name: '0.002 per row' }));
 
         await waitFor(() => {
             expect(saveContract).toHaveBeenCalledWith(expect.objectContaining({

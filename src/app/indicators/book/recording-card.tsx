@@ -293,10 +293,10 @@ function GridChip({ grid, isChosen, isSaving, translate, onPick }: {
     return (
         <button
             type="button"
-            disabled={isSaving || isChosen}
+            disabled={isSaving}
             aria-current={isChosen}
             aria-label={translate('settings.perRow', { value: grid.priceBucketSize })}
-            onClick={onPick}
+            onClick={() => { if (!isChosen) { onPick(); } }}
             className={`${CONTROL_CHIP_CLASSES} numeric h-7 justify-center px-2.5 touch:h-11 ${gridChipLook(
                 isChosen,
                 grid.isSuggested,
@@ -317,7 +317,7 @@ function GridChip({ grid, isChosen, isSaving, translate, onPick }: {
  */
 function gridChipLook(isChosen: boolean, isSuggested: boolean): string {
     if (isChosen) {
-        return `${CONTROL_CHOSEN_CLASSES} disabled:opacity-100`;
+        return `${CONTROL_CHOSEN_CLASSES} cursor-default`;
     }
     return isSuggested ? 'border-phosphor/30 text-ink-100' : CONTROL_OFFERED_CLASSES;
 }
@@ -408,8 +408,21 @@ function PairRow(props: PairRowProps): ReactElement {
                     <button
                         type="button"
                         aria-expanded={props.isOpen}
-                        aria-label={props.translate('recording.regrid', { symbol: props.instrument.symbol })}
+                        aria-label={props.translate('recording.regrid', {
+                            symbol: props.instrument.symbol,
+                            grid: props.translate('settings.perRow', { value: contract.priceBucketSize }),
+                        })}
                         onClick={props.onOpen}
+                        onKeyDown={(event) => {
+                            // Closed here rather than let through: the card and
+                            // the panel behind it both close on Escape, so
+                            // dismissing a list of four numbers took the whole
+                            // way back to the chart with it.
+                            if (event.key === 'Escape' && props.isOpen) {
+                                event.stopPropagation();
+                                props.onOpen();
+                            }
+                        }}
                         className="numeric ml-auto flex shrink-0 items-center rounded px-1.5 py-0.5 pl-2 text-[11px] text-ink-500 transition-colors hover:bg-abyss-700 hover:text-ink-200 touch:min-h-11"
                     >
                         {props.translate('settings.perRow', { value: contract.priceBucketSize })}

@@ -267,6 +267,10 @@ function TagNameField({ translate, onName, onGiveUp }: TagNameFieldProps): React
                     onName(event.currentTarget.value);
                 }
                 if (event.key === 'Escape') {
+                    // Stopped here rather than let through: the popover this
+                    // sits in closes on Escape too, so giving up on a name the
+                    // reader had half typed took the whole card away with it.
+                    event.stopPropagation();
                     onGiveUp();
                 }
             }}

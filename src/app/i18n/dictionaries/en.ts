@@ -420,7 +420,7 @@ export const EN_DICTIONARY = {
     'recording.pickerTitle': 'Record a pair',
     'recording.venuesWithBook': 'Venues with a book',
     'recording.gridPrompt': 'One row of the heat map covers',
-    'recording.regrid': 'Change the grid {symbol} records on',
+    'recording.regrid': 'Change the grid {symbol} records on — now {grid}',
     'recording.remove': 'Delete {symbol} and everything it recorded',
     'recording.removeTitle': 'Delete this recording?',
     'recording.removeBody': 'Everything recorded for {symbol} is deleted, and the room it took comes back. An order book cannot be recorded again, so what goes here is gone. Switching it off instead stops the recording and keeps all of it.',

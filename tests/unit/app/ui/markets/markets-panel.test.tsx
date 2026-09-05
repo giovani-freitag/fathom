@@ -463,6 +463,21 @@ describe('the card on a phone', () => {
             .toContain('Majors');
     });
 
+    it('gives up on a half-typed tag name without taking the card with it', async () => {
+        // The card closes on Escape as well, so the key that abandons a field
+        // used to abandon everything behind it.
+        showAt(390);
+        renderPanel();
+        fireEvent.click(await screen.findByRole('button', { name: 'New tag' }));
+
+        const field = await screen.findByRole('textbox', { name: 'Name this tag' });
+        fireEvent.change(field, { target: { value: 'half' } });
+        fireEvent.keyDown(field, { key: 'Escape' });
+
+        expect(screen.queryByRole('textbox', { name: 'Name this tag' })).toBeNull();
+        expect(await screen.findByRole('combobox', { name: 'Contracts' })).toBeDefined();
+    });
+
     it('keeps only one of the two layouts in the tree at a time', async () => {
         // Both mounted is two of every control with the same name, and two of
         // every dialog behind them.
