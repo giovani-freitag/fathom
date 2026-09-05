@@ -1,6 +1,7 @@
 import { Type } from '@sinclair/typebox';
 
 const RecordedInstrumentSchema = Type.Object({
+    venue: Type.String(),
     instrumentSymbol: Type.String(),
     priceBucketSize: Type.Number(),
     frameIntervalMs: Type.Integer(),
@@ -18,6 +19,7 @@ export const RecordingRouteSchema = {
 };
 
 export const InstrumentUpdateSchema = Type.Object({
+    venue: Type.String({ minLength: 1, maxLength: 64 }),
     instrumentSymbol: Type.String({ minLength: 1, maxLength: 32 }),
     priceBucketSize: Type.Number({ exclusiveMinimum: 0 }),
     frameIntervalMs: Type.Integer({ minimum: 100, maximum: 3_600_000 }),

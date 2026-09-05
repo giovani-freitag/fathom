@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { FIRST_VENUE } from '../../../../../src/shared/core/recording-control.ts';
 import type { RecordedContract, RecordingControl, StorageBudget } from '../../../../../src/shared/core/recording-control.ts';
 import { buildTranslate } from '../../../../../src/app/i18n/translator.ts';
 import { RecordingPanel } from '../../../../../src/app/indicators/book/recording-panel.tsx';
 
 const CONTRACTS: RecordedContract[] = [
-    { instrumentSymbol: 'BTCUSDT', priceBucketSize: 10, frameIntervalMs: 1_000, isEnabled: true },
-    { instrumentSymbol: 'ETHUSDT', priceBucketSize: 0.5, frameIntervalMs: 1_000, isEnabled: false },
+    { venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT', priceBucketSize: 10, frameIntervalMs: 1_000, isEnabled: true },
+    { venue: FIRST_VENUE, instrumentSymbol: 'ETHUSDT', priceBucketSize: 0.5, frameIntervalMs: 1_000, isEnabled: false },
 ];
 
 describe('RecordingPanel', () => {

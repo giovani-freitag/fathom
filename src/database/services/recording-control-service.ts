@@ -27,6 +27,7 @@ const RECORDED_TABLES = [
 ] as const;
 
 interface InstrumentRow {
+    readonly venue: string;
     readonly instrument_symbol: string;
     readonly price_bucket_size: number;
     readonly frame_interval_ms: number;
@@ -60,12 +61,13 @@ export class RecordingControlService implements RecordingControl {
      */
     async listContracts(): Promise<RecordedContract[]> {
         const rows = await this.postgres.selectRows<InstrumentRow>(
-            `SELECT instrument_symbol, price_bucket_size, frame_interval_ms, is_enabled
+            `SELECT venue, instrument_symbol, price_bucket_size, frame_interval_ms, is_enabled
              FROM instrument_registry
-             ORDER BY instrument_symbol`,
+             ORDER BY venue, instrument_symbol`,
         );
 
         return rows.map((row) => ({
+            venue: row.venue,
             instrumentSymbol: row.instrument_symbol,
             priceBucketSize: row.price_bucket_size,
             frameIntervalMs: row.frame_interval_ms,
@@ -82,13 +84,14 @@ export class RecordingControlService implements RecordingControl {
     async saveContract(instrument: RecordedContract): Promise<void> {
         await this.postgres.execute(
             `INSERT INTO instrument_registry
-                 (instrument_symbol, price_bucket_size, frame_interval_ms, is_enabled)
-             VALUES ($1, $2, $3, $4)
-             ON CONFLICT (instrument_symbol) DO UPDATE
+                 (venue, instrument_symbol, price_bucket_size, frame_interval_ms, is_enabled)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (venue, instrument_symbol) DO UPDATE
                  SET price_bucket_size = EXCLUDED.price_bucket_size,
                      frame_interval_ms = EXCLUDED.frame_interval_ms,
                      is_enabled        = EXCLUDED.is_enabled`,
             [
+                instrument.venue,
                 instrument.instrumentSymbol,
                 instrument.priceBucketSize,
                 instrument.frameIntervalMs,
@@ -100,14 +103,16 @@ export class RecordingControlService implements RecordingControl {
     /**
      * Turns recording of one contract on or off.
      *
+     * @param venue - Which connector the symbol belongs to.
      * @param instrumentSymbol - Which contract.
      * @param isEnabled - Whether a supervisor should be recording it.
      * @throws PostgresQueryError when the write fails.
      */
-    async setEnabled(instrumentSymbol: string, isEnabled: boolean): Promise<void> {
+    async setEnabled(venue: string, instrumentSymbol: string, isEnabled: boolean): Promise<void> {
         await this.postgres.execute(
-            'UPDATE instrument_registry SET is_enabled = $2 WHERE instrument_symbol = $1',
-            [instrumentSymbol, isEnabled],
+            `UPDATE instrument_registry SET is_enabled = $3
+             WHERE venue = $1 AND instrument_symbol = $2`,
+            [venue, instrumentSymbol, isEnabled],
         );
     }
 

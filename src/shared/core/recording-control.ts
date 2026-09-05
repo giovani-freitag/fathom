@@ -1,5 +1,22 @@
+/**
+ * The connector every recording came from before there was more than one.
+ *
+ * Named here rather than assumed at each call site: it is what a contract with
+ * no venue on it meant, and the migration that added the column backfilled it
+ * with this exact string.
+ */
+export const FIRST_VENUE = 'binance-futures';
+
 /** One contract a supervisor may record, and the grid it records on. */
 export interface RecordedContract {
+    /**
+     * Which connector the symbol belongs to.
+     *
+     * Part of what names a contract, not a label on it: two venues both list
+     * BTCUSDT, and keyed by the symbol alone the second to register would take
+     * the grid of the first while a recording was already running on the old one.
+     */
+    readonly venue: string;
     readonly instrumentSymbol: string;
     readonly priceBucketSize: number;
     readonly frameIntervalMs: number;

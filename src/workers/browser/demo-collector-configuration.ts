@@ -1,4 +1,5 @@
 import type { CollectorConfiguration } from '../core/collector-configuration.ts';
+import { FIRST_VENUE } from '../../shared/core/recording-control.ts';
 
 /** Whatever exposes a storage estimate: a window's navigator or a worker's. */
 export interface StorageOwner {
@@ -9,11 +10,11 @@ export interface StorageOwner {
  * What a visitor may record, and what is on by default.
  */
 export const DEMO_CATALOGUE = [
-    { instrumentSymbol: 'BTCUSDT', priceBucketSize: 10, frameIntervalMs: 1_000, isEnabled: true },
-    { instrumentSymbol: 'ETHUSDT', priceBucketSize: 0.5, frameIntervalMs: 1_000, isEnabled: false },
-    { instrumentSymbol: 'SOLUSDT', priceBucketSize: 0.1, frameIntervalMs: 1_000, isEnabled: false },
-    { instrumentSymbol: 'LTCUSDT', priceBucketSize: 0.05, frameIntervalMs: 1_000, isEnabled: false },
-    { instrumentSymbol: 'PAXGUSDT', priceBucketSize: 1, frameIntervalMs: 1_000, isEnabled: false },
+    { venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT', priceBucketSize: 10, frameIntervalMs: 1_000, isEnabled: true },
+    { venue: FIRST_VENUE, instrumentSymbol: 'ETHUSDT', priceBucketSize: 0.5, frameIntervalMs: 1_000, isEnabled: false },
+    { venue: FIRST_VENUE, instrumentSymbol: 'SOLUSDT', priceBucketSize: 0.1, frameIntervalMs: 1_000, isEnabled: false },
+    { venue: FIRST_VENUE, instrumentSymbol: 'LTCUSDT', priceBucketSize: 0.05, frameIntervalMs: 1_000, isEnabled: false },
+    { venue: FIRST_VENUE, instrumentSymbol: 'PAXGUSDT', priceBucketSize: 1, frameIntervalMs: 1_000, isEnabled: false },
 ] as const;
 
 /** What a visitor sees unless the link says otherwise. */

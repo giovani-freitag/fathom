@@ -1,6 +1,7 @@
 import { CollectorSupervisor } from './collector-supervisor.ts';
 import { openNodeCollectorLog } from './transport/node-collector-log.ts';
 import { describeError } from './core/collector-log.ts';
+import { FIRST_VENUE } from '../shared/core/recording-control.ts';
 import { LiquidityArchiveService } from '../database/services/liquidity-archive-service.ts';
 import { PostgresChunkRowStore } from '../database/postgres/postgres-chunk-row-store.ts';
 import { ChunkArchiveService } from '../database/services/chunk-archive-service.ts';
@@ -105,6 +106,7 @@ try {
     // The environment still names one contract: it is the seed a fresh database
     // needs, so a first run records something without anyone opening the chart.
     await control.saveContract({
+        venue: FIRST_VENUE,
         instrumentSymbol,
         priceBucketSize,
         frameIntervalMs,

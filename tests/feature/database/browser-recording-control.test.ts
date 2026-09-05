@@ -3,14 +3,15 @@ import { recordInstants } from '../../mocks/browser-recording.ts';
 import { IndexedDbChunkRowStore } from '../../../src/database/browser/indexed-db-chunk-row-store.ts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { BrowserRecordingControl } from '../../../src/database/browser/browser-recording-control.ts';
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 import { IDBFactory } from 'fake-indexeddb';
 import { IndexedDbLiquidityArchive } from '../../../src/database/browser/indexed-db-liquidity-archive.ts';
 import { IndexedDbService } from '../../../src/database/browser/indexed-db-service.ts';
 import type { RecordedContract } from '../../../src/shared/core/recording-control.ts';
 
 const CATALOGUE: readonly RecordedContract[] = [
-    { instrumentSymbol: 'BTCUSDT', priceBucketSize: 10, frameIntervalMs: 1_000, isEnabled: true },
-    { instrumentSymbol: 'ETHUSDT', priceBucketSize: 0.5, frameIntervalMs: 1_000, isEnabled: false },
+    { venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT', priceBucketSize: 10, frameIntervalMs: 1_000, isEnabled: true },
+    { venue: FIRST_VENUE, instrumentSymbol: 'ETHUSDT', priceBucketSize: 0.5, frameIntervalMs: 1_000, isEnabled: false },
 ];
 
 describe('BrowserRecordingControl', () => {

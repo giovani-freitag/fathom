@@ -4,6 +4,7 @@ import { createMockCollectorLog, type MockCollectorLog } from '../../mocks/colle
 import type { LiquidityArchive } from '../../../src/database/services/liquidity-archive.ts';
 import { openSilentMarketDataSocket } from '../../mocks/market-data-socket.ts';
 import type { RecordedContract } from '../../../src/shared/core/recording-control.ts';
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 
 const STALL_TIMEOUT_MS = 120_000;
 
@@ -19,7 +20,7 @@ function buildArchive(): LiquidityArchive {
 }
 
 function buildContract(instrumentSymbol: string): RecordedContract {
-    return { instrumentSymbol, priceBucketSize: 10, frameIntervalMs: 1_000, isEnabled: true };
+    return { venue: FIRST_VENUE, instrumentSymbol, priceBucketSize: 10, frameIntervalMs: 1_000, isEnabled: true };
 }
 
 interface Harness {

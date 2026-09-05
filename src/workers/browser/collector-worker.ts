@@ -4,6 +4,7 @@ import { BrowserRecordingControl } from '../../database/browser/browser-recordin
 import { createBrowserCollectorLog } from './browser-collector-log.ts';
 import { CollectorSupervisor } from '../collector-supervisor.ts';
 import type { CollectorWorkerScope } from './worker-scope.ts';
+import { FIRST_VENUE, type RecordedContract } from '../../shared/core/recording-control.ts';
 import { DEMO_CATALOGUE, readDemoConfiguration } from './demo-collector-configuration.ts';
 import { describeError } from '../core/collector-log.ts';
 import { IndexedDbLiquidityArchive } from '../../database/browser/indexed-db-liquidity-archive.ts';
@@ -204,15 +205,22 @@ function priceBucketSizeOf(symbol: string): number {
 }
 
 /** The catalogue, with a link-requested contract added if it is not already in it. */
-function withRequested(symbol: string, priceBucketSize: number, frameIntervalMs: number) {
-    const catalogue = DEMO_CATALOGUE.map((contract) => ({
+function withRequested(
+    symbol: string,
+    priceBucketSize: number,
+    frameIntervalMs: number,
+): readonly RecordedContract[] {
+    const catalogue: RecordedContract[] = DEMO_CATALOGUE.map((contract) => ({
         ...contract,
         isEnabled: contract.instrumentSymbol === symbol ? true : contract.isEnabled,
     }));
 
     return catalogue.some((contract) => contract.instrumentSymbol === symbol)
         ? catalogue
-        : [{ instrumentSymbol: symbol, priceBucketSize, frameIntervalMs, isEnabled: true }, ...catalogue];
+        : [
+            { venue: FIRST_VENUE, instrumentSymbol: symbol, priceBucketSize, frameIntervalMs, isEnabled: true },
+            ...catalogue,
+        ];
 }
 
 scope.addEventListener('message', (event: MessageEvent<CollectorCommand>) => {

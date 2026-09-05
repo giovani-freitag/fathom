@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createServerHarness, type ServerHarness } from '../../mocks/server-harness.ts';
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 
 const FROM_MS = 1_700_000_000_000;
 const TO_MS = FROM_MS + 900_000;
@@ -136,6 +137,7 @@ describe('GET /api/trade-clusters', () => {
 describe('GET /api/recording', () => {
     it('answers with what is being recorded and how much room is left', async () => {
         harness.control.listContracts.mockResolvedValue([{
+            venue: FIRST_VENUE,
             instrumentSymbol: 'BTCUSDT',
             priceBucketSize: 10,
             frameIntervalMs: 1_000,
@@ -192,6 +194,7 @@ describe('PUT /api/recording', () => {
 
     it('saves the contract and answers with what is being recorded now', async () => {
         const response = await put('/api/recording', {
+            venue: FIRST_VENUE,
             instrumentSymbol: 'ETHUSDT',
             priceBucketSize: 0.5,
             frameIntervalMs: 1_000,
@@ -220,6 +223,7 @@ describe('PUT /api/recording', () => {
 
     it('refuses a grid finer than the collector can write', async () => {
         const response = await put('/api/recording', {
+            venue: FIRST_VENUE,
             instrumentSymbol: 'ETHUSDT',
             priceBucketSize: 0,
             frameIntervalMs: 10,

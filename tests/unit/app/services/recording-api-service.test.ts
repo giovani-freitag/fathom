@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HeatmapSourceError } from '../../../../src/shared/core/heatmap-source.ts';
 import { RecordingApiService } from '../../../../src/app/services/recording-api-service.ts';
+import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 
 const STATE = {
-    instruments: [{ instrumentSymbol: 'BTCUSDT', priceBucketSize: 10, frameIntervalMs: 1_000, isEnabled: true }],
+    instruments: [{ venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT', priceBucketSize: 10, frameIntervalMs: 1_000, isEnabled: true }],
     maximumBytes: 100,
     usedBytes: 40,
 };
@@ -49,7 +50,7 @@ describe('RecordingApiService', () => {
     });
 
     it('sends a changed contract as the whole contract', async () => {
-        const contract = { instrumentSymbol: 'ETHUSDT', priceBucketSize: 5, frameIntervalMs: 500, isEnabled: false };
+        const contract = { venue: FIRST_VENUE, instrumentSymbol: 'ETHUSDT', priceBucketSize: 5, frameIntervalMs: 500, isEnabled: false };
 
         await service.saveContract(contract);
 

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createPostgresServiceMock, type PostgresServiceMock } from '../../../mocks/postgres-service.ts';
 import { RecordingControlService } from '../../../../src/database/services/recording-control-service.ts';
+import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 
 const GIGABYTE = 1_073_741_824;
 
@@ -121,7 +122,7 @@ describe('RecordingControlService', () => {
     it('keeps what a disabled instrument already recorded', async () => {
         const mock = createPostgresServiceMock();
 
-        await buildService(mock).setEnabled('BTCUSDT', false);
+        await buildService(mock).setEnabled(FIRST_VENUE, 'BTCUSDT', false);
 
         const statement = String(mock.execute.mock.calls[0]?.[0]);
         expect([statement.includes('UPDATE'), statement.includes('DELETE')]).toEqual([true, false]);
