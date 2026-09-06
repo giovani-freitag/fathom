@@ -84,6 +84,10 @@ export function DockPopover({
             </Popover.Trigger>
             <Popover.Portal>
                 <Popover.Content
+                    // Named after the control that opened it. Three of these
+                    // announced themselves as "dialog" and nothing else, which
+                    // tells a reader a thing has opened and not what it is.
+                    aria-label={name}
                     onEscapeKeyDown={(event) => {
                         // Refused rather than swallowed: the key still reaches
                         // whatever claimed it, which closes only itself.

@@ -226,7 +226,6 @@ export function DrawingTools({ drawings }: DrawingToolsProps): ReactElement {
             {/* Beside the tools, because a step back is about what they did. */}
             <DockButton
                 label={translate('drawing.undo')}
-                isActive={false}
                 isDisabled={!drawings.canUndo}
                 onPress={drawings.undo}
             >
@@ -235,7 +234,6 @@ export function DrawingTools({ drawings }: DrawingToolsProps): ReactElement {
 
             <DockButton
                 label={translate('drawing.redo')}
-                isActive={false}
                 isDisabled={!drawings.canRedo}
                 onPress={drawings.redo}
             >
@@ -283,7 +281,14 @@ export function Divider(): ReactElement {
 
 export interface DockButtonProps {
     readonly label: string;
-    readonly isActive: boolean;
+    /**
+     * Whether the control is in force, for one that stays down.
+     *
+     * Absent for a control that simply acts: a step back is not a state, and
+     * announced as one it reads "Undo, toggle button, not pressed" — a control
+     * a reader then waits to see change.
+     */
+    readonly isActive?: boolean | undefined;
     readonly onPress: () => void;
     readonly children: ReactElement;
     readonly isDisabled?: boolean;
@@ -313,9 +318,9 @@ export function DockButton({
             type="button"
             aria-label={label}
             title={label}
-            {...reveals === undefined
-                ? { 'aria-pressed': isActive }
-                : { 'aria-expanded': reveals.isOpen, 'aria-controls': reveals.id }}
+            {...reveals !== undefined
+                ? { 'aria-expanded': reveals.isOpen, 'aria-controls': reveals.id }
+                : isActive === undefined ? {} : { 'aria-pressed': isActive }}
             disabled={isDisabled}
             onClick={onPress}
             className={`${CONTROL_BUTTON_CLASSES} ${isActive ? CONTROL_ACTIVE_CLASSES : CONTROL_RESTING_CLASSES} disabled:opacity-30`}

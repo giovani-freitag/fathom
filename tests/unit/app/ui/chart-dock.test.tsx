@@ -231,3 +231,29 @@ describe('ChartDock and the catalogue', () => {
         expect(screen.queryByRole('button', { name: EN_DICTIONARY['indicators.open'] })).toBeNull();
     });
 });
+
+describe('what the dock says about its own controls', () => {
+    it('announces a step back as an action, not as a switch that is not on', () => {
+        // "Undo, toggle button, not pressed" describes a state a reader then
+        // waits to see change. There is no state; the button simply acts.
+        renderDock({ canUndo: true });
+
+        expect(control('drawing.undo').hasAttribute('aria-pressed')).toBe(false);
+        expect(control('drawing.redo').hasAttribute('aria-pressed')).toBe(false);
+    });
+
+    it('still says which tool is in force, because that one is a state', () => {
+        renderDock();
+
+        expect(control('drawing.select').getAttribute('aria-pressed')).toBe('true');
+        expect(control('drawing.zone').getAttribute('aria-pressed')).toBe('false');
+    });
+
+    it('names the card each control opens, rather than leaving it "dialog"', () => {
+        renderDock();
+
+        fireEvent.click(control('indicators.onTheChart'));
+
+        expect(screen.getByRole('dialog', { name: /On the chart/ })).toBeDefined();
+    });
+});
