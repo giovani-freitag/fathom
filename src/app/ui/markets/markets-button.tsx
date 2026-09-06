@@ -1,6 +1,9 @@
+import { BottomSheet } from '../bottom-sheet.tsx';
 import { Coins } from 'lucide-react';
+import { CONTROL_BUTTON_CLASSES, CONTROL_RESTING_CLASSES } from '../control-shell.ts';
 import { type ReactElement, useState } from 'react';
 import { DockPopover } from '../dock-popover.tsx';
+import { useIsViewportAtLeast } from '../../react/use-viewport-width.ts';
 import { MarketsPanel } from './markets-panel.tsx';
 import { useTranslate } from '../../react/use-appearance.ts';
 import type { MarketPair } from '../../../shared/core/pair-tags.ts';
@@ -35,6 +38,51 @@ export function MarketsButton({
 }: MarketsButtonProps): ReactElement {
     const translate = useTranslate();
     const [isOpen, setIsOpen] = useState(false);
+    const isWide = useIsViewportAtLeast('lg');
+
+    const listing = (
+        <MarketsPanel
+            open={openPair}
+            onOpen={onPairOpen}
+            onClose={() => { setIsOpen(false); }}
+            {...onWriteAConnector === undefined
+                ? {}
+                : { onWriteConnector: () => { setIsOpen(false); onWriteAConnector(); } }}
+        />
+    );
+
+    const face = (
+        <span className="flex items-center gap-1 px-1 text-xs font-semibold">
+            <Coins size={iconSizePx} />
+            {said}
+        </span>
+    );
+
+    // A sheet where the screen is the constraint, a card beside the control
+    // where it is not. The card is placed against its trigger and sized against
+    // the window, which on a phone leaves a listing of nine hundred pairs about
+    // three rows to stand in once the search and the filters have had theirs.
+    if (!isWide) {
+        return (
+            <BottomSheet
+                isOpen={isOpen}
+                onOpenChange={setIsOpen}
+                title={translate('markets.title')}
+                closeLabel={translate('recording.done')}
+                trigger={(
+                    <button
+                        type="button"
+                        aria-label={`${said} — ${translate('markets.title')}`}
+                        className={`${CONTROL_BUTTON_CLASSES} ${CONTROL_RESTING_CLASSES}`}
+                    >
+                        {face}
+                    </button>
+                )}
+            >
+                {listing}
+            </BottomSheet>
+        );
+    }
 
     return (
         <DockPopover
@@ -44,21 +92,9 @@ export function MarketsButton({
             onOpenChange={setIsOpen}
             label={translate('markets.title')}
             said={said}
-            trigger={(
-                <span className="flex items-center gap-1 px-1 text-xs font-semibold">
-                    <Coins size={iconSizePx} />
-                    {said}
-                </span>
-            )}
+            trigger={face}
         >
-            <MarketsPanel
-                open={openPair}
-                onOpen={onPairOpen}
-                onClose={() => { setIsOpen(false); }}
-                {...onWriteAConnector === undefined
-                    ? {}
-                    : { onWriteConnector: () => { setIsOpen(false); onWriteAConnector(); } }}
-            />
+            {listing}
         </DockPopover>
     );
 }
