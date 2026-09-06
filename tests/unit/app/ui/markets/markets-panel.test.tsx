@@ -53,7 +53,7 @@ function renderPanel(
 /** Points the listing at the shipped venue and waits for it to answer. */
 /** Points the card at a tag or a venue, the way the phone's one control does. */
 async function pickSource(named: RegExp): Promise<void> {
-    fireEvent.click(await screen.findByRole('combobox', { name: 'Contracts' }));
+    fireEvent.click(await screen.findByRole('combobox', { name: 'Tags and venues' }));
     fireEvent.click(await screen.findByRole('option', { name: named }));
 }
 
@@ -469,7 +469,7 @@ describe('the card on a phone', () => {
         showAt(390);
         renderPanel();
 
-        fireEvent.click(await screen.findByRole('combobox', { name: 'Contracts' }));
+        fireEvent.click(await screen.findByRole('combobox', { name: 'Tags and venues' }));
 
         expect(await screen.findByText('Your tags')).toBeDefined();
         expect(screen.getByText('Venues')).toBeDefined();
@@ -512,7 +512,7 @@ describe('the card on a phone', () => {
 
         // Read off the screen, which is where the reader sees it: the tag is
         // made, chosen, and wearing the colour that was picked beside its name.
-        const chosen = await screen.findByRole('combobox', { name: 'Contracts' });
+        const chosen = await screen.findByRole('combobox', { name: 'Tags and venues' });
         expect(chosen.textContent).toContain('Majors');
     });
 

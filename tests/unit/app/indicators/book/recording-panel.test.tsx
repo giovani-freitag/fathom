@@ -50,7 +50,9 @@ describe('RecordingPanel', () => {
         // step, and this is the one that cannot show what is missing from it.
         renderPanel();
 
-        expect(await screen.findByText(/Recording 1 pairs on binance-futures/)).toBeDefined();
+        // One pair counted as one pair: the line used to read "Recording 1
+        // pairs", which is what every reader saw on their first contract.
+        expect(await screen.findByText(/Recording one pair on binance-futures/)).toBeDefined();
         expect(screen.getByText(/1 switched off/)).toBeDefined();
         expect(screen.queryByRole('switch', { name: 'Record BTCUSDT' })).toBeNull();
     });

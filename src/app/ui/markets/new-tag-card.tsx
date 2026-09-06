@@ -82,7 +82,7 @@ export function NewTagCard({ translate, onMake, onGiveUp }: NewTagCardProps): Re
                 </label>
 
                 <fieldset className="flex flex-col gap-1.5">
-                    <legend className="field-label">{translate('markets.recolourTag')}</legend>
+                    <legend className="field-label">{translate('markets.tagColour')}</legend>
                     <div className="flex flex-wrap gap-2">
                         {INSTANCE_TONES.map((tone) => (
                             <button

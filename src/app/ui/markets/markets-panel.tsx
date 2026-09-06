@@ -280,7 +280,7 @@ export function MarketsPanel({
                                 have to ask which — and that is a question the
                                 icons answer without being asked. */}
                             <Select
-                                label={translate('markets.title')}
+                                label={translate('markets.sources')}
                                 value={showing.kind === 'tag'
                                     ? `tag:${openTag?.id ?? FAVOURITES_ID}`
                                     : `venue:${showing.venue}`}

@@ -2,7 +2,7 @@
 
 ## Introdução
 
-Um indicador que você escreve usa exatamente a mesma interface dos dezoito que
+Um indicador que você escreve usa exatamente a mesma interface dos dezenove que
 já vêm com o Fathom. Não existe API de plugin nem superfície de segunda classe:
 o que você escreve e o que vem pronto têm a mesma forma.
 

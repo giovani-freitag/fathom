@@ -179,8 +179,9 @@ override continueInstruments(payload: unknown, read: number) {
 }
 ```
 
-Either way Fathom stops at twenty pages, so a venue whose answer never says it
-is finished stops on Fathom's count rather than yours.
+Either way the paging stops at `pacing.pagesPerListing`, which is twenty unless
+your connector says otherwise, so a venue whose answer never says it is finished
+stops on that count rather than on nothing.
 
 ### A venue that searches for you
 

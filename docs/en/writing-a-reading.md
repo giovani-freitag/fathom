@@ -2,7 +2,7 @@
 
 ## Introduction
 
-An indicator you write yourself uses the exact same interface as the eighteen
+An indicator you write yourself uses the exact same interface as the nineteen
 that ship with Fathom. There is no plugin API and no second-class surface: what
 you write and what ships are the same shape.
 

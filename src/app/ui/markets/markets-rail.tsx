@@ -59,7 +59,7 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
     return (
         <>
             <nav
-                aria-label={translate('markets.title')}
+                aria-label={translate('markets.sources')}
                 className="flex w-56 shrink-0 flex-col gap-1 overflow-y-auto border-r border-hairline p-2"
             >
                 <RailHeading said={translate('markets.yourTags')} />

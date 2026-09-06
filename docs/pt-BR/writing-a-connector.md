@@ -180,8 +180,9 @@ override continueInstruments(payload: unknown, read: number) {
 }
 ```
 
-De um jeito ou de outro o Fathom para na vigésima página, então uma corretora
-cuja resposta nunca diz que acabou para na conta dele, não na sua.
+De um jeito ou de outro a paginação para em `pacing.pagesPerListing`, que são
+vinte a menos que seu conector diga outra coisa, então uma corretora cuja
+resposta nunca diz que acabou para nessa conta, e não em nenhuma.
 
 ### Uma corretora que busca por você
 

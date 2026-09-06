@@ -213,8 +213,14 @@ function summarise(contracts: readonly RecordedContract[], translate: Translate)
     }
 
     const off = contracts.filter((contract) => !contract.isEnabled).length;
+    const on = contracts.length - off;
     const said = translate('recording.onVenues', {
-        count: String(contracts.length - off),
+        // Counted in words rather than glued to a plural that is wrong for
+        // exactly one of them, which is what a reader recording their first
+        // contract was shown.
+        pairs: on === 1
+            ? translate('markets.onePair')
+            : translate('markets.somePairs', { count: String(on) }),
         venues: venues.join(', '),
     });
 

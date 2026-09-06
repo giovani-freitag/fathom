@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { INDICATOR_CATALOGUE } from '../../src/app/indicators/indicator-catalogue.ts';
 import { join } from 'node:path';
 
 const DOCS = join(import.meta.dirname, '../..', 'docs');
@@ -132,6 +133,33 @@ describe('what the guide promises', () => {
 
         // The front page of each language, and nowhere else.
         expect(said).toEqual(LANGUAGES.map((language) => `${language}/index.md`));
+    });
+});
+
+describe('what the guide counts', () => {
+    /** How each language spells a number the guide has reason to say. */
+    const SPELLED: Readonly<Record<number, readonly string[]>> = {
+        17: ['seventeen', 'dezessete'],
+        18: ['eighteen', 'dezoito'],
+        19: ['nineteen', 'dezenove'],
+        20: ['twenty', 'vinte'],
+        21: ['twenty-one', 'vinte e um'],
+    };
+
+    it('says how many readings ship, and says the number that do', () => {
+        // A count is the one claim a reader can check in a second and the one
+        // nothing fails over: the guide named eighteen for as long as it took
+        // to write a nineteenth, and read as carefully maintained the while.
+        const shipped = INDICATOR_CATALOGUE.length;
+        const wrong = LANGUAGES.flatMap((language) => {
+            const page = readFileSync(join(DOCS, language, 'writing-a-reading.md'), 'utf8');
+            const said = Object.entries(SPELLED)
+                .filter(([count, words]) => Number(count) !== shipped
+                    && words.some((word) => new RegExp(`\\b${word}\\b.{0,40}(ship|vêm|vem)`, 'is').test(page)));
+            return said.map(([count]) => `${language}: says ${count}, ships ${String(shipped)}`);
+        });
+
+        expect(wrong).toEqual([]);
     });
 });
 
