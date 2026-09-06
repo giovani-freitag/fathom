@@ -86,7 +86,7 @@ export function SearchField({
                 autoCorrect="off"
                 spellCheck={false}
                 enterKeyHint="search"
-                className={`${CONTROL_INPUT_CLASSES} h-9 pl-8 pr-2`}
+                className={`${CONTROL_INPUT_CLASSES} pl-8 pr-2`}
             />
         </>
     );

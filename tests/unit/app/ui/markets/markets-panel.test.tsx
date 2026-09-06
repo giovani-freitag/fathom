@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { createIndicatorKernel, renderWithKernel } from '../../../../mocks/indicator-kernel.tsx';
 import { FAVOURITES_ID, type MarketPair } from '../../../../../src/shared/core/pair-tags.ts';
 import { FIRST_VENUE } from '../../../../../src/shared/core/recording-control.ts';
@@ -358,7 +358,7 @@ describe('the colour a tag is marked in', () => {
         renderPanel();
 
         fireEvent.click(colourControl('Favourites'));
-        fireEvent.click(screen.getByRole('button', { name: 'Blue' }));
+        fireEvent.click(screen.getByRole('radio', { name: 'Blue' }));
 
         expect(colourControl('Favourites').querySelector('.bg-cyan')).not.toBeNull();
     });
@@ -477,7 +477,7 @@ describe('changing a tag rather than only making one', () => {
         renderPanel();
 
         fireEvent.click(await screen.findByRole('button', { name: 'Edit this tag' }));
-        fireEvent.click(await screen.findByRole('button', { name: 'Amber' }));
+        fireEvent.click(await screen.findByRole('radio', { name: 'Amber' }));
         fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
         await waitFor(() => {
@@ -541,6 +541,21 @@ describe('changing a tag rather than only making one', () => {
 
         expect(await screen.findByRole('textbox', { name: 'Name this tag' })).toBeDefined();
     });
+
+    it('stops naming the listing over a card that is about another tag', async () => {
+        // A tag is edited from its own row, which is not the row the listing is
+        // on. The strip went on naming the listing, so a reader renaming
+        // Favourites read "Shitcoins" directly above the field.
+        showAt(1_280);
+        renderPanel();
+        makeTag('Shitcoins');
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Edit this tag Favourites' }));
+
+        await screen.findByRole('textbox', { name: 'Name this tag' });
+        // Once: the row in the rail it is listed on, and nowhere over the card.
+        expect(screen.getAllByText('Shitcoins')).toHaveLength(1);
+    });
 });
 
 describe('the card on a phone', () => {
@@ -596,7 +611,21 @@ describe('the card on a phone', () => {
         fireEvent.click(await screen.findByRole('button', { name: 'New tag' }));
 
         expect(await screen.findByRole('textbox', { name: /Name this tag/ })).toBeDefined();
-        expect(screen.getByRole('button', { name: 'Amber' })).toBeDefined();
+        expect(screen.getByRole('radio', { name: 'Amber' })).toBeDefined();
+    });
+
+    it('offers the colours as one choice rather than as six switches', async () => {
+        // Picking one unpicks the rest. Announced as pressed buttons, a reader
+        // who cannot see the swatches is told they may hold two colours at once
+        // — and told nothing about which of the six they are on.
+        showAt(390);
+        renderPanel();
+
+        fireEvent.click(await screen.findByRole('button', { name: 'New tag' }));
+
+        const group = await screen.findByRole('radiogroup', { name: 'Colour' });
+        expect(within(group).getAllByRole('radio')).toHaveLength(5);
+        expect(within(group).getByRole('radio', { checked: true }).getAttribute('aria-label')).toBe('Teal');
     });
 
     it('gives the tag the colour that was picked with the name', async () => {
@@ -607,7 +636,7 @@ describe('the card on a phone', () => {
         fireEvent.change(await screen.findByRole('textbox', { name: /Name this tag/ }), {
             target: { value: 'Majors' },
         });
-        fireEvent.click(screen.getByRole('button', { name: 'Amber' }));
+        fireEvent.click(screen.getByRole('radio', { name: 'Amber' }));
         fireEvent.click(screen.getByRole('button', { name: 'Make the tag' }));
 
         // Read off the screen, which is where the reader sees it: the tag is

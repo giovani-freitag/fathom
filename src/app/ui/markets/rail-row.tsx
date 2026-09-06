@@ -1,4 +1,4 @@
-import { CONTROL_CHOSEN_CLASSES } from '../control-shell.ts';
+import { CONTROL_CHOSEN_CLASSES, CONTROL_HEIGHT } from '../control-shell.ts';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 
@@ -59,7 +59,7 @@ export function RailRow({
                 type="button"
                 aria-current={isOn}
                 onClick={onPress}
-                className={`flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5 text-left text-xs font-semibold transition-colors ${
+                className={`flex ${CONTROL_HEIGHT} min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5 text-left text-xs font-semibold transition-colors ${
                     isOn ? '' : 'text-ink-300 hover:bg-abyss-700 hover:text-ink-100'
                 } ${children === undefined ? '' : 'pl-1'}`}
             >
@@ -105,7 +105,7 @@ export function RailAdd({ said, onPress }: { readonly said: string; readonly onP
         <button
             type="button"
             onClick={onPress}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-dashed border-hairline px-2.5 text-xs font-semibold text-ink-400 transition-colors hover:border-hairline-bright hover:text-ink-100"
+            className={`flex ${CONTROL_HEIGHT} shrink-0 items-center gap-1.5 rounded-lg border border-dashed border-hairline px-2.5 text-xs font-semibold text-ink-400 transition-colors hover:border-hairline-bright hover:text-ink-100`}
         >
             <Plus className="size-3.5 shrink-0" />
             <span className="truncate">{said}</span>

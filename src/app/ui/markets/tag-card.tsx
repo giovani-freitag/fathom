@@ -1,13 +1,10 @@
-import { CONTROL_CHIP_CLASSES, CONTROL_CHOSEN_CLASSES, CONTROL_INPUT_CLASSES, CONTROL_OFFERED_CLASSES } from '../control-shell.ts';
 import { INSTANCE_TONES } from '../../../shared/core/draw-plan.ts';
+import { ColourChoice } from './colour-choice.tsx';
+import { CONTROL_CHIP_CLASSES, CONTROL_CHOSEN_CLASSES, CONTROL_INPUT_CLASSES, CONTROL_OFFERED_CLASSES } from '../control-shell.ts';
 import { useEscapeGuard } from '../escape-guard.ts';
-import { isPale, OPENS_ON } from './tag-colours.ts';
-import { PaintBucket } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import type { PairTag, TagColour } from '../../../shared/core/pair-tags.ts';
 import { labelOf } from '../../markets/tag-names.ts';
-import { TagSwatch } from './tag-swatch.tsx';
-import { TONE_LABEL_KEYS } from '../indicators/tone-labels.ts';
 import type { Translate } from '../../i18n/translator.ts';
 
 export interface TagCardProps {
@@ -51,9 +48,6 @@ export function TagCard({ translate, tag, onSave, onGiveUp, onRemove }: TagCardP
     // A blank name makes nothing, but leaves an existing tag as it was called —
     // which is the whole of what a reader who came here for the colour wants.
     const isSayable = tag !== undefined || label.trim() !== '';
-    // A colour the reader named rather than took, which is the one case the
-    // control has something of its own to show.
-    const isNamed = colour.startsWith('#');
 
     return (
         <div
@@ -99,56 +93,12 @@ export function TagCard({ translate, tag, onSave, onGiveUp, onRemove }: TagCardP
 
                 <fieldset className="flex flex-col gap-1.5">
                     <legend className="field-label">{translate('markets.tagColour')}</legend>
-                    <div className="flex flex-wrap gap-2">
-                        {INSTANCE_TONES.map((tone) => (
-                            <button
-                                key={tone}
-                                type="button"
-                                aria-label={translate(TONE_LABEL_KEYS[tone])}
-                                aria-pressed={colour === tone}
-                                onClick={() => { setColour(tone); }}
-                                className={`grid size-11 place-items-center rounded-md border transition-colors ${
-                                    colour === tone
-                                        ? 'border-phosphor/60 bg-abyss-700'
-                                        : 'border-hairline hover:border-hairline-bright'
-                                }`}
-                            >
-                                <TagSwatch colour={tone} className="size-4" />
-                            </button>
-                        ))}
-
-                        {/* Any colour there is, for a reader whose tags outnumber
-                        the palette. The same control the recolour offers, so a
-                        tag made here and a tag recoloured later are picked the
-                        same way. */}
-                        <label
-                            title={translate('markets.anyColour')}
-                            className={`relative grid size-11 cursor-pointer place-items-center rounded-md border transition-colors ${
-                                isNamed ? 'border-phosphor/60 bg-abyss-700' : 'border-hairline hover:border-hairline-bright'
-                            }`}
-                        >
-                            <span
-                                className={`grid size-7 place-items-center rounded-full ${isNamed ? '' : 'bg-ink-600'}`}
-                                {...isNamed ? { style: { background: colour } } : {}}
-                            >
-                                {/* Black on a pale fill, white on a dark one: half
-                                of the colours a reader may name swallow either
-                                glyph. */}
-                                <PaintBucket
-                                    size={13}
-                                    className={isNamed && isPale(colour) ? 'text-abyss-900' : 'text-ink-100'}
-                                />
-                            </span>
-                            <input
-                                type="color"
-                                name="tagColour"
-                                aria-label={translate('markets.anyColour')}
-                                value={isNamed ? colour : OPENS_ON}
-                                onChange={(event) => { setColour(event.target.value as TagColour); }}
-                                className="absolute inset-0 cursor-pointer opacity-0"
-                            />
-                        </label>
-                    </div>
+                    <ColourChoice
+                        colour={colour}
+                        said={translate('markets.tagColour')}
+                        translate={translate}
+                        onPick={setColour}
+                    />
                 </fieldset>
 
                 {/* At the end of what scrolls rather than beside the button that
@@ -158,7 +108,7 @@ export function TagCard({ translate, tag, onSave, onGiveUp, onRemove }: TagCardP
                     <button
                         type="button"
                         onClick={onRemove}
-                        className={`${CONTROL_CHIP_CLASSES} mt-2 h-11 w-full justify-center border-hairline text-amber hover:border-amber/60`}
+                        className={`${CONTROL_CHIP_CLASSES} mt-2 w-full justify-center border-hairline text-amber hover:border-amber/60`}
                     >
                         {translate('markets.removeTag')}
                     </button>
@@ -169,7 +119,7 @@ export function TagCard({ translate, tag, onSave, onGiveUp, onRemove }: TagCardP
                 <button
                     type="button"
                     onClick={onGiveUp}
-                    className={`${CONTROL_CHIP_CLASSES} h-11 flex-1 justify-center ${CONTROL_OFFERED_CLASSES}`}
+                    className={`${CONTROL_CHIP_CLASSES} flex-1 justify-center ${CONTROL_OFFERED_CLASSES}`}
                 >
                     {translate('markets.giveUp')}
                 </button>
@@ -177,7 +127,7 @@ export function TagCard({ translate, tag, onSave, onGiveUp, onRemove }: TagCardP
                     type="button"
                     disabled={!isSayable}
                     onClick={() => { onSave(label, colour); }}
-                    className={`${CONTROL_CHIP_CLASSES} h-11 flex-1 justify-center ${CONTROL_CHOSEN_CLASSES}`}
+                    className={`${CONTROL_CHIP_CLASSES} flex-1 justify-center ${CONTROL_CHOSEN_CLASSES}`}
                 >
                     {translate(tag === undefined ? 'markets.makeTag' : 'markets.saveTag')}
                 </button>

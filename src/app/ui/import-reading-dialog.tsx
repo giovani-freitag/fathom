@@ -3,6 +3,7 @@ import { type FormEvent, type ReactElement, useState } from 'react';
 import { Loader, TriangleAlert } from 'lucide-react';
 import {
     CONTROL_CHIP_CLASSES,
+    CONTROL_HEIGHT,
     CONTROL_CHOSEN_CLASSES,
     CONTROL_OFFERED_CLASSES,
     OVERLAY_CLASSES,
@@ -100,7 +101,7 @@ export function ImportReadingDialog({
                             onChange={(event) => { setTyped(event.target.value); }}
                             aria-label={translate('import.where')}
                             placeholder={translate('import.example')}
-                            className="h-9 min-w-0 flex-1 rounded-lg border border-hairline bg-abyss-900 px-3 font-mono text-xs text-ink-100 outline-none transition-colors placeholder:text-ink-500 focus:border-phosphor/60"
+                            className={`${CONTROL_HEIGHT} min-w-0 flex-1 rounded-lg border border-hairline bg-abyss-900 px-3 font-mono text-xs text-ink-100 outline-none transition-colors placeholder:text-ink-500 focus:border-phosphor/60`}
                         />
                         {/* Kept enabled while it works, and the press ignored
                             instead: disabling the button under the finger that
@@ -109,7 +110,7 @@ export function ImportReadingDialog({
                             type="submit"
                             aria-label={translate('import.look')}
                             aria-busy={stage.kind === 'looking'}
-                            className={`${CONTROL_CHIP_CLASSES} h-9 shrink-0 justify-center ${CONTROL_OFFERED_CLASSES}`}
+                            className={`${CONTROL_CHIP_CLASSES} shrink-0 justify-center ${CONTROL_OFFERED_CLASSES}`}
                         >
                             {stage.kind === 'looking'
                                 ? <Loader className="size-3.5 animate-spin" />

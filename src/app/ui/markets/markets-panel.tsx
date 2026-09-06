@@ -2,7 +2,7 @@ import { type ReactElement, useCallback, useEffect, useMemo, useState } from 're
 import { ListingBanner, ListingCard, RailBar, SearchField } from './listing-card.tsx';
 import { FAVOURITES_ID, findTagsHolding, type MarketPair, type PairTag } from '../../../shared/core/pair-tags.ts';
 import { ArrowLeft, Pencil, Plug, TagPlus } from 'lucide-react';
-import { CONTROL_BUTTON_CLASSES, CONTROL_RESTING_CLASSES } from '../control-shell.ts';
+import { CONTROL_BUTTON_CLASSES, CONTROL_HEIGHT, CONTROL_RESTING_CLASSES } from '../control-shell.ts';
 import { ListingBody, ListingFooting, QuoteFilter, Said } from './listing-body.tsx';
 import { MarketsRail, type Showing } from './markets-rail.tsx';
 import { Select } from '../select.tsx';
@@ -361,24 +361,30 @@ export function MarketsPanel({
                             onEditConnector={onEditConnector}
                         />
                     )}
-            banner={!isWide ? undefined : (
+            banner={!isWide || carding !== null
+                // The card is a step of its own. Left up, the strip went on
+                // naming the listing behind it — so a reader editing one tag
+                // from the rail was shown another tag's name directly over the
+                // field they were typing into.
+                ? undefined
+                : (
                 // What is being looked at, which is the tag the rail is on or
                 // the venue being browsed. Filing is done on the row itself, so
                 // this says nothing about where a press would put anything.
-                <ListingBanner
-                    said={showing.kind === 'tag' ? tagLabel : showing.venue}
-                    {...showing.kind === 'tag'
-                        ? { mark: <TagSwatch colour={tagColour} className="size-2" /> }
-                        : {}}
-                >
-                    <QuoteFilter
-                        quotes={quotes}
-                        quote={quote}
-                        translate={translate}
-                        onPick={setQuote}
-                    />
-                </ListingBanner>
-            )}
+                    <ListingBanner
+                        said={showing.kind === 'tag' ? tagLabel : showing.venue}
+                        {...showing.kind === 'tag'
+                            ? { mark: <TagSwatch colour={tagColour} className="size-2" /> }
+                            : {}}
+                    >
+                        <QuoteFilter
+                            quotes={quotes}
+                            quote={quote}
+                            translate={translate}
+                            onPick={setQuote}
+                        />
+                    </ListingBanner>
+                )}
             footing={carding !== null && !isWide
                 // The card is a step of its own: a line counting the catalogue
                 // behind it overlapped the card's own buttons in landscape, and
@@ -400,7 +406,7 @@ export function MarketsPanel({
                         <button
                             type="button"
                             onClick={() => { setCarding(null); }}
-                            className="flex min-h-11 shrink-0 items-center gap-1.5 px-3 text-xs text-ink-500 hover:text-ink-100"
+                            className={`flex ${CONTROL_HEIGHT} shrink-0 items-center gap-1.5 px-3 text-xs text-ink-500 hover:text-ink-100`}
                         >
                             <ArrowLeft className="size-3.5" />
                             {translate('markets.title')}

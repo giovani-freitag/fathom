@@ -148,7 +148,7 @@ export function QuoteFilter({ quotes, quote, translate, onPick }: QuoteFilterPro
                     type="button"
                     aria-pressed={quote === one}
                     onClick={() => { onPick(one); }}
-                    className={`${CONTROL_CHIP_CLASSES} h-7 justify-center px-2.5 ${
+                    className={`${CONTROL_CHIP_CLASSES} justify-center px-2.5 ${
                         quote === one ? CONTROL_CHOSEN_CLASSES : CONTROL_OFFERED_CLASSES
                     }`}
                 >

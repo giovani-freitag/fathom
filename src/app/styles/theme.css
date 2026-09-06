@@ -222,3 +222,22 @@ body {
         transparent 100%
     );
 }
+
+/*
+ * The hand a pointer expects over anything it can press.
+ *
+ * The browser's own default for a button is the arrow, and Tailwind's reset
+ * leaves it there. Every control in this interface is a button, so the whole
+ * chart answered a pointer with the cursor of something inert — and the only
+ * places that felt right were the five that had asked for the hand by hand.
+ *
+ * Not on a disabled one: the arrow is the truth there, and a hand over a
+ * control that will not answer is a press a reader makes twice.
+ */
+@layer base {
+    button:not(:disabled),
+    [role='radio']:not([aria-disabled='true']),
+    summary {
+        cursor: pointer;
+    }
+}

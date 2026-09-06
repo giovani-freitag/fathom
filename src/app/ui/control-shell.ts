@@ -6,10 +6,17 @@
  * buttons at forty. A row of controls that do the same kind of thing at four
  * different heights reads as a row that was assembled rather than designed.
  *
- * Forty, which is a comfortable target for a thumb and not a large one for a
- * cursor.
+ * Forty under a cursor, which is comfortable to hit and not large to look at,
+ * and forty-four under a finger, which is the width of the fingertip every
+ * platform sizes its own controls to. Written as one value rather than left to
+ * each card: the card a tag is named on chose forty-four for the thumb it was
+ * built for, and on a desk that put its buttons beside a listing eight pixels
+ * shorter and a rail eight pixels shorter again.
  */
-export const CONTROL_HEIGHT = 'h-10';
+export const CONTROL_HEIGHT = 'h-10 touch:h-11';
+
+/** A target that is as wide as it is tall, for a control that is only a mark. */
+export const CONTROL_SQUARE_CLASSES = 'grid size-10 shrink-0 place-items-center touch:size-11';
 
 /**
  * A control the reader picks between, whatever shape it is laid out in.
@@ -48,7 +55,7 @@ export const CONTROL_INPUT_CLASSES =
 
 /** A control that is only a glyph, square at that height. */
 export const CONTROL_BUTTON_CLASSES =
-    `grid ${CONTROL_HEIGHT} min-w-10 shrink-0 place-items-center rounded-lg px-1 transition-colors`;
+    `grid ${CONTROL_HEIGHT} min-w-10 touch:min-w-11 shrink-0 place-items-center rounded-lg px-1 transition-colors`;
 
 export const CONTROL_ACTIVE_CLASSES = 'bg-phosphor/15 text-phosphor';
 export const CONTROL_RESTING_CLASSES = 'text-ink-400 hover:bg-abyss-700 hover:text-ink-100';
