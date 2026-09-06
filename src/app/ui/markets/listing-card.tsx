@@ -104,3 +104,48 @@ export function RailBar({ children }: { readonly children: ReactNode }): ReactEl
         <div className="flex shrink-0 items-center gap-2 border-b border-hairline p-2">{children}</div>
     );
 }
+
+/**
+ * The column of targets down the side of a card with room for one.
+ *
+ * A landmark rather than a div, because a reader on a screen reader arrives at
+ * the rows and needs a way back to what points them somewhere else.
+ */
+export function RailColumn({ said, children }: {
+    readonly said: string;
+    readonly children: ReactNode;
+}): ReactElement {
+    return (
+        <nav
+            aria-label={said}
+            className="flex w-56 shrink-0 flex-col gap-1 overflow-y-auto border-r border-hairline p-2"
+        >
+            {children}
+        </nav>
+    );
+}
+
+/**
+ * The strip over the rows: what is being looked at, and what narrows it.
+ *
+ * The name is said quietly here rather than as a heading: it answers "which
+ * listing is this" for a reader who scrolled, and competing with the rows for
+ * attention is not what it is for.
+ */
+export function ListingBanner({ said, mark, children }: {
+    readonly said: string;
+    /** Drawn before the name, where the thing being looked at has a colour. */
+    readonly mark?: ReactNode;
+    /** What narrows the rows, which is the quote filter wherever there is one. */
+    readonly children?: ReactNode;
+}): ReactElement {
+    return (
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
+            <span className="flex items-center gap-1.5 text-[11px] text-ink-500">
+                {mark}
+                {said}
+            </span>
+            {children}
+        </div>
+    );
+}

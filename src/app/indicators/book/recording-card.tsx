@@ -7,7 +7,7 @@ import {
 import { ConfirmDialog } from '../../ui/confirm-dialog.tsx';
 import { Trash2 } from 'lucide-react';
 import { type GridChoice, offerGrids } from '../../markets/recordable.ts';
-import { ListingCard, SearchField } from '../../ui/markets/listing-card.tsx';
+import { ListingBanner, ListingCard, RailColumn, SearchField } from '../../ui/markets/listing-card.tsx';
 import { ListingBody, ListingFooting, QuoteFilter } from '../../ui/markets/listing-body.tsx';
 import { VenueMark } from '../../ui/markets/venue-mark.tsx';
 import { Select } from '../../ui/select.tsx';
@@ -23,6 +23,7 @@ import { useMarkets } from '../../react/use-markets.ts';
 import { useEscapeGuard } from '../../ui/escape-guard.ts';
 import type { VenueInstrument } from '../../../shared/core/venue-connector.ts';
 import { useSettled, useWholeWhenIdle } from '../../react/use-long-listing.ts';
+import { readInstruments } from '../../core/markets-controller.ts';
 
 export interface RecordingListingProps {
     /** The venues that publish a book, which are the only ones worth offering. */
@@ -75,7 +76,7 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
         }
     }, [listing, markets, venue]);
 
-    const listed = listing?.kind === 'read' || listing?.kind === 'reading' ? listing.instruments : null;
+    const listed = readInstruments(listing);
     const quotes = useMemo(() => (listed === null ? [] : summariseQuotes(listed)), [listed]);
     const narrowed = useMemo(
         () => (listed === null ? null : narrowPairs(listed, { query: narrowedBy, quote })),
@@ -144,10 +145,7 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
             )}
             rail={isWide
                 ? (
-                    <nav
-                        aria-label={props.translate('recording.pickerTitle')}
-                        className="flex w-56 shrink-0 flex-col gap-1 overflow-y-auto border-r border-hairline p-2"
-                    >
+                    <RailColumn said={props.translate('recording.pickerTitle')}>
                         <RailHeading said={props.translate('recording.venuesWithBook')} />
                         {props.venues.map((one) => (
                             <RailRow
@@ -165,7 +163,7 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
                                 })}
                             </p>
                         )}
-                    </nav>
+                    </RailColumn>
                 )
                 : (
                     // The same question the contracts picker asks on a phone,
@@ -195,15 +193,14 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
                     </div>
                 )}
             banner={(
-                <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
-                    <span className="text-[11px] text-ink-500">{venue}</span>
+                <ListingBanner said={venue} mark={<VenueMark venue={venue} />}>
                     <QuoteFilter
                         quotes={quotes}
                         quote={quote}
                         translate={props.translate}
                         onPick={setQuote}
                     />
-                </div>
+                </ListingBanner>
             )}
             footing={(
                 <ListingFooting

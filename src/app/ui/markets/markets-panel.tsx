@@ -1,5 +1,5 @@
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { ListingCard, RailBar, SearchField } from './listing-card.tsx';
+import { ListingBanner, ListingCard, RailBar, SearchField } from './listing-card.tsx';
 import { FAVOURITES_ID, findTagsHolding, type MarketPair } from '../../../shared/core/pair-tags.ts';
 import { ArrowLeft, Plug, TagPlus } from 'lucide-react';
 import { CONTROL_BUTTON_CLASSES, CONTROL_RESTING_CLASSES } from '../control-shell.ts';
@@ -12,8 +12,7 @@ import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
 import { PairTable, type PairRow } from './pair-table.tsx';
 import { TagSwatch } from './tag-swatch.tsx';
 import { VenueMark } from './venue-mark.tsx';
-import type { Listing } from '../../core/markets-controller.ts';
-import type { VenueInstrument } from '../../../shared/core/venue-connector.ts';
+import { type Listing, readInstruments } from '../../core/markets-controller.ts';
 import type { Translate } from '../../i18n/translator.ts';
 import { readFactsFor } from '../../../shared/venues/venue-registry.ts';
 import { useChartSlice } from '../../react/use-chart-state.ts';
@@ -145,13 +144,7 @@ export function MarketsPanel({
         setQuote('');
     }, []);
 
-    // What has been read, whether or not the reading has finished.
-    const listed = useMemo((): readonly VenueInstrument[] | null => {
-        if (listing.kind === 'read') {
-            return listing.instruments;
-        }
-        return listing.kind === 'reading' ? listing.instruments : null;
-    }, [listing]);
+    const listed = useMemo(() => readInstruments(listing), [listing]);
 
     // The venue's own answer, where it gave one for what is typed now. Matched
     // on the term as well as the venue: an answer to the previous word is worse
@@ -343,22 +336,22 @@ export function MarketsPanel({
                         />
                     )}
             banner={!isWide ? undefined : (
-                <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
-                    {/* What is being looked at, which is the tag the rail is on
-                        or the venue being browsed. Filing is done on the row
-                        itself, so this says nothing about where a press would
-                        put anything. */}
-                    <span className="flex items-center gap-1.5 text-[11px] text-ink-500">
-                        {showing.kind === 'tag' && <TagSwatch colour={tagColour} className="size-2" />}
-                        {showing.kind === 'tag' ? tagLabel : showing.venue}
-                    </span>
+                // What is being looked at, which is the tag the rail is on or
+                // the venue being browsed. Filing is done on the row itself, so
+                // this says nothing about where a press would put anything.
+                <ListingBanner
+                    said={showing.kind === 'tag' ? tagLabel : showing.venue}
+                    {...showing.kind === 'tag'
+                        ? { mark: <TagSwatch colour={tagColour} className="size-2" /> }
+                        : {}}
+                >
                     <QuoteFilter
                         quotes={quotes}
                         quote={quote}
                         translate={translate}
                         onPick={setQuote}
                     />
-                </div>
+                </ListingBanner>
             )}
             footing={isNamingTag && !isWide
                 // The card is a step of its own: a line counting the catalogue

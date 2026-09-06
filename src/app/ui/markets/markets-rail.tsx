@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { CONTROL_INPUT_CLASSES } from '../control-shell.ts';
+import { RailColumn } from './listing-card.tsx';
 import { RailAdd, RailHeading, RailRow, type RailRowProps } from './rail-row.tsx';
 import { ConfirmDialog } from '../confirm-dialog.tsx';
 import { FAVOURITES_ID, type PairTag, type TagColour } from '../../../shared/core/pair-tags.ts';
@@ -58,10 +59,7 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
 
     return (
         <>
-            <nav
-                aria-label={translate('markets.sources')}
-                className="flex w-56 shrink-0 flex-col gap-1 overflow-y-auto border-r border-hairline p-2"
-            >
+            <RailColumn said={translate('markets.sources')}>
                 <RailHeading said={translate('markets.yourTags')} />
                 {props.tags.map((tag) => (
                     <TagRow
@@ -120,7 +118,7 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
                     <RailAdd said={translate('markets.addVenue')} onPress={props.onWriteConnector} />
                 )}
 
-            </nav>
+            </RailColumn>
 
             <ConfirmDialog
                 isOpen={dropping !== null}

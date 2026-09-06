@@ -46,6 +46,24 @@ export type Listing =
     };
 
 /**
+ * What a venue has listed so far, whether or not it has finished listing.
+ *
+ * A listing still arriving is a listing a reader is already reading: three
+ * hundred rows of nine hundred are three hundred rows they can search, and
+ * hiding them until the last page lands is a card that says nothing while the
+ * answer is on screen.
+ *
+ * @param listing - What is known about a venue, if anything.
+ * @returns Its instruments, or null where none have arrived.
+ */
+export function readInstruments(listing: Listing | undefined): readonly VenueInstrument[] | null {
+    if (listing === undefined) {
+        return null;
+    }
+    return listing.kind === 'read' || listing.kind === 'reading' ? listing.instruments : null;
+}
+
+/**
  * What a venue answered about what a reader typed.
  *
  * Held apart from the listing rather than merged into it: a search is the
