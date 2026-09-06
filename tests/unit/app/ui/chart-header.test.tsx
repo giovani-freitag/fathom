@@ -95,4 +95,20 @@ describe('ChartHeader', () => {
 
         expect(screen.getByRole('combobox', { name: EN_DICTIONARY['interval.label'] })).toBeTruthy();
     });
+
+    it('gives the dropdown a box of its own rather than a place in the row', () => {
+        // A dropdown fills whatever it is put in, which is what a panel wants.
+        // Dropped straight into this row it took five hundred and fifty pixels
+        // of a fourteen-hundred-pixel bar, squeezed the presets until they
+        // wrapped, and left the header three rows deep over the chart.
+        //
+        // Asserted as structure because nothing here lays anything out: the
+        // width was measured in a browser, and what this can hold is the rule
+        // that the width came from.
+        renderHeader(true);
+
+        const bar = screen.getByRole('banner');
+        const interval = screen.getByRole('combobox', { name: EN_DICTIONARY['interval.label'] });
+        expect(interval.parentElement).not.toBe(bar);
+    });
 });

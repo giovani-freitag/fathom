@@ -58,18 +58,30 @@ export function ChartHeader(props: ChartHeaderProps): ReactElement {
                 onWriteAConnector={props.onWriteAConnector}
             />
 
-            <BarIntervalControl
-                isCollapsed
-                barIntervalMs={time.barIntervalMs}
-                effectiveIntervalMs={time.effectiveIntervalMs}
-                onSelect={time.onIntervalSelect}
-            />
+            {/* Given a width rather than left to take one. A dropdown fills
+                the box it is put in, which is what the panels want and what a
+                bar cannot afford: as a bare item in this row it grew to five
+                hundred and fifty pixels, squeezed the presets beside it until
+                they wrapped, and left the header three rows deep over the
+                chart. */}
+            <div className="w-36 shrink-0">
+                <BarIntervalControl
+                    isCollapsed
+                    barIntervalMs={time.barIntervalMs}
+                    effectiveIntervalMs={time.effectiveIntervalMs}
+                    onSelect={time.onIntervalSelect}
+                />
+            </div>
 
-            <SpanControl
-                isCollapsed={!props.hasRoomForPresets}
-                activeSpanMs={time.visibleSpanMs}
-                onSelect={time.onSpanSelect}
-            />
+            {/* Held at the width of its own chips: squeezed, they wrap, and a
+                bar that scrolls sideways has no use for a second line. */}
+            <div className="shrink-0">
+                <SpanControl
+                    isCollapsed={!props.hasRoomForPresets}
+                    activeSpanMs={time.visibleSpanMs}
+                    onSelect={time.onSpanSelect}
+                />
+            </div>
 
             <Divider />
 
