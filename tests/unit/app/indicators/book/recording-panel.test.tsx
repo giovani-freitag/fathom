@@ -170,7 +170,7 @@ describe('what else could be recorded', () => {
         // The rail of the card that opens over the chart, which is the same
         // rail the contract picker has.
         showAt(1_280);
-        const rail = await screen.findByRole('navigation', { name: 'Record a pair' });
+        const rail = await screen.findByRole('navigation', { name: 'Venues' });
         expect(rail.textContent).toContain('bybit');
         expect(rail.textContent).toContain('gate');
         // Declared `book: null`, so there is nothing on them to capture.
@@ -186,8 +186,8 @@ describe('what else could be recorded', () => {
 
         fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
 
-        expect(await screen.findByRole('combobox', { name: 'Record a pair' })).toBeDefined();
-        expect(screen.queryByRole('navigation', { name: 'Record a pair' })).toBeNull();
+        expect(await screen.findByRole('combobox', { name: 'Venues' })).toBeDefined();
+        expect(screen.queryByRole('navigation', { name: 'Venues' })).toBeNull();
         expect(screen.getByText(/No connector here reads a book/)).toBeDefined();
     });
 
@@ -200,7 +200,7 @@ describe('what else could be recorded', () => {
 
         fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
 
-        await screen.findByRole('combobox', { name: 'Record a pair' });
+        await screen.findByRole('combobox', { name: 'Venues' });
         expect(screen.queryByRole('button', { name: 'USDT' })).toBeNull();
     });
 

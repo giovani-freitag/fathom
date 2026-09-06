@@ -13,7 +13,7 @@ import { VenueMark } from '../../ui/markets/venue-mark.tsx';
 import { Select } from '../../ui/select.tsx';
 import { useIsViewportAtLeast } from '../../react/use-viewport-width.ts';
 import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
-import { memo, type ReactElement, useEffect, useMemo, useState } from 'react';
+import { memo, type ReactElement, useMemo, useState } from 'react';
 import { PairIdentity } from '../../ui/markets/pair-identity.tsx';
 import { RailHeading, RailRow } from '../../ui/markets/rail-row.tsx';
 import type { RecordedContract } from '../../../shared/core/recording-control.ts';
@@ -24,6 +24,7 @@ import { useEscapeGuard } from '../../ui/escape-guard.ts';
 import type { VenueInstrument } from '../../../shared/core/venue-connector.ts';
 import { useSettled, useWholeWhenIdle } from '../../react/use-long-listing.ts';
 import { readInstruments } from '../../core/markets-controller.ts';
+import { useVenueListing } from '../../react/use-venue-listing.ts';
 
 export interface RecordingListingProps {
     /** The venues that publish a book, which are the only ones worth offering. */
@@ -67,14 +68,7 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
     // Which contract is being deleted, while the reader is being asked about it.
     const [dropping, setDropping] = useState<RecordedContract | null>(null);
 
-    const listing = state.listings[venue];
-    // Only where nobody has asked yet. Asked again while one is in flight, each
-    // pass aborts the last and starts another, and the listing never lands.
-    useEffect(() => {
-        if (venue !== '' && (listing === undefined || listing.kind === 'unread')) {
-            void markets.readListing(venue);
-        }
-    }, [listing, markets, venue]);
+    const listing = useVenueListing(venue === '' ? null : venue);
 
     const listed = readInstruments(listing);
     const quotes = useMemo(() => (listed === null ? [] : summariseQuotes(listed)), [listed]);
@@ -145,7 +139,7 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
             )}
             rail={isWide
                 ? (
-                    <RailColumn said={props.translate('recording.pickerTitle')}>
+                    <RailColumn said={props.translate('markets.venues')}>
                         <RailHeading said={props.translate('recording.venuesWithBook')} />
                         {props.venues.map((one) => (
                             <RailRow
@@ -172,7 +166,11 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
                     // offered where the chart lists six.
                     <div className="flex shrink-0 flex-col gap-2 border-b border-hairline p-2">
                         <Select
-                            label={props.translate('recording.pickerTitle')}
+                            // Named for what it holds rather than for what
+                            // the card is for: three controls answering to
+                            // "Record a pair" is a screen where a reader asked
+                            // to find one cannot tell which was meant.
+                            label={props.translate('markets.venues')}
                             value={venue}
                             choices={props.venues.map((one) => ({
                                 value: one,
@@ -209,7 +207,7 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
             )}
             footing={(
                 <ListingFooting
-                    listing={listing ?? { kind: 'unread' }}
+                    listing={listing}
                     // What is on the screen, which is the listing's rows plus
                     // the recordings lifted in past the cut. Counting only the
                     // listing said "150 of 895" over 151 rows.
@@ -221,7 +219,7 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
             )}
         >
             <ListingBody
-                listing={listing ?? { kind: 'unread' }}
+                listing={listing}
                 rowCount={shown.recording.length + shown.paused.length + shown.offered.length}
                 query={query}
                 emptySaid={props.translate('markets.noPairs')}

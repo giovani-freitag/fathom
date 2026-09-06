@@ -19,10 +19,8 @@ import { useChartSlice } from '../../react/use-chart-state.ts';
 import { useMarkets } from '../../react/use-markets.ts';
 import { useTranslate } from '../../react/use-appearance.ts';
 import { useIsViewportAtLeast } from '../../react/use-viewport-width.ts';
+import { useVenueListing } from '../../react/use-venue-listing.ts';
 import { TYPING_SETTLES_MS, useSettled } from '../../react/use-long-listing.ts';
-
-/** What is known about a venue nobody has asked about yet. */
-const UNREAD: Listing = { kind: 'unread' };
 
 interface MarketsPanelProps {
     /** Closes the card the panel is in, once a pair has been picked. */
@@ -90,18 +88,7 @@ export function MarketsPanel({
     const openTag = state.tags.find((tag) => tag.id === state.openTagId) ?? state.tags[0];
     const tagLabel = openTag === undefined ? '' : labelOf(openTag, translate);
     const tagColour = openTag?.colour ?? 'phosphor';
-    const listing: Listing = useMemo(
-        () => (showing.kind === 'venue' ? state.listings[showing.venue] ?? UNREAD : UNREAD),
-        [showing, state.listings],
-    );
-
-    // Asked for the moment a venue is shown rather than on a press of its own:
-    // a reader who picked a venue is already asking what there is to pick.
-    useEffect(() => {
-        if (showing.kind === 'venue' && listing.kind === 'unread') {
-            void markets.readListing(showing.venue);
-        }
-    }, [listing.kind, markets, showing]);
+    const listing = useVenueListing(showing.kind === 'venue' ? showing.venue : null);
 
     // Asked of the venue itself, where it answers such questions. The listing
     // may still be arriving, and searching the part that happens to have landed
