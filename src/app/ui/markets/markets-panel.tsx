@@ -2,7 +2,7 @@ import { type ReactElement, useCallback, useEffect, useMemo, useState } from 're
 import { ListingCard, RailBar, SearchField } from './listing-card.tsx';
 import { FAVOURITES_ID, findTagsHolding, type MarketPair } from '../../../shared/core/pair-tags.ts';
 import { FIRST_VENUE } from '../../../shared/core/recording-control.ts';
-import { ArrowLeft, ChevronRight, Plus, TagPlus } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Plug, Plus, TagPlus } from 'lucide-react';
 import {
     CONTROL_CHIP_CLASSES,
     CONTROL_CHOSEN_CLASSES,
@@ -414,11 +414,24 @@ export function MarketsPanel({
                                 <TagPlus className="size-4" />
                             </button>
 
-                            {/* No way to bring a venue in from here. Adding one
-                                means writing a connector, which is an editor
-                                with a compiler behind it — not something anybody
-                                does on a phone. The control stays where the work
-                                is possible, on the rail of a wide screen. */}
+                            {onWriteConnector !== undefined && (
+                                <button
+                                    type="button"
+                                    aria-label={translate('markets.addVenue')}
+                                    title={translate('markets.addVenue')}
+                                    onClick={onWriteConnector}
+                                    className={`${CONTROL_BUTTON_CLASSES} shrink-0 border border-hairline bg-abyss-800/80 ${CONTROL_RESTING_CLASSES}`}
+                                >
+                                    {/* A plug rather than a building: what is
+                                        being added is a connector, and that is
+                                        the word the reader will meet everywhere
+                                        else this thing is named. A building says
+                                        the venue is what gets made here, and a
+                                        reader who presses it expecting a form
+                                        finds an editor. */}
+                                    <Plug className="size-4" />
+                                </button>
+                            )}
                         </RailBar>
                     )
                     : !isWide && variant === 'library'

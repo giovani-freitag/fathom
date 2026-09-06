@@ -561,15 +561,16 @@ describe('the card on a phone', () => {
         expect(screen.getByText('Venues')).toBeDefined();
     });
 
-    it('offers the way to make a tag, and not the way to write a connector', async () => {
-        // Bringing a venue in means writing one, in an editor with a compiler
-        // behind it. Offering that on a phone is offering a door onto a wall.
+    it('offers a way to make each kind, told apart by its own mark', async () => {
+        const opened: number[] = [];
         showVariant('selects');
         showAt(390);
-        renderPanel({ onWriteConnector: () => undefined });
+        renderPanel({ onWriteConnector: () => { opened.push(1); } });
 
         expect(await screen.findByRole('button', { name: 'New tag' })).toBeDefined();
-        expect(screen.queryByRole('button', { name: 'Add a venue' })).toBeNull();
+        fireEvent.click(screen.getByRole('button', { name: 'Add a venue' }));
+
+        expect(opened).toEqual([1]);
     });
 
     it('names a tag and its colour in one card, before the tag exists', async () => {
