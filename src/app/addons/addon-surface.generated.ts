@@ -1219,6 +1219,16 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
         /** How fast this venue may be asked; the base class answers for most. */
         readonly pacing: VenuePacing;
         /**
+         * Where the venue's own mark can be fetched, for the lists it appears in.
+         *
+         * Null unless a connector says otherwise, and then the engine falls back to
+         * the icon the venue serves at the root of whatever host it answers from —
+         * which is right for most and wrong for the few whose API lives on a host
+         * with no mark of its own. A connector that knows better names the address
+         * outright rather than being guessed at.
+         */
+        readonly markUrl: string | null;
+        /**
          * Every venue lists what it trades; there is nothing to chart otherwise.
          *
          * @param from - How many instruments come before the page being asked for,
@@ -1352,6 +1362,8 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
         abstract readonly declaration: VenueDeclaration;
         /** What the shipped venues tolerate, until a connector says otherwise. */
         readonly pacing: VenuePacing;
+        /** Guessed from where the venue answers, unless a connector names it. */
+        readonly markUrl: string | null;
         abstract planInstruments(from: number): VenueRequest;
         abstract readInstruments(payload: unknown): readonly VenueInstrument[];
         /**

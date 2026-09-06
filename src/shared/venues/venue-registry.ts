@@ -145,3 +145,33 @@ export function readFactsFor(connectorId: string): ReadonlySet<VenueFact> {
     const held = REGISTERED.get(connectorId);
     return held === undefined ? new Set<VenueFact>() : readVenueFacts(held.declaration);
 }
+
+
+/**
+ * Where a venue's own mark can be fetched, or null where nothing can say.
+ *
+ * Taken from the connector where it named one, and otherwise guessed from the
+ * host it asks its first question of: most venues serve a mark at the root of
+ * the same domain their API answers on. A guess, and treated as one — whatever
+ * draws this has to survive the address answering with nothing.
+ *
+ * @param connectorId - Which venue.
+ * @returns An absolute address, or null where the venue is not registered.
+ */
+export function readMarkFor(connectorId: string): string | null {
+    const connector = REGISTERED.get(connectorId);
+    if (connector === undefined) {
+        return null;
+    }
+    if (connector.markUrl !== null) {
+        return connector.markUrl;
+    }
+
+    try {
+        return new URL('/favicon.ico', connector.planInstruments(0).url).href;
+    } catch {
+        // A connector that cannot describe its first request has bigger
+        // problems than a missing picture.
+        return null;
+    }
+}

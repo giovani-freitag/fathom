@@ -615,6 +615,18 @@ Yours, inside your own class:
   *can* be written holding nothing, which is worth doing where you can: what you
   hold is yours to keep correct across a reconnect, a second chart, and a replay.
 
+- **The mark your venue is drawn with.** Lists that name a venue draw its icon
+  beside it, guessed from the host your first request goes to — `/favicon.ico`
+  at that origin. Where your venue's API answers on a host with no mark of its
+  own, name the address outright:
+
+  ```ts
+  readonly markUrl = 'https://brand.example.com/icon.svg';
+  ```
+
+  A guess that fails costs nothing: the row falls back to the letter the venue
+  starts with, and nothing about it moves when the picture does not arrive.
+
 The engine's, today:
 
 - **How fast the venue may be asked** — but only the shape of it. A connector

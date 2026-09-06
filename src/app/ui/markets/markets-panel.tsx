@@ -23,6 +23,7 @@ import { gatherLibrary, type LibraryFilter, narrowLibrary } from '../../markets/
 import { narrowPairs, searchAcross, summariseQuotes } from '../../markets/pair-listing.ts';
 import { PairTable, type PairRow } from './pair-table.tsx';
 import { TagSwatch } from './tag-swatch.tsx';
+import { VenueMark } from './venue-mark.tsx';
 import type { Listing } from '../../core/markets-controller.ts';
 import type { VenueInstrument } from '../../../shared/core/venue-connector.ts';
 import type { Translate } from '../../i18n/translator.ts';
@@ -374,11 +375,16 @@ export function MarketsPanel({
                                         label: labelOf(one, translate),
                                         detail: String(one.pairs.length),
                                         group: translate('markets.yourTags'),
+                                        // The colour is how a reader picks a tag
+                                        // out of a column of rows; it should be
+                                        // how they pick it here too.
+                                        icon: <TagSwatch colour={one.colour} className="size-2.5" />,
                                     })),
                                     ...state.venues.map((one) => ({
                                         value: `venue:${one}`,
                                         label: one,
                                         group: translate('markets.venues'),
+                                        icon: <VenueMark venue={one} />,
                                     })),
                                 ]}
                                 onSelect={(picked) => {

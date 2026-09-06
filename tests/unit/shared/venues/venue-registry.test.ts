@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
     forgetConnector,
+    readMarkFor,
     isLegalConnectorId,
     listConnectors,
     readFactsFor,
@@ -91,5 +92,32 @@ describe('what may be a connector name', () => {
 
     it('refuses a single letter, which names nothing', () => {
         expect(isLegalConnectorId('k')).toBe(false);
+    });
+});
+
+describe('the mark a venue is drawn with', () => {
+    it('guesses it from the host the venue answers on', () => {
+        // Most venues serve one at the root of the same domain their API is on,
+        // and guessing costs a connector author nothing.
+        registerConnector('marked', Object.assign(buildConnector({
+            book: null, tape: null, bars: null,
+        }), { planInstruments: () => ({ url: 'https://api.example.test/v1/pairs?from=0' }) }));
+
+        expect(readMarkFor('marked')).toBe('https://api.example.test/favicon.ico');
+    });
+
+    it('takes the address a connector named over the guess', () => {
+        registerConnector('named', Object.assign(buildConnector({
+            book: null, tape: null, bars: null,
+        }), {
+            planInstruments: () => ({ url: 'https://api.example.test/v1/pairs' }),
+            markUrl: 'https://brand.example.test/mark.svg',
+        }));
+
+        expect(readMarkFor('named')).toBe('https://brand.example.test/mark.svg');
+    });
+
+    it('says nothing for a venue nobody registered', () => {
+        expect(readMarkFor('never-heard-of-it')).toBeNull();
     });
 });

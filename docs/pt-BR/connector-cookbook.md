@@ -627,6 +627,18 @@ Seus, dentro da sua própria classe:
   segura é seu para manter correto ao longo de uma reconexão, de um segundo
   gráfico e de um replay.
 
+- **A marca com que a sua corretora é desenhada.** As listas que nomeiam uma
+  corretora desenham o ícone dela ao lado, adivinhado a partir do host para onde
+  vai a sua primeira requisição — o `/favicon.ico` daquela origem. Se a API da
+  sua corretora responde num host sem marca própria, diga o endereço:
+
+  ```ts
+  readonly markUrl = 'https://brand.example.com/icon.svg';
+  ```
+
+  Um palpite que falha não custa nada: a linha cai para a letra inicial da
+  corretora, e nada nela se mexe quando a imagem não chega.
+
 Do motor, hoje:
 
 - **Com que velocidade a corretora pode ser consultada** — mas só a forma disso.

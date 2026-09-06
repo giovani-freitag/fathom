@@ -79,7 +79,9 @@ export function Select({ value, choices, onSelect, label }: SelectProps): ReactE
                         {groupsOf(choices).map(([group, held]) => (
                             <RadixSelect.Group key={group}>
                                 {group !== '' && (
-                                    <RadixSelect.Label className="px-3 pb-1 pt-2 field-label">
+                                    <RadixSelect.Label
+                                        className="sticky top-0 z-10 mb-1 bg-abyss-900/95 px-3 py-1.5 field-label"
+                                    >
                                         {group}
                                     </RadixSelect.Label>
                                 )}
