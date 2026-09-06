@@ -151,6 +151,11 @@ export function HeatmapPage(): ReactElement {
     const handleWriteAConnector = useCallback((): void => {
         setEditing({ key: undefined, starter: 'connector' });
     }, []);
+    // The connector's own key, which is the venue it registered itself under:
+    // that is what the library filed it as when the editor installed it.
+    const handleEditAConnector = useCallback((venue: string): void => {
+        setEditing({ key: venue, starter: 'connector' });
+    }, []);
 
     const handleIntervalSelect = useCallback((intervalMs: BarIntervalMs | null) => {
         kernel.chart.selectBarInterval(intervalMs);
@@ -189,6 +194,7 @@ export function HeatmapPage(): ReactElement {
             : { venue: openVenue, symbol: instrumentSymbol },
         onPairOpen: handlePairOpen,
         onWriteAConnector: handleWriteAConnector,
+        onEditAConnector: handleEditAConnector,
         time: {
             visibleSpanMs,
             onSpanSelect: handleSpanSelect,

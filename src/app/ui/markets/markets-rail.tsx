@@ -1,14 +1,12 @@
 import type { ReactElement } from 'react';
-import { CONTROL_INPUT_CLASSES } from '../control-shell.ts';
 import { RailColumn } from './listing-card.tsx';
+import { RemoveTagDialog } from './remove-tag-dialog.tsx';
 import { RailAdd, RailHeading, RailRow, type RailRowProps } from './rail-row.tsx';
-import { ConfirmDialog } from '../confirm-dialog.tsx';
 import { FAVOURITES_ID, type PairTag, type TagColour } from '../../../shared/core/pair-tags.ts';
 import { labelOf } from '../../markets/tag-names.ts';
 import { TagColourPicker } from './tag-colour-picker.tsx';
 import type { Translate } from '../../i18n/translator.ts';
 import { useState } from 'react';
-import { useEscapeGuard } from '../escape-guard.ts';
 
 /** What the listing beside the rail is showing. */
 export type Showing =
@@ -24,7 +22,10 @@ interface MarketsRailProps {
     readonly translate: Translate;
     readonly onOpenTag: (tagId: string) => void;
     readonly onBrowse: (venue: string) => void;
-    readonly onAddTag: (label: string) => void;
+    /** Opens the card a tag is named and coloured on, on a new one. */
+    readonly onAddTag: () => void;
+    /** Opens that same card on a tag that exists. */
+    readonly onEditTag: (tagId: string) => void;
     readonly onRemoveTag: (tagId: string) => void;
     readonly onRecolourTag: (tagId: string, colour: TagColour) => void;
     /** Takes a venue the reader brought back off. The shipped one has no such offer. */
@@ -33,6 +34,8 @@ interface MarketsRailProps {
     readonly broughtVenues: ReadonlySet<string>;
     /** Absent where this build carries no editor to write a connector in. */
     readonly onWriteConnector?: (() => void) | undefined;
+    /** Opens the editor on a venue the reader brought, to change its connector. */
+    readonly onEditConnector?: ((venue: string) => void) | undefined;
 }
 
 /**
@@ -53,7 +56,6 @@ interface MarketsRailProps {
  */
 export function MarketsRail(props: MarketsRailProps): ReactElement {
     const { translate } = props;
-    const [isNaming, setIsNaming] = useState(false);
     // Which tag is being taken away, while the reader is being asked about it.
     const [dropping, setDropping] = useState<PairTag | null>(null);
 
@@ -71,6 +73,8 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
                         translate={translate}
                         onPress={() => { props.onOpenTag(tag.id); }}
                         onRecolour={(colour) => { props.onRecolourTag(tag.id, colour); }}
+                        onEdit={() => { props.onEditTag(tag.id); }}
+                        editLabel={translate('markets.editTag')}
                         {...tag.id === FAVOURITES_ID
                             ? {}
                             : {
@@ -88,15 +92,11 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
                     />
                 ))}
 
-                {isNaming
-                    ? (
-                        <TagNameField
-                            translate={translate}
-                            onName={(label) => { props.onAddTag(label); setIsNaming(false); }}
-                            onGiveUp={() => { setIsNaming(false); }}
-                        />
-                    )
-                    : <RailAdd said={translate('markets.newTag')} onPress={() => { setIsNaming(true); }} />}
+                {/* The same card a phone names one on, rather than a field
+                    that asks half the question: a tag made here used to arrive
+                    in whatever colour was next in the list, which is the colour
+                    a reader spends the next minutes learning to recognise. */}
+                <RailAdd said={translate('markets.newTag')} onPress={props.onAddTag} />
 
                 <RailHeading said={translate('markets.venues')} />
                 {props.venues.map((venue) => (
@@ -111,6 +111,15 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
                                 removeLabel: translate('markets.removeVenue'),
                             }
                             : {}}
+                        {...props.broughtVenues.has(venue) && props.onEditConnector !== undefined
+                            // A venue this build ships is not the reader's to
+                            // change: its connector is in the build, not in
+                            // their library, and the editor has nothing to open.
+                            ? {
+                                onEdit: () => { props.onEditConnector?.(venue); },
+                                editLabel: translate('markets.editConnector'),
+                            }
+                            : {}}
                     />
                 ))}
 
@@ -120,66 +129,13 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
 
             </RailColumn>
 
-            <ConfirmDialog
-                isOpen={dropping !== null}
-                onOpenChange={(isOpen) => { if (!isOpen) { setDropping(null); } }}
-                title={translate('markets.removeTagTitle')}
-                body={translate('markets.removeTagBody', {
-                    tag: dropping === null ? '' : labelOf(dropping, translate),
-                    // Counted in words rather than glued to a plural that is
-                    // wrong for exactly one of them.
-                    count: dropping?.pairs.length === 1
-                        ? translate('markets.onePair')
-                        : translate('markets.somePairs', { count: String(dropping?.pairs.length ?? 0) }),
-                })}
-                confirmLabel={translate('markets.removeTagConfirm')}
-                onConfirm={() => {
-                    if (dropping !== null) {
-                        props.onRemoveTag(dropping.id);
-                    }
-                    setDropping(null);
-                }}
+            <RemoveTagDialog
+                tag={dropping}
+                translate={translate}
+                onGiveUp={() => { setDropping(null); }}
+                onConfirm={props.onRemoveTag}
             />
         </>
-    );
-}
-
-interface TagNameFieldProps {
-    readonly translate: Translate;
-    readonly onName: (label: string) => void;
-    readonly onGiveUp: () => void;
-}
-
-/**
- * Where a new tag is given its name.
- *
- * One field shared by both layouts rather than one inside the rail: the rail is
- * not built on a phone, so the press that asked for a name changed the state
- * and drew nothing at all.
- */
-export function TagNameField({ translate, onName, onGiveUp }: TagNameFieldProps): ReactElement {
-    useEscapeGuard(true);
-
-    return (
-        <input
-            autoFocus
-            type="text"
-            name="tagLabel"
-            aria-label={translate('markets.tagLabel')}
-            placeholder={translate('markets.tagLabel')}
-            autoCapitalize="off"
-            autoCorrect="off"
-            className={`${CONTROL_INPUT_CLASSES} h-9 w-36 shrink-0 px-2 lg:w-full`}
-            onBlur={(event) => { onName(event.target.value); }}
-            onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                    onName(event.currentTarget.value);
-                }
-                if (event.key === 'Escape') {
-                    onGiveUp();
-                }
-            }}
-        />
     );
 }
 

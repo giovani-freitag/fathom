@@ -13,12 +13,15 @@ import { stubViewport } from '../../../../fixtures/viewport.ts';
 // says which one it is about. These describe the rail.
 const showAt = stubViewport();
 
-afterEach(() => { forgetConnector('empty'); showAt(1_280); });
+afterEach(() => { forgetConnector('empty'); forgetConnector('mine'); showAt(1_280); });
+
+/** What a connector the reader wrote is filed under, which is what makes it theirs. */
+const BROUGHT_SOURCE = { 'main.ts': 'exports.default = {};' };
 
 let lastKernel: ReturnType<typeof createIndicatorKernel> | null = null;
 
 function renderPanel(
-    options: { onWriteConnector?: () => void } = {},
+    options: { onWriteConnector?: () => void; onEditConnector?: (venue: string) => void } = {},
 ): { opened: MarketPair[] } {
     const opened: MarketPair[] = [];
     const kernel = createIndicatorKernel();
@@ -45,18 +48,21 @@ function renderPanel(
             {...options.onWriteConnector === undefined
                 ? {}
                 : { onWriteConnector: options.onWriteConnector }}
+            {...options.onEditConnector === undefined
+                ? {}
+                : { onEditConnector: options.onEditConnector }}
         />
     ));
     return { opened };
 }
 
-/** Points the listing at the shipped venue and waits for it to answer. */
 /** Points the card at a tag or a venue, the way the phone's one control does. */
 async function pickSource(named: RegExp): Promise<void> {
     fireEvent.click(await screen.findByRole('combobox', { name: 'Tags and venues' }));
     fireEvent.click(await screen.findByRole('option', { name: named }));
 }
 
+/** Points the listing at the shipped venue and waits for it to answer. */
 async function browse(venue = FIRST_VENUE): Promise<void> {
     fireEvent.click(screen.getByRole('button', { name: venue }));
     await waitFor(() => {
@@ -440,6 +446,100 @@ describe('opening what is kept', () => {
         });
 
         expect(screen.getByRole('button', { name: /FOO-BAR — This venue declares no book/ })).toBeDefined();
+    });
+});
+
+describe('changing a tag rather than only making one', () => {
+    it('renames one from the phone, where the name could not be changed at all', async () => {
+        // The model could relabel a tag from the day tags existed. Nothing
+        // called it: a name typed once was the name for good, on every screen.
+        showAt(390);
+        renderPanel();
+        makeTag('Shitcons');
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Edit this tag' }));
+        const field = await screen.findByRole('textbox', { name: 'Name this tag' });
+        fireEvent.change(field, { target: { value: 'Shitcoins' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+        await waitFor(() => {
+            expect(screen.getByRole('combobox', { name: 'Tags and venues' }).textContent)
+                .toContain('Shitcoins');
+        });
+    });
+
+    it('keeps the name where only the colour was changed', async () => {
+        // The field opens on what the tag stores, and the first tag stores
+        // nothing — its name is in the dictionary so it follows the reader's
+        // language. Saving a blank must leave that alone rather than write the
+        // English over it.
+        showAt(390);
+        renderPanel();
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Edit this tag' }));
+        fireEvent.click(await screen.findByRole('button', { name: 'Amber' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+        await waitFor(() => {
+            expect(screen.getByRole('combobox', { name: 'Tags and venues' }).textContent)
+                .toContain('Favourites');
+        });
+    });
+
+    it('asks before taking a tag and everything under it away', async () => {
+        showAt(390);
+        renderPanel();
+        makeTag('Shitcoins');
+        fireEvent.click(await screen.findByRole('button', { name: 'Edit this tag' }));
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Delete this tag' }));
+
+        expect(await screen.findByRole('alertdialog')).toBeDefined();
+    });
+
+    it('offers no way to delete the tag every reader lands on', async () => {
+        // The model refuses to remove it, so a button for it is a press that
+        // does nothing and a reader who thinks they lost their pairs.
+        showAt(390);
+        renderPanel();
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Edit this tag' }));
+
+        expect(screen.queryByRole('button', { name: 'Delete this tag' })).toBeNull();
+    });
+
+    it('sends a venue the reader brought to the editor rather than to the card', async () => {
+        const edited: string[] = [];
+        showAt(390);
+        renderPanel({ onEditConnector: (venue) => { edited.push(venue); } });
+        act(() => {
+            lastKernel!.container.markets.installConnector('mine', buildConnector({ book: null, tape: null, bars: null }), BROUGHT_SOURCE);
+        });
+        await pickSource(/^mine/);
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Edit this connector' }));
+
+        expect(edited).toEqual(['mine']);
+    });
+
+    it('offers nothing to edit on a venue this build ships', async () => {
+        // Its connector is in the build rather than in the reader's library,
+        // so the editor has nothing to open on it.
+        showAt(390);
+        renderPanel({ onEditConnector: () => undefined });
+        await pickSource(new RegExp(FIRST_VENUE));
+
+        expect(screen.queryByRole('button', { name: 'Edit this connector' })).toBeNull();
+    });
+
+    it('opens the same card from the rail, where a pointer has room for a row of its own', async () => {
+        showAt(1_280);
+        renderPanel();
+        makeTag('Shitcoins');
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Edit this tag Shitcoins' }));
+
+        expect(await screen.findByRole('textbox', { name: 'Name this tag' })).toBeDefined();
     });
 });
 

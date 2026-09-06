@@ -1,12 +1,13 @@
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { ListingBanner, ListingCard, RailBar, SearchField } from './listing-card.tsx';
-import { FAVOURITES_ID, findTagsHolding, type MarketPair } from '../../../shared/core/pair-tags.ts';
-import { ArrowLeft, Plug, TagPlus } from 'lucide-react';
+import { FAVOURITES_ID, findTagsHolding, type MarketPair, type PairTag } from '../../../shared/core/pair-tags.ts';
+import { ArrowLeft, Pencil, Plug, TagPlus } from 'lucide-react';
 import { CONTROL_BUTTON_CLASSES, CONTROL_RESTING_CLASSES } from '../control-shell.ts';
 import { ListingBody, ListingFooting, QuoteFilter, Said } from './listing-body.tsx';
 import { MarketsRail, type Showing } from './markets-rail.tsx';
 import { Select } from '../select.tsx';
-import { NewTagCard } from './new-tag-card.tsx';
+import { TagCard } from './tag-card.tsx';
+import { RemoveTagDialog } from './remove-tag-dialog.tsx';
 import { labelOf } from '../../markets/tag-names.ts';
 import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
 import { PairTable, type PairRow } from './pair-table.tsx';
@@ -22,6 +23,9 @@ import { useIsViewportAtLeast } from '../../react/use-viewport-width.ts';
 import { useVenueListing } from '../../react/use-venue-listing.ts';
 import { TYPING_SETTLES_MS, useSettled } from '../../react/use-long-listing.ts';
 
+/** What the card that names a tag is open on. */
+type Carding = { readonly kind: 'new' } | { readonly kind: 'tag'; readonly tagId: string };
+
 interface MarketsPanelProps {
     /** Closes the card the panel is in, once a pair has been picked. */
     readonly onClose: () => void;
@@ -31,6 +35,8 @@ interface MarketsPanelProps {
     readonly open: MarketPair | null;
     /** Opens the editor, where a connector is written like any other addon. */
     readonly onWriteConnector?: (() => void) | undefined;
+    /** Opens the editor on a venue the reader brought, to change its connector. */
+    readonly onEditConnector?: ((venue: string) => void) | undefined;
 }
 
 /**
@@ -50,6 +56,7 @@ export function MarketsPanel({
     onOpen,
     open,
     onWriteConnector,
+    onEditConnector,
 }: MarketsPanelProps): ReactElement {
     const translate = useTranslate();
     // On a phone the select above says what is being looked at, so the banner
@@ -67,7 +74,10 @@ export function MarketsPanel({
     // Which body the sheet is showing on a phone: the pairs, or one kind of
     // source. Two shapes of the same question are behind `?picker=`, so they
     // can be put in front of readers rather than argued about.
-    const [isNamingTag, setIsNamingTag] = useState(false);
+    // Which tag the card is open on, or that it is open on one being made.
+    const [carding, setCarding] = useState<Carding | null>(null);
+    // Which tag is being taken away, while the reader is being asked about it.
+    const [dropping, setDropping] = useState<PairTag | null>(null);
     const [quote, setQuote] = useState('');
 
     // Selected as the array the store already holds and turned into a set here.
@@ -86,6 +96,10 @@ export function MarketsPanel({
         [state.installed],
     );
     const openTag = state.tags.find((tag) => tag.id === state.openTagId) ?? state.tags[0];
+    // The tag the card is on, which is nothing at all while one is being made.
+    const carded = carding?.kind === 'tag'
+        ? state.tags.find((tag) => tag.id === carding.tagId)
+        : undefined;
     const tagLabel = openTag === undefined ? '' : labelOf(openTag, translate);
     const tagColour = openTag?.colour ?? 'phosphor';
     const listing = useVenueListing(showing.kind === 'venue' ? showing.venue : null);
@@ -228,7 +242,7 @@ export function MarketsPanel({
                     onChange={setQuery}
                 />
             )}
-            rail={isNamingTag && !isWide
+            rail={carding !== null && !isWide
                 // The card is a step of its own; the filters behind it belong to
                 // the listing it stepped away from.
                 ? undefined
@@ -275,11 +289,34 @@ export function MarketsPanel({
                                 }}
                             />
 
+                            {/* What is being looked at is what this changes,
+                                because the control above already says which one
+                                that is. Absent rather than dead where there is
+                                nothing to change: a venue this build ships is
+                                not the reader's to edit. */}
+                            {(showing.kind === 'tag' || (onEditConnector !== undefined && brought.has(showing.venue))) && (
+                                <button
+                                    type="button"
+                                    aria-label={translate(showing.kind === 'tag' ? 'markets.editTag' : 'markets.editConnector')}
+                                    title={translate(showing.kind === 'tag' ? 'markets.editTag' : 'markets.editConnector')}
+                                    onClick={() => {
+                                        if (showing.kind === 'venue') {
+                                            onEditConnector?.(showing.venue);
+                                            return;
+                                        }
+                                        setCarding({ kind: 'tag', tagId: openTag?.id ?? FAVOURITES_ID });
+                                    }}
+                                    className={`${CONTROL_BUTTON_CLASSES} shrink-0 border border-hairline bg-abyss-800/80 ${CONTROL_RESTING_CLASSES}`}
+                                >
+                                    <Pencil className="size-4" />
+                                </button>
+                            )}
+
                             <button
                                 type="button"
                                 aria-label={translate('markets.newTag')}
                                 title={translate('markets.newTag')}
-                                onClick={() => { setIsNamingTag(true); }}
+                                onClick={() => { setCarding({ kind: 'new' }); }}
                                 className={`${CONTROL_BUTTON_CLASSES} shrink-0 border border-hairline bg-abyss-800/80 ${CONTROL_RESTING_CLASSES}`}
                             >
                                 <TagPlus className="size-4" />
@@ -314,12 +351,14 @@ export function MarketsPanel({
                             translate={translate}
                             onOpenTag={(tagId) => { markets.openTag(tagId); show({ kind: 'tag' }); }}
                             onBrowse={(venue) => { show({ kind: 'venue', venue }); }}
-                            onAddTag={(label) => { markets.addTag(label); show({ kind: 'tag' }); }}
+                            onAddTag={() => { setCarding({ kind: 'new' }); }}
+                            onEditTag={(tagId) => { setCarding({ kind: 'tag', tagId }); }}
                             onRemoveTag={(tagId) => { markets.removeTag(tagId); }}
                             onRecolourTag={(tagId, tone) => { markets.recolourTag(tagId, tone); }}
                             onRemoveVenue={(venue) => { markets.removeConnector(venue); show({ kind: 'tag' }); }}
                             broughtVenues={brought}
                             onWriteConnector={onWriteConnector}
+                            onEditConnector={onEditConnector}
                         />
                     )}
             banner={!isWide ? undefined : (
@@ -340,7 +379,7 @@ export function MarketsPanel({
                     />
                 </ListingBanner>
             )}
-            footing={isNamingTag && !isWide
+            footing={carding !== null && !isWide
                 // The card is a step of its own: a line counting the catalogue
                 // behind it overlapped the card's own buttons in landscape, and
                 // counted rows nobody could see in either.
@@ -355,20 +394,37 @@ export function MarketsPanel({
                     />
                 )}
         >
-            {isNamingTag && !isWide
+            {carding !== null
                 ? (
                     <>
                         <button
                             type="button"
-                            onClick={() => { setIsNamingTag(false); }}
+                            onClick={() => { setCarding(null); }}
                             className="flex min-h-11 shrink-0 items-center gap-1.5 px-3 text-xs text-ink-500 hover:text-ink-100"
                         >
                             <ArrowLeft className="size-3.5" />
                             {translate('markets.title')}
                         </button>
-                        <NewTagCard
+                        <TagCard
                             translate={translate}
-                            onMake={(label, colour) => {
+                            {...carded === undefined ? {} : { tag: carded }}
+                            {...carded === undefined || carded.id === FAVOURITES_ID
+                                // The first tag is the one a reader lands on, and
+                                // the model refuses to take it away. Offering the
+                                // button anyway is a press that does nothing.
+                                ? {}
+                                : { onRemove: () => { setDropping(carded); } }}
+                            onSave={(label, colour) => {
+                                if (carded !== undefined) {
+                                    // A blank name is refused by the model, which
+                                    // is what a reader who came for the colour
+                                    // wants: the tag keeps what it was called.
+                                    markets.relabelTag(carded.id, label);
+                                    markets.recolourTag(carded.id, colour);
+                                    setCarding(null);
+                                    return;
+                                }
+
                                 const tagId = markets.addTag(label);
                                 if (tagId !== null) {
                                     markets.recolourTag(tagId, colour);
@@ -380,9 +436,9 @@ export function MarketsPanel({
                                     markets.openTag(tagId);
                                     show({ kind: 'tag' });
                                 }
-                                setIsNamingTag(false);
+                                setCarding(null);
                             }}
-                            onGiveUp={() => { setIsNamingTag(false); }}
+                            onGiveUp={() => { setCarding(null); }}
                         />
                     </>
                 )
@@ -411,6 +467,18 @@ export function MarketsPanel({
                     </Body>
                 )}
 
+            <RemoveTagDialog
+                tag={dropping}
+                translate={translate}
+                onGiveUp={() => { setDropping(null); }}
+                onConfirm={(tagId) => {
+                    markets.removeTag(tagId);
+                    // The card was on the tag that just went, so there is
+                    // nothing left for it to be about.
+                    setCarding(null);
+                    show({ kind: 'tag' });
+                }}
+            />
         </ListingCard>
     );
 }

@@ -4,37 +4,53 @@ import { useEscapeGuard } from '../escape-guard.ts';
 import { isPale, OPENS_ON } from './tag-colours.ts';
 import { PaintBucket } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
-import type { TagColour } from '../../../shared/core/pair-tags.ts';
+import type { PairTag, TagColour } from '../../../shared/core/pair-tags.ts';
+import { labelOf } from '../../markets/tag-names.ts';
 import { TagSwatch } from './tag-swatch.tsx';
 import { TONE_LABEL_KEYS } from '../indicators/tone-labels.ts';
 import type { Translate } from '../../i18n/translator.ts';
 
-export interface NewTagCardProps {
+export interface TagCardProps {
     readonly translate: Translate;
-    /** Called with everything the tag needs to exist. */
-    readonly onMake: (label: string, colour: TagColour) => void;
+    /** The tag being changed, or nothing where one is being made. */
+    readonly tag?: PairTag | undefined;
+    /** Called with everything the tag needs, whether it exists yet or not. */
+    readonly onSave: (label: string, colour: TagColour) => void;
     readonly onGiveUp: () => void;
+    /** Offered only where there is a tag and it is one that may be taken away. */
+    readonly onRemove?: (() => void) | undefined;
 }
 
 /**
- * Where a tag is given its name and its colour, before it exists.
+ * Where a tag is given its name and its colour.
  *
  * Both at once, because they are one decision: a tag is a colour a reader
  * recognises down a column of rows, and a name they read when they cannot. Made
  * first and recoloured afterwards, the tag spends its first minutes in whatever
  * colour happened to be next in the list, which is the minutes a reader is
  * learning to recognise it.
+ *
+ * One card for making and for changing, because they ask the same two questions
+ * and a second card written to look like the first stops looking like it on the
+ * next change.
  */
-export function NewTagCard({ translate, onMake, onGiveUp }: NewTagCardProps): ReactElement {
+export function TagCard({ translate, tag, onSave, onGiveUp, onRemove }: TagCardProps): ReactElement {
     // The sheet this sits in closes on Escape, and Radix decides that before any
     // handler here runs. Without the claim, giving up on a half-typed name took
     // the whole sheet with it — the very thing the guard was written to stop,
     // and carried until now only by the shape that is being deleted.
     useEscapeGuard(true);
-    const [label, setLabel] = useState('');
+    // Seeded with what the tag stores rather than with what it is called: the
+    // first tag's name is held in the dictionary rather than in storage, so it
+    // follows the reader's language, and writing the translation back into it
+    // on a save that only changed the colour would pin it to one.
+    const [label, setLabel] = useState(tag?.label ?? '');
     // The first tone rather than a colour of its own: a tag a reader makes
     // without touching this is still one they can pick out of a column.
-    const [colour, setColour] = useState<TagColour>(INSTANCE_TONES[0] ?? 'phosphor');
+    const [colour, setColour] = useState<TagColour>(tag?.colour ?? INSTANCE_TONES[0] ?? 'phosphor');
+    // A blank name makes nothing, but leaves an existing tag as it was called —
+    // which is the whole of what a reader who came here for the colour wants.
+    const isSayable = tag !== undefined || label.trim() !== '';
     // A colour the reader named rather than took, which is the one case the
     // control has something of its own to show.
     const isNamed = colour.startsWith('#');
@@ -65,13 +81,13 @@ export function NewTagCard({ translate, onMake, onGiveUp }: NewTagCardProps): Re
                         type="text"
                         name="tagLabel"
                         value={label}
-                        placeholder={translate('markets.tagLabel')}
+                        placeholder={tag === undefined ? translate('markets.tagLabel') : labelOf(tag, translate)}
                         autoCapitalize="off"
                         autoCorrect="off"
                         onChange={(event) => { setLabel(event.target.value); }}
                         onKeyDown={(event) => {
-                            if (event.key === 'Enter' && label.trim() !== '') {
-                                onMake(label, colour);
+                            if (event.key === 'Enter' && isSayable) {
+                                onSave(label, colour);
                             }
                             if (event.key === 'Escape') {
                                 onGiveUp();
@@ -135,6 +151,18 @@ export function NewTagCard({ translate, onMake, onGiveUp }: NewTagCardProps): Re
                     </div>
                 </fieldset>
 
+                {/* At the end of what scrolls rather than beside the button that
+                    saves: on a phone the two would be a thumb's width apart, and
+                    one of them cannot be undone. */}
+                {onRemove !== undefined && (
+                    <button
+                        type="button"
+                        onClick={onRemove}
+                        className={`${CONTROL_CHIP_CLASSES} mt-2 h-11 w-full justify-center border-hairline text-amber hover:border-amber/60`}
+                    >
+                        {translate('markets.removeTag')}
+                    </button>
+                )}
             </div>
 
             <div className="flex shrink-0 gap-2 border-t border-hairline p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
@@ -147,11 +175,11 @@ export function NewTagCard({ translate, onMake, onGiveUp }: NewTagCardProps): Re
                 </button>
                 <button
                     type="button"
-                    disabled={label.trim() === ''}
-                    onClick={() => { onMake(label, colour); }}
+                    disabled={!isSayable}
+                    onClick={() => { onSave(label, colour); }}
                     className={`${CONTROL_CHIP_CLASSES} h-11 flex-1 justify-center ${CONTROL_CHOSEN_CLASSES}`}
                 >
-                    {translate('markets.makeTag')}
+                    {translate(tag === undefined ? 'markets.makeTag' : 'markets.saveTag')}
                 </button>
             </div>
         </div>

@@ -1,5 +1,5 @@
 import { CONTROL_CHOSEN_CLASSES } from '../control-shell.ts';
-import { Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 
 /**
@@ -9,6 +9,16 @@ import type { ReactElement } from 'react';
  * pairs a venue offers to record — and a second set of rows written to look
  * like the first is a set that stops looking like it on the next change.
  */
+
+/**
+ * What a control on a row looks like: nothing, until the row is under a pointer.
+ *
+ * Kept out of the row's own reading. A rail of tags with a pencil and a bin on
+ * every line is a column of icons with names among them, and the names are what
+ * a reader came down the rail to read.
+ */
+const ROW_ACTION_CLASSES =
+    'mr-1 hidden size-7 shrink-0 place-items-center rounded text-ink-500 transition-colors hover:bg-abyss-700 group-hover:grid group-focus-within:grid';
 
 /** A heading in the rail, which lies down with it on a phone. */
 export function RailHeading({ said }: { readonly said: string }): ReactElement {
@@ -25,11 +35,23 @@ export interface RailRowProps {
     readonly onPress: () => void;
     readonly onRemove?: (() => void) | undefined;
     readonly removeLabel?: string | undefined;
+    readonly onEdit?: (() => void) | undefined;
+    readonly editLabel?: string | undefined;
     readonly children?: ReactElement | undefined;
 }
 
 /** One target in the rail: a venue to browse, or a tag with its mark on it. */
-export function RailRow({ said, count, isOn, onPress, onRemove, removeLabel, children }: RailRowProps): ReactElement {
+export function RailRow({
+    said,
+    count,
+    isOn,
+    onPress,
+    onRemove,
+    removeLabel,
+    onEdit,
+    editLabel,
+    children,
+}: RailRowProps): ReactElement {
     return (
         <div className={`group flex shrink-0 items-center rounded-lg ${isOn ? CONTROL_CHOSEN_CLASSES : ''}`}>
             {children}
@@ -53,12 +75,22 @@ export function RailRow({ said, count, isOn, onPress, onRemove, removeLabel, chi
                     </span>
                 )}
             </button>
+            {onEdit !== undefined && (
+                <button
+                    type="button"
+                    aria-label={`${editLabel ?? ''} ${said}`.trim()}
+                    onClick={onEdit}
+                    className={`${ROW_ACTION_CLASSES} hover:text-ink-100`}
+                >
+                    <Pencil size={13} />
+                </button>
+            )}
             {onRemove !== undefined && (
                 <button
                     type="button"
                     aria-label={`${removeLabel ?? ''} ${said}`.trim()}
                     onClick={onRemove}
-                    className="mr-1 hidden size-7 shrink-0 place-items-center rounded text-ink-500 transition-colors hover:bg-abyss-700 hover:text-amber group-hover:grid group-focus-within:grid"
+                    className={`${ROW_ACTION_CLASSES} hover:text-amber`}
                 >
                     <Trash2 size={13} />
                 </button>

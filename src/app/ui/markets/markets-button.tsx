@@ -17,6 +17,8 @@ interface MarketsButtonProps {
     readonly side?: 'top' | 'bottom';
     /** Opens the editor on the connector starter, where this build has one. */
     readonly onWriteAConnector?: (() => void) | undefined;
+    /** Opens the editor on a connector the reader brought. */
+    readonly onEditAConnector?: ((venue: string) => void) | undefined;
     readonly iconSizePx: number;
 }
 
@@ -34,6 +36,7 @@ export function MarketsButton({
     said,
     side,
     onWriteAConnector,
+    onEditAConnector,
     iconSizePx,
 }: MarketsButtonProps): ReactElement {
     const translate = useTranslate();
@@ -48,6 +51,9 @@ export function MarketsButton({
             {...onWriteAConnector === undefined
                 ? {}
                 : { onWriteConnector: () => { setIsOpen(false); onWriteAConnector(); } }}
+            {...onEditAConnector === undefined
+                ? {}
+                : { onEditConnector: (venue: string) => { setIsOpen(false); onEditAConnector(venue); } }}
         />
     );
 

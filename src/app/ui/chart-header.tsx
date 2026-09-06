@@ -56,6 +56,7 @@ export function ChartHeader(props: ChartHeaderProps): ReactElement {
                 openPair={props.openPair}
                 onPairOpen={props.onPairOpen}
                 onWriteAConnector={props.onWriteAConnector}
+                onEditAConnector={props.onEditAConnector}
             />
 
             {/* Given a width rather than left to take one. A dropdown fills
