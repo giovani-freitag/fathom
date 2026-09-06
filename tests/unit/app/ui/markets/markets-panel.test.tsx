@@ -142,7 +142,8 @@ describe('taking a tag away', () => {
 
         fireEvent.click(screen.getByRole('button', { name: 'Delete this tag Shitcoins' }));
 
-        expect(screen.getByText(/holds 1 pairs/)).toBeDefined();
+        // One pair, said as one pair.
+        expect(screen.getByText(/holds one pair/)).toBeDefined();
         // Backed out of, the tag and its pair are still there.
         fireEvent.click(screen.getByRole('button', { name: 'Keep it' }));
         expect(railRow('Shitcoins').textContent).toContain('1');

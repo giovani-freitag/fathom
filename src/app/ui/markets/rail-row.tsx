@@ -42,8 +42,15 @@ export function RailRow({ said, count, isOn, onPress, onRemove, removeLabel, chi
                 } ${children === undefined ? '' : 'pl-1'}`}
             >
                 <span className="truncate">{said}</span>
+                {/* Drawn, not read: glued to the row's own words it announced
+                    "binance-futures5", a name with a stray digit on the end. */}
                 {count !== undefined && count > 0 && (
-                    <span className="ml-auto shrink-0 rounded-full bg-current/15 px-1.5 text-[10px]">{count}</span>
+                    <span
+                        aria-hidden
+                        className="ml-auto shrink-0 rounded-full bg-current/15 px-1.5 text-[10px]"
+                    >
+                        {count}
+                    </span>
                 )}
             </button>
             {onRemove !== undefined && (

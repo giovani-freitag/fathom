@@ -224,7 +224,11 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
                 title={translate('markets.removeTagTitle')}
                 body={translate('markets.removeTagBody', {
                     tag: dropping === null ? '' : labelOf(dropping, translate),
-                    count: String(dropping?.pairs.length ?? 0),
+                    // Counted in words rather than glued to a plural that is
+                    // wrong for exactly one of them.
+                    count: dropping?.pairs.length === 1
+                        ? translate('markets.onePair')
+                        : translate('markets.somePairs', { count: String(dropping?.pairs.length ?? 0) }),
                 })}
                 confirmLabel={translate('markets.removeTagConfirm')}
                 onConfirm={() => {

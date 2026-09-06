@@ -173,7 +173,7 @@ describe('what else could be recorded', () => {
         expect(rail.textContent).toContain('gate');
         // Declared `book: null`, so there is nothing on them to capture.
         expect(rail.textContent).not.toContain('okx ');
-        expect(screen.getByText(/publish no book/)).toBeDefined();
+        expect(screen.getByText(/No connector here reads a book/)).toBeDefined();
     });
 
     it('asks which venue outright on a phone, and still says why three of six are offered', async () => {
@@ -186,7 +186,7 @@ describe('what else could be recorded', () => {
 
         expect(await screen.findByRole('combobox', { name: 'Record a pair' })).toBeDefined();
         expect(screen.queryByRole('navigation', { name: 'Record a pair' })).toBeNull();
-        expect(screen.getByText(/publish no book/)).toBeDefined();
+        expect(screen.getByText(/No connector here reads a book/)).toBeDefined();
     });
 
     it('records a pair on the grid that was chosen for it', async () => {
