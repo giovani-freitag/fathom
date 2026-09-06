@@ -1,5 +1,5 @@
 /** Which shape of the phone picker a reader is being shown. */
-export type PickerVariant = 'tabs' | 'drill';
+export type PickerVariant = 'tabs' | 'drill' | 'search';
 
 /**
  * The picker shape this page was opened with.
@@ -12,5 +12,6 @@ export type PickerVariant = 'tabs' | 'drill';
  * @returns The named variant, or the default where nothing was asked for.
  */
 export function readPickerVariant(search: string): PickerVariant {
-    return new URLSearchParams(search).get('picker') === 'drill' ? 'drill' : 'tabs';
+    const asked = new URLSearchParams(search).get('picker');
+    return asked === 'drill' || asked === 'search' ? asked : 'tabs';
 }

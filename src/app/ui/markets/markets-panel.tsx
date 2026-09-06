@@ -1,6 +1,7 @@
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { ListingCard, SearchField } from './listing-card.tsx';
 import { FAVOURITES_ID, findTagsHolding, type MarketPair } from '../../../shared/core/pair-tags.ts';
+import { FIRST_VENUE } from '../../../shared/core/recording-control.ts';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { CONTROL_CHIP_CLASSES, CONTROL_OFFERED_CLASSES } from '../control-shell.ts';
 import { ListingBody, ListingFooting, QuoteFilter, Said } from './listing-body.tsx';
@@ -8,7 +9,7 @@ import { MarketsRail, type Showing } from './markets-rail.tsx';
 import { readPickerVariant } from '../../react/use-picker-variant.ts';
 import { SourceList, type SourceKind, SourceTabs } from './source-list.tsx';
 import { labelOf } from '../../markets/tag-names.ts';
-import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
+import { narrowPairs, searchAcross, summariseQuotes } from '../../markets/pair-listing.ts';
 import { PairTable, type PairRow } from './pair-table.tsx';
 import { TagSwatch } from './tag-swatch.tsx';
 import type { Listing } from '../../core/markets-controller.ts';
@@ -66,7 +67,15 @@ export function MarketsPanel({
     // for it.
     const isWide = useIsViewportAtLeast('lg');
     const { state, markets } = useMarkets();
-    const [showing, setShowing] = useState<Showing>({ kind: 'tag' });
+    // The shape that searches everywhere opens on a catalogue rather than on a
+    // tag: a reader arriving for the first time has no tags, and a card that
+    // opens on an empty one has answered nothing and offers nowhere obvious to
+    // go.
+    const [showing, setShowing] = useState<Showing>(
+        readPickerVariant(globalThis.location.search) === 'search'
+            ? { kind: 'venue', venue: FIRST_VENUE }
+            : { kind: 'tag' },
+    );
     const [query, setQuery] = useState('');
     // Which body the sheet is showing on a phone: the pairs, or one kind of
     // source. Two shapes of the same question are behind `?picker=`, so they
@@ -173,6 +182,22 @@ export function MarketsPanel({
             : [],
     ), [instruments, showing]);
 
+    // Every catalogue already in memory, for the shape that searches all of
+    // them at once. Nothing is fetched to build this: a venue nobody opened has
+    // no listing here, and the footing says which were covered.
+    const readEverywhere = useMemo(() => Object.fromEntries(
+        Object.entries(state.listings)
+            .map(([venue, one]) => [venue, one.kind === 'read' || one.kind === 'reading' ? one.instruments : []])
+            .filter(([, instruments]) => (instruments as readonly VenueInstrument[]).length > 0),
+    ) as Readonly<Record<string, readonly VenueInstrument[]>>, [state.listings]);
+
+    const everywhere = useMemo(
+        () => (variant === 'search' && query.trim() !== ''
+            ? searchAcross(readEverywhere, { query, quote })
+            : null),
+        [variant, readEverywhere, query, quote],
+    );
+
     const quotes = useMemo(() => (listed === null ? [] : summariseQuotes(listed)), [listed]);
     const narrowed = useMemo(() => {
         if (answered !== null) {
@@ -192,6 +217,25 @@ export function MarketsPanel({
     ), [state.tags]);
 
     const rows: readonly PairRow[] = useMemo(() => {
+        if (everywhere !== null) {
+            return everywhere.shown.map(({ venue, instrument }) => {
+                const pair = { venue, symbol: instrument.symbol };
+                const isOpenable = recorded.has(`${pair.venue}/${pair.symbol}`);
+                return {
+                    pair,
+                    base: instrument.base,
+                    quote: instrument.quote,
+                    held: heldBy(pair),
+                    isOpenable,
+                    whyNot: sayWhyNot(pair),
+                    // The venue, because the row is the only thing that can say
+                    // which catalogue this came out of once the search stopped
+                    // being about one of them.
+                    note: venue,
+                };
+            });
+        }
+
         if (showing.kind === 'tag') {
             return (openTag?.pairs ?? []).map((pair) => {
                 const isOpenable = recorded.has(`${pair.venue}/${pair.symbol}`);
@@ -225,7 +269,7 @@ export function MarketsPanel({
                 note: markNote(instrument.isTrading, isOpenable, translate),
             };
         });
-    }, [showing, openTag, recorded, sayWhyNot, noteWhyNot, heldBy, narrowed, query, translate]);
+    }, [everywhere, showing, openTag, recorded, sayWhyNot, noteWhyNot, heldBy, narrowed, query, translate]);
 
     return (
         <ListingCard
@@ -237,46 +281,63 @@ export function MarketsPanel({
                     onChange={setQuery}
                 />
             )}
-            rail={!isWide && variant === 'tabs'
+            rail={!isWide && variant === 'search'
                 ? (
-                    <SourceTabs
-                        open={openSource}
-                        translate={translate}
-                        onOpen={setOpenSource}
-                    />
+                    <div className="flex shrink-0 items-center gap-2 border-b border-hairline p-2">
+                        <button
+                            type="button"
+                            onClick={() => { setOpenSource('venue'); }}
+                            className={`${CONTROL_CHIP_CLASSES} h-10 min-w-0 flex-1 justify-between ${CONTROL_OFFERED_CLASSES}`}
+                        >
+                            <span className="min-w-0 truncate">
+                                {query.trim() === ''
+                                    ? (showing.kind === 'tag' ? tagLabel : showing.venue)
+                                    : translate('markets.acrossVenues')}
+                            </span>
+                            <ChevronRight className="size-4 shrink-0 text-ink-500" />
+                        </button>
+                    </div>
                 )
-                : !isWide
+                : !isWide && variant === 'tabs'
                     ? (
-                        <div className="flex shrink-0 items-center gap-2 border-b border-hairline p-2">
-                            <button
-                                type="button"
-                                onClick={() => { setOpenSource('tag'); }}
-                                className={`${CONTROL_CHIP_CLASSES} h-10 min-w-0 flex-1 justify-between ${CONTROL_OFFERED_CLASSES}`}
-                            >
-                                <span className="min-w-0 truncate">
-                                    {showing.kind === 'tag' ? tagLabel : showing.venue}
-                                </span>
-                                <ChevronRight className="size-4 shrink-0 text-ink-500" />
-                            </button>
-                        </div>
-                    )
-                    : (
-                        <MarketsRail
-                            tags={state.tags}
-                            venues={state.venues}
-                            openTagId={openTag?.id ?? FAVOURITES_ID}
-                            showing={showing}
+                        <SourceTabs
+                            open={openSource}
                             translate={translate}
-                            onOpenTag={(tagId) => { markets.openTag(tagId); show({ kind: 'tag' }); }}
-                            onBrowse={(venue) => { show({ kind: 'venue', venue }); }}
-                            onAddTag={(label) => { markets.addTag(label); show({ kind: 'tag' }); }}
-                            onRemoveTag={(tagId) => { markets.removeTag(tagId); }}
-                            onRecolourTag={(tagId, tone) => { markets.recolourTag(tagId, tone); }}
-                            onRemoveVenue={(venue) => { markets.removeConnector(venue); show({ kind: 'tag' }); }}
-                            broughtVenues={brought}
-                            onWriteConnector={onWriteConnector}
+                            onOpen={setOpenSource}
                         />
-                    )}
+                    )
+                    : !isWide
+                        ? (
+                            <div className="flex shrink-0 items-center gap-2 border-b border-hairline p-2">
+                                <button
+                                    type="button"
+                                    onClick={() => { setOpenSource('tag'); }}
+                                    className={`${CONTROL_CHIP_CLASSES} h-10 min-w-0 flex-1 justify-between ${CONTROL_OFFERED_CLASSES}`}
+                                >
+                                    <span className="min-w-0 truncate">
+                                        {showing.kind === 'tag' ? tagLabel : showing.venue}
+                                    </span>
+                                    <ChevronRight className="size-4 shrink-0 text-ink-500" />
+                                </button>
+                            </div>
+                        )
+                        : (
+                            <MarketsRail
+                                tags={state.tags}
+                                venues={state.venues}
+                                openTagId={openTag?.id ?? FAVOURITES_ID}
+                                showing={showing}
+                                translate={translate}
+                                onOpenTag={(tagId) => { markets.openTag(tagId); show({ kind: 'tag' }); }}
+                                onBrowse={(venue) => { show({ kind: 'venue', venue }); }}
+                                onAddTag={(label) => { markets.addTag(label); show({ kind: 'tag' }); }}
+                                onRemoveTag={(tagId) => { markets.removeTag(tagId); }}
+                                onRecolourTag={(tagId, tone) => { markets.recolourTag(tagId, tone); }}
+                                onRemoveVenue={(venue) => { markets.removeConnector(venue); show({ kind: 'tag' }); }}
+                                broughtVenues={brought}
+                                onWriteConnector={onWriteConnector}
+                            />
+                        )}
             banner={(!isWide && quotes.length === 0) ? undefined : (
                 <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
                     {/* What is being looked at, which is the tag the rail is on
@@ -300,8 +361,8 @@ export function MarketsPanel({
             footing={(
                 <ListingFooting
                     listing={listing}
-                    shown={narrowed?.shown.length ?? 0}
-                    matched={narrowed?.matched ?? 0}
+                    shown={everywhere?.shown.length ?? narrowed?.shown.length ?? 0}
+                    matched={everywhere?.matched ?? narrowed?.matched ?? 0}
                     isAsking={state.search?.kind === 'reading'}
                     translate={translate}
                 />
@@ -352,6 +413,9 @@ export function MarketsPanel({
                     rowCount={rows.length}
                     query={query}
                     translate={translate}
+                    {...everywhere === null
+                        ? {}
+                        : { emptySaid: translate('markets.noneAnywhere') }}
                     onRetry={() => {
                         if (showing.kind === 'venue') {
                             void markets.readListing(showing.venue);
@@ -387,6 +451,8 @@ interface BodyProps {
     readonly query: string;
     readonly translate: Translate;
     readonly onRetry: () => void;
+    /** Said instead of the rows, where the search crossed every venue. */
+    readonly emptySaid?: string | undefined;
     readonly children: ReactElement;
 }
 
@@ -397,7 +463,13 @@ interface BodyProps {
  * unread, never refused, and empty for a reason of its own. That is the whole
  * of what this adds to the shared body.
  */
-function Body({ showing, listing, rowCount, query, translate, onRetry, children }: BodyProps): ReactElement {
+function Body({ showing, listing, rowCount, query, translate, onRetry, emptySaid, children }: BodyProps): ReactElement {
+    // A search across every catalogue is not about this venue's listing: it is
+    // never unread and never refused, and finding nothing means something else.
+    if (emptySaid !== undefined) {
+        return rowCount === 0 ? <Said said={emptySaid} /> : children;
+    }
+
     if (showing.kind === 'tag') {
         return rowCount === 0 ? <Said said={translate('markets.emptyTag')} /> : children;
     }

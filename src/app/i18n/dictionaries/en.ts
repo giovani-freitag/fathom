@@ -267,6 +267,8 @@ export const EN_DICTIONARY = {
     'markets.yourTags': 'Your tags',
     'markets.venues': 'Venues',
     'markets.noSources': 'Nothing by that name among your tags or venues.',
+    'markets.acrossVenues': 'Every venue you have opened',
+    'markets.noneAnywhere': 'Nothing by that name on any venue you have opened. Browse another to search it too.',
     'markets.tagsFor': 'Tags on {symbol}',
     'markets.allQuotes': 'All',
     'markets.shownOf': 'Showing {shown} of {matched} — narrow the search to see the rest',

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     narrowPairs,
+    searchAcross,
     QUOTES_OFFERED,
     ROWS_SHOWN,
     summariseQuotes,
@@ -167,5 +168,49 @@ describe('a row the cut may not drop', () => {
 
         expect(narrowed.shown[0]?.symbol).toBe(late);
         expect(narrowed.matched).toBe(900);
+    });
+});
+
+describe('a search that is not about one venue', () => {
+    function pair(symbol: string, quote = 'USDT') {
+        return { symbol, base: symbol.replace(quote, ''), quote, priceStep: 0.1, isTrading: true };
+    }
+
+    it('finds a pair on whichever venue happens to hold it', () => {
+        // A reader who knows the ticker knows the ticker. Making them name the
+        // catalogue first is asking them to answer a question in order to ask
+        // their own.
+        const found = searchAcross({
+            'binance-futures': [pair('BTCUSDT'), pair('ETHUSDT')],
+            bybit: [pair('SOLUSDT')],
+        }, { query: 'sol', quote: '' });
+
+        expect(found.shown.map((one) => `${one.venue}/${one.instrument.symbol}`)).toEqual(['bybit/SOLUSDT']);
+    });
+
+    it('ranks across the venues, not merely within each', () => {
+        // Each listing is ranked on its own, so an exact match on the second
+        // venue read has to be lifted above a looser one on the first.
+        const found = searchAcross({
+            'binance-futures': [pair('SOLANAUSDT')],
+            bybit: [pair('SOLUSDT')],
+        }, { query: 'SOLUSDT', quote: '' });
+
+        expect(found.shown[0]?.venue).toBe('bybit');
+    });
+
+    it('counts what matched everywhere, not what fitted', () => {
+        const many = Array.from({ length: 200 }, (_, at) => pair(`P${String(at)}USDT`));
+        const found = searchAcross({ a: many, b: many }, { query: 'USDT', quote: '' });
+
+        expect(found.matched).toBe(400);
+        expect(found.shown.length).toBeLessThanOrEqual(150);
+    });
+
+    it('says nothing about a venue nobody has opened', () => {
+        const found = searchAcross({}, { query: 'btc', quote: '' });
+
+        expect(found.shown).toEqual([]);
+        expect(found.matched).toBe(0);
     });
 });
