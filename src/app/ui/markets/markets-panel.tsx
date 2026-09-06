@@ -1,8 +1,12 @@
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { ListingCard, SearchField } from './listing-card.tsx';
 import { FAVOURITES_ID, findTagsHolding, type MarketPair } from '../../../shared/core/pair-tags.ts';
+import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { CONTROL_CHIP_CLASSES, CONTROL_OFFERED_CLASSES } from '../control-shell.ts';
 import { ListingBody, ListingFooting, QuoteFilter, Said } from './listing-body.tsx';
 import { MarketsRail, type Showing } from './markets-rail.tsx';
+import { readPickerVariant } from '../../react/use-picker-variant.ts';
+import { SourceList, type SourceKind, SourceTabs } from './source-list.tsx';
 import { labelOf } from '../../markets/tag-names.ts';
 import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
 import { PairTable, type PairRow } from './pair-table.tsx';
@@ -64,6 +68,11 @@ export function MarketsPanel({
     const { state, markets } = useMarkets();
     const [showing, setShowing] = useState<Showing>({ kind: 'tag' });
     const [query, setQuery] = useState('');
+    // Which body the sheet is showing on a phone: the pairs, or one kind of
+    // source. Two shapes of the same question are behind `?picker=`, so they
+    // can be put in front of readers rather than argued about.
+    const variant = readPickerVariant(globalThis.location.search);
+    const [openSource, setOpenSource] = useState<SourceKind | null>(null);
     const [quote, setQuote] = useState('');
 
     // Selected as the array the store already holds and turned into a set here.
@@ -228,23 +237,46 @@ export function MarketsPanel({
                     onChange={setQuery}
                 />
             )}
-            rail={(
-                <MarketsRail
-                    tags={state.tags}
-                    venues={state.venues}
-                    openTagId={openTag?.id ?? FAVOURITES_ID}
-                    showing={showing}
-                    translate={translate}
-                    onOpenTag={(tagId) => { markets.openTag(tagId); show({ kind: 'tag' }); }}
-                    onBrowse={(venue) => { show({ kind: 'venue', venue }); }}
-                    onAddTag={(label) => { markets.addTag(label); show({ kind: 'tag' }); }}
-                    onRemoveTag={(tagId) => { markets.removeTag(tagId); }}
-                    onRecolourTag={(tagId, tone) => { markets.recolourTag(tagId, tone); }}
-                    onRemoveVenue={(venue) => { markets.removeConnector(venue); show({ kind: 'tag' }); }}
-                    broughtVenues={brought}
-                    onWriteConnector={onWriteConnector}
-                />
-            )}
+            rail={!isWide && variant === 'tabs'
+                ? (
+                    <SourceTabs
+                        open={openSource}
+                        translate={translate}
+                        onOpen={setOpenSource}
+                    />
+                )
+                : !isWide
+                    ? (
+                        <div className="flex shrink-0 items-center gap-2 border-b border-hairline p-2">
+                            <button
+                                type="button"
+                                onClick={() => { setOpenSource('tag'); }}
+                                className={`${CONTROL_CHIP_CLASSES} h-10 min-w-0 flex-1 justify-between ${CONTROL_OFFERED_CLASSES}`}
+                            >
+                                <span className="min-w-0 truncate">
+                                    {showing.kind === 'tag' ? tagLabel : showing.venue}
+                                </span>
+                                <ChevronRight className="size-4 shrink-0 text-ink-500" />
+                            </button>
+                        </div>
+                    )
+                    : (
+                        <MarketsRail
+                            tags={state.tags}
+                            venues={state.venues}
+                            openTagId={openTag?.id ?? FAVOURITES_ID}
+                            showing={showing}
+                            translate={translate}
+                            onOpenTag={(tagId) => { markets.openTag(tagId); show({ kind: 'tag' }); }}
+                            onBrowse={(venue) => { show({ kind: 'venue', venue }); }}
+                            onAddTag={(label) => { markets.addTag(label); show({ kind: 'tag' }); }}
+                            onRemoveTag={(tagId) => { markets.removeTag(tagId); }}
+                            onRecolourTag={(tagId, tone) => { markets.recolourTag(tagId, tone); }}
+                            onRemoveVenue={(venue) => { markets.removeConnector(venue); show({ kind: 'tag' }); }}
+                            broughtVenues={brought}
+                            onWriteConnector={onWriteConnector}
+                        />
+                    )}
             banner={(!isWide && quotes.length === 0) ? undefined : (
                 <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
                     {/* What is being looked at, which is the tag the rail is on
@@ -275,34 +307,74 @@ export function MarketsPanel({
                 />
             )}
         >
-            <Body
-                showing={showing}
-                listing={listing}
-                rowCount={rows.length}
-                query={query}
-                translate={translate}
-                onRetry={() => {
-                    if (showing.kind === 'venue') {
-                        void markets.readListing(showing.venue);
-                    }
-                }}
-            >
-                <PairTable
-                    rows={rows}
-                    hasVenueColumn={showing.kind === 'tag'}
-                    open={open}
-                    tags={state.tags}
+            {openSource !== null ? (
+                <>
+                    {variant === 'drill' && (
+                        <button
+                            type="button"
+                            onClick={() => { setOpenSource(null); }}
+                            className="flex min-h-11 shrink-0 items-center gap-1.5 px-3 text-xs text-ink-500 hover:text-ink-100"
+                        >
+                            <ArrowLeft className="size-3.5" />
+                            {translate('markets.title')}
+                        </button>
+                    )}
+                    <SourceList
+                        tags={state.tags}
+                        venues={state.venues}
+                        openTagId={openTag?.id ?? FAVOURITES_ID}
+                        showing={showing}
+                        query={query}
+                        // A tab shows one kind; a step in shows both, because it
+                        // is the whole answer to "what am I looking at".
+                        kinds={variant === 'drill' ? ['tag', 'venue'] : [openSource]}
+                        translate={translate}
+                        onOpenTag={(tagId) => {
+                            markets.openTag(tagId);
+                            show({ kind: 'tag' });
+                            setOpenSource(null);
+                        }}
+                        onBrowse={(venue) => {
+                            show({ kind: 'venue', venue });
+                            setOpenSource(null);
+                        }}
+                        onAddTag={(label) => {
+                            markets.addTag(label);
+                            show({ kind: 'tag' });
+                            setOpenSource(null);
+                        }}
+                    />
+                </>
+            ) : (
+                <Body
+                    showing={showing}
+                    listing={listing}
+                    rowCount={rows.length}
+                    query={query}
                     translate={translate}
-                    onOpen={(pair) => { onOpen(pair); onClose(); }}
-                    onKeep={(pair, tagId, isOn) => {
-                        if (isOn) {
-                            markets.tagPair(tagId, pair);
-                        } else {
-                            markets.untagPair(tagId, pair);
+                    onRetry={() => {
+                        if (showing.kind === 'venue') {
+                            void markets.readListing(showing.venue);
                         }
                     }}
-                />
-            </Body>
+                >
+                    <PairTable
+                        rows={rows}
+                        hasVenueColumn={showing.kind === 'tag'}
+                        open={open}
+                        tags={state.tags}
+                        translate={translate}
+                        onOpen={(pair) => { onOpen(pair); onClose(); }}
+                        onKeep={(pair, tagId, isOn) => {
+                            if (isOn) {
+                                markets.tagPair(tagId, pair);
+                            } else {
+                                markets.untagPair(tagId, pair);
+                            }
+                        }}
+                    />
+                </Body>
+            )}
 
         </ListingCard>
     );

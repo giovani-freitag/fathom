@@ -77,12 +77,14 @@ function railRow(name: string): HTMLElement {
 }
 
 /**
- * The picker inside the popover the dock opens it in.
+ * The picker inside the thing the dock opens it in.
  *
  * The panel on its own cannot be dismissed, so a test that renders it that way
- * cannot tell a key that dismisses one level from a key that dismisses four.
+ * cannot tell a key that dismisses one level from a key that dismisses every
+ * level. An earlier version of the Escape test did exactly that and passed
+ * while the key was taking the whole card down.
  */
-function renderInPopover(): void {
+function renderWithTrigger(): void {
     renderWithKernel(createIndicatorKernel(), (
         <MarketsButton
             iconSizePx={16}
@@ -433,63 +435,67 @@ describe('opening what is kept', () => {
 });
 
 describe('the card on a phone', () => {
-    it('asks which source outright, instead of a strip that mixes two kinds', () => {
-        // Laid down, the rail put a reader's tags and the venues in one row with
-        // the headings that told them apart hidden, and most of its targets past
-        // the edge of the screen.
+    /** Which shape of the picker this test is about. */
+    function showVariant(variant: 'tabs' | 'drill'): void {
+        globalThis.history.replaceState(null, '', `/?picker=${variant}`);
+    }
+
+    afterEach(() => { globalThis.history.replaceState(null, '', '/'); });
+
+    it('offers the two kinds of source as tabs that cannot grow', async () => {
+        // However many tags a reader keeps and connectors they install, there
+        // are two kinds of them. What grows is behind the tab, where a list
+        // scrolls; the tabs themselves stay two.
+        showVariant('tabs');
         showAt(390);
         renderPanel();
 
-        const picker = screen.getByRole('combobox', { name: 'Contracts' });
-
-        expect(picker).toBeDefined();
-        expect(screen.queryByRole('button', { name: FIRST_VENUE })).toBeNull();
+        expect(await screen.findByRole('button', { name: 'Your tags' })).toBeDefined();
+        expect(screen.getByRole('button', { name: 'Venues' })).toBeDefined();
+        expect(screen.queryByRole('combobox', { name: 'Contracts' })).toBeNull();
     });
 
-    it('files the tags and the venues under headings of their own', async () => {
+    it('shows one kind at a time behind its tab', async () => {
+        showVariant('tabs');
         showAt(390);
         renderPanel();
 
-        fireEvent.click(screen.getByRole('combobox', { name: 'Contracts' }));
+        fireEvent.click(await screen.findByRole('button', { name: 'Venues' }));
 
-        expect(await screen.findByText('Your tags')).toBeDefined();
-        expect(await screen.findByText('Venues')).toBeDefined();
+        expect(await screen.findByRole('button', { name: FIRST_VENUE })).toBeDefined();
     });
 
-    it('asks for a name when a new tag is called for, on a phone too', async () => {
-        // The field used to live inside the rail, which a phone does not build:
-        // the press changed the state and drew nothing, so the button read as
-        // dead.
+    it('names the source it is on, and steps in to change it', async () => {
+        showVariant('drill');
         showAt(390);
         renderPanel();
+
+        fireEvent.click(await screen.findByRole('button', { name: /Favourites/ }));
+
+        // A step in shows both kinds, because it is the whole answer.
+        expect(await screen.findByRole('heading', { name: 'Your tags' })).toBeDefined();
+        expect(screen.getByRole('heading', { name: 'Venues' })).toBeDefined();
+    });
+
+    it('keeps a way to make a tag, wherever the tags are listed', async () => {
+        // It used to live on a strip these lists replaced, and a phone was left
+        // with no way to make one at all.
+        showVariant('tabs');
+        showAt(390);
+        renderPanel();
+        fireEvent.click(await screen.findByRole('button', { name: 'Your tags' }));
 
         fireEvent.click(await screen.findByRole('button', { name: 'New tag' }));
 
         expect(await screen.findByRole('textbox', { name: 'Name this tag' })).toBeDefined();
     });
 
-    it('files a tag named on a phone under the reader\'s own tags', async () => {
+    it('gives up on a half-typed tag name without taking the sheet with it', async () => {
+        showVariant('tabs');
         showAt(390);
-        renderPanel();
-        fireEvent.click(await screen.findByRole('button', { name: 'New tag' }));
-
-        const field = await screen.findByRole('textbox', { name: 'Name this tag' });
-        fireEvent.change(field, { target: { value: 'Majors' } });
-        fireEvent.keyDown(field, { key: 'Enter' });
-
-        // Made and left open, so the select is now showing it.
-        expect((await screen.findByRole('combobox', { name: 'Contracts' })).textContent)
-            .toContain('Majors');
-    });
-
-    it('gives up on a half-typed tag name without taking the card with it', async () => {
-        // Rendered inside the real popover, because that is the thing that
-        // closes. The first version of this test rendered the panel on its own,
-        // so "the card is still open" was true however Escape behaved — it
-        // passed while the key was taking the whole card down.
-        showAt(390);
-        renderInPopover();
+        renderWithTrigger();
         fireEvent.click(await screen.findByRole('button', { name: /Contracts/ }));
+        fireEvent.click(await screen.findByRole('button', { name: 'Your tags' }));
         fireEvent.click(await screen.findByRole('button', { name: 'New tag' }));
 
         const field = await screen.findByRole('textbox', { name: 'Name this tag' });
@@ -499,7 +505,7 @@ describe('the card on a phone', () => {
         await waitFor(() => {
             expect(screen.queryByRole('textbox', { name: 'Name this tag' })).toBeNull();
         });
-        expect(screen.getByRole('dialog')).toBeDefined();
+        expect(screen.getByRole('dialog', { name: 'Contracts' })).toBeDefined();
     });
 
     it('keeps only one of the two layouts in the tree at a time', async () => {
@@ -508,7 +514,7 @@ describe('the card on a phone', () => {
         showAt(1_280);
         renderPanel();
 
-        expect(screen.queryByRole('combobox', { name: 'Contracts' })).toBeNull();
+        expect(screen.queryByRole('button', { name: 'Your tags' })).toBeNull();
         expect(await screen.findByRole('button', { name: FIRST_VENUE })).toBeDefined();
     });
 });

@@ -268,6 +268,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'markets.title': 'Contratos',
     'markets.yourTags': 'Suas tags',
     'markets.venues': 'Corretoras',
+    'markets.noSources': 'Nada com esse nome entre suas tags ou corretoras.',
     'markets.tagsFor': 'Tags de {symbol}',
     'markets.allQuotes': 'Todas',
     'markets.shownOf': 'Mostrando {shown} de {matched} — refine a busca para ver o resto',
