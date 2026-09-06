@@ -1,5 +1,6 @@
 import { CONTROL_CHIP_CLASSES, CONTROL_CHOSEN_CLASSES, CONTROL_INPUT_CLASSES, CONTROL_OFFERED_CLASSES } from '../control-shell.ts';
 import { INSTANCE_TONES } from '../../../shared/core/draw-plan.ts';
+import { useEscapeGuard } from '../escape-guard.ts';
 import { isPale, OPENS_ON } from './tag-colours.ts';
 import { PaintBucket } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
@@ -25,6 +26,11 @@ export interface NewTagCardProps {
  * learning to recognise it.
  */
 export function NewTagCard({ translate, onMake, onGiveUp }: NewTagCardProps): ReactElement {
+    // The sheet this sits in closes on Escape, and Radix decides that before any
+    // handler here runs. Without the claim, giving up on a half-typed name took
+    // the whole sheet with it — the very thing the guard was written to stop,
+    // and carried until now only by the shape that is being deleted.
+    useEscapeGuard(true);
     const [label, setLabel] = useState('');
     // The first tone rather than a colour of its own: a tag a reader makes
     // without touching this is still one they can pick out of a column.
@@ -34,7 +40,17 @@ export function NewTagCard({ translate, onMake, onGiveUp }: NewTagCardProps): Re
     const isNamed = colour.startsWith('#');
 
     return (
-        <div className="flex min-h-0 flex-1 flex-col">
+        <div
+            className="flex min-h-0 flex-1 flex-col"
+            // On the card rather than on the field: with the key claimed, a
+            // press while focus sits on a swatch or a button would otherwise do
+            // nothing at all, where before it at least closed something.
+            onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                    onGiveUp();
+                }
+            }}
+        >
             {/* The card scrolls and the answer does not. With the
                 name field focused the phone keyboard takes half the
                 screen, which is the ordinary state of this card and

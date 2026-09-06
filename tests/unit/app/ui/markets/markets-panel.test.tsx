@@ -495,11 +495,13 @@ describe('the card on a phone', () => {
     });
 
     it('gives up on a half-typed tag name without taking the sheet with it', async () => {
-        showVariant('tabs');
+        // On the shape that ships, because that is the one a reader can reach
+        // the card from: pointed at a discarded shape, this passed by naming a
+        // card no press could open.
+        showVariant('selects');
         showAt(390);
         renderWithTrigger();
         fireEvent.click(await screen.findByRole('button', { name: /Contracts/ }));
-        fireEvent.click(await screen.findByRole('button', { name: 'Your tags' }));
         fireEvent.click(await screen.findByRole('button', { name: 'New tag' }));
 
         const field = await screen.findByRole('textbox', { name: 'Name this tag' });
