@@ -3,6 +3,8 @@ import { isRecordable } from '../../markets/recordable.ts';
 import { listConnectors } from '../../../shared/venues/venue-registry.ts';
 import { PanelSection } from '../../ui/panel-section.tsx';
 import { PanelStep } from '../../ui/panel-step.tsx';
+import { BOOK_LAYER } from './book.ts';
+import { translateLabel } from '../../i18n/translator.ts';
 import { usePanelTakeover } from '../../ui/indicators/panel-takeover.ts';
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { RecordingListing } from './recording-card.tsx';
@@ -135,7 +137,14 @@ export function RecordingPanel(props: RecordingPanelProps): ReactElement {
 
     if (isPicking) {
         return (
-            <PanelStep onBack={() => { setIsPicking(false); }} title={translate('recording.title')}>
+            <PanelStep
+                onBack={() => { setIsPicking(false); }}
+                // Where it goes, not where you are: its sibling one level up
+                // reads "On the chart" and lands on the layer list, so a step
+                // naming the screen you are already on reads as the same kind
+                // of link pointing at nothing.
+                title={translateLabel(translate, BOOK_LAYER.label)}
+            >
                 <RecordingListing {...listing} />
             </PanelStep>
         );

@@ -115,6 +115,8 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
         // over rows whose switch was off. The switch is 20 pixels tall and it
         // was the only thing telling them apart.
         return {
+            /** Rows lifted in past the cut, which the listing never counted. */
+            unlisted: unlisted.length,
             recording: kept.filter((row) => row.contract?.isEnabled === true),
             paused: kept.filter((row) => row.contract?.isEnabled === false),
             offered: rows.filter((row) => row.contract === null),
@@ -197,8 +199,11 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
             footing={(
                 <ListingFooting
                     listing={listing ?? { kind: 'unread' }}
-                    shown={narrowed?.shown.length ?? 0}
-                    matched={narrowed?.matched ?? 0}
+                    // What is on the screen, which is the listing's rows plus
+                    // the recordings lifted in past the cut. Counting only the
+                    // listing said "150 of 895" over 151 rows.
+                    shown={shown.recording.length + shown.paused.length + shown.offered.length}
+                    matched={(narrowed?.matched ?? 0) + shown.unlisted}
                     isAsking={false}
                     translate={props.translate}
                 />
@@ -333,7 +338,11 @@ function gridChipLook(isChosen: boolean, isSuggested: boolean): string {
     if (isChosen) {
         return `${CONTROL_CHOSEN_CLASSES} cursor-default`;
     }
-    return isSuggested ? 'border-phosphor/30 text-ink-100' : CONTROL_OFFERED_CLASSES;
+    // Drawn like every other offer. It used to carry the chosen colours at a
+    // lower opacity, so two chips read as picked and nothing said what the
+    // second one meant.
+    void isSuggested;
+    return CONTROL_OFFERED_CLASSES;
 }
 
 /**
@@ -367,8 +376,11 @@ const GROUPS = [
 
 function standInFor(contract: RecordedContract): VenueInstrument {
     return {
+        // Left empty rather than guessed: filling the base with the symbol drew
+        // the pair as "PAXGUSDT/", which is not what anything calls it. A row
+        // with no assets draws none, which is the truth here.
         symbol: contract.instrumentSymbol,
-        base: contract.instrumentSymbol,
+        base: '',
         quote: '',
         priceStep: 0,
         isTrading: false,

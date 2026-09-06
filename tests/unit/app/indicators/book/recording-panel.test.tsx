@@ -317,6 +317,49 @@ describe('what else could be recorded', () => {
         });
     });
 
+    it('claims no assets for a contract the listing never reached', async () => {
+        // Only the symbol is known. Filling the base with it drew the pair as
+        // "ETHUSDT/", which is not what anything calls it.
+        renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+
+        const row = (await screen.findByRole('switch', { name: 'Record ETHUSDT' })).closest('li');
+
+        expect(row?.textContent).not.toContain('ETHUSDT/');
+    });
+
+    it('hands the focus back to the button that asked, once the question is answered', async () => {
+        // Opened from a control rather than from a trigger of its own, so
+        // nothing gave the focus back: a reader who cancelled landed on the
+        // document, a hundred and fifty rows away from where they were.
+        renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+
+        const trash = await screen.findByRole('button', {
+            name: 'Delete BTCUSDT and everything it recorded',
+        });
+        trash.focus();
+        fireEvent.click(trash);
+        fireEvent.click(await screen.findByRole('button', { name: 'Keep it' }));
+
+        await waitFor(() => {
+            expect(document.activeElement).toBe(trash);
+        });
+    });
+
+    it('counts the rows it drew, including the ones it lifted past the cut', async () => {
+        // It counted the listing instead, and said "150 of 895" over 151 rows.
+        renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+        await screen.findByRole('switch', { name: 'Record ETHUSDT' });
+
+        const drawn = screen.getAllByRole('listitem')
+            .filter((row) => row.querySelector('button[aria-label^="Open"], [role="switch"], button[aria-label^="Change"]'))
+            .length;
+
+        expect(drawn).toBeGreaterThan(0);
+    });
+
     it('takes a deleted contract out of what is recording', async () => {
         // The row it was on is a row about a machine that is running. Deleted
         // and left where it was, the panel says a recording exists that does
