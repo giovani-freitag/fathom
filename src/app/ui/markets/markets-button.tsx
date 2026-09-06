@@ -68,7 +68,6 @@ export function MarketsButton({
                 isOpen={isOpen}
                 onOpenChange={setIsOpen}
                 title={translate('markets.title')}
-                closeLabel={translate('recording.done')}
                 trigger={(
                     <button
                         type="button"

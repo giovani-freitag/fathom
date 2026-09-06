@@ -1,9 +1,8 @@
 import { Dialog } from 'radix-ui';
 import { EscapeGuardContext } from './escape-guard.ts';
-import { OVERLAY_CLASSES, PANEL_TITLE_CLASSES } from './control-shell.ts';
+import { OVERLAY_CLASSES } from './control-shell.ts';
 import { SHEET_SURFACE_CLASSES } from './editor-shell.ts';
 import { type ReactElement, type ReactNode, useMemo, useRef, useState } from 'react';
-import { X } from 'lucide-react';
 
 /** How far the sheet has to be pulled before letting go closes it. */
 const CLOSES_AT_PX = 96;
@@ -13,7 +12,6 @@ export interface BottomSheetProps {
     readonly onOpenChange: (isOpen: boolean) => void;
     /** What the sheet calls itself, read out and drawn along its top. */
     readonly title: string;
-    readonly closeLabel: string;
     /** The control that opens it, rendered as the sheet's own trigger. */
     readonly trigger: ReactNode;
     readonly children: ReactNode;
@@ -35,7 +33,6 @@ export function BottomSheet({
     isOpen,
     onOpenChange,
     title,
-    closeLabel,
     trigger,
     children,
 }: BottomSheetProps): ReactElement {
@@ -70,11 +67,14 @@ export function BottomSheet({
                         + ' data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom'}
                 >
                     {/* The grip, and the thing it promises: a sheet that came
-                        up from the bottom edge goes back down the same way. A
-                        grip that cannot be pulled is a handle painted on a
-                        wall. */}
+                        up from the bottom edge goes back down the same way.
+                        There is no title bar and no cross above it: a sheet a
+                        reader opened knows what it is, and the two rows they
+                        cost were two rows of the listing they came for. What
+                        the grip needs instead is room — a band tall enough that
+                        a thumb finds it without being aimed. */}
                     <div
-                        className="flex shrink-0 cursor-grab touch-none justify-center py-3 active:cursor-grabbing"
+                        className="flex shrink-0 cursor-grab touch-none items-center justify-center py-5 active:cursor-grabbing"
                         onPointerDown={(event) => {
                             startedAt.current = event.clientY;
                             try {
@@ -115,18 +115,7 @@ export function BottomSheet({
                         <span className="h-1 w-10 rounded-full bg-hairline-bright" />
                     </div>
 
-                    <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-2">
-                        <Dialog.Title className={PANEL_TITLE_CLASSES}>{title}</Dialog.Title>
-                        <Dialog.Close asChild>
-                            <button
-                                type="button"
-                                aria-label={closeLabel}
-                                className="grid size-11 shrink-0 place-items-center rounded-md text-ink-500 hover:bg-abyss-700 hover:text-ink-100"
-                            >
-                                <X className="size-4" />
-                            </button>
-                        </Dialog.Close>
-                    </div>
+                    <Dialog.Title className="sr-only">{title}</Dialog.Title>
 
                     <div className="flex min-h-0 flex-1 flex-col pb-[max(0.5rem,env(safe-area-inset-bottom))]">
                         <EscapeGuardContext.Provider value={guard}>

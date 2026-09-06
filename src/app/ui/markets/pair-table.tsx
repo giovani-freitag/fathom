@@ -1,8 +1,8 @@
 import { LIST_ROW_CLASSES } from '../control-shell.ts';
-import type { ReactElement } from 'react';
+import { type ReactElement, useEffect, useState } from 'react';
 import type { MarketPair, PairTag } from '../../../shared/core/pair-tags.ts';
 import { PairIdentity } from './pair-identity.tsx';
-import { PairTagMenu } from './pair-tag-menu.tsx';
+import { PairMarks, PairTagMenu } from './pair-tag-menu.tsx';
 import type { Translate } from '../../i18n/translator.ts';
 
 /** One row of the listing, whichever half of the card it came from. */
@@ -25,6 +25,14 @@ export interface PairRow {
      */
     readonly note: string;
 }
+
+/**
+ * How many rows are built in the tick the answer lands.
+ *
+ * More than a sheet shows, so a reader who scrolls at once finds rows under
+ * their thumb rather than a gap, and few enough that building them is not felt.
+ */
+const ROWS_AT_ONCE = 30;
 
 interface PairTableProps {
     readonly rows: readonly PairRow[];
@@ -49,9 +57,34 @@ interface PairTableProps {
 export function PairTable(props: PairTableProps): ReactElement {
     const { translate } = props;
 
+    // Which row's marks were pressed. Only that one builds a menu; the rest
+    // draw the same button without one behind it.
+    const [tagging, setTagging] = useState<string | null>(null);
+
+    // The rest of the rows are built once the thread is free. A listing is a
+    // hundred and fifty rows and a sheet shows a dozen: building all of them in
+    // the tick the answer arrives spends a third of a second in which nothing
+    // the reader does is answered, to draw rows they have not scrolled to.
+    // Keyed on the rows themselves, so a new listing starts short again without
+    // an effect having to reset it.
+    const [whole, setWhole] = useState<readonly PairRow[] | null>(null);
+    const isWhole = whole === props.rows;
+    useEffect(() => {
+        const idle = globalThis.requestIdleCallback;
+        if (typeof idle !== 'function') {
+            const soon = setTimeout(() => { setWhole(props.rows); }, 120);
+            return () => { clearTimeout(soon); };
+        }
+        const asked = idle(() => { setWhole(props.rows); }, { timeout: 500 });
+        return () => { globalThis.cancelIdleCallback(asked); };
+    }, [props.rows]);
+
+    const drawn = isWhole ? props.rows : props.rows.slice(0, ROWS_AT_ONCE);
+
     return (
         <ul className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-            {props.rows.map((row) => {
+            {drawn.map((row) => {
+                const at = `${row.pair.venue}/${row.pair.symbol}`;
                 const isShowing = props.open !== null
                     && props.open.venue === row.pair.venue
                     && props.open.symbol === row.pair.symbol;
@@ -61,13 +94,27 @@ export function PairTable(props: PairTableProps): ReactElement {
                         key={`${row.pair.venue}/${row.pair.symbol}`}
                         className="flex items-stretch border-b border-hairline/40"
                     >
-                        <PairTagMenu
-                            pair={row.pair}
-                            tags={props.tags}
-                            held={row.held}
-                            translate={translate}
-                            onToggle={(tagId, isOn) => { props.onKeep(row.pair, tagId, isOn); }}
-                        />
+                        {tagging === at
+                            ? (
+                                <PairTagMenu
+                                    isOpen
+                                    onOpenChange={(isOpen) => { setTagging(isOpen ? at : null); }}
+                                    pair={row.pair}
+                                    tags={props.tags}
+                                    held={row.held}
+                                    translate={translate}
+                                    onToggle={(tagId, isOn) => { props.onKeep(row.pair, tagId, isOn); }}
+                                />
+                            )
+                            : (
+                                <PairMarks
+                                    pair={row.pair}
+                                    tags={props.tags}
+                                    held={row.held}
+                                    translate={translate}
+                                    onOpen={() => { setTagging(at); }}
+                                />
+                            )}
 
                         <button
                             type="button"

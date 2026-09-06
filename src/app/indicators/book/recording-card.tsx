@@ -56,6 +56,11 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
     const [query, setQuery] = useState('');
     const [quote, setQuote] = useState('');
     const [chosen, setChosen] = useState<string | null>(null);
+    // The catalogue is built once the thread is free, for the same reason the
+    // contract listing is: a card shows a dozen rows and the group under
+    // "everything else" holds a hundred and fifty, and building them all in the
+    // tick the listing lands is a third of a second the reader gets nothing for.
+    const [whole, setWhole] = useState<readonly VenueInstrument[] | null>(null);
     // One layout or the other, never both: two rails in the tree is two
     // controls answering to the same name.
     const isWide = useIsViewportAtLeast('lg');
@@ -77,6 +82,16 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
         () => (listed === null ? null : narrowPairs(listed, { query, quote })),
         [listed, query, quote],
     );
+
+    useEffect(() => {
+        const idle = globalThis.requestIdleCallback;
+        if (typeof idle !== 'function') {
+            const soon = setTimeout(() => { setWhole(listed); }, 120);
+            return () => { clearTimeout(soon); };
+        }
+        const asked = idle(() => { setWhole(listed); }, { timeout: 500 });
+        return () => { globalThis.cancelIdleCallback(asked); };
+    }, [listed]);
 
     // What this venue is already recording, lifted out of the listing and put
     // at the top of it. A reader who came here to switch one off would
@@ -120,6 +135,8 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
             recording: kept.filter((row) => row.contract?.isEnabled === true),
             paused: kept.filter((row) => row.contract?.isEnabled === false),
             offered: rows.filter((row) => row.contract === null),
+            /** Every offered row, whether or not they are all drawn yet. */
+            offeredInAll: rows.filter((row) => row.contract === null).length,
         };
     }, [narrowed, props.contracts, venue, query, quote]);
 
@@ -221,7 +238,13 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
                     aria-label={props.translate('recording.pickerTitle')}
                     className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
                 >
-                    {GROUPS.map((group) => ({ said: group.said, of: group.of, rows: shown[group.of] }))
+                    {GROUPS.map((group) => ({
+                        said: group.said,
+                        of: group.of,
+                        rows: group.of === 'offered' && whole !== listed
+                            ? shown.offered.slice(0, ROWS_AT_ONCE)
+                            : shown[group.of],
+                    }))
                         .filter((group) => group.rows.length > 0).map((group) => (
                             <li key={group.said}>
                                 {/* A heading rather than a styled line, and
@@ -368,6 +391,9 @@ function withCurrentGrid(offered: readonly GridChoice[], inForce: number | null)
  * it: no tick published, and nothing claiming it is trading.
  */
 /** The three headings a pair can sit under, in the order they are read. */
+/** How many of the catalogue's rows are built in the tick it lands. */
+const ROWS_AT_ONCE = 30;
+
 const GROUPS = [
     { said: 'recording.recordingHere', of: 'recording' },
     { said: 'recording.switchedOffHere', of: 'paused' },
