@@ -1,6 +1,7 @@
 import {
     CONTROL_CHIP_CLASSES,
     CONTROL_CHOSEN_CLASSES,
+    LIST_ROW_CLASSES,
     CONTROL_OFFERED_CLASSES,
 } from '../../ui/control-shell.ts';
 import { ConfirmDialog } from '../../ui/confirm-dialog.tsx';
@@ -8,10 +9,11 @@ import { Trash2 } from 'lucide-react';
 import { type GridChoice, offerGrids } from '../../markets/recordable.ts';
 import { ListingCard, SearchField } from '../../ui/markets/listing-card.tsx';
 import { ListingBody, ListingFooting, QuoteFilter } from '../../ui/markets/listing-body.tsx';
+import { VenueMark } from '../../ui/markets/venue-mark.tsx';
 import { Select } from '../../ui/select.tsx';
 import { useIsViewportAtLeast } from '../../react/use-viewport-width.ts';
 import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
-import { type ReactElement, useEffect, useMemo, useState } from 'react';
+import { memo, type ReactElement, useEffect, useMemo, useState } from 'react';
 import { PairIdentity } from '../../ui/markets/pair-identity.tsx';
 import { RailHeading, RailRow } from '../../ui/markets/rail-row.tsx';
 import type { RecordedContract } from '../../../shared/core/recording-control.ts';
@@ -54,6 +56,14 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
     const { state, markets } = useMarkets();
     const [venue, setVenue] = useState(props.venues[0] ?? '');
     const [query, setQuery] = useState('');
+    // What the rows are narrowed by, which lags what the field shows. Narrowing
+    // rebuilds a hundred and fifty rows, and doing that inside the keystroke is
+    // a letter that arrives late enough for a reader to press the key again.
+    const [narrowedBy, setNarrowedBy] = useState('');
+    useEffect(() => {
+        const settling = setTimeout(() => { setNarrowedBy(query); }, TYPING_SETTLES_MS);
+        return () => { clearTimeout(settling); };
+    }, [query]);
     const [quote, setQuote] = useState('');
     const [chosen, setChosen] = useState<string | null>(null);
     // The catalogue is built once the thread is free, for the same reason the
@@ -79,8 +89,8 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
     const listed = listing?.kind === 'read' || listing?.kind === 'reading' ? listing.instruments : null;
     const quotes = useMemo(() => (listed === null ? [] : summariseQuotes(listed)), [listed]);
     const narrowed = useMemo(
-        () => (listed === null ? null : narrowPairs(listed, { query, quote })),
-        [listed, query, quote],
+        () => (listed === null ? null : narrowPairs(listed, { query: narrowedBy, quote })),
+        [listed, narrowedBy, quote],
     );
 
     useEffect(() => {
@@ -122,7 +132,7 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
         const unlisted = [...held.values()]
             .filter((contract) => !listedHere.has(contract.instrumentSymbol))
             .map((contract) => ({ instrument: standInFor(contract), contract }))
-            .filter((row) => narrowPairs([row.instrument], { query, quote }).shown.length > 0);
+            .filter((row) => narrowPairs([row.instrument], { query: narrowedBy, quote }).shown.length > 0);
 
         const kept = [...rows.filter((row) => row.contract !== null), ...unlisted];
 
@@ -138,7 +148,7 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
             /** Every offered row, whether or not they are all drawn yet. */
             offeredInAll: rows.filter((row) => row.contract === null).length,
         };
-    }, [narrowed, props.contracts, venue, query, quote]);
+    }, [narrowed, props.contracts, venue, narrowedBy, quote]);
 
     return (
         <ListingCard
@@ -190,6 +200,7 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
                                 label: one,
                                 detail: String(props.contracts.filter((held) => held.venue === one).length),
                                 group: props.translate('recording.venuesWithBook'),
+                                icon: <VenueMark venue={one} />,
                             }))}
                             onSelect={(one) => { setVenue(one); setChosen(null); setQuery(''); setQuote(''); }}
                         />
@@ -394,6 +405,15 @@ function withCurrentGrid(offered: readonly GridChoice[], inForce: number | null)
 /** How many of the catalogue's rows are built in the tick it lands. */
 const ROWS_AT_ONCE = 30;
 
+/**
+ * How long typing settles before the rows are narrowed by it.
+ *
+ * The same figure the contracts picker uses, because it is the same wait: long
+ * enough that a word is one narrowing rather than five, short enough that the
+ * rows have caught up by the time a reader looks down at them.
+ */
+const TYPING_SETTLES_MS = 250;
+
 const GROUPS = [
     { said: 'recording.recordingHere', of: 'recording' },
     { said: 'recording.switchedOffHere', of: 'paused' },
@@ -438,7 +458,15 @@ interface PairRowProps {
  * has two grids in one history, and nothing downstream can tell which row
  * belongs to which.
  */
-function PairRow(props: PairRowProps): ReactElement {
+/**
+ * One pair's row, rebuilt only when that pair changes.
+ *
+ * Memoised for the same reason the contract listing's rows are: the card
+ * re-renders whenever anything above the list moves — a character typed, a
+ * venue picked, a contract saved — and without this every one of a hundred and
+ * fifty rows is reconciled to arrive at the same row.
+ */
+const PairRow = memo(function PairRow(props: PairRowProps): ReactElement {
     // While this row's grids are showing, Escape belongs to them.
     useEscapeGuard(props.isOpen);
 
@@ -451,7 +479,7 @@ function PairRow(props: PairRowProps): ReactElement {
         const contract = props.contract;
         return (
             <li className="border-b border-hairline/40">
-                <div className="flex items-center gap-3 px-3 py-2">
+                <div className={`${LIST_ROW_CLASSES} gap-3`}>
                     <PairIdentity
                         symbol={props.instrument.symbol}
                         base={props.instrument.base}
@@ -535,7 +563,7 @@ function PairRow(props: PairRowProps): ReactElement {
                 type="button"
                 disabled={grids.length === 0}
                 onClick={props.onOpen}
-                className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-abyss-700 disabled:hover:bg-transparent"
+                className={`${LIST_ROW_CLASSES} gap-3 transition-colors hover:bg-abyss-700 disabled:hover:bg-transparent`}
             >
                 <PairIdentity
                     symbol={props.instrument.symbol}
@@ -568,4 +596,4 @@ function PairRow(props: PairRowProps): ReactElement {
             )}
         </li>
     );
-}
+});
