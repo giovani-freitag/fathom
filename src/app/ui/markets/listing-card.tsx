@@ -38,7 +38,10 @@ export function ListingCard({ search, rail, banner, footing, children }: Listing
             <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
                 {rail}
 
-                <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+                {/* The rows measure themselves against this, not against
+                    the window: the card is 288 pixels wide on a phone
+                    whichever way the phone is held. */}
+                <section className="@container flex min-h-0 min-w-0 flex-1 flex-col">
                     {banner}
                     {children}
                     {footing}

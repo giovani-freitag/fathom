@@ -18,6 +18,7 @@ import type { RecordedContract } from '../../../shared/core/recording-control.ts
 import { ToggleSwitch } from '../../ui/toggle-switch.tsx';
 import type { Translate } from '../../i18n/translator.ts';
 import { useMarkets } from '../../react/use-markets.ts';
+import { useEscapeGuard } from '../../ui/escape-guard.ts';
 import type { VenueInstrument } from '../../../shared/core/venue-connector.ts';
 
 export interface RecordingListingProps {
@@ -400,6 +401,9 @@ interface PairRowProps {
  * belongs to which.
  */
 function PairRow(props: PairRowProps): ReactElement {
+    // While this row's grids are showing, Escape belongs to them.
+    useEscapeGuard(props.isOpen);
+
     const grids = withCurrentGrid(
         offerGrids(props.instrument, props.lastPrice),
         props.contract?.priceBucketSize ?? null,
@@ -427,12 +431,7 @@ function PairRow(props: PairRowProps): ReactElement {
                         })}
                         onClick={props.onOpen}
                         onKeyDown={(event) => {
-                            // Closed here rather than let through: the card and
-                            // the panel behind it both close on Escape, so
-                            // dismissing a list of four numbers took the whole
-                            // way back to the chart with it.
                             if (event.key === 'Escape' && props.isOpen) {
-                                event.stopPropagation();
                                 props.onOpen();
                             }
                         }}

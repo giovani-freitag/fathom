@@ -1,5 +1,7 @@
 import { FLOATING_CARD_CLASSES } from './control-shell.ts';
 import { Popover } from 'radix-ui';
+import { EscapeGuardContext } from './escape-guard.ts';
+import { useMemo, useRef } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import {
     CONTROL_ACTIVE_CLASSES,
@@ -57,6 +59,14 @@ export function DockPopover({
     // control cannot reach: "tap BTC" finds nothing on a button called
     // "Contracts". The visible word leads, so it is what a reader says.
     const name = said === undefined || said === '' ? label : `${said} — ${label}`;
+
+    // How many things inside have asked for the next Escape. Counted rather
+    // than flagged: a grid chooser inside a card inside this popover is two
+    // claims deep, and the innermost one answers first.
+    const claims = useRef(0);
+    const guard = useMemo(() => ({
+        claim: (isClaimed: boolean) => { claims.current += isClaimed ? 1 : -1; },
+    }), []);
     return (
         <Popover.Root
             {...isOpen === undefined ? {} : { open: isOpen }}
@@ -74,6 +84,13 @@ export function DockPopover({
             </Popover.Trigger>
             <Popover.Portal>
                 <Popover.Content
+                    onEscapeKeyDown={(event) => {
+                        // Refused rather than swallowed: the key still reaches
+                        // whatever claimed it, which closes only itself.
+                        if (claims.current > 0) {
+                            event.preventDefault();
+                        }
+                    }}
                     side={side}
                     sideOffset={10}
                     collisionPadding={12}
@@ -81,7 +98,9 @@ export function DockPopover({
                         isRoomy ? ROOMY_CARD_CLASSES : 'max-h-[60dvh] overflow-y-auto'
                     }`}
                 >
-                    {children}
+                    <EscapeGuardContext.Provider value={guard}>
+                        {children}
+                    </EscapeGuardContext.Provider>
                     <Popover.Arrow className="fill-abyss-800/95" />
                 </Popover.Content>
             </Popover.Portal>

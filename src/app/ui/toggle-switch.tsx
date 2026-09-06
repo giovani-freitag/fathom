@@ -35,7 +35,11 @@ export function ToggleSwitch({ isOn, onChange, isDisabled, label }: ToggleSwitch
             {...(label === undefined ? {} : { 'aria-label': label })}
             className={'relative h-5 w-9 shrink-0 rounded-full bg-abyss-600 transition-colors'
                 + ' focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-phosphor'
-                + ' before:absolute before:inset-y-0 before:content-[""] touch:before:-inset-y-3'
+                // Both axes, or the pseudo-element has no width and expands nothing: it
+                // is absolutely positioned, so an inset on one axis alone leaves it
+                // zero pixels across. Measured before this, the switch answered to
+                // 37 by 20 — the box it draws, and nothing more.
+                + ' before:absolute before:inset-0 before:content-[""] touch:before:-inset-y-3 touch:before:-inset-x-1'
                 + ' data-[state=checked]:bg-phosphor/70 disabled:opacity-50'}
         >
             <Switch.Thumb className="block size-4 translate-x-0.5 rounded-full bg-ink-100 transition-transform data-[state=checked]:translate-x-[18px]" />

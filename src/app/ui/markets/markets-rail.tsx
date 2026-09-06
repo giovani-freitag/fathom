@@ -8,6 +8,7 @@ import { TagColourPicker } from './tag-colour-picker.tsx';
 import type { Translate } from '../../i18n/translator.ts';
 import { useMemo, useState } from 'react';
 import { useIsViewportAtLeast } from '../../react/use-viewport-width.ts';
+import { useEscapeGuard } from '../escape-guard.ts';
 import { Select } from '../select.tsx';
 import type { Choice } from '../choice.ts';
 import { Plus, Trash2 } from 'lucide-react';
@@ -251,6 +252,8 @@ interface TagNameFieldProps {
  * and drew nothing at all.
  */
 function TagNameField({ translate, onName, onGiveUp }: TagNameFieldProps): ReactElement {
+    useEscapeGuard(true);
+
     return (
         <input
             autoFocus
@@ -267,10 +270,6 @@ function TagNameField({ translate, onName, onGiveUp }: TagNameFieldProps): React
                     onName(event.currentTarget.value);
                 }
                 if (event.key === 'Escape') {
-                    // Stopped here rather than let through: the popover this
-                    // sits in closes on Escape too, so giving up on a name the
-                    // reader had half typed took the whole card away with it.
-                    event.stopPropagation();
                     onGiveUp();
                 }
             }}

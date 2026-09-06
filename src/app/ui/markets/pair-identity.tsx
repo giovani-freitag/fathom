@@ -18,15 +18,23 @@ interface PairIdentityProps {
 export function PairIdentity({ symbol, base = '', quote = '' }: PairIdentityProps): ReactElement {
     return (
         <>
-            {/* Wide enough to line the rows up, able to give way, and with a
+            {/* Measured against the card this sits in rather than against the
+                window. A phone held sideways is 667 pixels wide, so the wide
+                layout switched on inside a card still 288 pixels across: the
+                row grew to 430 and its switch and delete button were clipped
+                out of it entirely, with no scroll to reach them. What decides
+                this is the room on the row, and only a container query asks
+                about that.
+
+                Wide enough to line the rows up, able to give way, and with a
                 floor. Fixed, a long grid figure pushed the delete button off
                 the screen; free to shrink to nothing, four of five recorded
                 rows read "PAXGU…", "ETHU…", "LTCU…" — and LTCUSDC trades on the
                 same venue, so the stub was genuinely ambiguous on the one row
                 carrying a control that cannot be undone. */}
-            <span className="w-32 min-w-20 truncate text-sm font-semibold sm:w-40">{symbol}</span>
+            <span className="w-32 min-w-20 truncate text-sm font-semibold @md:w-40">{symbol}</span>
             {base !== '' && (
-                <span className="hidden w-28 shrink-0 truncate text-xs text-ink-400 sm:inline">
+                <span className="hidden w-28 shrink-0 truncate text-xs text-ink-400 @md:inline">
                     {base}/{quote}
                 </span>
             )}

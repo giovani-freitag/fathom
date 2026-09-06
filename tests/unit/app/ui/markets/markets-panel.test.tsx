@@ -4,6 +4,7 @@ import { createIndicatorKernel, renderWithKernel } from '../../../../mocks/indic
 import { FAVOURITES_ID, type MarketPair } from '../../../../../src/shared/core/pair-tags.ts';
 import { FIRST_VENUE } from '../../../../../src/shared/core/recording-control.ts';
 import { MarketsPanel } from '../../../../../src/app/ui/markets/markets-panel.tsx';
+import { MarketsButton } from '../../../../../src/app/ui/markets/markets-button.tsx';
 import { buildConnector } from '../../../../mocks/venue-connectors.ts';
 import { forgetConnector, registerConnector } from '../../../../../src/shared/venues/venue-registry.ts';
 import { stubViewport } from '../../../../fixtures/viewport.ts';
@@ -73,6 +74,23 @@ function openTags(symbol: string): void {
  */
 function railRow(name: string): HTMLElement {
     return screen.getByRole('button', { name: new RegExp(`^${name}`) });
+}
+
+/**
+ * The picker inside the popover the dock opens it in.
+ *
+ * The panel on its own cannot be dismissed, so a test that renders it that way
+ * cannot tell a key that dismisses one level from a key that dismisses four.
+ */
+function renderInPopover(): void {
+    renderWithKernel(createIndicatorKernel(), (
+        <MarketsButton
+            iconSizePx={16}
+            said="BTC"
+            openPair={null}
+            onPairOpen={() => undefined}
+        />
+    ));
 }
 
 /** Makes a tag and leaves it open, the way a reader would. */
@@ -464,18 +482,23 @@ describe('the card on a phone', () => {
     });
 
     it('gives up on a half-typed tag name without taking the card with it', async () => {
-        // The card closes on Escape as well, so the key that abandons a field
-        // used to abandon everything behind it.
+        // Rendered inside the real popover, because that is the thing that
+        // closes. The first version of this test rendered the panel on its own,
+        // so "the card is still open" was true however Escape behaved — it
+        // passed while the key was taking the whole card down.
         showAt(390);
-        renderPanel();
+        renderInPopover();
+        fireEvent.click(await screen.findByRole('button', { name: /Contracts/ }));
         fireEvent.click(await screen.findByRole('button', { name: 'New tag' }));
 
         const field = await screen.findByRole('textbox', { name: 'Name this tag' });
         fireEvent.change(field, { target: { value: 'half' } });
         fireEvent.keyDown(field, { key: 'Escape' });
 
-        expect(screen.queryByRole('textbox', { name: 'Name this tag' })).toBeNull();
-        expect(await screen.findByRole('combobox', { name: 'Contracts' })).toBeDefined();
+        await waitFor(() => {
+            expect(screen.queryByRole('textbox', { name: 'Name this tag' })).toBeNull();
+        });
+        expect(screen.getByRole('dialog')).toBeDefined();
     });
 
     it('keeps only one of the two layouts in the tree at a time', async () => {
