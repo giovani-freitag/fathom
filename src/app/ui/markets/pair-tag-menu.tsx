@@ -8,14 +8,12 @@ import { TagSwatch } from './tag-swatch.tsx';
 import type { Translate } from '../../i18n/translator.ts';
 
 /**
- * How many marks a row draws in full before the rest tuck under them.
+ * Which mark sits on top, the rest stacking down from it.
  *
- * Cut at three, a pair filed under five tags looked like a pair filed under
- * three, and nothing on the row said otherwise. Overlapped, the same width
- * holds every one of them: the count is read off the depth of the stack, and
- * the ones behind still show the sliver that says what colour they are.
+ * High enough that the fifth tag on a pair is still above the row's own ground
+ * rather than behind it, which is where counting down from zero would put it.
  */
-const MARKS_ABREAST = 4;
+const TOPMOST_MARK = 4;
 
 interface PairTagMenuProps {
     /**
@@ -67,35 +65,7 @@ export function PairTagMenu({
                 title={translate('markets.tagsFor', { symbol: pair.symbol })}
                 className="group grid w-11 shrink-0 place-items-center transition-colors hover:bg-abyss-700 data-[state=open]:bg-abyss-700"
             >
-                {held.size === 0
-                    ? (
-                        <TagGlyph
-                            size={14}
-                            className="text-ink-500 transition-colors group-hover:text-ink-300"
-                        />
-                    )
-                    : (
-                        <span className="flex items-center">
-                            {tags
-                                .filter((tag) => held.has(tag.id))
-                                .map((tag, at) => (
-                                    <span
-                                        key={tag.id}
-                                        // Tucked under the one before it, and
-                                        // ringed in the row's own ground so the
-                                        // edge between two marks stays readable
-                                        // when their colours are close.
-                                        className={at === 0 ? '' : '-ml-1'}
-                                        style={{ zIndex: MARKS_ABREAST - at }}
-                                    >
-                                        <TagSwatch
-                                            colour={tag.colour}
-                                            className="size-2.5 ring-1 ring-abyss-850"
-                                        />
-                                    </span>
-                                ))}
-                        </span>
-                    )}
+                <TagMarks tags={tags} held={held} />
             </DropdownMenu.Trigger>
 
             <DropdownMenu.Portal>
@@ -176,7 +146,15 @@ export function PairMarks({ tags, held, pair, translate, onOpen }: PairMarksProp
 }
 
 /**
- * The marks themselves, so the button and the menu's trigger cannot disagree.
+ * What a pair is filed under, drawn as the colours themselves.
+ *
+ * Cut at three, a pair filed under five tags looked like a pair filed under
+ * three, and nothing on the row said otherwise. Overlapped, the same width
+ * holds every one of them: the count is read off the depth of the stack, and
+ * the ones behind still show the sliver that says what colour they are.
+ *
+ * One component for both the plain button and the menu's trigger, which is what
+ * keeps the row from changing shape under the press that opens the menu.
  */
 export function TagMarks({ tags, held }: { readonly tags: readonly PairTag[]; readonly held: ReadonlySet<string> }): ReactElement {
     if (held.size === 0) {
@@ -188,8 +166,11 @@ export function TagMarks({ tags, held }: { readonly tags: readonly PairTag[]; re
             {tags.filter((tag) => held.has(tag.id)).map((tag, at) => (
                 <span
                     key={tag.id}
+                    // Tucked under the one before it, and ringed in the row's
+                    // own ground so the edge between two marks stays readable
+                    // when their colours are close.
                     className={at === 0 ? '' : '-ml-1'}
-                    style={{ zIndex: MARKS_ABREAST - at }}
+                    style={{ zIndex: TOPMOST_MARK - at }}
                 >
                     <TagSwatch colour={tag.colour} className="size-2.5 ring-1 ring-abyss-850" />
                 </span>

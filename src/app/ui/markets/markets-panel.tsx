@@ -20,17 +20,10 @@ import { useChartSlice } from '../../react/use-chart-state.ts';
 import { useMarkets } from '../../react/use-markets.ts';
 import { useTranslate } from '../../react/use-appearance.ts';
 import { useIsViewportAtLeast } from '../../react/use-viewport-width.ts';
+import { TYPING_SETTLES_MS, useSettled } from '../../react/use-long-listing.ts';
 
 /** What is known about a venue nobody has asked about yet. */
 const UNREAD: Listing = { kind: 'unread' };
-
-/**
- * How long typing settles before the venue is asked about it.
- *
- * Long enough that a word is one question rather than five, short enough that
- * the answer arrives while the reader is still looking at what they typed.
- */
-const TYPING_SETTLES_MS = 250;
 
 interface MarketsPanelProps {
     /** Closes the card the panel is in, once a pair has been picked. */
@@ -73,19 +66,7 @@ export function MarketsPanel({
     // venue for them before the card has finished appearing.
     const [showing, setShowing] = useState<Showing>({ kind: 'tag' });
     const [query, setQuery] = useState('');
-    // What the rows are narrowed by, which lags what the field shows.
-    //
-    // The field has to answer the keystroke at once — a letter that takes a
-    // third of a second to appear is a keyboard the reader stops trusting — and
-    // the rows do not: narrowing them rebuilds thirteen hundred elements, which
-    // was measured at a hundred and fifty milliseconds a character on a desk
-    // and over a second on a phone. So the letter lands now and the list
-    // catches up when the typing pauses.
-    const [narrowedBy, setNarrowedBy] = useState('');
-    useEffect(() => {
-        const settling = setTimeout(() => { setNarrowedBy(query); }, TYPING_SETTLES_MS);
-        return () => { clearTimeout(settling); };
-    }, [query]);
+    const narrowedBy = useSettled(query);
     // Which body the sheet is showing on a phone: the pairs, or one kind of
     // source. Two shapes of the same question are behind `?picker=`, so they
     // can be put in front of readers rather than argued about.

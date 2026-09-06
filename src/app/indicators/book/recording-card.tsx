@@ -22,6 +22,7 @@ import type { Translate } from '../../i18n/translator.ts';
 import { useMarkets } from '../../react/use-markets.ts';
 import { useEscapeGuard } from '../../ui/escape-guard.ts';
 import type { VenueInstrument } from '../../../shared/core/venue-connector.ts';
+import { useSettled, useWholeWhenIdle } from '../../react/use-long-listing.ts';
 
 export interface RecordingListingProps {
     /** The venues that publish a book, which are the only ones worth offering. */
@@ -56,21 +57,9 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
     const { state, markets } = useMarkets();
     const [venue, setVenue] = useState(props.venues[0] ?? '');
     const [query, setQuery] = useState('');
-    // What the rows are narrowed by, which lags what the field shows. Narrowing
-    // rebuilds a hundred and fifty rows, and doing that inside the keystroke is
-    // a letter that arrives late enough for a reader to press the key again.
-    const [narrowedBy, setNarrowedBy] = useState('');
-    useEffect(() => {
-        const settling = setTimeout(() => { setNarrowedBy(query); }, TYPING_SETTLES_MS);
-        return () => { clearTimeout(settling); };
-    }, [query]);
+    const narrowedBy = useSettled(query);
     const [quote, setQuote] = useState('');
     const [chosen, setChosen] = useState<string | null>(null);
-    // The catalogue is built once the thread is free, for the same reason the
-    // contract listing is: a card shows a dozen rows and the group under
-    // "everything else" holds a hundred and fifty, and building them all in the
-    // tick the listing lands is a third of a second the reader gets nothing for.
-    const [whole, setWhole] = useState<readonly VenueInstrument[] | null>(null);
     // One layout or the other, never both: two rails in the tree is two
     // controls answering to the same name.
     const isWide = useIsViewportAtLeast('lg');
@@ -93,15 +82,7 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
         [listed, narrowedBy, quote],
     );
 
-    useEffect(() => {
-        const idle = globalThis.requestIdleCallback;
-        if (typeof idle !== 'function') {
-            const soon = setTimeout(() => { setWhole(listed); }, 120);
-            return () => { clearTimeout(soon); };
-        }
-        const asked = idle(() => { setWhole(listed); }, { timeout: 500 });
-        return () => { globalThis.cancelIdleCallback(asked); };
-    }, [listed]);
+    const isWhole = useWholeWhenIdle(listed);
 
     // What this venue is already recording, lifted out of the listing and put
     // at the top of it. A reader who came here to switch one off would
@@ -252,7 +233,7 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
                     {GROUPS.map((group) => ({
                         said: group.said,
                         of: group.of,
-                        rows: group.of === 'offered' && whole !== listed
+                        rows: group.of === 'offered' && !isWhole
                             ? shown.offered.slice(0, ROWS_AT_ONCE)
                             : shown[group.of],
                     }))
@@ -350,10 +331,7 @@ function GridChip({ grid, isChosen, isSaving, translate, onPick }: {
             aria-current={isChosen}
             aria-label={translate('settings.perRow', { value: grid.priceBucketSize })}
             onClick={() => { if (!isChosen) { onPick(); } }}
-            className={`${CONTROL_CHIP_CLASSES} numeric h-7 justify-center px-2.5 touch:h-11 ${gridChipLook(
-                isChosen,
-                grid.isSuggested,
-            )}`}
+            className={`${CONTROL_CHIP_CLASSES} numeric h-7 justify-center px-2.5 touch:h-11 ${gridChipLook(isChosen)}`}
         >
             {grid.priceBucketSize}
         </button>
@@ -368,15 +346,11 @@ function GridChip({ grid, isChosen, isSaving, translate, onPick }: {
  * on top of the chosen colour. So the bright chip was the value you were not
  * on and the faded one was where you actually were.
  */
-function gridChipLook(isChosen: boolean, isSuggested: boolean): string {
-    if (isChosen) {
-        return `${CONTROL_CHOSEN_CLASSES} cursor-default`;
-    }
-    // Drawn like every other offer. It used to carry the chosen colours at a
-    // lower opacity, so two chips read as picked and nothing said what the
-    // second one meant.
-    void isSuggested;
-    return CONTROL_OFFERED_CLASSES;
+function gridChipLook(isChosen: boolean): string {
+    // A suggested rung draws like every other offer, which is why it is not
+    // asked about here. It used to carry the chosen colours at a lower opacity,
+    // so two chips read as picked and nothing said what the second one meant.
+    return isChosen ? `${CONTROL_CHOSEN_CLASSES} cursor-default` : CONTROL_OFFERED_CLASSES;
 }
 
 /**
@@ -394,6 +368,16 @@ function withCurrentGrid(offered: readonly GridChoice[], inForce: number | null)
         .sort((one, other) => one.priceBucketSize - other.priceBucketSize);
 }
 
+/** How many of the catalogue's rows are built in the tick it lands. */
+const ROWS_AT_ONCE = 30;
+
+/** The three headings a pair can sit under, in the order they are read. */
+const GROUPS = [
+    { said: 'recording.recordingHere', of: 'recording' },
+    { said: 'recording.switchedOffHere', of: 'paused' },
+    { said: 'recording.everythingElse', of: 'offered' },
+] as const;
+
 /**
  * A row for a contract the listing did not reach.
  *
@@ -401,25 +385,6 @@ function withCurrentGrid(offered: readonly GridChoice[], inForce: number | null)
  * needs. The rest is what the pair would look like to a reader who cannot see
  * it: no tick published, and nothing claiming it is trading.
  */
-/** The three headings a pair can sit under, in the order they are read. */
-/** How many of the catalogue's rows are built in the tick it lands. */
-const ROWS_AT_ONCE = 30;
-
-/**
- * How long typing settles before the rows are narrowed by it.
- *
- * The same figure the contracts picker uses, because it is the same wait: long
- * enough that a word is one narrowing rather than five, short enough that the
- * rows have caught up by the time a reader looks down at them.
- */
-const TYPING_SETTLES_MS = 250;
-
-const GROUPS = [
-    { said: 'recording.recordingHere', of: 'recording' },
-    { said: 'recording.switchedOffHere', of: 'paused' },
-    { said: 'recording.everythingElse', of: 'offered' },
-] as const;
-
 function standInFor(contract: RecordedContract): VenueInstrument {
     return {
         // Left empty rather than guessed: filling the base with the symbol drew
