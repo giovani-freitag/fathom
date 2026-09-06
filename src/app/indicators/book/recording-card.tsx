@@ -437,7 +437,15 @@ function PairRow(props: PairRowProps): ReactElement {
                         }}
                         className="numeric ml-auto flex shrink-0 items-center rounded px-1.5 py-0.5 pl-2 text-[11px] text-ink-500 transition-colors hover:bg-abyss-700 hover:text-ink-200 touch:min-h-11"
                     >
-                        {props.translate('settings.perRow', { value: contract.priceBucketSize })}
+                        {/* The figure alone where the row is narrow: with the
+                            unit spelled out, the longest of them pushed the
+                            delete button off the end of a card that clips. The
+                            unit is in the name the button answers to, and on
+                            the line that asks for it once the row is open. */}
+                        <span className="@md:hidden">{contract.priceBucketSize}</span>
+                        <span className="hidden @md:inline">
+                            {props.translate('settings.perRow', { value: contract.priceBucketSize })}
+                        </span>
                     </button>
                     <ToggleSwitch
                         isOn={contract.isEnabled}
