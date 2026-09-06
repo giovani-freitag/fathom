@@ -192,7 +192,12 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
                         )}
                     </div>
                 )}
-            banner={(
+            banner={!isWide ? undefined : (
+                // On a phone the select above says which venue this is, and the
+                // banner said it again directly under it — the same answer
+                // twice, in a row of its own, on the screen with least room for
+                // it. The quote chips go with it: they narrow a listing a
+                // reader is already narrowing by name in the field above.
                 <ListingBanner said={venue} mark={<VenueMark venue={venue} />}>
                     <QuoteFilter
                         quotes={quotes}

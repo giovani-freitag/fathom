@@ -191,6 +191,19 @@ describe('what else could be recorded', () => {
         expect(screen.getByText(/No connector here reads a book/)).toBeDefined();
     });
 
+    it('does not say which venue twice over on the screen with least room', async () => {
+        // The select names the venue, and the banner named it again in a row of
+        // its own directly underneath — with the quote chips beside it, which
+        // narrow a listing the reader is already narrowing in the field above.
+        showAt(390);
+        renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+
+        await screen.findByRole('combobox', { name: 'Record a pair' });
+        expect(screen.queryByRole('button', { name: 'USDT' })).toBeNull();
+    });
+
     it('records a pair on the grid that was chosen for it', async () => {
         // The grid cannot be changed later without two of them ending up in one
         // history, so it is asked before the recording starts rather than after.
