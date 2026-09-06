@@ -2,15 +2,16 @@ import { type ReactElement, useCallback, useEffect, useMemo, useState } from 're
 import { ListingCard, SearchField } from './listing-card.tsx';
 import { FAVOURITES_ID, findTagsHolding, type MarketPair } from '../../../shared/core/pair-tags.ts';
 import { FIRST_VENUE } from '../../../shared/core/recording-control.ts';
-import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Plus } from 'lucide-react';
 import {
     CONTROL_CHIP_CLASSES,
     CONTROL_CHOSEN_CLASSES,
     CONTROL_OFFERED_CLASSES,
+    PANEL_ADD_CLASSES,
     SCROLLER_CLASSES,
 } from '../control-shell.ts';
 import { ListingBody, ListingFooting, QuoteFilter, Said } from './listing-body.tsx';
-import { MarketsRail, type Showing } from './markets-rail.tsx';
+import { MarketsRail, type Showing, TagNameField } from './markets-rail.tsx';
 import { readPickerVariant } from '../../react/use-picker-variant.ts';
 import { SourceList, type SourceKind, SourceTabs } from './source-list.tsx';
 import { labelOf } from '../../markets/tag-names.ts';
@@ -94,6 +95,7 @@ export function MarketsPanel({
     const variant = readPickerVariant(globalThis.location.search);
     const [openSource, setOpenSource] = useState<SourceKind | null>(null);
     const [chip, setChip] = useState<LibraryFilter>({ kind: 'all' });
+    const [isNamingTag, setIsNamingTag] = useState(false);
     const [quote, setQuote] = useState('');
 
     // Selected as the array the store already holds and turned into a set here.
@@ -358,6 +360,31 @@ export function MarketsPanel({
                                 {one.said}
                             </button>
                         ))}
+
+                        {/* The way to make one more, at the end of the ones
+                            there are. Without it the library was a list of
+                            filters a reader could never add to. */}
+                        {isNamingTag
+                            ? (
+                                <TagNameField
+                                    translate={translate}
+                                    onName={(label) => {
+                                        markets.addTag(label);
+                                        setIsNamingTag(false);
+                                    }}
+                                    onGiveUp={() => { setIsNamingTag(false); }}
+                                />
+                            )
+                            : (
+                                <button
+                                    type="button"
+                                    aria-label={translate('markets.newTag')}
+                                    onClick={() => { setIsNamingTag(true); }}
+                                    className={`${CONTROL_CHIP_CLASSES} h-9 shrink-0 justify-center ${CONTROL_OFFERED_CLASSES}`}
+                                >
+                                    <Plus className="size-3.5" />
+                                </button>
+                            )}
                     </div>
                 )
                 : !isWide && variant === 'search'
@@ -483,6 +510,9 @@ export function MarketsPanel({
                             show({ kind: 'tag' });
                             setOpenSource(null);
                         }}
+                        {...onWriteConnector === undefined
+                            ? {}
+                            : { onWriteConnector: () => { setOpenSource(null); onWriteConnector(); } }}
                     />
                 </>
             ) : (
@@ -527,6 +557,22 @@ export function MarketsPanel({
                                         }
                                     }}
                                 />
+                                {/* The catalogues, reached deliberately. The
+                                    library is what a reader has; browsing is
+                                    the other question, and it has to be asked
+                                    somewhere. */}
+                                {query.trim() === '' && (
+                                    <div className="px-3 py-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => { setOpenSource('venue'); }}
+                                            className={`${PANEL_ADD_CLASSES} min-h-11 w-full`}
+                                        >
+                                            {translate('markets.browseAVenue')}
+                                        </button>
+                                    </div>
+                                )}
+
                                 {query.trim() !== '' && rows.length > 0 && (
                                     <>
                                         <h4 className="px-3 py-1 field-label">

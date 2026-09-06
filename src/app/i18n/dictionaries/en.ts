@@ -269,6 +269,7 @@ export const EN_DICTIONARY = {
     'markets.noSources': 'Nothing by that name among your tags or venues.',
     'markets.acrossVenues': 'Every venue you have opened',
     'markets.allOfMine': 'All',
+    'markets.browseAVenue': 'Browse a venue',
     'markets.mine': 'Yours',
     'markets.libraryEmpty': 'Nothing here yet. Search a ticker, or browse a venue, and what you open or keep lands here.',
     'markets.onTheVenues': 'On the venues',

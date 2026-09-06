@@ -17,7 +17,9 @@ afterEach(() => { forgetConnector('empty'); showAt(1_280); });
 
 let lastKernel: ReturnType<typeof createIndicatorKernel> | null = null;
 
-function renderPanel(): { opened: MarketPair[] } {
+function renderPanel(
+    options: { onWriteConnector?: () => void } = {},
+): { opened: MarketPair[] } {
     const opened: MarketPair[] = [];
     const kernel = createIndicatorKernel();
     lastKernel = kernel;
@@ -40,6 +42,9 @@ function renderPanel(): { opened: MarketPair[] } {
             open={null}
             onClose={() => undefined}
             onOpen={(pair: MarketPair) => { opened.push(pair); }}
+            {...options.onWriteConnector === undefined
+                ? {}
+                : { onWriteConnector: options.onWriteConnector }}
         />
     ));
     return { opened };
@@ -436,7 +441,7 @@ describe('opening what is kept', () => {
 
 describe('the card on a phone', () => {
     /** Which shape of the picker this test is about. */
-    function showVariant(variant: 'tabs' | 'drill'): void {
+    function showVariant(variant: 'tabs' | 'drill' | 'search' | 'library'): void {
         globalThis.history.replaceState(null, '', `/?picker=${variant}`);
     }
 
@@ -506,6 +511,40 @@ describe('the card on a phone', () => {
             expect(screen.queryByRole('textbox', { name: 'Name this tag' })).toBeNull();
         });
         expect(screen.getByRole('dialog', { name: 'Contracts' })).toBeDefined();
+    });
+
+    it('offers a way to make a tag from the library, where the chips are', async () => {
+        // The chips are the tags. A list of filters a reader can never add to
+        // is a list that shrinks to whatever they had on the first day.
+        showVariant('library');
+        showAt(390);
+        renderPanel();
+
+        fireEvent.click(await screen.findByRole('button', { name: 'New tag' }));
+
+        expect(await screen.findByRole('textbox', { name: 'Name this tag' })).toBeDefined();
+    });
+
+    it('offers a way to the catalogues, which the library never shows on its own', async () => {
+        // The library is what a reader has. Browsing is the other question, and
+        // removing the source rail took the only place it was asked.
+        showVariant('library');
+        showAt(390);
+        renderPanel();
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Browse a venue' }));
+
+        expect(await screen.findByRole('heading', { name: 'Venues' })).toBeDefined();
+        expect(screen.getByRole('button', { name: FIRST_VENUE })).toBeDefined();
+    });
+
+    it('offers a way to bring a venue in, from the list of the ones there are', async () => {
+        showVariant('library');
+        showAt(390);
+        renderPanel({ onWriteConnector: () => undefined });
+        fireEvent.click(await screen.findByRole('button', { name: 'Browse a venue' }));
+
+        expect(await screen.findByRole('button', { name: 'Add a venue' })).toBeDefined();
     });
 
     it('keeps only one of the two layouts in the tree at a time', async () => {

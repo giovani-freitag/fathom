@@ -1,9 +1,14 @@
-import { CONTROL_CHIP_CLASSES, CONTROL_CHOSEN_CLASSES, CONTROL_OFFERED_CLASSES } from '../control-shell.ts';
+import {
+    CONTROL_CHIP_CLASSES,
+    CONTROL_CHOSEN_CLASSES,
+    CONTROL_OFFERED_CLASSES,
+    PANEL_ADD_CLASSES,
+} from '../control-shell.ts';
 import type { PairTag } from '../../../shared/core/pair-tags.ts';
 import { labelOf } from '../../markets/tag-names.ts';
 import type { ReactElement } from 'react';
 import { type Showing, TagNameField } from './markets-rail.tsx';
-import { PANEL_ADD_CLASSES } from '../control-shell.ts';
+
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { TagSwatch } from './tag-swatch.tsx';
@@ -26,6 +31,8 @@ export interface SourceListProps {
     readonly onBrowse: (venue: string) => void;
     /** Makes one more tag, which is where a reader keeps what they found. */
     readonly onAddTag: (label: string) => void;
+    /** Opens the editor on a connector, where this build carries one. */
+    readonly onWriteConnector?: (() => void) | undefined;
 }
 
 /**
@@ -51,6 +58,7 @@ export function SourceList({
     onOpenTag,
     onBrowse,
     onAddTag,
+    onWriteConnector,
 }: SourceListProps): ReactElement {
     const [isNaming, setIsNaming] = useState(false);
     const wanted = query.trim().toUpperCase();
@@ -131,6 +139,22 @@ export function SourceList({
                             </li>
                         ))}
                     </ul>
+
+                    {/* The catalogues a reader can bring in themselves. Absent
+                        from here, a phone could browse the venues that shipped
+                        and never reach the one it wrote. */}
+                    {onWriteConnector !== undefined && (
+                        <div className="px-3 py-2">
+                            <button
+                                type="button"
+                                onClick={onWriteConnector}
+                                className={`${PANEL_ADD_CLASSES} min-h-11 w-full`}
+                            >
+                                <Plus className="size-3.5" />
+                                {translate('markets.addVenue')}
+                            </button>
+                        </div>
+                    )}
                 </section>
             )}
         </div>

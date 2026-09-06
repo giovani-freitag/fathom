@@ -271,6 +271,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'markets.noSources': 'Nada com esse nome entre suas tags ou corretoras.',
     'markets.acrossVenues': 'Todas as corretoras que você abriu',
     'markets.allOfMine': 'Tudo',
+    'markets.browseAVenue': 'Explorar uma corretora',
     'markets.mine': 'Seus',
     'markets.libraryEmpty': 'Nada aqui ainda. Busque um ticker, ou explore uma corretora, e o que você abrir ou guardar aparece aqui.',
     'markets.onTheVenues': 'Nas corretoras',
