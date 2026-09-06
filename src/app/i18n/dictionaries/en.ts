@@ -287,6 +287,8 @@ export const EN_DICTIONARY = {
     'markets.emptyVenue': 'This venue listed nothing',
     'markets.favourites': 'Favourites',
     'markets.newTag': 'New tag',
+    'markets.giveUp': 'Cancel',
+    'markets.makeTag': 'Make the tag',
     'markets.tagLabel': 'Name this tag',
     'markets.removeTag': 'Delete this tag',
     'markets.removeTagTitle': 'Delete this tag?',

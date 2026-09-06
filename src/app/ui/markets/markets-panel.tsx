@@ -1,5 +1,5 @@
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { ListingCard, SearchField } from './listing-card.tsx';
+import { ListingCard, RailBar, SearchField } from './listing-card.tsx';
 import { FAVOURITES_ID, findTagsHolding, type MarketPair } from '../../../shared/core/pair-tags.ts';
 import { FIRST_VENUE } from '../../../shared/core/recording-control.ts';
 import { ArrowLeft, ChevronRight, Plus } from 'lucide-react';
@@ -7,12 +7,16 @@ import {
     CONTROL_CHIP_CLASSES,
     CONTROL_CHOSEN_CLASSES,
     CONTROL_OFFERED_CLASSES,
+    CONTROL_BUTTON_CLASSES,
+    CONTROL_RESTING_CLASSES,
     PANEL_ADD_CLASSES,
     SCROLLER_CLASSES,
 } from '../control-shell.ts';
 import { ListingBody, ListingFooting, QuoteFilter, Said } from './listing-body.tsx';
 import { MarketsRail, type Showing, TagNameField } from './markets-rail.tsx';
 import { readPickerVariant } from '../../react/use-picker-variant.ts';
+import { Select } from '../select.tsx';
+import { NewTagCard } from './new-tag-card.tsx';
 import { SourceList, type SourceKind, SourceTabs } from './source-list.tsx';
 import { labelOf } from '../../markets/tag-names.ts';
 import { gatherLibrary, type LibraryFilter, narrowLibrary } from '../../markets/library.ts';
@@ -308,23 +312,34 @@ export function MarketsPanel({
             }).filter((row) => matchesQuery(row.pair.symbol, query));
         }
 
-        return (narrowed?.shown ?? []).map((instrument) => {
-            const pair = { venue: showing.venue, symbol: instrument.symbol };
-            const isOpenable = recorded.has(`${pair.venue}/${pair.symbol}`);
-            return {
-                pair,
-                base: instrument.base,
-                quote: instrument.quote,
-                held: heldBy(pair),
-                isOpenable,
-                whyNot: sayWhyNot(pair),
-                // On a venue's own listing the reason is true of almost every
-                // row, and a column that repeats nine hundred times says
-                // nothing. What is rare here is the handful this chart holds.
-                note: markNote(instrument.isTrading, isOpenable, translate),
-            };
-        });
-    }, [everywhere, showing, openTag, recorded, sayWhyNot, noteWhyNot, heldBy, narrowed, query, translate]);
+        const held = chip.kind === 'tag'
+            // Narrowed to this venue's half of the tag: a tag spans venues, and
+            // the rows underneath are one venue's catalogue.
+            ? new Set((state.tags.find((one) => one.id === chip.tagId)?.pairs ?? [])
+                .filter((one) => one.venue === showing.venue)
+                .map((one) => one.symbol))
+            : null;
+
+        return (narrowed?.shown ?? [])
+            .filter((instrument) => held === null || held.has(instrument.symbol))
+            .map((instrument) => {
+                const pair = { venue: showing.venue, symbol: instrument.symbol };
+                const isOpenable = recorded.has(`${pair.venue}/${pair.symbol}`);
+                return {
+                    pair,
+                    base: instrument.base,
+                    quote: instrument.quote,
+                    held: heldBy(pair),
+                    isOpenable,
+                    whyNot: sayWhyNot(pair),
+                    // On a venue's own listing the reason is true of almost every
+                    // row, and a column that repeats nine hundred times says
+                    // nothing. What is rare here is the handful this chart holds.
+                    note: markNote(instrument.isTrading, isOpenable, translate),
+                };
+            });
+    }, [everywhere, showing, openTag, recorded, sayWhyNot, noteWhyNot, heldBy, narrowed, query, translate,
+        chip, state.tags]);
 
     return (
         <ListingCard
@@ -336,114 +351,172 @@ export function MarketsPanel({
                     onChange={setQuery}
                 />
             )}
-            rail={!isWide && variant === 'library'
-                ? (
-                    <div className={`flex shrink-0 gap-1 overflow-x-auto border-b border-hairline p-2 ${SCROLLER_CLASSES}`}>
-                        {([
-                            { key: 'all', said: translate('markets.allOfMine'), filter: { kind: 'all' } },
-                            { key: 'recording', said: translate('recording.recordingHere'), filter: { kind: 'recording' } },
-                            ...state.tags.map((one) => ({
-                                key: one.id,
-                                said: labelOf(one, translate),
-                                filter: { kind: 'tag', tagId: one.id },
-                            })),
-                        ] as readonly { key: string; said: string; filter: LibraryFilter }[]).map((one) => (
-                            <button
-                                key={one.key}
-                                type="button"
-                                aria-pressed={chipKey(chip) === one.key}
-                                onClick={() => { setChip(one.filter); }}
-                                className={`${CONTROL_CHIP_CLASSES} h-9 shrink-0 justify-center ${
-                                    chipKey(chip) === one.key ? CONTROL_CHOSEN_CLASSES : CONTROL_OFFERED_CLASSES
-                                }`}
-                            >
-                                {one.said}
-                            </button>
-                        ))}
-
-                        {/* The way to make one more, at the end of the ones
-                            there are. Without it the library was a list of
-                            filters a reader could never add to. */}
-                        {isNamingTag
-                            ? (
-                                <TagNameField
-                                    translate={translate}
-                                    onName={(label) => {
-                                        markets.addTag(label);
-                                        setIsNamingTag(false);
+            rail={isNamingTag && !isWide && variant === 'selects'
+                // The card is a step of its own; the filters behind it belong to
+                // the listing it stepped away from. The library names a tag on
+                // the chip row itself, so its rail stays.
+                ? undefined
+                : !isWide && variant === 'selects'
+                    ? (
+                    // Two filters that compose rather than compete: the venue
+                    // says which catalogue, the tag says which of it. They were
+                    // one control before, which made them read as alternatives
+                    // — and a reader's tags span venues, so they never were.
+                        <RailBar>
+                            <div className="flex min-w-0 flex-1 items-center gap-1">
+                                <Select
+                                    label={translate('markets.yourTags')}
+                                    value={chip.kind === 'tag' ? chip.tagId : ''}
+                                    choices={[
+                                        { value: '', label: translate('markets.allOfMine') },
+                                        ...state.tags.map((one) => ({
+                                            value: one.id,
+                                            label: labelOf(one, translate),
+                                            detail: String(one.pairs.length),
+                                        })),
+                                    ]}
+                                    onSelect={(tagId) => {
+                                        setChip(tagId === '' ? { kind: 'all' } : { kind: 'tag', tagId });
                                     }}
-                                    onGiveUp={() => { setIsNamingTag(false); }}
                                 />
-                            )
-                            : (
                                 <button
                                     type="button"
                                     aria-label={translate('markets.newTag')}
                                     onClick={() => { setIsNamingTag(true); }}
-                                    className={`${CONTROL_CHIP_CLASSES} h-9 shrink-0 justify-center ${CONTROL_OFFERED_CLASSES}`}
+                                    className={`${CONTROL_BUTTON_CLASSES} ${CONTROL_RESTING_CLASSES}`}
                                 >
-                                    <Plus className="size-3.5" />
+                                    <Plus className="size-4" />
                                 </button>
-                            )}
-                    </div>
-                )
-                : !isWide && variant === 'search'
-                    ? (
-                        <div className="flex shrink-0 items-center gap-2 border-b border-hairline p-2">
-                            <button
-                                type="button"
-                                onClick={() => { setOpenSource('venue'); }}
-                                className={`${CONTROL_CHIP_CLASSES} h-10 min-w-0 flex-1 justify-between ${CONTROL_OFFERED_CLASSES}`}
-                            >
-                                <span className="min-w-0 truncate">
-                                    {query.trim() === ''
-                                        ? (showing.kind === 'tag' ? tagLabel : showing.venue)
-                                        : translate('markets.acrossVenues')}
-                                </span>
-                                <ChevronRight className="size-4 shrink-0 text-ink-500" />
-                            </button>
-                        </div>
-                    )
-                    : !isWide && variant === 'tabs'
-                        ? (
-                            <SourceTabs
-                                open={openSource}
-                                translate={translate}
-                                onOpen={setOpenSource}
-                            />
-                        )
-                        : !isWide
-                            ? (
-                                <div className="flex shrink-0 items-center gap-2 border-b border-hairline p-2">
+                            </div>
+
+                            <div className="flex min-w-0 flex-1 items-center gap-1">
+                                <Select
+                                    label={translate('markets.venues')}
+                                    value={showing.kind === 'venue' ? showing.venue : state.browsingVenue}
+                                    choices={state.venues.map((one) => ({ value: one, label: one }))}
+                                    onSelect={(venue) => { show({ kind: 'venue', venue }); }}
+                                />
+                                {onWriteConnector !== undefined && (
                                     <button
                                         type="button"
-                                        onClick={() => { setOpenSource('tag'); }}
+                                        aria-label={translate('markets.addVenue')}
+                                        onClick={onWriteConnector}
+                                        className={`${CONTROL_BUTTON_CLASSES} ${CONTROL_RESTING_CLASSES}`}
+                                    >
+                                        <Plus className="size-4" />
+                                    </button>
+                                )}
+                            </div>
+                        </RailBar>
+                    )
+                    : !isWide && variant === 'library'
+                        ? (
+                            <div className={`flex shrink-0 gap-1 overflow-x-auto border-b border-hairline p-2 ${SCROLLER_CLASSES}`}>
+                                {([
+                                    { key: 'all', said: translate('markets.allOfMine'), filter: { kind: 'all' } },
+                                    { key: 'recording', said: translate('recording.recordingHere'), filter: { kind: 'recording' } },
+                                    ...state.tags.map((one) => ({
+                                        key: one.id,
+                                        said: labelOf(one, translate),
+                                        filter: { kind: 'tag', tagId: one.id },
+                                    })),
+                                ] as readonly { key: string; said: string; filter: LibraryFilter }[]).map((one) => (
+                                    <button
+                                        key={one.key}
+                                        type="button"
+                                        aria-pressed={chipKey(chip) === one.key}
+                                        onClick={() => { setChip(one.filter); }}
+                                        className={`${CONTROL_CHIP_CLASSES} h-9 shrink-0 justify-center ${
+                                            chipKey(chip) === one.key ? CONTROL_CHOSEN_CLASSES : CONTROL_OFFERED_CLASSES
+                                        }`}
+                                    >
+                                        {one.said}
+                                    </button>
+                                ))}
+
+                                {/* The way to make one more, at the end of the ones
+                            there are. Without it the library was a list of
+                            filters a reader could never add to. */}
+                                {isNamingTag
+                                    ? (
+                                        <TagNameField
+                                            translate={translate}
+                                            onName={(label) => {
+                                                markets.addTag(label);
+                                                setIsNamingTag(false);
+                                            }}
+                                            onGiveUp={() => { setIsNamingTag(false); }}
+                                        />
+                                    )
+                                    : (
+                                        <button
+                                            type="button"
+                                            aria-label={translate('markets.newTag')}
+                                            onClick={() => { setIsNamingTag(true); }}
+                                            className={`${CONTROL_CHIP_CLASSES} h-9 shrink-0 justify-center ${CONTROL_OFFERED_CLASSES}`}
+                                        >
+                                            <Plus className="size-3.5" />
+                                        </button>
+                                    )}
+                            </div>
+                        )
+                        : !isWide && variant === 'search'
+                            ? (
+                                <RailBar>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setOpenSource('venue'); }}
                                         className={`${CONTROL_CHIP_CLASSES} h-10 min-w-0 flex-1 justify-between ${CONTROL_OFFERED_CLASSES}`}
                                     >
                                         <span className="min-w-0 truncate">
-                                            {showing.kind === 'tag' ? tagLabel : showing.venue}
+                                            {query.trim() === ''
+                                                ? (showing.kind === 'tag' ? tagLabel : showing.venue)
+                                                : translate('markets.acrossVenues')}
                                         </span>
                                         <ChevronRight className="size-4 shrink-0 text-ink-500" />
                                     </button>
-                                </div>
+                                </RailBar>
                             )
-                            : (
-                                <MarketsRail
-                                    tags={state.tags}
-                                    venues={state.venues}
-                                    openTagId={openTag?.id ?? FAVOURITES_ID}
-                                    showing={showing}
-                                    translate={translate}
-                                    onOpenTag={(tagId) => { markets.openTag(tagId); show({ kind: 'tag' }); }}
-                                    onBrowse={(venue) => { show({ kind: 'venue', venue }); }}
-                                    onAddTag={(label) => { markets.addTag(label); show({ kind: 'tag' }); }}
-                                    onRemoveTag={(tagId) => { markets.removeTag(tagId); }}
-                                    onRecolourTag={(tagId, tone) => { markets.recolourTag(tagId, tone); }}
-                                    onRemoveVenue={(venue) => { markets.removeConnector(venue); show({ kind: 'tag' }); }}
-                                    broughtVenues={brought}
-                                    onWriteConnector={onWriteConnector}
-                                />
-                            )}
+                            : !isWide && variant === 'tabs'
+                                ? (
+                                    <SourceTabs
+                                        open={openSource}
+                                        translate={translate}
+                                        onOpen={setOpenSource}
+                                    />
+                                )
+                                : !isWide
+                                    ? (
+                                        <RailBar>
+                                            <button
+                                                type="button"
+                                                onClick={() => { setOpenSource('tag'); }}
+                                                className={`${CONTROL_CHIP_CLASSES} h-10 min-w-0 flex-1 justify-between ${CONTROL_OFFERED_CLASSES}`}
+                                            >
+                                                <span className="min-w-0 truncate">
+                                                    {showing.kind === 'tag' ? tagLabel : showing.venue}
+                                                </span>
+                                                <ChevronRight className="size-4 shrink-0 text-ink-500" />
+                                            </button>
+                                        </RailBar>
+                                    )
+                                    : (
+                                        <MarketsRail
+                                            tags={state.tags}
+                                            venues={state.venues}
+                                            openTagId={openTag?.id ?? FAVOURITES_ID}
+                                            showing={showing}
+                                            translate={translate}
+                                            onOpenTag={(tagId) => { markets.openTag(tagId); show({ kind: 'tag' }); }}
+                                            onBrowse={(venue) => { show({ kind: 'venue', venue }); }}
+                                            onAddTag={(label) => { markets.addTag(label); show({ kind: 'tag' }); }}
+                                            onRemoveTag={(tagId) => { markets.removeTag(tagId); }}
+                                            onRecolourTag={(tagId, tone) => { markets.recolourTag(tagId, tone); }}
+                                            onRemoveVenue={(venue) => { markets.removeConnector(venue); show({ kind: 'tag' }); }}
+                                            broughtVenues={brought}
+                                            onWriteConnector={onWriteConnector}
+                                        />
+                                    )}
             banner={(!isWide && quotes.length === 0) ? undefined : (
                 <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
                     {/* What is being looked at, which is the tag the rail is on
@@ -474,77 +547,158 @@ export function MarketsPanel({
                 />
             )}
         >
-            {openSource !== null ? (
-                <>
-                    {variant === 'drill' && (
+            {isNamingTag && variant === 'selects' && !isWide
+                ? (
+                    <>
                         <button
                             type="button"
-                            onClick={() => { setOpenSource(null); }}
+                            onClick={() => { setIsNamingTag(false); }}
                             className="flex min-h-11 shrink-0 items-center gap-1.5 px-3 text-xs text-ink-500 hover:text-ink-100"
                         >
                             <ArrowLeft className="size-3.5" />
                             {translate('markets.title')}
                         </button>
-                    )}
-                    <SourceList
-                        tags={state.tags}
-                        venues={state.venues}
-                        openTagId={openTag?.id ?? FAVOURITES_ID}
+                        <NewTagCard
+                            translate={translate}
+                            onMake={(label, colour) => {
+                                const tagId = markets.addTag(label);
+                                if (tagId !== null) {
+                                    markets.recolourTag(tagId, colour);
+                                    setChip({ kind: 'tag', tagId });
+                                }
+                                setIsNamingTag(false);
+                            }}
+                            onGiveUp={() => { setIsNamingTag(false); }}
+                        />
+                    </>
+                )
+                : openSource !== null ? (
+                    <>
+                        {variant === 'drill' && (
+                            <button
+                                type="button"
+                                onClick={() => { setOpenSource(null); }}
+                                className="flex min-h-11 shrink-0 items-center gap-1.5 px-3 text-xs text-ink-500 hover:text-ink-100"
+                            >
+                                <ArrowLeft className="size-3.5" />
+                                {translate('markets.title')}
+                            </button>
+                        )}
+                        <SourceList
+                            tags={state.tags}
+                            venues={state.venues}
+                            openTagId={openTag?.id ?? FAVOURITES_ID}
+                            showing={showing}
+                            query={query}
+                            // A tab shows one kind; a step in shows both, because it
+                            // is the whole answer to "what am I looking at".
+                            kinds={variant === 'drill' ? ['tag', 'venue'] : [openSource]}
+                            translate={translate}
+                            onOpenTag={(tagId) => {
+                                markets.openTag(tagId);
+                                show({ kind: 'tag' });
+                                setOpenSource(null);
+                            }}
+                            onBrowse={(venue) => {
+                                show({ kind: 'venue', venue });
+                                setOpenSource(null);
+                            }}
+                            onAddTag={(label) => {
+                                markets.addTag(label);
+                                show({ kind: 'tag' });
+                                setOpenSource(null);
+                            }}
+                            {...onWriteConnector === undefined
+                                ? {}
+                                : { onWriteConnector: () => { setOpenSource(null); onWriteConnector(); } }}
+                        />
+                    </>
+                ) : (
+                    <Body
                         showing={showing}
+                        listing={listing}
+                        rowCount={variant === 'library' && !isWide ? mine.length + rows.length : rows.length}
                         query={query}
-                        // A tab shows one kind; a step in shows both, because it
-                        // is the whole answer to "what am I looking at".
-                        kinds={variant === 'drill' ? ['tag', 'venue'] : [openSource]}
                         translate={translate}
-                        onOpenTag={(tagId) => {
-                            markets.openTag(tagId);
-                            show({ kind: 'tag' });
-                            setOpenSource(null);
+                        {...everywhere !== null
+                            ? { emptySaid: translate('markets.noneAnywhere') }
+                            : variant === 'library' && !isWide
+                                ? { emptySaid: translate('markets.libraryEmpty') }
+                                : {}}
+                        onRetry={() => {
+                            if (showing.kind === 'venue') {
+                                void markets.readListing(showing.venue);
+                            }
                         }}
-                        onBrowse={(venue) => {
-                            show({ kind: 'venue', venue });
-                            setOpenSource(null);
-                        }}
-                        onAddTag={(label) => {
-                            markets.addTag(label);
-                            show({ kind: 'tag' });
-                            setOpenSource(null);
-                        }}
-                        {...onWriteConnector === undefined
-                            ? {}
-                            : { onWriteConnector: () => { setOpenSource(null); onWriteConnector(); } }}
-                    />
-                </>
-            ) : (
-                <Body
-                    showing={showing}
-                    listing={listing}
-                    rowCount={variant === 'library' && !isWide ? mine.length + rows.length : rows.length}
-                    query={query}
-                    translate={translate}
-                    {...everywhere !== null
-                        ? { emptySaid: translate('markets.noneAnywhere') }
-                        : variant === 'library' && !isWide
-                            ? { emptySaid: translate('markets.libraryEmpty') }
-                            : {}}
-                    onRetry={() => {
-                        if (showing.kind === 'venue') {
-                            void markets.readListing(showing.venue);
-                        }
-                    }}
-                >
-                    {variant === 'library' && !isWide
-                        ? (
-                            <div className="min-h-0 flex-1 overflow-y-auto">
-                                {/* What the reader has, first and always. The
+                    >
+                        {variant === 'library' && !isWide
+                            ? (
+                                <div className="min-h-0 flex-1 overflow-y-auto">
+                                    {/* What the reader has, first and always. The
                                     catalogues fall in underneath only once
                                     something is typed, so the screen they open
                                     on is four or five rows they recognise
                                     rather than nine hundred they do not. */}
-                                <h4 className="px-3 py-1 field-label">{translate('markets.mine')}</h4>
+                                    <h4 className="px-3 py-1 field-label">{translate('markets.mine')}</h4>
+                                    <PairTable
+                                        rows={mine}
+                                        hasVenueColumn
+                                        open={open}
+                                        tags={state.tags}
+                                        translate={translate}
+                                        onOpen={(pair) => { onOpen(pair); onClose(); }}
+                                        onKeep={(pair, tagId, isOn) => {
+                                            if (isOn) {
+                                                markets.tagPair(tagId, pair);
+                                            } else {
+                                                markets.untagPair(tagId, pair);
+                                            }
+                                        }}
+                                    />
+                                    {/* The catalogues, reached deliberately. The
+                                    library is what a reader has; browsing is
+                                    the other question, and it has to be asked
+                                    somewhere. */}
+                                    {query.trim() === '' && (
+                                        <div className="px-3 py-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => { setOpenSource('venue'); }}
+                                                className={`${PANEL_ADD_CLASSES} min-h-11 w-full`}
+                                            >
+                                                {translate('markets.browseAVenue')}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {query.trim() !== '' && rows.length > 0 && (
+                                        <>
+                                            <h4 className="px-3 py-1 field-label">
+                                                {translate('markets.onTheVenues')}
+                                            </h4>
+                                            <PairTable
+                                                rows={rows}
+                                                hasVenueColumn
+                                                open={open}
+                                                tags={state.tags}
+                                                translate={translate}
+                                                onOpen={(pair) => { onOpen(pair); onClose(); }}
+                                                onKeep={(pair, tagId, isOn) => {
+                                                    if (isOn) {
+                                                        markets.tagPair(tagId, pair);
+                                                    } else {
+                                                        markets.untagPair(tagId, pair);
+                                                    }
+                                                }}
+                                            />
+                                        </>
+                                    )}
+                                </div>
+                            )
+                            : (
                                 <PairTable
-                                    rows={mine}
-                                    hasVenueColumn
+                                    rows={rows}
+                                    hasVenueColumn={showing.kind === 'tag'}
                                     open={open}
                                     tags={state.tags}
                                     translate={translate}
@@ -557,65 +711,9 @@ export function MarketsPanel({
                                         }
                                     }}
                                 />
-                                {/* The catalogues, reached deliberately. The
-                                    library is what a reader has; browsing is
-                                    the other question, and it has to be asked
-                                    somewhere. */}
-                                {query.trim() === '' && (
-                                    <div className="px-3 py-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => { setOpenSource('venue'); }}
-                                            className={`${PANEL_ADD_CLASSES} min-h-11 w-full`}
-                                        >
-                                            {translate('markets.browseAVenue')}
-                                        </button>
-                                    </div>
-                                )}
-
-                                {query.trim() !== '' && rows.length > 0 && (
-                                    <>
-                                        <h4 className="px-3 py-1 field-label">
-                                            {translate('markets.onTheVenues')}
-                                        </h4>
-                                        <PairTable
-                                            rows={rows}
-                                            hasVenueColumn
-                                            open={open}
-                                            tags={state.tags}
-                                            translate={translate}
-                                            onOpen={(pair) => { onOpen(pair); onClose(); }}
-                                            onKeep={(pair, tagId, isOn) => {
-                                                if (isOn) {
-                                                    markets.tagPair(tagId, pair);
-                                                } else {
-                                                    markets.untagPair(tagId, pair);
-                                                }
-                                            }}
-                                        />
-                                    </>
-                                )}
-                            </div>
-                        )
-                        : (
-                            <PairTable
-                                rows={rows}
-                                hasVenueColumn={showing.kind === 'tag'}
-                                open={open}
-                                tags={state.tags}
-                                translate={translate}
-                                onOpen={(pair) => { onOpen(pair); onClose(); }}
-                                onKeep={(pair, tagId, isOn) => {
-                                    if (isOn) {
-                                        markets.tagPair(tagId, pair);
-                                    } else {
-                                        markets.untagPair(tagId, pair);
-                                    }
-                                }}
-                            />
-                        )}
-                </Body>
-            )}
+                            )}
+                    </Body>
+                )}
 
         </ListingCard>
     );

@@ -8,6 +8,7 @@ import { MarketsButton } from '../../../../../src/app/ui/markets/markets-button.
 import { buildConnector } from '../../../../mocks/venue-connectors.ts';
 import { forgetConnector, registerConnector } from '../../../../../src/shared/venues/venue-registry.ts';
 import { stubViewport } from '../../../../fixtures/viewport.ts';
+import type { PickerVariant } from '../../../../../src/app/react/use-picker-variant.ts';
 
 // The rail and the phone's select are different trees, so every test here
 // says which one it is about. These describe the rail.
@@ -441,7 +442,7 @@ describe('opening what is kept', () => {
 
 describe('the card on a phone', () => {
     /** Which shape of the picker this test is about. */
-    function showVariant(variant: 'tabs' | 'drill' | 'search' | 'library'): void {
+    function showVariant(variant: PickerVariant): void {
         globalThis.history.replaceState(null, '', `/?picker=${variant}`);
     }
 
@@ -545,6 +546,60 @@ describe('the card on a phone', () => {
         fireEvent.click(await screen.findByRole('button', { name: 'Browse a venue' }));
 
         expect(await screen.findByRole('button', { name: 'Add a venue' })).toBeDefined();
+    });
+
+    it('asks the tag and the venue in two controls, not in one', async () => {
+        // A tag spans venues and a venue is a catalogue: listed together they
+        // read as alternatives, which they never were.
+        showVariant('selects');
+        showAt(390);
+        renderPanel();
+
+        expect(await screen.findByRole('combobox', { name: 'Your tags' })).toBeDefined();
+        expect(screen.getByRole('combobox', { name: 'Venues' })).toBeDefined();
+    });
+
+    it('names a tag and its colour in one card, before the tag exists', async () => {
+        // A tag is a colour a reader picks out of a column and a name they read
+        // when they cannot. Made first and coloured afterwards, it spends its
+        // first minutes in whatever colour came next in the list.
+        showVariant('selects');
+        showAt(390);
+        renderPanel();
+
+        fireEvent.click(await screen.findByRole('button', { name: 'New tag' }));
+
+        expect(await screen.findByRole('textbox', { name: /Name this tag/ })).toBeDefined();
+        expect(screen.getByRole('button', { name: 'Amber' })).toBeDefined();
+    });
+
+    it('gives the tag the colour that was picked with the name', async () => {
+        showVariant('selects');
+        showAt(390);
+        renderPanel();
+        fireEvent.click(await screen.findByRole('button', { name: 'New tag' }));
+
+        fireEvent.change(await screen.findByRole('textbox', { name: /Name this tag/ }), {
+            target: { value: 'Majors' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'Amber' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Make the tag' }));
+
+        // Read off the screen, which is where the reader sees it: the tag is
+        // made, chosen, and wearing the colour that was picked beside its name.
+        const chosen = await screen.findByRole('combobox', { name: 'Your tags' });
+        expect(chosen.textContent).toContain('Majors');
+    });
+
+    it('offers the code editor beside the venue, which is where a venue comes from', async () => {
+        const opened: number[] = [];
+        showVariant('selects');
+        showAt(390);
+        renderPanel({ onWriteConnector: () => { opened.push(1); } });
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Add a venue' }));
+
+        expect(opened).toEqual([1]);
     });
 
     it('keeps only one of the two layouts in the tree at a time', async () => {

@@ -1,5 +1,5 @@
 /** Which shape of the phone picker a reader is being shown. */
-export type PickerVariant = 'tabs' | 'drill' | 'search' | 'library';
+export type PickerVariant = 'tabs' | 'drill' | 'search' | 'library' | 'selects';
 
 /**
  * The picker shape this page was opened with.
@@ -13,5 +13,6 @@ export type PickerVariant = 'tabs' | 'drill' | 'search' | 'library';
  */
 export function readPickerVariant(search: string): PickerVariant {
     const asked = new URLSearchParams(search).get('picker');
-    return asked === 'drill' || asked === 'search' || asked === 'library' ? asked : 'tabs';
+    const known = ['drill', 'search', 'library', 'selects'] as const;
+    return known.find((one) => one === asked) ?? 'tabs';
 }

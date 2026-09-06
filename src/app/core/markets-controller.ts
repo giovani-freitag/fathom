@@ -161,16 +161,21 @@ export class MarketsController {
      * means the next thing they press goes somewhere they did not ask for.
      *
      * @param label - What the reader called it.
+     * @returns The tag's id, or null where the name made no new tag — so a
+     *          caller that also has a colour for it can reach the thing it just
+     *          made rather than guessing which of the tags is new.
      */
-    addTag(label: string): void {
+    addTag(label: string): string | null {
         const held = this.store.read().tags;
         const tags = withTagAdded(held, label);
         if (tags.length === held.length) {
-            return;
+            return null;
         }
 
+        const made = tags[tags.length - 1]!.id;
         this.writeTags(tags);
-        this.store.update((current) => ({ ...current, openTagId: tags[tags.length - 1]!.id }));
+        this.store.update((current) => ({ ...current, openTagId: made }));
+        return made;
     }
 
     /**

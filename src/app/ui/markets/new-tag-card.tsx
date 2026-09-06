@@ -1,0 +1,97 @@
+import { CONTROL_CHIP_CLASSES, CONTROL_CHOSEN_CLASSES, CONTROL_INPUT_CLASSES, CONTROL_OFFERED_CLASSES } from '../control-shell.ts';
+import { INSTANCE_TONES } from '../../../shared/core/draw-plan.ts';
+import { type ReactElement, useState } from 'react';
+import type { TagColour } from '../../../shared/core/pair-tags.ts';
+import { TagSwatch } from './tag-swatch.tsx';
+import { TONE_LABEL_KEYS } from '../indicators/tone-labels.ts';
+import type { Translate } from '../../i18n/translator.ts';
+
+export interface NewTagCardProps {
+    readonly translate: Translate;
+    /** Called with everything the tag needs to exist. */
+    readonly onMake: (label: string, colour: TagColour) => void;
+    readonly onGiveUp: () => void;
+}
+
+/**
+ * Where a tag is given its name and its colour, before it exists.
+ *
+ * Both at once, because they are one decision: a tag is a colour a reader
+ * recognises down a column of rows, and a name they read when they cannot. Made
+ * first and recoloured afterwards, the tag spends its first minutes in whatever
+ * colour happened to be next in the list, which is the minutes a reader is
+ * learning to recognise it.
+ */
+export function NewTagCard({ translate, onMake, onGiveUp }: NewTagCardProps): ReactElement {
+    const [label, setLabel] = useState('');
+    // The first tone rather than a colour of its own: a tag a reader makes
+    // without touching this is still one they can pick out of a column.
+    const [colour, setColour] = useState<TagColour>(INSTANCE_TONES[0] ?? 'phosphor');
+
+    return (
+        <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
+            <label className="flex flex-col gap-1.5">
+                <span className="field-label">{translate('markets.tagLabel')}</span>
+                <input
+                    autoFocus
+                    type="text"
+                    name="tagLabel"
+                    value={label}
+                    placeholder={translate('markets.tagLabel')}
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    onChange={(event) => { setLabel(event.target.value); }}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Enter' && label.trim() !== '') {
+                            onMake(label, colour);
+                        }
+                        if (event.key === 'Escape') {
+                            onGiveUp();
+                        }
+                    }}
+                    className={`${CONTROL_INPUT_CLASSES} px-3`}
+                />
+            </label>
+
+            <fieldset className="flex flex-col gap-1.5">
+                <legend className="field-label">{translate('markets.recolourTag')}</legend>
+                <div className="flex flex-wrap gap-2">
+                    {INSTANCE_TONES.map((tone) => (
+                        <button
+                            key={tone}
+                            type="button"
+                            aria-label={translate(TONE_LABEL_KEYS[tone])}
+                            aria-pressed={colour === tone}
+                            onClick={() => { setColour(tone); }}
+                            className={`grid size-11 place-items-center rounded-md border transition-colors ${
+                                colour === tone
+                                    ? 'border-phosphor/60 bg-abyss-700'
+                                    : 'border-hairline hover:border-hairline-bright'
+                            }`}
+                        >
+                            <TagSwatch colour={tone} className="size-4" />
+                        </button>
+                    ))}
+                </div>
+            </fieldset>
+
+            <div className="mt-auto flex gap-2">
+                <button
+                    type="button"
+                    onClick={onGiveUp}
+                    className={`${CONTROL_CHIP_CLASSES} h-11 flex-1 justify-center ${CONTROL_OFFERED_CLASSES}`}
+                >
+                    {translate('markets.giveUp')}
+                </button>
+                <button
+                    type="button"
+                    disabled={label.trim() === ''}
+                    onClick={() => { onMake(label, colour); }}
+                    className={`${CONTROL_CHIP_CLASSES} h-11 flex-1 justify-center ${CONTROL_CHOSEN_CLASSES}`}
+                >
+                    {translate('markets.makeTag')}
+                </button>
+            </div>
+        </div>
+    );
+}

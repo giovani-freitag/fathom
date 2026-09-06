@@ -305,3 +305,26 @@ describe('the last price a grid is chosen against', () => {
         expect(answered).toBe(1);
     });
 });
+
+describe('making a tag with a colour already chosen', () => {
+    it('hands back the id of what it made, so a colour can follow the name', () => {
+        // Without this a caller that also has a colour has to guess which of
+        // the tags is the new one, and the tag spends its first minutes in
+        // whatever colour came next in the list.
+        const markets = buildController(answerWith({ symbols: [] }));
+
+        const tagId = markets.addTag('Majors');
+
+        expect(tagId).not.toBeNull();
+        markets.recolourTag(tagId!, 'amber');
+        expect(markets.store.read().tags.find((one) => one.id === tagId)?.colour).toBe('amber');
+    });
+
+    it('hands back nothing where the name made no tag', () => {
+        // A name repeated is a second tag with an id of its own; a name that is
+        // only whitespace is not a tag at all.
+        const markets = buildController(answerWith({ symbols: [] }));
+
+        expect(markets.addTag('   ')).toBeNull();
+    });
+});

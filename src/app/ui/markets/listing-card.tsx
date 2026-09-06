@@ -91,3 +91,16 @@ export function SearchField({
         </>
     );
 }
+
+
+/**
+ * The strip a phone's filters sit in, above the rows.
+ *
+ * Written once because every shape of the picker needs the same one: the shell
+ * is the card's, and what goes in it is the shape's own business.
+ */
+export function RailBar({ children }: { readonly children: ReactNode }): ReactElement {
+    return (
+        <div className="flex shrink-0 items-center gap-2 border-b border-hairline p-2">{children}</div>
+    );
+}

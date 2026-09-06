@@ -289,6 +289,8 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'markets.emptyVenue': 'Esta corretora não listou nada',
     'markets.favourites': 'Favoritos',
     'markets.newTag': 'Nova tag',
+    'markets.giveUp': 'Cancelar',
+    'markets.makeTag': 'Criar a tag',
     'markets.tagLabel': 'Nome da tag',
     'markets.removeTag': 'Excluir esta tag',
     'markets.removeTagTitle': 'Excluir esta tag?',
