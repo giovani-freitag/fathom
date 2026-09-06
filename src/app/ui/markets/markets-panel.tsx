@@ -94,6 +94,19 @@ export function MarketsPanel({
             : { kind: 'tag' },
     );
     const [query, setQuery] = useState('');
+    // What the rows are narrowed by, which lags what the field shows.
+    //
+    // The field has to answer the keystroke at once — a letter that takes a
+    // third of a second to appear is a keyboard the reader stops trusting — and
+    // the rows do not: narrowing them rebuilds thirteen hundred elements, which
+    // was measured at a hundred and fifty milliseconds a character on a desk
+    // and over a second on a phone. So the letter lands now and the list
+    // catches up when the typing pauses.
+    const [narrowedBy, setNarrowedBy] = useState('');
+    useEffect(() => {
+        const settling = setTimeout(() => { setNarrowedBy(query); }, TYPING_SETTLES_MS);
+        return () => { clearTimeout(settling); };
+    }, [query]);
     // Which body the sheet is showing on a phone: the pairs, or one kind of
     // source. Two shapes of the same question are behind `?picker=`, so they
     // can be put in front of readers rather than argued about.
@@ -224,11 +237,24 @@ export function MarketsPanel({
         // Both shapes that stop asking which venue: one searches the catalogues
         // instead of a venue, the other searches them under what the reader
         // already has.
-        () => ((variant === 'search' || variant === 'library') && query.trim() !== ''
-            ? searchAcross(readEverywhere, { query, quote })
+        () => ((variant === 'search' || variant === 'library') && narrowedBy.trim() !== ''
+            ? searchAcross(readEverywhere, { query: narrowedBy, quote })
             : null),
-        [variant, readEverywhere, query, quote],
+        [variant, readEverywhere, narrowedBy, quote],
     );
+
+    const openOne = useCallback((pair: MarketPair) => {
+        onOpen(pair);
+        onClose();
+    }, [onOpen, onClose]);
+
+    const keepOne = useCallback((pair: MarketPair, tagId: string, isOn: boolean) => {
+        if (isOn) {
+            markets.tagPair(tagId, pair);
+        } else {
+            markets.untagPair(tagId, pair);
+        }
+    }, [markets]);
 
     // What the reader already has a claim on, which is the list worth opening
     // on: four or five pairs rather than a catalogue of nine hundred.
@@ -249,8 +275,8 @@ export function MarketsPanel({
             // the rows it read more generously than we would have.
             return narrowPairs(answered, { query: '', quote });
         }
-        return listed === null ? null : narrowPairs(listed, { query, quote, keep: recordedHere });
-    }, [answered, listed, query, quote, recordedHere]);
+        return listed === null ? null : narrowPairs(listed, { query: narrowedBy, quote, keep: recordedHere });
+    }, [answered, listed, narrowedBy, quote, recordedHere]);
 
     // What a row is filed under, which its own first cell both shows and
     // changes. Read per row rather than per tag: a pair carries several, and
@@ -260,7 +286,7 @@ export function MarketsPanel({
     ), [state.tags]);
 
     const mine: readonly PairRow[] = useMemo(() => {
-        const wanted = query.trim().toUpperCase();
+        const wanted = narrowedBy.trim().toUpperCase();
         return narrowLibrary(library, chip)
             .filter((row) => wanted === '' || row.pair.symbol.toUpperCase().includes(wanted))
             .map((row) => ({
@@ -274,7 +300,7 @@ export function MarketsPanel({
                 // the end of the row is why this pair is in the list at all.
                 note: row.isRecorded ? translate('markets.recorded') : '',
             }));
-    }, [library, chip, query, sayWhyNot, translate]);
+    }, [library, chip, narrowedBy, sayWhyNot, translate]);
 
     const rows: readonly PairRow[] = useMemo(() => {
         if (everywhere !== null) {
@@ -310,7 +336,7 @@ export function MarketsPanel({
                     // they kept will not open.
                     note: isOpenable ? '' : noteWhyNot(pair),
                 };
-            }).filter((row) => matchesQuery(row.pair.symbol, query));
+            }).filter((row) => matchesQuery(row.pair.symbol, narrowedBy));
         }
 
         // The chips belong to the library, which is the only shape that filters a
@@ -344,7 +370,7 @@ export function MarketsPanel({
                     note: markNote(instrument.isTrading, isOpenable, translate),
                 };
             });
-    }, [everywhere, showing, openTag, recorded, sayWhyNot, noteWhyNot, heldBy, narrowed, query, translate,
+    }, [everywhere, showing, openTag, recorded, sayWhyNot, noteWhyNot, heldBy, narrowed, narrowedBy, translate,
         chip, state.tags, variant]);
 
     return (
@@ -560,15 +586,20 @@ export function MarketsPanel({
                     />
                 </div>
             )}
-            footing={(
-                <ListingFooting
-                    listing={listing}
-                    shown={everywhere?.shown.length ?? narrowed?.shown.length ?? 0}
-                    matched={everywhere?.matched ?? narrowed?.matched ?? 0}
-                    isAsking={state.search?.kind === 'reading'}
-                    translate={translate}
-                />
-            )}
+            footing={isNamingTag && !isWide && variant === 'selects'
+                // The card is a step of its own: a line counting the catalogue
+                // behind it overlapped the card's own buttons in landscape, and
+                // counted rows nobody could see in either.
+                ? undefined
+                : (
+                    <ListingFooting
+                        listing={listing}
+                        shown={everywhere?.shown.length ?? narrowed?.shown.length ?? 0}
+                        matched={everywhere?.matched ?? narrowed?.matched ?? 0}
+                        isAsking={state.search?.kind === 'reading'}
+                        translate={translate}
+                    />
+                )}
         >
             {isNamingTag && variant === 'selects' && !isWide
                 ? (
@@ -676,14 +707,8 @@ export function MarketsPanel({
                                         open={open}
                                         tags={state.tags}
                                         translate={translate}
-                                        onOpen={(pair) => { onOpen(pair); onClose(); }}
-                                        onKeep={(pair, tagId, isOn) => {
-                                            if (isOn) {
-                                                markets.tagPair(tagId, pair);
-                                            } else {
-                                                markets.untagPair(tagId, pair);
-                                            }
-                                        }}
+                                        onOpen={openOne}
+                                        onKeep={keepOne}
                                     />
                                     {/* The catalogues, reached deliberately. The
                                     library is what a reader has; browsing is
@@ -712,14 +737,8 @@ export function MarketsPanel({
                                                 open={open}
                                                 tags={state.tags}
                                                 translate={translate}
-                                                onOpen={(pair) => { onOpen(pair); onClose(); }}
-                                                onKeep={(pair, tagId, isOn) => {
-                                                    if (isOn) {
-                                                        markets.tagPair(tagId, pair);
-                                                    } else {
-                                                        markets.untagPair(tagId, pair);
-                                                    }
-                                                }}
+                                                onOpen={openOne}
+                                                onKeep={keepOne}
                                             />
                                         </>
                                     )}
@@ -732,14 +751,8 @@ export function MarketsPanel({
                                     open={open}
                                     tags={state.tags}
                                     translate={translate}
-                                    onOpen={(pair) => { onOpen(pair); onClose(); }}
-                                    onKeep={(pair, tagId, isOn) => {
-                                        if (isOn) {
-                                            markets.tagPair(tagId, pair);
-                                        } else {
-                                            markets.untagPair(tagId, pair);
-                                        }
-                                    }}
+                                    onOpen={openOne}
+                                    onKeep={keepOne}
                                 />
                             )}
                     </Body>

@@ -1,5 +1,5 @@
 import { LIST_ROW_CLASSES } from '../control-shell.ts';
-import { type ReactElement, useEffect, useState } from 'react';
+import { memo, type ReactElement, useEffect, useState } from 'react';
 import type { MarketPair, PairTag } from '../../../shared/core/pair-tags.ts';
 import { PairIdentity } from './pair-identity.tsx';
 import { PairMarks, PairTagMenu } from './pair-tag-menu.tsx';
@@ -54,7 +54,19 @@ interface PairTableProps {
  * questions, and answering them in the same four places down the card is what
  * lets a reader run an eye down one of them instead of reading each row whole.
  */
-export function PairTable(props: PairTableProps): ReactElement {
+/**
+ * The listing itself, rebuilt only when the rows change.
+ *
+ * Memoised because the rows are the expensive part and almost nothing that
+ * happens above them touches them: a character typed into the search box
+ * re-renders the panel, and without this React reconciles a hundred and fifty
+ * rows — thirteen hundred elements — to arrive at the same list. Measured, that
+ * was most of the hundred and fifty milliseconds a keystroke cost.
+ *
+ * Its callbacks have to be stable for this to be worth anything; the panel
+ * holds them in `useCallback` for that reason.
+ */
+export const PairTable = memo(function PairTable(props: PairTableProps): ReactElement {
     const { translate } = props;
 
     // Which row's marks were pressed. Only that one builds a menu; the rest
@@ -156,4 +168,4 @@ export function PairTable(props: PairTableProps): ReactElement {
             })}
         </ul>
     );
-}
+});

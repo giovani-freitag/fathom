@@ -157,11 +157,17 @@ export function PairMarks({ tags, held, pair, translate, onOpen }: PairMarksProp
             type="button"
             aria-label={translate('markets.tagsFor', { symbol: pair.symbol })}
             title={translate('markets.tagsFor', { symbol: pair.symbol })}
-            // On the press rather than on the release, which is where the menu
-            // primitive listens. Opened on a click instead, the same gesture
-            // showed nothing until the finger came off — the one row in the
-            // listing that behaved unlike every menu around it.
-            onPointerDown={onOpen}
+            // On the click, which is the one event every way of pressing a
+            // button produces: a finger, a mouse, and Enter or Space on a
+            // focused control. Opened on `pointerdown` to match the menu
+            // primitive, it worked under a finger and nowhere else — the
+            // browser's compatibility `mousedown` arrived next and the menu,
+            // already open, read it as a press outside itself and shut 19ms
+            // later, while a keyboard produced no pointer event at all and so
+            // could never open it.
+            aria-haspopup="menu"
+            aria-expanded={false}
+            onClick={onOpen}
             className="group grid w-11 shrink-0 place-items-center transition-colors hover:bg-abyss-700"
         >
             <TagMarks tags={tags} held={held} />

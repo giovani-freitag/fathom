@@ -62,14 +62,12 @@ async function browse(venue = FIRST_VENUE): Promise<void> {
 /**
  * Opens one row's tag menu, the way a pointer does.
  *
- * On `pointerdown` rather than on a click, which is where the menu primitive
- * listens — a click alone leaves it shut and every query after it empty.
+ * On a click, which is what a finger, a mouse and a focused Enter all produce.
+ * Driven on `pointerdown` instead — where the menu primitive itself listens —
+ * this passed while the control worked under a finger and nowhere else.
  */
 function openTags(symbol: string): void {
-    fireEvent.pointerDown(
-        screen.getByRole('button', { name: `Tags on ${symbol}` }),
-        { button: 0, ctrlKey: false },
-    );
+    fireEvent.click(screen.getByRole('button', { name: `Tags on ${symbol}` }));
 }
 
 /**

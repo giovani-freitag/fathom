@@ -34,85 +34,94 @@ export function NewTagCard({ translate, onMake, onGiveUp }: NewTagCardProps): Re
     const isNamed = colour.startsWith('#');
 
     return (
-        <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
-            <label className="flex flex-col gap-1.5">
-                <span className="field-label">{translate('markets.tagLabel')}</span>
-                <input
-                    autoFocus
-                    type="text"
-                    name="tagLabel"
-                    value={label}
-                    placeholder={translate('markets.tagLabel')}
-                    autoCapitalize="off"
-                    autoCorrect="off"
-                    onChange={(event) => { setLabel(event.target.value); }}
-                    onKeyDown={(event) => {
-                        if (event.key === 'Enter' && label.trim() !== '') {
-                            onMake(label, colour);
-                        }
-                        if (event.key === 'Escape') {
-                            onGiveUp();
-                        }
-                    }}
-                    className={`${CONTROL_INPUT_CLASSES} px-3`}
-                />
-            </label>
+        <div className="flex min-h-0 flex-1 flex-col">
+            {/* The card scrolls and the answer does not. With the
+                name field focused the phone keyboard takes half the
+                screen, which is the ordinary state of this card and
+                not an edge of it — and both buttons sat below the
+                fold with nothing to scroll. Enter still made the
+                tag; giving up had no way out at all. */}
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
+                <label className="flex flex-col gap-1.5">
+                    <span className="field-label">{translate('markets.tagLabel')}</span>
+                    <input
+                        autoFocus
+                        type="text"
+                        name="tagLabel"
+                        value={label}
+                        placeholder={translate('markets.tagLabel')}
+                        autoCapitalize="off"
+                        autoCorrect="off"
+                        onChange={(event) => { setLabel(event.target.value); }}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter' && label.trim() !== '') {
+                                onMake(label, colour);
+                            }
+                            if (event.key === 'Escape') {
+                                onGiveUp();
+                            }
+                        }}
+                        className={`${CONTROL_INPUT_CLASSES} px-3`}
+                    />
+                </label>
 
-            <fieldset className="flex flex-col gap-1.5">
-                <legend className="field-label">{translate('markets.recolourTag')}</legend>
-                <div className="flex flex-wrap gap-2">
-                    {INSTANCE_TONES.map((tone) => (
-                        <button
-                            key={tone}
-                            type="button"
-                            aria-label={translate(TONE_LABEL_KEYS[tone])}
-                            aria-pressed={colour === tone}
-                            onClick={() => { setColour(tone); }}
-                            className={`grid size-11 place-items-center rounded-md border transition-colors ${
-                                colour === tone
-                                    ? 'border-phosphor/60 bg-abyss-700'
-                                    : 'border-hairline hover:border-hairline-bright'
-                            }`}
-                        >
-                            <TagSwatch colour={tone} className="size-4" />
-                        </button>
-                    ))}
+                <fieldset className="flex flex-col gap-1.5">
+                    <legend className="field-label">{translate('markets.recolourTag')}</legend>
+                    <div className="flex flex-wrap gap-2">
+                        {INSTANCE_TONES.map((tone) => (
+                            <button
+                                key={tone}
+                                type="button"
+                                aria-label={translate(TONE_LABEL_KEYS[tone])}
+                                aria-pressed={colour === tone}
+                                onClick={() => { setColour(tone); }}
+                                className={`grid size-11 place-items-center rounded-md border transition-colors ${
+                                    colour === tone
+                                        ? 'border-phosphor/60 bg-abyss-700'
+                                        : 'border-hairline hover:border-hairline-bright'
+                                }`}
+                            >
+                                <TagSwatch colour={tone} className="size-4" />
+                            </button>
+                        ))}
 
-                    {/* Any colour there is, for a reader whose tags outnumber
+                        {/* Any colour there is, for a reader whose tags outnumber
                         the palette. The same control the recolour offers, so a
                         tag made here and a tag recoloured later are picked the
                         same way. */}
-                    <label
-                        title={translate('markets.anyColour')}
-                        className={`relative grid size-11 cursor-pointer place-items-center rounded-md border transition-colors ${
-                            isNamed ? 'border-phosphor/60 bg-abyss-700' : 'border-hairline hover:border-hairline-bright'
-                        }`}
-                    >
-                        <span
-                            className={`grid size-7 place-items-center rounded-full ${isNamed ? '' : 'bg-ink-600'}`}
-                            {...isNamed ? { style: { background: colour } } : {}}
+                        <label
+                            title={translate('markets.anyColour')}
+                            className={`relative grid size-11 cursor-pointer place-items-center rounded-md border transition-colors ${
+                                isNamed ? 'border-phosphor/60 bg-abyss-700' : 'border-hairline hover:border-hairline-bright'
+                            }`}
                         >
-                            {/* Black on a pale fill, white on a dark one: half
+                            <span
+                                className={`grid size-7 place-items-center rounded-full ${isNamed ? '' : 'bg-ink-600'}`}
+                                {...isNamed ? { style: { background: colour } } : {}}
+                            >
+                                {/* Black on a pale fill, white on a dark one: half
                                 of the colours a reader may name swallow either
                                 glyph. */}
-                            <PaintBucket
-                                size={13}
-                                className={isNamed && isPale(colour) ? 'text-abyss-900' : 'text-ink-100'}
+                                <PaintBucket
+                                    size={13}
+                                    className={isNamed && isPale(colour) ? 'text-abyss-900' : 'text-ink-100'}
+                                />
+                            </span>
+                            <input
+                                type="color"
+                                name="tagColour"
+                                aria-label={translate('markets.anyColour')}
+                                value={isNamed ? colour : OPENS_ON}
+                                onChange={(event) => { setColour(event.target.value as TagColour); }}
+                                className="absolute inset-0 cursor-pointer opacity-0"
                             />
-                        </span>
-                        <input
-                            type="color"
-                            name="tagColour"
-                            aria-label={translate('markets.anyColour')}
-                            value={isNamed ? colour : OPENS_ON}
-                            onChange={(event) => { setColour(event.target.value as TagColour); }}
-                            className="absolute inset-0 cursor-pointer opacity-0"
-                        />
-                    </label>
-                </div>
-            </fieldset>
+                        </label>
+                    </div>
+                </fieldset>
 
-            <div className="mt-auto flex gap-2">
+            </div>
+
+            <div className="flex shrink-0 gap-2 border-t border-hairline p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
                 <button
                     type="button"
                     onClick={onGiveUp}
