@@ -7,6 +7,7 @@ import {
 } from '../../../src/app/core/window-loader.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { buildWindow, buildFrame, createChartServiceMocks } from '../../mocks/chart-services.ts';
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 
 const VIEWPORT = { fromMs: 1_000_000, toMs: 1_900_000, lowPrice: 78_000, highPrice: 79_000 };
 
@@ -37,6 +38,7 @@ function buildHarness(): Harness {
 function buildRequest(overrides: Partial<Parameters<WindowLoader['load']>[0]> = {}) {
     return {
         symbol: 'BTCUSDT',
+        venue: FIRST_VENUE,
         viewport: VIEWPORT,
         surfaceWidthPx: 1_000,
         frameIntervalMs: 1_000,

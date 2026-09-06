@@ -885,6 +885,15 @@ export const ADDON_SURFACE_TYPES = `declare module 'fathom' {
     }
     export interface PriceBarQuery {
         readonly symbol: string;
+        /**
+         * Which venue's candles these are.
+         *
+         * Part of what names a contract rather than a label on it: two venues both
+         * list BTCUSDT, and a query that named only the symbol was answered by
+         * whichever connector this build happened to be wired to — which was
+         * Binance, for every pair on every venue.
+         */
+        readonly venue: string;
         readonly fromMs: number;
         readonly toMs: number;
         readonly intervalMs: number;

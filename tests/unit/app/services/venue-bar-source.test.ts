@@ -3,11 +3,13 @@ import type { HeatmapSource } from '../../../../src/shared/core/heatmap-source.t
 import { EMPTY_BAR_WINDOW, type PriceBarQuery } from '../../../../src/shared/core/price-bar.ts';
 import { VenueBarSource } from '../../../../src/app/services/venue-bar-source.ts';
 import type { VenueCandleService } from '../../../../src/app/services/venue-candle-service.ts';
+import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 
 const MINUTE_MS = 60_000;
 
 const QUERY: PriceBarQuery = {
     symbol: 'BTCUSDT',
+    venue: FIRST_VENUE,
     fromMs: 0,
     toMs: MINUTE_MS * 10,
     intervalMs: MINUTE_MS,

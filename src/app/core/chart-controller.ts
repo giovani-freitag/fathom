@@ -46,6 +46,7 @@ import { type LayerSettings, resolveFieldSettings } from '../indicators/field-la
 import { type AddedIndicator, resolveBandKey } from '../../shared/core/indicator-selection.ts';
 import { completePlan, isPlanWithinBudget, recolourPlan } from '../../shared/core/draw-plan.ts';
 import { collectSessions } from '../../shared/core/settled-sessions.ts';
+import { FIRST_VENUE } from '../../shared/core/recording-control.ts';
 
 /** How often the instrument listing and its coverage are re-read. */
 /** Bars of clear space kept after the newest one. */
@@ -524,6 +525,9 @@ export class ChartController {
 
         return {
             symbol: state.instrumentSymbol,
+            // The venue the contract is on, which is the venue its candles come
+            // from. Without it every pair was drawn with Binance's.
+            venue: instrument?.venue ?? FIRST_VENUE,
             viewport: state.viewport,
             surfaceWidthPx: this.surfaceWidthPx,
             pricePaneHeightPx: this.pricePaneHeightPx,

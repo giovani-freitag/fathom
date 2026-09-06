@@ -3,6 +3,7 @@ import { VenueGateway } from '../../../../src/shared/venues/venue-gateway.ts';
 import { describe, expect, it, vi } from 'vitest';
 import type { PriceBarQuery } from '../../../../src/shared/core/price-bar.ts';
 import { VenueCandleService } from '../../../../src/app/services/venue-candle-service.ts';
+import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 
 const MINUTE_MS = 60_000;
 const NOW_MS = 10_000_000;
@@ -29,7 +30,7 @@ function buildService(pages: unknown[][], answered: Answered = { urls: [] }): Ve
     }) as unknown as typeof globalThis.fetch;
 
     return new VenueCandleService({
-        connector: BINANCE_CONNECTOR,
+        connectorFor: () => BINANCE_CONNECTOR,
         gateway: new VenueGateway({ fetch }),
         readNowMs: () => NOW_MS,
     });
@@ -37,11 +38,41 @@ function buildService(pages: unknown[][], answered: Answered = { urls: [] }): Ve
 
 const QUERY: PriceBarQuery = {
     symbol: 'BTCUSDT',
+    venue: FIRST_VENUE,
     fromMs: 1_000_000,
     toMs: 1_000_000 + MINUTE_MS * 3,
     intervalMs: MINUTE_MS,
     warmupBars: 0,
 };
+
+
+describe('which venue the candles come from', () => {
+    it('asks the venue the query names, not the one this build was wired to', async () => {
+        // Every pair on every venue used to be answered by Binance, because the
+        // service held one connector and the query carried no venue at all. A
+        // contract recorded from bybit drew a different market under its book.
+        const asked: string[] = [];
+        const service = new VenueCandleService({
+            connectorFor: (venue) => { asked.push(venue); return BINANCE_CONNECTOR; },
+            gateway: new VenueGateway({ fetch: () => Promise.resolve(new Response('[]')) }),
+            readNowMs: () => NOW_MS,
+        });
+
+        await service.fetchPriceBars({ ...QUERY, venue: 'bybit' });
+
+        expect(asked).toEqual(['bybit']);
+    });
+
+    it('refuses a venue nothing here can read, rather than answering with another', async () => {
+        const service = new VenueCandleService({
+            connectorFor: () => null,
+            gateway: new VenueGateway({ fetch: () => Promise.resolve(new Response('[]')) }),
+            readNowMs: () => NOW_MS,
+        });
+
+        await expect(service.fetchPriceBars({ ...QUERY, venue: 'nowhere' })).rejects.toThrow(/nowhere/);
+    });
+});
 
 describe('VenueCandleService', () => {
     it('reads the candles the venue published', async () => {
@@ -125,7 +156,7 @@ describe('VenueCandleService', () => {
     it('refuses an answer the venue would not stand behind', async () => {
         const refusing = (() => Promise.resolve(new Response('{}', { status: 418 }))) as typeof globalThis.fetch;
         const service = new VenueCandleService({
-            connector: BINANCE_CONNECTOR,
+            connectorFor: () => BINANCE_CONNECTOR,
             gateway: new VenueGateway({ fetch: refusing }),
             readNowMs: () => NOW_MS,
         });
@@ -152,7 +183,7 @@ describe('VenueCandleService', () => {
 /** A venue that publishes an open instant, a total, and nothing else. */
 function buildOpenOnlyService(): VenueCandleService {
     return new VenueCandleService({
-        connector: Object.assign(Object.create(BINANCE_CONNECTOR) as typeof BINANCE_CONNECTOR, {
+        connectorFor: () => Object.assign(Object.create(BINANCE_CONNECTOR) as typeof BINANCE_CONNECTOR, {
             planBars: () => ({ url: 'https://venue.example/candles' }),
             readBars: () => [{
                 openedAtMs: 1_000_000,
@@ -216,7 +247,7 @@ function buildPagedService(watch: { asked: string[]; startedWhenFirstLanded: num
     }) as unknown as typeof globalThis.fetch;
 
     return new VenueCandleService({
-        connector: Object.assign(Object.create(BINANCE_CONNECTOR) as typeof BINANCE_CONNECTOR, {
+        connectorFor: () => Object.assign(Object.create(BINANCE_CONNECTOR) as typeof BINANCE_CONNECTOR, {
             declaration: {
                 ...BINANCE_CONNECTOR.declaration,
                 bars: { ...BINANCE_CONNECTOR.declaration.bars, barsPerRequest: perRequest },

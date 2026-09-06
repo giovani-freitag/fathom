@@ -102,6 +102,8 @@ export interface LoadedWindow {
 
 export interface WindowLoadRequest {
     readonly symbol: string;
+    /** Which venue the contract is on, which is where its candles come from. */
+    readonly venue: string;
     /** The grid the instrument records on; no bar may be finer. */
     readonly frameIntervalMs: number;
     readonly viewport: ChartViewport;
@@ -658,6 +660,7 @@ export class WindowLoader {
             this.config.api.fetchGaps(query, signal),
             this.config.api.fetchPriceBars({
                 symbol: request.symbol,
+                venue: request.venue,
                 fromMs: range.fromMs,
                 toMs: range.toMs,
                 intervalMs: range.barIntervalMs,
@@ -691,7 +694,7 @@ export class WindowLoader {
         range: ResolvedRange,
         signal: AbortSignal,
     ): Promise<ReadonlyMap<number, PriceBarWindow>> {
-        const over = { symbol: request.symbol, fromMs: range.fromMs, toMs: range.toMs };
+        const over = { symbol: request.symbol, venue: request.venue, fromMs: range.fromMs, toMs: range.toMs };
         const settled = await Promise.all(request.sessions.map(
             (one) => this.readOneRung(one, over, signal),
         ));
@@ -703,7 +706,7 @@ export class WindowLoader {
 
     private async readOneRung(
         rung: SessionRequest,
-        over: { readonly symbol: string; readonly fromMs: number; readonly toMs: number },
+        over: { readonly symbol: string; readonly venue: string; readonly fromMs: number; readonly toMs: number },
         signal: AbortSignal,
     ): Promise<PriceBarWindow | null> {
         try {

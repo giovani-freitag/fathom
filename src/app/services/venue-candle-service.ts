@@ -4,8 +4,14 @@ import type { VenueBar, VenueConnector } from '../../shared/core/venue-connector
 import type { VenueGateway } from '../../shared/venues/venue-gateway.ts';
 
 export interface VenueCandleServiceConfig {
-    /** What the venue can do, and how to read what it answers. */
-    readonly connector: VenueConnector;
+    /**
+     * What a venue can do, and how to read what it answers.
+     *
+     * Asked per query rather than held once: a chart moves between venues, and
+     * a service that took one connector at construction answered every pair on
+     * every venue with the same one.
+     */
+    readonly connectorFor: (venue: string) => VenueConnector | null;
     /** Performs what the connector describes. */
     readonly gateway: VenueGateway;
     /** The instant a still-forming candle is measured against. */
@@ -42,12 +48,16 @@ export class VenueCandleService {
      *         answers with something the connector cannot read.
      */
     async fetchPriceBars(query: PriceBarQuery, signal?: AbortSignal): Promise<PriceBarWindow> {
-        if (this.config.connector.declaration.bars === null) {
+        const connector = this.config.connectorFor(query.venue);
+        if (connector === null) {
+            throw new Error(`Nothing here reads ${query.venue}`);
+        }
+        if (connector.declaration.bars === null) {
             throw new Error('This venue serves no candles');
         }
 
         const fromMs = query.fromMs - query.warmupBars * query.intervalMs;
-        const bars = await this.fetchRange({ fromMs, toMs: query.toMs, query }, signal);
+        const bars = await this.fetchRange({ fromMs, toMs: query.toMs, query, connector }, signal);
         return {
             instrumentSymbol: query.symbol,
             intervalMs: query.intervalMs,
@@ -67,7 +77,7 @@ export class VenueCandleService {
      * front of it to name where it ends.
      */
     private async fetchRange(request: RangeRequest, signal?: AbortSignal): Promise<PriceBar[]> {
-        const perRequest = this.config.connector.declaration.bars?.barsPerRequest ?? BAR_BUDGET.maximumBars;
+        const perRequest = request.connector.declaration.bars?.barsPerRequest ?? BAR_BUDGET.maximumBars;
         const span = perRequest * request.query.intervalMs;
 
         const newest = await this.fetchPage({ request, fromMs: Math.max(request.fromMs, request.toMs - span), toMs: request.toMs, perRequest }, signal);
@@ -80,7 +90,7 @@ export class VenueCandleService {
         const older = await pMap(
             this.windowsBefore(request, span, perRequest),
             async (window) => this.fetchPage({ request, ...window, perRequest }, signal),
-            { concurrency: this.config.connector.pacing.requestsAtOnce, ...signal === undefined ? {} : { signal } },
+            { concurrency: request.connector.pacing.requestsAtOnce, ...signal === undefined ? {} : { signal } },
         );
 
         return this.settle([...older.flat(), ...newest], request);
@@ -125,7 +135,7 @@ export class VenueCandleService {
      * One request's worth of candles, covering one window of the range.
      */
     private async fetchPage(page: PageRequest, signal?: AbortSignal): Promise<PriceBar[]> {
-        const { connector } = this.config;
+        const { connector } = page.request;
         const asked = {
             symbol: page.request.query.symbol,
             widthMs: page.request.query.intervalMs,
@@ -178,6 +188,8 @@ interface RangeRequest {
     readonly fromMs: number;
     readonly toMs: number;
     readonly query: PriceBarQuery;
+    /** Resolved once for the whole range, so every page asks the same venue. */
+    readonly connector: VenueConnector;
 }
 
 interface PageRequest {
