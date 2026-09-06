@@ -1,5 +1,7 @@
 import { CONTROL_CHIP_CLASSES, CONTROL_CHOSEN_CLASSES, CONTROL_INPUT_CLASSES, CONTROL_OFFERED_CLASSES } from '../control-shell.ts';
 import { INSTANCE_TONES } from '../../../shared/core/draw-plan.ts';
+import { isPale, OPENS_ON } from './tag-colours.ts';
+import { PaintBucket } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import type { TagColour } from '../../../shared/core/pair-tags.ts';
 import { TagSwatch } from './tag-swatch.tsx';
@@ -27,6 +29,9 @@ export function NewTagCard({ translate, onMake, onGiveUp }: NewTagCardProps): Re
     // The first tone rather than a colour of its own: a tag a reader makes
     // without touching this is still one they can pick out of a column.
     const [colour, setColour] = useState<TagColour>(INSTANCE_TONES[0] ?? 'phosphor');
+    // A colour the reader named rather than took, which is the one case the
+    // control has something of its own to show.
+    const isNamed = colour.startsWith('#');
 
     return (
         <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
@@ -72,6 +77,38 @@ export function NewTagCard({ translate, onMake, onGiveUp }: NewTagCardProps): Re
                             <TagSwatch colour={tone} className="size-4" />
                         </button>
                     ))}
+
+                    {/* Any colour there is, for a reader whose tags outnumber
+                        the palette. The same control the recolour offers, so a
+                        tag made here and a tag recoloured later are picked the
+                        same way. */}
+                    <label
+                        title={translate('markets.anyColour')}
+                        className={`relative grid size-11 cursor-pointer place-items-center rounded-md border transition-colors ${
+                            isNamed ? 'border-phosphor/60 bg-abyss-700' : 'border-hairline hover:border-hairline-bright'
+                        }`}
+                    >
+                        <span
+                            className={`grid size-7 place-items-center rounded-full ${isNamed ? '' : 'bg-ink-600'}`}
+                            {...isNamed ? { style: { background: colour } } : {}}
+                        >
+                            {/* Black on a pale fill, white on a dark one: half
+                                of the colours a reader may name swallow either
+                                glyph. */}
+                            <PaintBucket
+                                size={13}
+                                className={isNamed && isPale(colour) ? 'text-abyss-900' : 'text-ink-100'}
+                            />
+                        </span>
+                        <input
+                            type="color"
+                            name="tagColour"
+                            aria-label={translate('markets.anyColour')}
+                            value={isNamed ? colour : OPENS_ON}
+                            onChange={(event) => { setColour(event.target.value as TagColour); }}
+                            className="absolute inset-0 cursor-pointer opacity-0"
+                        />
+                    </label>
                 </div>
             </fieldset>
 

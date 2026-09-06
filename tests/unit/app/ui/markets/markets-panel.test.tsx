@@ -548,15 +548,26 @@ describe('the card on a phone', () => {
         expect(await screen.findByRole('button', { name: 'Add a venue' })).toBeDefined();
     });
 
-    it('asks the tag and the venue in two controls, not in one', async () => {
-        // A tag spans venues and a venue is a catalogue: listed together they
-        // read as alternatives, which they never were.
+    it('files the tags and the venues apart inside the one control', async () => {
+        // A tag spans venues and a venue is a catalogue. One control asks the
+        // question once; the headings inside it keep the two kinds apart.
         showVariant('selects');
         showAt(390);
         renderPanel();
 
-        expect(await screen.findByRole('combobox', { name: 'Your tags' })).toBeDefined();
-        expect(screen.getByRole('combobox', { name: 'Venues' })).toBeDefined();
+        fireEvent.click(await screen.findByRole('combobox', { name: 'Contracts' }));
+
+        expect(await screen.findByText('Your tags')).toBeDefined();
+        expect(screen.getByText('Venues')).toBeDefined();
+    });
+
+    it('offers a way to make each kind, told apart by its own mark', async () => {
+        showVariant('selects');
+        showAt(390);
+        renderPanel({ onWriteConnector: () => undefined });
+
+        expect(await screen.findByRole('button', { name: 'New tag' })).toBeDefined();
+        expect(screen.getByRole('button', { name: 'Add a venue' })).toBeDefined();
     });
 
     it('names a tag and its colour in one card, before the tag exists', async () => {
@@ -587,7 +598,7 @@ describe('the card on a phone', () => {
 
         // Read off the screen, which is where the reader sees it: the tag is
         // made, chosen, and wearing the colour that was picked beside its name.
-        const chosen = await screen.findByRole('combobox', { name: 'Your tags' });
+        const chosen = await screen.findByRole('combobox', { name: 'Contracts' });
         expect(chosen.textContent).toContain('Majors');
     });
 

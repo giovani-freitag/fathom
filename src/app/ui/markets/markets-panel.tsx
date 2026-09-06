@@ -2,7 +2,7 @@ import { type ReactElement, useCallback, useEffect, useMemo, useState } from 're
 import { ListingCard, RailBar, SearchField } from './listing-card.tsx';
 import { FAVOURITES_ID, findTagsHolding, type MarketPair } from '../../../shared/core/pair-tags.ts';
 import { FIRST_VENUE } from '../../../shared/core/recording-control.ts';
-import { ArrowLeft, ChevronRight, Plus } from 'lucide-react';
+import { ArrowLeft, Building2, ChevronRight, Plus, TagPlus } from 'lucide-react';
 import {
     CONTROL_CHIP_CLASSES,
     CONTROL_CHOSEN_CLASSES,
@@ -353,60 +353,67 @@ export function MarketsPanel({
             )}
             rail={isNamingTag && !isWide && variant === 'selects'
                 // The card is a step of its own; the filters behind it belong to
-                // the listing it stepped away from. The library names a tag on
-                // the chip row itself, so its rail stays.
+                // the listing it stepped away from.
                 ? undefined
                 : !isWide && variant === 'selects'
                     ? (
-                    // Two filters that compose rather than compete: the venue
-                    // says which catalogue, the tag says which of it. They were
-                    // one control before, which made them read as alternatives
-                    // — and a reader's tags span venues, so they never were.
                         <RailBar>
-                            <div className="flex min-w-0 flex-1 items-center gap-1">
-                                <Select
-                                    label={translate('markets.yourTags')}
-                                    value={chip.kind === 'tag' ? chip.tagId : ''}
-                                    choices={[
-                                        { value: '', label: translate('markets.allOfMine') },
-                                        ...state.tags.map((one) => ({
-                                            value: one.id,
-                                            label: labelOf(one, translate),
-                                            detail: String(one.pairs.length),
-                                        })),
-                                    ]}
-                                    onSelect={(tagId) => {
-                                        setChip(tagId === '' ? { kind: 'all' } : { kind: 'tag', tagId });
-                                    }}
-                                />
+                            {/* One control for what is being looked at, and two
+                                for making one more of each kind. The kinds are
+                                unlike enough that one button for both would
+                                have to ask which — and that is a question the
+                                icons answer without being asked. */}
+                            <Select
+                                label={translate('markets.title')}
+                                value={showing.kind === 'tag'
+                                    ? `tag:${openTag?.id ?? FAVOURITES_ID}`
+                                    : `venue:${showing.venue}`}
+                                choices={[
+                                    ...state.tags.map((one) => ({
+                                        value: `tag:${one.id}`,
+                                        label: labelOf(one, translate),
+                                        detail: String(one.pairs.length),
+                                        group: translate('markets.yourTags'),
+                                    })),
+                                    ...state.venues.map((one) => ({
+                                        value: `venue:${one}`,
+                                        label: one,
+                                        group: translate('markets.venues'),
+                                    })),
+                                ]}
+                                onSelect={(picked) => {
+                                    const [kind, ...rest] = picked.split(':');
+                                    const named = rest.join(':');
+                                    if (kind === 'tag') {
+                                        markets.openTag(named);
+                                        show({ kind: 'tag' });
+                                        return;
+                                    }
+                                    show({ kind: 'venue', venue: named });
+                                }}
+                            />
+
+                            <button
+                                type="button"
+                                aria-label={translate('markets.newTag')}
+                                title={translate('markets.newTag')}
+                                onClick={() => { setIsNamingTag(true); }}
+                                className={`${CONTROL_BUTTON_CLASSES} shrink-0 border border-hairline bg-abyss-800/80 ${CONTROL_RESTING_CLASSES}`}
+                            >
+                                <TagPlus className="size-4" />
+                            </button>
+
+                            {onWriteConnector !== undefined && (
                                 <button
                                     type="button"
-                                    aria-label={translate('markets.newTag')}
-                                    onClick={() => { setIsNamingTag(true); }}
+                                    aria-label={translate('markets.addVenue')}
+                                    title={translate('markets.addVenue')}
+                                    onClick={onWriteConnector}
                                     className={`${CONTROL_BUTTON_CLASSES} shrink-0 border border-hairline bg-abyss-800/80 ${CONTROL_RESTING_CLASSES}`}
                                 >
-                                    <Plus className="size-4" />
+                                    <Building2 className="size-4" />
                                 </button>
-                            </div>
-
-                            <div className="flex min-w-0 flex-1 items-center gap-1">
-                                <Select
-                                    label={translate('markets.venues')}
-                                    value={showing.kind === 'venue' ? showing.venue : state.browsingVenue}
-                                    choices={state.venues.map((one) => ({ value: one, label: one }))}
-                                    onSelect={(venue) => { show({ kind: 'venue', venue }); }}
-                                />
-                                {onWriteConnector !== undefined && (
-                                    <button
-                                        type="button"
-                                        aria-label={translate('markets.addVenue')}
-                                        onClick={onWriteConnector}
-                                        className={`${CONTROL_BUTTON_CLASSES} shrink-0 border border-hairline bg-abyss-800/80 ${CONTROL_RESTING_CLASSES}`}
-                                    >
-                                        <Plus className="size-4" />
-                                    </button>
-                                )}
-                            </div>
+                            )}
                         </RailBar>
                     )
                     : !isWide && variant === 'library'
@@ -517,18 +524,16 @@ export function MarketsPanel({
                                             onWriteConnector={onWriteConnector}
                                         />
                                     )}
-            banner={(!isWide && quotes.length === 0) ? undefined : (
+            banner={!isWide ? undefined : (
                 <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
                     {/* What is being looked at, which is the tag the rail is on
                         or the venue being browsed. Filing is done on the row
                         itself, so this says nothing about where a press would
                         put anything. */}
-                    {isWide && (
-                        <span className="flex items-center gap-1.5 text-[11px] text-ink-500">
-                            {showing.kind === 'tag' && <TagSwatch colour={tagColour} className="size-2" />}
-                            {showing.kind === 'tag' ? tagLabel : showing.venue}
-                        </span>
-                    )}
+                    <span className="flex items-center gap-1.5 text-[11px] text-ink-500">
+                        {showing.kind === 'tag' && <TagSwatch colour={tagColour} className="size-2" />}
+                        {showing.kind === 'tag' ? tagLabel : showing.venue}
+                    </span>
                     <QuoteFilter
                         quotes={quotes}
                         quote={quote}
@@ -564,6 +569,13 @@ export function MarketsPanel({
                                 const tagId = markets.addTag(label);
                                 if (tagId !== null) {
                                     markets.recolourTag(tagId, colour);
+                                    // Shown as well as made: a reader who has
+                                    // just named a tag is about to file
+                                    // something under it, and landing back on
+                                    // the catalogue they left means the next
+                                    // press goes somewhere they did not ask for.
+                                    markets.openTag(tagId);
+                                    show({ kind: 'tag' });
                                     setChip({ kind: 'tag', tagId });
                                 }
                                 setIsNamingTag(false);

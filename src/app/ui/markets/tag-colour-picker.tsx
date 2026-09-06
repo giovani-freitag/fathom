@@ -1,3 +1,4 @@
+import { isPale, OPENS_ON } from './tag-colours.ts';
 import { INSTANCE_TONES } from '../../../shared/core/draw-plan.ts';
 import { PaintBucket } from 'lucide-react';
 import { Popover } from 'radix-ui';
@@ -8,10 +9,6 @@ import { TONE_LABEL_KEYS } from '../indicators/tone-labels.ts';
 import type { Translate } from '../../i18n/translator.ts';
 
 /** What the colour field opens on, where the tag holds a token rather than one. */
-const OPENS_ON = '#35e0c4';
-
-/** Where a colour stops taking a dark glyph and starts needing a light one. */
-const PALE_ENOUGH = 0.55;
 
 /**
  * Whether a colour is light enough to draw a dark glyph on.
@@ -23,13 +20,6 @@ const PALE_ENOUGH = 0.55;
  * @param colour - A colour written as six hexadecimal digits.
  * @returns True where the glyph over it should be dark.
  */
-function isPale(colour: string): boolean {
-    const red = Number.parseInt(colour.slice(1, 3), 16) / 255;
-    const green = Number.parseInt(colour.slice(3, 5), 16) / 255;
-    const blue = Number.parseInt(colour.slice(5, 7), 16) / 255;
-
-    return 0.2126 * red + 0.7152 * green + 0.0722 * blue > PALE_ENOUGH;
-}
 
 interface TagColourPickerProps {
     readonly colour: TagColour;

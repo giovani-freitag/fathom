@@ -6,8 +6,15 @@ import type { ReactElement } from 'react';
 import { TagSwatch } from './tag-swatch.tsx';
 import type { Translate } from '../../i18n/translator.ts';
 
-/** How many marks a row shows before it stops being a row and starts being a list. */
-const MARKS_SHOWN = 3;
+/**
+ * How many marks a row draws in full before the rest tuck under them.
+ *
+ * Cut at three, a pair filed under five tags looked like a pair filed under
+ * three, and nothing on the row said otherwise. Overlapped, the same width
+ * holds every one of them: the count is read off the depth of the stack, and
+ * the ones behind still show the sliver that says what colour they are.
+ */
+const MARKS_ABREAST = 4;
 
 interface PairTagMenuProps {
     readonly pair: MarketPair;
@@ -48,11 +55,25 @@ export function PairTagMenu({ pair, tags, held, translate, onToggle }: PairTagMe
                         />
                     )
                     : (
-                        <span className="flex items-center gap-0.5">
+                        <span className="flex items-center">
                             {tags
                                 .filter((tag) => held.has(tag.id))
-                                .slice(0, MARKS_SHOWN)
-                                .map((tag) => <TagSwatch key={tag.id} colour={tag.colour} className="size-2.5" />)}
+                                .map((tag, at) => (
+                                    <span
+                                        key={tag.id}
+                                        // Tucked under the one before it, and
+                                        // ringed in the row's own ground so the
+                                        // edge between two marks stays readable
+                                        // when their colours are close.
+                                        className={at === 0 ? '' : '-ml-1'}
+                                        style={{ zIndex: MARKS_ABREAST - at }}
+                                    >
+                                        <TagSwatch
+                                            colour={tag.colour}
+                                            className="size-2.5 ring-1 ring-abyss-850"
+                                        />
+                                    </span>
+                                ))}
                         </span>
                     )}
             </DropdownMenu.Trigger>
