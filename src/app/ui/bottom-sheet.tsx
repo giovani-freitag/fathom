@@ -2,8 +2,11 @@ import { Dialog } from 'radix-ui';
 import { EscapeGuardContext } from './escape-guard.ts';
 import { OVERLAY_CLASSES, PANEL_TITLE_CLASSES } from './control-shell.ts';
 import { SHEET_SURFACE_CLASSES } from './editor-shell.ts';
-import { type ReactElement, type ReactNode, useMemo, useRef } from 'react';
+import { type ReactElement, type ReactNode, useMemo, useRef, useState } from 'react';
 import { X } from 'lucide-react';
+
+/** How far the sheet has to be pulled before letting go closes it. */
+const CLOSES_AT_PX = 96;
 
 export interface BottomSheetProps {
     readonly isOpen: boolean;
@@ -36,6 +39,11 @@ export function BottomSheet({
     trigger,
     children,
 }: BottomSheetProps): ReactElement {
+    // Where a drag started, and how far it has been pulled since. Null while
+    // nothing is being dragged, which is most of the time.
+    const [pulledBy, setPulledBy] = useState(0);
+    const startedAt = useRef<number | null>(null);
+
     // The same bargain the dock's cards make: something open inside the sheet
     // takes the next Escape, and the sheet stays.
     const claims = useRef(0);
@@ -56,13 +64,54 @@ export function BottomSheet({
                             event.preventDefault();
                         }
                     }}
+                    style={pulledBy === 0 ? undefined : { transform: `translateY(${pulledBy}px)` }}
                     className={`${SHEET_SURFACE_CLASSES} z-50 h-[88dvh]`
                         + ' duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in'
                         + ' data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom'}
                 >
-                    {/* The grip every sheet on a phone has, so the shape is
-                        recognised before the words are read. */}
-                    <div className="flex shrink-0 justify-center pt-2" aria-hidden>
+                    {/* The grip, and the thing it promises: a sheet that came
+                        up from the bottom edge goes back down the same way. A
+                        grip that cannot be pulled is a handle painted on a
+                        wall. */}
+                    <div
+                        className="flex shrink-0 cursor-grab touch-none justify-center py-3 active:cursor-grabbing"
+                        onPointerDown={(event) => {
+                            startedAt.current = event.clientY;
+                            try {
+                                event.currentTarget.setPointerCapture(event.pointerId);
+                            } catch {
+                                // A pointer the browser will not let us capture
+                                // still reports where it moves, which is all the
+                                // drag needs.
+                            }
+                        }}
+                        onPointerMove={(event) => {
+                            if (startedAt.current === null) {
+                                return;
+                            }
+                            // Downwards only: a sheet already at its full height
+                            // has nowhere up to go, and following the finger
+                            // there would just detach it from the edge.
+                            setPulledBy(Math.max(0, event.clientY - startedAt.current));
+                        }}
+                        onPointerUp={(event) => {
+                            // Measured off the event rather than off the state:
+                            // a flick that begins and ends inside one frame
+                            // leaves the state a render behind, and the sheet
+                            // would sit still for the one gesture people make
+                            // fastest.
+                            const pulled = startedAt.current === null
+                                ? 0
+                                : event.clientY - startedAt.current;
+                            startedAt.current = null;
+                            setPulledBy(0);
+                            // Far enough to mean it, rather than far enough to
+                            // be a scroll that began on the wrong pixel.
+                            if (pulled > CLOSES_AT_PX) {
+                                onOpenChange(false);
+                            }
+                        }}
+                    >
                         <span className="h-1 w-10 rounded-full bg-hairline-bright" />
                     </div>
 

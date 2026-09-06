@@ -561,13 +561,15 @@ describe('the card on a phone', () => {
         expect(screen.getByText('Venues')).toBeDefined();
     });
 
-    it('offers a way to make each kind, told apart by its own mark', async () => {
+    it('offers the way to make a tag, and not the way to write a connector', async () => {
+        // Bringing a venue in means writing one, in an editor with a compiler
+        // behind it. Offering that on a phone is offering a door onto a wall.
         showVariant('selects');
         showAt(390);
         renderPanel({ onWriteConnector: () => undefined });
 
         expect(await screen.findByRole('button', { name: 'New tag' })).toBeDefined();
-        expect(screen.getByRole('button', { name: 'Add a venue' })).toBeDefined();
+        expect(screen.queryByRole('button', { name: 'Add a venue' })).toBeNull();
     });
 
     it('names a tag and its colour in one card, before the tag exists', async () => {
@@ -602,15 +604,33 @@ describe('the card on a phone', () => {
         expect(chosen.textContent).toContain('Majors');
     });
 
-    it('offers the code editor beside the venue, which is where a venue comes from', async () => {
-        const opened: number[] = [];
+    it('goes on listing the whole catalogue after a tag is made', async () => {
+        // A tag made in the card used to stay on as a filter over every venue
+        // afterwards. The listing went on being narrowed to the one pair that
+        // tag held, and a search for anything else answered "nothing by that
+        // name on this venue" — which is what a reader sees when a venue is
+        // empty, not when a filter they cannot see is on.
         showVariant('selects');
         showAt(390);
-        renderPanel({ onWriteConnector: () => { opened.push(1); } });
+        renderPanel();
+        await waitFor(() => {
+            expect(screen.getAllByRole('listitem').length).toBeGreaterThan(1);
+        });
+        const before = screen.getAllByRole('listitem').length;
 
-        fireEvent.click(await screen.findByRole('button', { name: 'Add a venue' }));
+        fireEvent.click(screen.getByRole('button', { name: 'New tag' }));
+        fireEvent.change(await screen.findByRole('textbox', { name: /Name this tag/ }), {
+            target: { value: 'Shitcoins' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'Make the tag' }));
 
-        expect(opened).toEqual([1]);
+        // Back to the catalogue the reader was on.
+        fireEvent.click(await screen.findByRole('combobox', { name: 'Contracts' }));
+        fireEvent.click(await screen.findByRole('option', { name: new RegExp(FIRST_VENUE) }));
+
+        await waitFor(() => {
+            expect(screen.getAllByRole('listitem').length).toBe(before);
+        });
     });
 
     it('keeps only one of the two layouts in the tree at a time', async () => {

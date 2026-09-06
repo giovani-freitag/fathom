@@ -1,3 +1,4 @@
+import { LIST_ROW_CLASSES } from '../control-shell.ts';
 import { Check, Tag as TagGlyph } from 'lucide-react';
 import { DropdownMenu } from 'radix-ui';
 import { labelOf } from '../../markets/tag-names.ts';
@@ -101,7 +102,7 @@ export function PairTagMenu({ pair, tags, held, translate, onToggle }: PairTagMe
                                 // that shuts on the first one makes it two trips.
                                 onSelect={(event) => { event.preventDefault(); }}
                                 onCheckedChange={(wanted) => { onToggle(tag.id, wanted); }}
-                                className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs text-ink-200 outline-none data-[highlighted]:bg-abyss-700 data-[highlighted]:text-ink-100"
+                                className={`${LIST_ROW_CLASSES} cursor-pointer rounded text-xs text-ink-200 outline-none data-[highlighted]:bg-abyss-700 data-[highlighted]:text-ink-100`}
                             >
                                 <TagSwatch colour={tag.colour} className="size-2.5 shrink-0" />
                                 <span className="min-w-0 flex-1 truncate">{said}</span>

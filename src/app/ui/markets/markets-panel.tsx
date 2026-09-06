@@ -2,7 +2,7 @@ import { type ReactElement, useCallback, useEffect, useMemo, useState } from 're
 import { ListingCard, RailBar, SearchField } from './listing-card.tsx';
 import { FAVOURITES_ID, findTagsHolding, type MarketPair } from '../../../shared/core/pair-tags.ts';
 import { FIRST_VENUE } from '../../../shared/core/recording-control.ts';
-import { ArrowLeft, Building2, ChevronRight, Plus, TagPlus } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Plus, TagPlus } from 'lucide-react';
 import {
     CONTROL_CHIP_CLASSES,
     CONTROL_CHOSEN_CLASSES,
@@ -313,7 +313,12 @@ export function MarketsPanel({
             }).filter((row) => matchesQuery(row.pair.symbol, query));
         }
 
-        const held = chip.kind === 'tag'
+        // The chips belong to the library, which is the only shape that filters a
+        // catalogue by a tag. Applied everywhere, a tag made in the card stayed
+        // on as a filter over every venue afterwards: the listing went on being
+        // narrowed to the one pair that tag held, and a search for anything else
+        // answered "nothing by that name on this venue".
+        const held = variant === 'library' && chip.kind === 'tag'
             // Narrowed to this venue's half of the tag: a tag spans venues, and
             // the rows underneath are one venue's catalogue.
             ? new Set((state.tags.find((one) => one.id === chip.tagId)?.pairs ?? [])
@@ -340,7 +345,7 @@ export function MarketsPanel({
                 };
             });
     }, [everywhere, showing, openTag, recorded, sayWhyNot, noteWhyNot, heldBy, narrowed, query, translate,
-        chip, state.tags]);
+        chip, state.tags, variant]);
 
     return (
         <ListingCard
@@ -409,17 +414,11 @@ export function MarketsPanel({
                                 <TagPlus className="size-4" />
                             </button>
 
-                            {onWriteConnector !== undefined && (
-                                <button
-                                    type="button"
-                                    aria-label={translate('markets.addVenue')}
-                                    title={translate('markets.addVenue')}
-                                    onClick={onWriteConnector}
-                                    className={`${CONTROL_BUTTON_CLASSES} shrink-0 border border-hairline bg-abyss-800/80 ${CONTROL_RESTING_CLASSES}`}
-                                >
-                                    <Building2 className="size-4" />
-                                </button>
-                            )}
+                            {/* No way to bring a venue in from here. Adding one
+                                means writing a connector, which is an editor
+                                with a compiler behind it — not something anybody
+                                does on a phone. The control stays where the work
+                                is possible, on the rail of a wide screen. */}
                         </RailBar>
                     )
                     : !isWide && variant === 'library'
