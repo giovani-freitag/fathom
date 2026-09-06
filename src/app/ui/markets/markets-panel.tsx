@@ -3,12 +3,18 @@ import { ListingCard, SearchField } from './listing-card.tsx';
 import { FAVOURITES_ID, findTagsHolding, type MarketPair } from '../../../shared/core/pair-tags.ts';
 import { FIRST_VENUE } from '../../../shared/core/recording-control.ts';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
-import { CONTROL_CHIP_CLASSES, CONTROL_OFFERED_CLASSES } from '../control-shell.ts';
+import {
+    CONTROL_CHIP_CLASSES,
+    CONTROL_CHOSEN_CLASSES,
+    CONTROL_OFFERED_CLASSES,
+    SCROLLER_CLASSES,
+} from '../control-shell.ts';
 import { ListingBody, ListingFooting, QuoteFilter, Said } from './listing-body.tsx';
 import { MarketsRail, type Showing } from './markets-rail.tsx';
 import { readPickerVariant } from '../../react/use-picker-variant.ts';
 import { SourceList, type SourceKind, SourceTabs } from './source-list.tsx';
 import { labelOf } from '../../markets/tag-names.ts';
+import { gatherLibrary, type LibraryFilter, narrowLibrary } from '../../markets/library.ts';
 import { narrowPairs, searchAcross, summariseQuotes } from '../../markets/pair-listing.ts';
 import { PairTable, type PairRow } from './pair-table.tsx';
 import { TagSwatch } from './tag-swatch.tsx';
@@ -20,6 +26,11 @@ import { useChartSlice } from '../../react/use-chart-state.ts';
 import { useMarkets } from '../../react/use-markets.ts';
 import { useTranslate } from '../../react/use-appearance.ts';
 import { useIsViewportAtLeast } from '../../react/use-viewport-width.ts';
+
+/** Which chip a filter is, for comparing one against another. */
+function chipKey(filter: LibraryFilter): string {
+    return filter.kind === 'tag' ? filter.tagId : filter.kind;
+}
 
 /** What is known about a venue nobody has asked about yet. */
 const UNREAD: Listing = { kind: 'unread' };
@@ -82,6 +93,7 @@ export function MarketsPanel({
     // can be put in front of readers rather than argued about.
     const variant = readPickerVariant(globalThis.location.search);
     const [openSource, setOpenSource] = useState<SourceKind | null>(null);
+    const [chip, setChip] = useState<LibraryFilter>({ kind: 'all' });
     const [quote, setQuote] = useState('');
 
     // Selected as the array the store already holds and turned into a set here.
@@ -106,6 +118,16 @@ export function MarketsPanel({
         () => (showing.kind === 'venue' ? state.listings[showing.venue] ?? UNREAD : UNREAD),
         [showing, state.listings],
     );
+
+    // The library never browses a catalogue, so nothing would have read one —
+    // and a search that falls through to the venues would fall through to
+    // nothing. One listing, the venue the chart is on, read once when the sheet
+    // is open and never again.
+    useEffect(() => {
+        if (variant === 'library' && state.listings[state.browsingVenue] === undefined) {
+            void markets.readListing(state.browsingVenue);
+        }
+    }, [variant, markets, state.browsingVenue, state.listings]);
 
     // Asked for the moment a venue is shown rather than on a press of its own:
     // a reader who picked a venue is already asking what there is to pick.
@@ -192,10 +214,24 @@ export function MarketsPanel({
     ) as Readonly<Record<string, readonly VenueInstrument[]>>, [state.listings]);
 
     const everywhere = useMemo(
-        () => (variant === 'search' && query.trim() !== ''
+        // Both shapes that stop asking which venue: one searches the catalogues
+        // instead of a venue, the other searches them under what the reader
+        // already has.
+        () => ((variant === 'search' || variant === 'library') && query.trim() !== ''
             ? searchAcross(readEverywhere, { query, quote })
             : null),
         [variant, readEverywhere, query, quote],
+    );
+
+    // What the reader already has a claim on, which is the list worth opening
+    // on: four or five pairs rather than a catalogue of nine hundred.
+    const library = useMemo(
+        () => gatherLibrary(
+            instruments.map((one) => ({ venue: one.venue, symbol: one.instrumentSymbol })),
+            state.tags,
+            open,
+        ),
+        [instruments, state.tags, open],
     );
 
     const quotes = useMemo(() => (listed === null ? [] : summariseQuotes(listed)), [listed]);
@@ -215,6 +251,23 @@ export function MarketsPanel({
     const heldBy = useCallback((pair: MarketPair): ReadonlySet<string> => (
         new Set(findTagsHolding(state.tags, pair).map((tag) => tag.id))
     ), [state.tags]);
+
+    const mine: readonly PairRow[] = useMemo(() => {
+        const wanted = query.trim().toUpperCase();
+        return narrowLibrary(library, chip)
+            .filter((row) => wanted === '' || row.pair.symbol.toUpperCase().includes(wanted))
+            .map((row) => ({
+                pair: row.pair,
+                base: '',
+                quote: '',
+                held: row.held,
+                isOpenable: row.isRecorded,
+                whyNot: sayWhyNot(row.pair),
+                // The venue has a column of its own here, and the word worth
+                // the end of the row is why this pair is in the list at all.
+                note: row.isRecorded ? translate('markets.recorded') : '',
+            }));
+    }, [library, chip, query, sayWhyNot, translate]);
 
     const rows: readonly PairRow[] = useMemo(() => {
         if (everywhere !== null) {
@@ -281,63 +334,89 @@ export function MarketsPanel({
                     onChange={setQuery}
                 />
             )}
-            rail={!isWide && variant === 'search'
+            rail={!isWide && variant === 'library'
                 ? (
-                    <div className="flex shrink-0 items-center gap-2 border-b border-hairline p-2">
-                        <button
-                            type="button"
-                            onClick={() => { setOpenSource('venue'); }}
-                            className={`${CONTROL_CHIP_CLASSES} h-10 min-w-0 flex-1 justify-between ${CONTROL_OFFERED_CLASSES}`}
-                        >
-                            <span className="min-w-0 truncate">
-                                {query.trim() === ''
-                                    ? (showing.kind === 'tag' ? tagLabel : showing.venue)
-                                    : translate('markets.acrossVenues')}
-                            </span>
-                            <ChevronRight className="size-4 shrink-0 text-ink-500" />
-                        </button>
+                    <div className={`flex shrink-0 gap-1 overflow-x-auto border-b border-hairline p-2 ${SCROLLER_CLASSES}`}>
+                        {([
+                            { key: 'all', said: translate('markets.allOfMine'), filter: { kind: 'all' } },
+                            { key: 'recording', said: translate('recording.recordingHere'), filter: { kind: 'recording' } },
+                            ...state.tags.map((one) => ({
+                                key: one.id,
+                                said: labelOf(one, translate),
+                                filter: { kind: 'tag', tagId: one.id },
+                            })),
+                        ] as readonly { key: string; said: string; filter: LibraryFilter }[]).map((one) => (
+                            <button
+                                key={one.key}
+                                type="button"
+                                aria-pressed={chipKey(chip) === one.key}
+                                onClick={() => { setChip(one.filter); }}
+                                className={`${CONTROL_CHIP_CLASSES} h-9 shrink-0 justify-center ${
+                                    chipKey(chip) === one.key ? CONTROL_CHOSEN_CLASSES : CONTROL_OFFERED_CLASSES
+                                }`}
+                            >
+                                {one.said}
+                            </button>
+                        ))}
                     </div>
                 )
-                : !isWide && variant === 'tabs'
+                : !isWide && variant === 'search'
                     ? (
-                        <SourceTabs
-                            open={openSource}
-                            translate={translate}
-                            onOpen={setOpenSource}
-                        />
+                        <div className="flex shrink-0 items-center gap-2 border-b border-hairline p-2">
+                            <button
+                                type="button"
+                                onClick={() => { setOpenSource('venue'); }}
+                                className={`${CONTROL_CHIP_CLASSES} h-10 min-w-0 flex-1 justify-between ${CONTROL_OFFERED_CLASSES}`}
+                            >
+                                <span className="min-w-0 truncate">
+                                    {query.trim() === ''
+                                        ? (showing.kind === 'tag' ? tagLabel : showing.venue)
+                                        : translate('markets.acrossVenues')}
+                                </span>
+                                <ChevronRight className="size-4 shrink-0 text-ink-500" />
+                            </button>
+                        </div>
                     )
-                    : !isWide
+                    : !isWide && variant === 'tabs'
                         ? (
-                            <div className="flex shrink-0 items-center gap-2 border-b border-hairline p-2">
-                                <button
-                                    type="button"
-                                    onClick={() => { setOpenSource('tag'); }}
-                                    className={`${CONTROL_CHIP_CLASSES} h-10 min-w-0 flex-1 justify-between ${CONTROL_OFFERED_CLASSES}`}
-                                >
-                                    <span className="min-w-0 truncate">
-                                        {showing.kind === 'tag' ? tagLabel : showing.venue}
-                                    </span>
-                                    <ChevronRight className="size-4 shrink-0 text-ink-500" />
-                                </button>
-                            </div>
-                        )
-                        : (
-                            <MarketsRail
-                                tags={state.tags}
-                                venues={state.venues}
-                                openTagId={openTag?.id ?? FAVOURITES_ID}
-                                showing={showing}
+                            <SourceTabs
+                                open={openSource}
                                 translate={translate}
-                                onOpenTag={(tagId) => { markets.openTag(tagId); show({ kind: 'tag' }); }}
-                                onBrowse={(venue) => { show({ kind: 'venue', venue }); }}
-                                onAddTag={(label) => { markets.addTag(label); show({ kind: 'tag' }); }}
-                                onRemoveTag={(tagId) => { markets.removeTag(tagId); }}
-                                onRecolourTag={(tagId, tone) => { markets.recolourTag(tagId, tone); }}
-                                onRemoveVenue={(venue) => { markets.removeConnector(venue); show({ kind: 'tag' }); }}
-                                broughtVenues={brought}
-                                onWriteConnector={onWriteConnector}
+                                onOpen={setOpenSource}
                             />
-                        )}
+                        )
+                        : !isWide
+                            ? (
+                                <div className="flex shrink-0 items-center gap-2 border-b border-hairline p-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setOpenSource('tag'); }}
+                                        className={`${CONTROL_CHIP_CLASSES} h-10 min-w-0 flex-1 justify-between ${CONTROL_OFFERED_CLASSES}`}
+                                    >
+                                        <span className="min-w-0 truncate">
+                                            {showing.kind === 'tag' ? tagLabel : showing.venue}
+                                        </span>
+                                        <ChevronRight className="size-4 shrink-0 text-ink-500" />
+                                    </button>
+                                </div>
+                            )
+                            : (
+                                <MarketsRail
+                                    tags={state.tags}
+                                    venues={state.venues}
+                                    openTagId={openTag?.id ?? FAVOURITES_ID}
+                                    showing={showing}
+                                    translate={translate}
+                                    onOpenTag={(tagId) => { markets.openTag(tagId); show({ kind: 'tag' }); }}
+                                    onBrowse={(venue) => { show({ kind: 'venue', venue }); }}
+                                    onAddTag={(label) => { markets.addTag(label); show({ kind: 'tag' }); }}
+                                    onRemoveTag={(tagId) => { markets.removeTag(tagId); }}
+                                    onRecolourTag={(tagId, tone) => { markets.recolourTag(tagId, tone); }}
+                                    onRemoveVenue={(venue) => { markets.removeConnector(venue); show({ kind: 'tag' }); }}
+                                    broughtVenues={brought}
+                                    onWriteConnector={onWriteConnector}
+                                />
+                            )}
             banner={(!isWide && quotes.length === 0) ? undefined : (
                 <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
                     {/* What is being looked at, which is the tag the rail is on
@@ -410,33 +489,85 @@ export function MarketsPanel({
                 <Body
                     showing={showing}
                     listing={listing}
-                    rowCount={rows.length}
+                    rowCount={variant === 'library' && !isWide ? mine.length + rows.length : rows.length}
                     query={query}
                     translate={translate}
-                    {...everywhere === null
-                        ? {}
-                        : { emptySaid: translate('markets.noneAnywhere') }}
+                    {...everywhere !== null
+                        ? { emptySaid: translate('markets.noneAnywhere') }
+                        : variant === 'library' && !isWide
+                            ? { emptySaid: translate('markets.libraryEmpty') }
+                            : {}}
                     onRetry={() => {
                         if (showing.kind === 'venue') {
                             void markets.readListing(showing.venue);
                         }
                     }}
                 >
-                    <PairTable
-                        rows={rows}
-                        hasVenueColumn={showing.kind === 'tag'}
-                        open={open}
-                        tags={state.tags}
-                        translate={translate}
-                        onOpen={(pair) => { onOpen(pair); onClose(); }}
-                        onKeep={(pair, tagId, isOn) => {
-                            if (isOn) {
-                                markets.tagPair(tagId, pair);
-                            } else {
-                                markets.untagPair(tagId, pair);
-                            }
-                        }}
-                    />
+                    {variant === 'library' && !isWide
+                        ? (
+                            <div className="min-h-0 flex-1 overflow-y-auto">
+                                {/* What the reader has, first and always. The
+                                    catalogues fall in underneath only once
+                                    something is typed, so the screen they open
+                                    on is four or five rows they recognise
+                                    rather than nine hundred they do not. */}
+                                <h4 className="px-3 py-1 field-label">{translate('markets.mine')}</h4>
+                                <PairTable
+                                    rows={mine}
+                                    hasVenueColumn
+                                    open={open}
+                                    tags={state.tags}
+                                    translate={translate}
+                                    onOpen={(pair) => { onOpen(pair); onClose(); }}
+                                    onKeep={(pair, tagId, isOn) => {
+                                        if (isOn) {
+                                            markets.tagPair(tagId, pair);
+                                        } else {
+                                            markets.untagPair(tagId, pair);
+                                        }
+                                    }}
+                                />
+                                {query.trim() !== '' && rows.length > 0 && (
+                                    <>
+                                        <h4 className="px-3 py-1 field-label">
+                                            {translate('markets.onTheVenues')}
+                                        </h4>
+                                        <PairTable
+                                            rows={rows}
+                                            hasVenueColumn
+                                            open={open}
+                                            tags={state.tags}
+                                            translate={translate}
+                                            onOpen={(pair) => { onOpen(pair); onClose(); }}
+                                            onKeep={(pair, tagId, isOn) => {
+                                                if (isOn) {
+                                                    markets.tagPair(tagId, pair);
+                                                } else {
+                                                    markets.untagPair(tagId, pair);
+                                                }
+                                            }}
+                                        />
+                                    </>
+                                )}
+                            </div>
+                        )
+                        : (
+                            <PairTable
+                                rows={rows}
+                                hasVenueColumn={showing.kind === 'tag'}
+                                open={open}
+                                tags={state.tags}
+                                translate={translate}
+                                onOpen={(pair) => { onOpen(pair); onClose(); }}
+                                onKeep={(pair, tagId, isOn) => {
+                                    if (isOn) {
+                                        markets.tagPair(tagId, pair);
+                                    } else {
+                                        markets.untagPair(tagId, pair);
+                                    }
+                                }}
+                            />
+                        )}
                 </Body>
             )}
 
