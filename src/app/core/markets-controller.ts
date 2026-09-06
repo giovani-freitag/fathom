@@ -65,8 +65,6 @@ export interface MarketsState {
     readonly openTagId: string;
     /** Every venue the chart can reach, shipped and brought alike. */
     readonly venues: readonly string[];
-    /** Which venue is being browsed. */
-    readonly browsingVenue: string;
     /** What each venue lists, once anybody has asked. */
     readonly listings: Readonly<Record<string, Listing>>;
     /**
@@ -125,7 +123,6 @@ export class MarketsController {
             tags: stored.pairTags,
             openTagId: stored.pairTags[0]?.id ?? FAVOURITES_ID,
             venues: listConnectors().map(([id]) => id),
-            browsingVenue: listConnectors()[0]?.[0] ?? '',
             listings: {},
             prices: {},
             search: null,
@@ -218,18 +215,6 @@ export class MarketsController {
      */
     openTag(tagId: string): void {
         this.store.update((current) => ({ ...current, openTagId: tagId }));
-    }
-
-    /**
-     * Browses a different venue, reading its listing if nobody has yet.
-     *
-     * @param venue - Which venue to browse.
-     */
-    browse(venue: string): void {
-        this.store.update((current) => ({ ...current, browsingVenue: venue }));
-        if (this.store.read().listings[venue]?.kind !== 'read') {
-            void this.readListing(venue);
-        }
     }
 
     /**
@@ -406,7 +391,6 @@ export class MarketsController {
             ...current,
             installed: kept,
             venues: listConnectors().map(([id]) => id),
-            browsingVenue: connectorId,
         }));
         // Read straight away rather than on the next press: a reader who has
         // just installed a venue is asking whether it works, and an empty panel
@@ -433,9 +417,6 @@ export class MarketsController {
             ...current,
             installed: kept,
             venues: listConnectors().map(([id]) => id),
-            browsingVenue: current.browsingVenue === connectorId
-                ? listConnectors()[0]?.[0] ?? ''
-                : current.browsingVenue,
         }));
     }
 

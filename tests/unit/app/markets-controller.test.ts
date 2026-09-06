@@ -188,7 +188,6 @@ describe('installing a venue a reader brought', () => {
 
         expect(refused).toBeNull();
         expect(markets.store.read().venues).toContain('kucoin');
-        expect(markets.store.read().browsingVenue).toBe('kucoin');
         await vi.waitFor(() => {
             expect(markets.store.read().listings['kucoin']).toBeDefined();
         });
