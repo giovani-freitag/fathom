@@ -183,6 +183,31 @@ describe('Every translation of a phrase', () => {
         expect([...portuguese.keys()].sort()).toEqual([...english.keys()].sort());
     });
 
+    it('is asked for somewhere, rather than kept for a screen that was cut', () => {
+        // A phrase nobody asks for is not inert: it is read as evidence of a
+        // screen that exists, and it is translated, reviewed and kept in step
+        // with the rest for as long as it sits there. Four shapes of one picker
+        // were built to be compared and one was kept; the copy for the other
+        // three outlived them by weeks.
+        const source = listFiles('src/app').filter((path) => !path.includes('dictionaries'));
+        const read = source.map((path) => readFileSync(join(ROOT, path), 'utf8')).join('\n');
+        // Some keys are built rather than written: a knob's label is its own
+        // name, and a choice under it is that name and the choice. Those are
+        // reached through the stem they share.
+        const stems = new Set([...read.matchAll(/`([a-zA-Z][a-zA-Z0-9.]*)\.\$\{/g)].map((built) => built[1]!));
+        for (const key of english.keys()) {
+            if (key.startsWith('parameter.')) {
+                stems.add(key.slice('parameter.'.length));
+            }
+        }
+
+        const unasked = [...english.keys()].filter((key) => (
+            !read.includes(`'${key}'`) && !stems.has(key.slice(0, key.lastIndexOf('.')))
+        ));
+
+        expect(unasked).toEqual([]);
+    });
+
     it('asks to be given the same values, whatever language it is in', () => {
         // A slot renamed in translation is left in the sentence as the literal
         // `{name}`: the compiler types the keys, and nothing types these.

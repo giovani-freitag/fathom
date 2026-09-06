@@ -8,7 +8,6 @@ import { MarketsButton } from '../../../../../src/app/ui/markets/markets-button.
 import { buildConnector } from '../../../../mocks/venue-connectors.ts';
 import { forgetConnector, registerConnector } from '../../../../../src/shared/venues/venue-registry.ts';
 import { stubViewport } from '../../../../fixtures/viewport.ts';
-import type { PickerVariant } from '../../../../../src/app/react/use-picker-variant.ts';
 
 // The rail and the phone's select are different trees, so every test here
 // says which one it is about. These describe the rail.
@@ -52,6 +51,12 @@ function renderPanel(
 }
 
 /** Points the listing at the shipped venue and waits for it to answer. */
+/** Points the card at a tag or a venue, the way the phone's one control does. */
+async function pickSource(named: RegExp): Promise<void> {
+    fireEvent.click(await screen.findByRole('combobox', { name: 'Contracts' }));
+    fireEvent.click(await screen.findByRole('option', { name: named }));
+}
+
 async function browse(venue = FIRST_VENUE): Promise<void> {
     fireEvent.click(screen.getByRole('button', { name: venue }));
     await waitFor(() => {
@@ -439,66 +444,10 @@ describe('opening what is kept', () => {
 });
 
 describe('the card on a phone', () => {
-    /** Which shape of the picker this test is about. */
-    function showVariant(variant: PickerVariant): void {
-        globalThis.history.replaceState(null, '', `/?picker=${variant}`);
-    }
-
-    afterEach(() => { globalThis.history.replaceState(null, '', '/'); });
-
-    it('offers the two kinds of source as tabs that cannot grow', async () => {
-        // However many tags a reader keeps and connectors they install, there
-        // are two kinds of them. What grows is behind the tab, where a list
-        // scrolls; the tabs themselves stay two.
-        showVariant('tabs');
-        showAt(390);
-        renderPanel();
-
-        expect(await screen.findByRole('button', { name: 'Your tags' })).toBeDefined();
-        expect(screen.getByRole('button', { name: 'Venues' })).toBeDefined();
-        expect(screen.queryByRole('combobox', { name: 'Contracts' })).toBeNull();
-    });
-
-    it('shows one kind at a time behind its tab', async () => {
-        showVariant('tabs');
-        showAt(390);
-        renderPanel();
-
-        fireEvent.click(await screen.findByRole('button', { name: 'Venues' }));
-
-        expect(await screen.findByRole('button', { name: FIRST_VENUE })).toBeDefined();
-    });
-
-    it('names the source it is on, and steps in to change it', async () => {
-        showVariant('drill');
-        showAt(390);
-        renderPanel();
-
-        fireEvent.click(await screen.findByRole('button', { name: /Favourites/ }));
-
-        // A step in shows both kinds, because it is the whole answer.
-        expect(await screen.findByRole('heading', { name: 'Your tags' })).toBeDefined();
-        expect(screen.getByRole('heading', { name: 'Venues' })).toBeDefined();
-    });
-
-    it('keeps a way to make a tag, wherever the tags are listed', async () => {
-        // It used to live on a strip these lists replaced, and a phone was left
-        // with no way to make one at all.
-        showVariant('tabs');
-        showAt(390);
-        renderPanel();
-        fireEvent.click(await screen.findByRole('button', { name: 'Your tags' }));
-
-        fireEvent.click(await screen.findByRole('button', { name: 'New tag' }));
-
-        expect(await screen.findByRole('textbox', { name: 'Name this tag' })).toBeDefined();
-    });
-
     it('gives up on a half-typed tag name without taking the sheet with it', async () => {
         // On the shape that ships, because that is the one a reader can reach
         // the card from: pointed at a discarded shape, this passed by naming a
         // card no press could open.
-        showVariant('selects');
         showAt(390);
         renderWithTrigger();
         fireEvent.click(await screen.findByRole('button', { name: /Contracts/ }));
@@ -514,44 +463,9 @@ describe('the card on a phone', () => {
         expect(screen.getByRole('dialog', { name: 'Contracts' })).toBeDefined();
     });
 
-    it('offers a way to make a tag from the library, where the chips are', async () => {
-        // The chips are the tags. A list of filters a reader can never add to
-        // is a list that shrinks to whatever they had on the first day.
-        showVariant('library');
-        showAt(390);
-        renderPanel();
-
-        fireEvent.click(await screen.findByRole('button', { name: 'New tag' }));
-
-        expect(await screen.findByRole('textbox', { name: 'Name this tag' })).toBeDefined();
-    });
-
-    it('offers a way to the catalogues, which the library never shows on its own', async () => {
-        // The library is what a reader has. Browsing is the other question, and
-        // removing the source rail took the only place it was asked.
-        showVariant('library');
-        showAt(390);
-        renderPanel();
-
-        fireEvent.click(await screen.findByRole('button', { name: 'Browse a venue' }));
-
-        expect(await screen.findByRole('heading', { name: 'Venues' })).toBeDefined();
-        expect(screen.getByRole('button', { name: FIRST_VENUE })).toBeDefined();
-    });
-
-    it('offers a way to bring a venue in, from the list of the ones there are', async () => {
-        showVariant('library');
-        showAt(390);
-        renderPanel({ onWriteConnector: () => undefined });
-        fireEvent.click(await screen.findByRole('button', { name: 'Browse a venue' }));
-
-        expect(await screen.findByRole('button', { name: 'Add a venue' })).toBeDefined();
-    });
-
     it('files the tags and the venues apart inside the one control', async () => {
         // A tag spans venues and a venue is a catalogue. One control asks the
         // question once; the headings inside it keep the two kinds apart.
-        showVariant('selects');
         showAt(390);
         renderPanel();
 
@@ -563,7 +477,6 @@ describe('the card on a phone', () => {
 
     it('offers a way to make each kind, told apart by its own mark', async () => {
         const opened: number[] = [];
-        showVariant('selects');
         showAt(390);
         renderPanel({ onWriteConnector: () => { opened.push(1); } });
 
@@ -577,7 +490,6 @@ describe('the card on a phone', () => {
         // A tag is a colour a reader picks out of a column and a name they read
         // when they cannot. Made first and coloured afterwards, it spends its
         // first minutes in whatever colour came next in the list.
-        showVariant('selects');
         showAt(390);
         renderPanel();
 
@@ -588,7 +500,6 @@ describe('the card on a phone', () => {
     });
 
     it('gives the tag the colour that was picked with the name', async () => {
-        showVariant('selects');
         showAt(390);
         renderPanel();
         fireEvent.click(await screen.findByRole('button', { name: 'New tag' }));
@@ -611,9 +522,11 @@ describe('the card on a phone', () => {
         // tag held, and a search for anything else answered "nothing by that
         // name on this venue" — which is what a reader sees when a venue is
         // empty, not when a filter they cannot see is on.
-        showVariant('selects');
         showAt(390);
         renderPanel();
+        // On a catalogue, which is where a filter nobody asked for would show:
+        // the card opens on a tag, and a tag is already a filter.
+        await pickSource(new RegExp(FIRST_VENUE));
         await waitFor(() => {
             expect(screen.getAllByRole('listitem').length).toBeGreaterThan(1);
         });
@@ -626,8 +539,7 @@ describe('the card on a phone', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Make the tag' }));
 
         // Back to the catalogue the reader was on.
-        fireEvent.click(await screen.findByRole('combobox', { name: 'Contracts' }));
-        fireEvent.click(await screen.findByRole('option', { name: new RegExp(FIRST_VENUE) }));
+        await pickSource(new RegExp(FIRST_VENUE));
 
         await waitFor(() => {
             expect(screen.getAllByRole('listitem').length).toBe(before);

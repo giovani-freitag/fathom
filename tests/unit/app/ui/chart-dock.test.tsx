@@ -228,7 +228,10 @@ describe('ChartDock and the catalogue', () => {
     it('offers one way in, which is the panel the layers are already in', () => {
         renderDock();
 
-        expect(screen.queryByRole('button', { name: EN_DICTIONARY['indicators.open'] })).toBeNull();
+        // Named as a word rather than through the dictionary: what is asserted
+        // here is that nothing carries this name, and a key kept only to say so
+        // reads to every other reader as a control that exists.
+        expect(screen.queryByRole('button', { name: /Indicators/ })).toBeNull();
     });
 });
 

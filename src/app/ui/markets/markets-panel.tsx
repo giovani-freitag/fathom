@@ -1,26 +1,14 @@
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { ListingCard, RailBar, SearchField } from './listing-card.tsx';
 import { FAVOURITES_ID, findTagsHolding, type MarketPair } from '../../../shared/core/pair-tags.ts';
-import { FIRST_VENUE } from '../../../shared/core/recording-control.ts';
-import { ArrowLeft, ChevronRight, Plug, Plus, TagPlus } from 'lucide-react';
-import {
-    CONTROL_CHIP_CLASSES,
-    CONTROL_CHOSEN_CLASSES,
-    CONTROL_OFFERED_CLASSES,
-    CONTROL_BUTTON_CLASSES,
-    CONTROL_RESTING_CLASSES,
-    PANEL_ADD_CLASSES,
-    SCROLLER_CLASSES,
-} from '../control-shell.ts';
+import { ArrowLeft, Plug, TagPlus } from 'lucide-react';
+import { CONTROL_BUTTON_CLASSES, CONTROL_RESTING_CLASSES } from '../control-shell.ts';
 import { ListingBody, ListingFooting, QuoteFilter, Said } from './listing-body.tsx';
-import { MarketsRail, type Showing, TagNameField } from './markets-rail.tsx';
-import { readPickerVariant } from '../../react/use-picker-variant.ts';
+import { MarketsRail, type Showing } from './markets-rail.tsx';
 import { Select } from '../select.tsx';
 import { NewTagCard } from './new-tag-card.tsx';
-import { SourceList, type SourceKind, SourceTabs } from './source-list.tsx';
 import { labelOf } from '../../markets/tag-names.ts';
-import { gatherLibrary, type LibraryFilter, narrowLibrary } from '../../markets/library.ts';
-import { narrowPairs, searchAcross, summariseQuotes } from '../../markets/pair-listing.ts';
+import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
 import { PairTable, type PairRow } from './pair-table.tsx';
 import { TagSwatch } from './tag-swatch.tsx';
 import { VenueMark } from './venue-mark.tsx';
@@ -32,11 +20,6 @@ import { useChartSlice } from '../../react/use-chart-state.ts';
 import { useMarkets } from '../../react/use-markets.ts';
 import { useTranslate } from '../../react/use-appearance.ts';
 import { useIsViewportAtLeast } from '../../react/use-viewport-width.ts';
-
-/** Which chip a filter is, for comparing one against another. */
-function chipKey(filter: LibraryFilter): string {
-    return filter.kind === 'tag' ? filter.tagId : filter.kind;
-}
 
 /** What is known about a venue nobody has asked about yet. */
 const UNREAD: Listing = { kind: 'unread' };
@@ -84,15 +67,11 @@ export function MarketsPanel({
     // for it.
     const isWide = useIsViewportAtLeast('lg');
     const { state, markets } = useMarkets();
-    // The shape that searches everywhere opens on a catalogue rather than on a
-    // tag: a reader arriving for the first time has no tags, and a card that
-    // opens on an empty one has answered nothing and offers nowhere obvious to
-    // go.
-    const [showing, setShowing] = useState<Showing>(
-        ['search', 'selects'].includes(readPickerVariant(globalThis.location.search))
-            ? { kind: 'venue', venue: FIRST_VENUE }
-            : { kind: 'tag' },
-    );
+    // On what the reader keeps rather than on a catalogue. Only a recorded
+    // pair can be drawn, and those are the ones under a tag: a venue's listing
+    // opens on nine hundred rows of which four can be pressed, and asks the
+    // venue for them before the card has finished appearing.
+    const [showing, setShowing] = useState<Showing>({ kind: 'tag' });
     const [query, setQuery] = useState('');
     // What the rows are narrowed by, which lags what the field shows.
     //
@@ -110,9 +89,6 @@ export function MarketsPanel({
     // Which body the sheet is showing on a phone: the pairs, or one kind of
     // source. Two shapes of the same question are behind `?picker=`, so they
     // can be put in front of readers rather than argued about.
-    const variant = readPickerVariant(globalThis.location.search);
-    const [openSource, setOpenSource] = useState<SourceKind | null>(null);
-    const [chip, setChip] = useState<LibraryFilter>({ kind: 'all' });
     const [isNamingTag, setIsNamingTag] = useState(false);
     const [quote, setQuote] = useState('');
 
@@ -138,16 +114,6 @@ export function MarketsPanel({
         () => (showing.kind === 'venue' ? state.listings[showing.venue] ?? UNREAD : UNREAD),
         [showing, state.listings],
     );
-
-    // The library never browses a catalogue, so nothing would have read one —
-    // and a search that falls through to the venues would fall through to
-    // nothing. One listing, the venue the chart is on, read once when the sheet
-    // is open and never again.
-    useEffect(() => {
-        if (variant === 'library' && state.listings[state.browsingVenue] === undefined) {
-            void markets.readListing(state.browsingVenue);
-        }
-    }, [variant, markets, state.browsingVenue, state.listings]);
 
     // Asked for the moment a venue is shown rather than on a press of its own:
     // a reader who picked a venue is already asking what there is to pick.
@@ -224,25 +190,6 @@ export function MarketsPanel({
             : [],
     ), [instruments, showing]);
 
-    // Every catalogue already in memory, for the shape that searches all of
-    // them at once. Nothing is fetched to build this: a venue nobody opened has
-    // no listing here, and the footing says which were covered.
-    const readEverywhere = useMemo(() => Object.fromEntries(
-        Object.entries(state.listings)
-            .map(([venue, one]) => [venue, one.kind === 'read' || one.kind === 'reading' ? one.instruments : []])
-            .filter(([, instruments]) => (instruments as readonly VenueInstrument[]).length > 0),
-    ) as Readonly<Record<string, readonly VenueInstrument[]>>, [state.listings]);
-
-    const everywhere = useMemo(
-        // Both shapes that stop asking which venue: one searches the catalogues
-        // instead of a venue, the other searches them under what the reader
-        // already has.
-        () => ((variant === 'search' || variant === 'library') && narrowedBy.trim() !== ''
-            ? searchAcross(readEverywhere, { query: narrowedBy, quote })
-            : null),
-        [variant, readEverywhere, narrowedBy, quote],
-    );
-
     const openOne = useCallback((pair: MarketPair) => {
         onOpen(pair);
         onClose();
@@ -255,17 +202,6 @@ export function MarketsPanel({
             markets.untagPair(tagId, pair);
         }
     }, [markets]);
-
-    // What the reader already has a claim on, which is the list worth opening
-    // on: four or five pairs rather than a catalogue of nine hundred.
-    const library = useMemo(
-        () => gatherLibrary(
-            instruments.map((one) => ({ venue: one.venue, symbol: one.instrumentSymbol })),
-            state.tags,
-            open,
-        ),
-        [instruments, state.tags, open],
-    );
 
     const quotes = useMemo(() => (listed === null ? [] : summariseQuotes(listed)), [listed]);
     const narrowed = useMemo(() => {
@@ -285,43 +221,7 @@ export function MarketsPanel({
         new Set(findTagsHolding(state.tags, pair).map((tag) => tag.id))
     ), [state.tags]);
 
-    const mine: readonly PairRow[] = useMemo(() => {
-        const wanted = narrowedBy.trim().toUpperCase();
-        return narrowLibrary(library, chip)
-            .filter((row) => wanted === '' || row.pair.symbol.toUpperCase().includes(wanted))
-            .map((row) => ({
-                pair: row.pair,
-                base: '',
-                quote: '',
-                held: row.held,
-                isOpenable: row.isRecorded,
-                whyNot: sayWhyNot(row.pair),
-                // The venue has a column of its own here, and the word worth
-                // the end of the row is why this pair is in the list at all.
-                note: row.isRecorded ? translate('markets.recorded') : '',
-            }));
-    }, [library, chip, narrowedBy, sayWhyNot, translate]);
-
     const rows: readonly PairRow[] = useMemo(() => {
-        if (everywhere !== null) {
-            return everywhere.shown.map(({ venue, instrument }) => {
-                const pair = { venue, symbol: instrument.symbol };
-                const isOpenable = recorded.has(`${pair.venue}/${pair.symbol}`);
-                return {
-                    pair,
-                    base: instrument.base,
-                    quote: instrument.quote,
-                    held: heldBy(pair),
-                    isOpenable,
-                    whyNot: sayWhyNot(pair),
-                    // The venue, because the row is the only thing that can say
-                    // which catalogue this came out of once the search stopped
-                    // being about one of them.
-                    note: venue,
-                };
-            });
-        }
-
         if (showing.kind === 'tag') {
             return (openTag?.pairs ?? []).map((pair) => {
                 const isOpenable = recorded.has(`${pair.venue}/${pair.symbol}`);
@@ -339,39 +239,23 @@ export function MarketsPanel({
             }).filter((row) => matchesQuery(row.pair.symbol, narrowedBy));
         }
 
-        // The chips belong to the library, which is the only shape that filters a
-        // catalogue by a tag. Applied everywhere, a tag made in the card stayed
-        // on as a filter over every venue afterwards: the listing went on being
-        // narrowed to the one pair that tag held, and a search for anything else
-        // answered "nothing by that name on this venue".
-        const held = variant === 'library' && chip.kind === 'tag'
-            // Narrowed to this venue's half of the tag: a tag spans venues, and
-            // the rows underneath are one venue's catalogue.
-            ? new Set((state.tags.find((one) => one.id === chip.tagId)?.pairs ?? [])
-                .filter((one) => one.venue === showing.venue)
-                .map((one) => one.symbol))
-            : null;
-
-        return (narrowed?.shown ?? [])
-            .filter((instrument) => held === null || held.has(instrument.symbol))
-            .map((instrument) => {
-                const pair = { venue: showing.venue, symbol: instrument.symbol };
-                const isOpenable = recorded.has(`${pair.venue}/${pair.symbol}`);
-                return {
-                    pair,
-                    base: instrument.base,
-                    quote: instrument.quote,
-                    held: heldBy(pair),
-                    isOpenable,
-                    whyNot: sayWhyNot(pair),
-                    // On a venue's own listing the reason is true of almost every
-                    // row, and a column that repeats nine hundred times says
-                    // nothing. What is rare here is the handful this chart holds.
-                    note: markNote(instrument.isTrading, isOpenable, translate),
-                };
-            });
-    }, [everywhere, showing, openTag, recorded, sayWhyNot, noteWhyNot, heldBy, narrowed, narrowedBy, translate,
-        chip, state.tags, variant]);
+        return (narrowed?.shown ?? []).map((instrument) => {
+            const pair = { venue: showing.venue, symbol: instrument.symbol };
+            const isOpenable = recorded.has(`${pair.venue}/${pair.symbol}`);
+            return {
+                pair,
+                base: instrument.base,
+                quote: instrument.quote,
+                held: heldBy(pair),
+                isOpenable,
+                whyNot: sayWhyNot(pair),
+                // On a venue's own listing the reason is true of almost every
+                // row, and a column that repeats nine hundred times says
+                // nothing. What is rare here is the handful this chart holds.
+                note: markNote(instrument.isTrading, isOpenable, translate),
+            };
+        });
+    }, [showing, openTag, recorded, sayWhyNot, noteWhyNot, heldBy, narrowed, narrowedBy, translate]);
 
     return (
         <ListingCard
@@ -383,11 +267,11 @@ export function MarketsPanel({
                     onChange={setQuery}
                 />
             )}
-            rail={isNamingTag && !isWide && variant === 'selects'
+            rail={isNamingTag && !isWide
                 // The card is a step of its own; the filters behind it belong to
                 // the listing it stepped away from.
                 ? undefined
-                : !isWide && variant === 'selects'
+                : !isWide
                     ? (
                         <RailBar>
                             {/* One control for what is being looked at, and two
@@ -460,114 +344,23 @@ export function MarketsPanel({
                             )}
                         </RailBar>
                     )
-                    : !isWide && variant === 'library'
-                        ? (
-                            <div className={`flex shrink-0 gap-1 overflow-x-auto border-b border-hairline p-2 ${SCROLLER_CLASSES}`}>
-                                {([
-                                    { key: 'all', said: translate('markets.allOfMine'), filter: { kind: 'all' } },
-                                    { key: 'recording', said: translate('recording.recordingHere'), filter: { kind: 'recording' } },
-                                    ...state.tags.map((one) => ({
-                                        key: one.id,
-                                        said: labelOf(one, translate),
-                                        filter: { kind: 'tag', tagId: one.id },
-                                    })),
-                                ] as readonly { key: string; said: string; filter: LibraryFilter }[]).map((one) => (
-                                    <button
-                                        key={one.key}
-                                        type="button"
-                                        aria-pressed={chipKey(chip) === one.key}
-                                        onClick={() => { setChip(one.filter); }}
-                                        className={`${CONTROL_CHIP_CLASSES} h-9 shrink-0 justify-center ${
-                                            chipKey(chip) === one.key ? CONTROL_CHOSEN_CLASSES : CONTROL_OFFERED_CLASSES
-                                        }`}
-                                    >
-                                        {one.said}
-                                    </button>
-                                ))}
-
-                                {/* The way to make one more, at the end of the ones
-                            there are. Without it the library was a list of
-                            filters a reader could never add to. */}
-                                {isNamingTag
-                                    ? (
-                                        <TagNameField
-                                            translate={translate}
-                                            onName={(label) => {
-                                                markets.addTag(label);
-                                                setIsNamingTag(false);
-                                            }}
-                                            onGiveUp={() => { setIsNamingTag(false); }}
-                                        />
-                                    )
-                                    : (
-                                        <button
-                                            type="button"
-                                            aria-label={translate('markets.newTag')}
-                                            onClick={() => { setIsNamingTag(true); }}
-                                            className={`${CONTROL_CHIP_CLASSES} h-9 shrink-0 justify-center ${CONTROL_OFFERED_CLASSES}`}
-                                        >
-                                            <Plus className="size-3.5" />
-                                        </button>
-                                    )}
-                            </div>
-                        )
-                        : !isWide && variant === 'search'
-                            ? (
-                                <RailBar>
-                                    <button
-                                        type="button"
-                                        onClick={() => { setOpenSource('venue'); }}
-                                        className={`${CONTROL_CHIP_CLASSES} h-10 min-w-0 flex-1 justify-between ${CONTROL_OFFERED_CLASSES}`}
-                                    >
-                                        <span className="min-w-0 truncate">
-                                            {query.trim() === ''
-                                                ? (showing.kind === 'tag' ? tagLabel : showing.venue)
-                                                : translate('markets.acrossVenues')}
-                                        </span>
-                                        <ChevronRight className="size-4 shrink-0 text-ink-500" />
-                                    </button>
-                                </RailBar>
-                            )
-                            : !isWide && variant === 'tabs'
-                                ? (
-                                    <SourceTabs
-                                        open={openSource}
-                                        translate={translate}
-                                        onOpen={setOpenSource}
-                                    />
-                                )
-                                : !isWide
-                                    ? (
-                                        <RailBar>
-                                            <button
-                                                type="button"
-                                                onClick={() => { setOpenSource('tag'); }}
-                                                className={`${CONTROL_CHIP_CLASSES} h-10 min-w-0 flex-1 justify-between ${CONTROL_OFFERED_CLASSES}`}
-                                            >
-                                                <span className="min-w-0 truncate">
-                                                    {showing.kind === 'tag' ? tagLabel : showing.venue}
-                                                </span>
-                                                <ChevronRight className="size-4 shrink-0 text-ink-500" />
-                                            </button>
-                                        </RailBar>
-                                    )
-                                    : (
-                                        <MarketsRail
-                                            tags={state.tags}
-                                            venues={state.venues}
-                                            openTagId={openTag?.id ?? FAVOURITES_ID}
-                                            showing={showing}
-                                            translate={translate}
-                                            onOpenTag={(tagId) => { markets.openTag(tagId); show({ kind: 'tag' }); }}
-                                            onBrowse={(venue) => { show({ kind: 'venue', venue }); }}
-                                            onAddTag={(label) => { markets.addTag(label); show({ kind: 'tag' }); }}
-                                            onRemoveTag={(tagId) => { markets.removeTag(tagId); }}
-                                            onRecolourTag={(tagId, tone) => { markets.recolourTag(tagId, tone); }}
-                                            onRemoveVenue={(venue) => { markets.removeConnector(venue); show({ kind: 'tag' }); }}
-                                            broughtVenues={brought}
-                                            onWriteConnector={onWriteConnector}
-                                        />
-                                    )}
+                    : (
+                        <MarketsRail
+                            tags={state.tags}
+                            venues={state.venues}
+                            openTagId={openTag?.id ?? FAVOURITES_ID}
+                            showing={showing}
+                            translate={translate}
+                            onOpenTag={(tagId) => { markets.openTag(tagId); show({ kind: 'tag' }); }}
+                            onBrowse={(venue) => { show({ kind: 'venue', venue }); }}
+                            onAddTag={(label) => { markets.addTag(label); show({ kind: 'tag' }); }}
+                            onRemoveTag={(tagId) => { markets.removeTag(tagId); }}
+                            onRecolourTag={(tagId, tone) => { markets.recolourTag(tagId, tone); }}
+                            onRemoveVenue={(venue) => { markets.removeConnector(venue); show({ kind: 'tag' }); }}
+                            broughtVenues={brought}
+                            onWriteConnector={onWriteConnector}
+                        />
+                    )}
             banner={!isWide ? undefined : (
                 <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
                     {/* What is being looked at, which is the tag the rail is on
@@ -586,7 +379,7 @@ export function MarketsPanel({
                     />
                 </div>
             )}
-            footing={isNamingTag && !isWide && variant === 'selects'
+            footing={isNamingTag && !isWide
                 // The card is a step of its own: a line counting the catalogue
                 // behind it overlapped the card's own buttons in landscape, and
                 // counted rows nobody could see in either.
@@ -594,14 +387,14 @@ export function MarketsPanel({
                 : (
                     <ListingFooting
                         listing={listing}
-                        shown={everywhere?.shown.length ?? narrowed?.shown.length ?? 0}
-                        matched={everywhere?.matched ?? narrowed?.matched ?? 0}
+                        shown={narrowed?.shown.length ?? 0}
+                        matched={narrowed?.matched ?? 0}
                         isAsking={state.search?.kind === 'reading'}
                         translate={translate}
                     />
                 )}
         >
-            {isNamingTag && variant === 'selects' && !isWide
+            {isNamingTag && !isWide
                 ? (
                     <>
                         <button
@@ -625,7 +418,6 @@ export function MarketsPanel({
                                     // press goes somewhere they did not ask for.
                                     markets.openTag(tagId);
                                     show({ kind: 'tag' });
-                                    setChip({ kind: 'tag', tagId });
                                 }
                                 setIsNamingTag(false);
                             }}
@@ -633,128 +425,28 @@ export function MarketsPanel({
                         />
                     </>
                 )
-                : openSource !== null ? (
-                    <>
-                        {variant === 'drill' && (
-                            <button
-                                type="button"
-                                onClick={() => { setOpenSource(null); }}
-                                className="flex min-h-11 shrink-0 items-center gap-1.5 px-3 text-xs text-ink-500 hover:text-ink-100"
-                            >
-                                <ArrowLeft className="size-3.5" />
-                                {translate('markets.title')}
-                            </button>
-                        )}
-                        <SourceList
-                            tags={state.tags}
-                            venues={state.venues}
-                            openTagId={openTag?.id ?? FAVOURITES_ID}
-                            showing={showing}
-                            query={query}
-                            // A tab shows one kind; a step in shows both, because it
-                            // is the whole answer to "what am I looking at".
-                            kinds={variant === 'drill' ? ['tag', 'venue'] : [openSource]}
-                            translate={translate}
-                            onOpenTag={(tagId) => {
-                                markets.openTag(tagId);
-                                show({ kind: 'tag' });
-                                setOpenSource(null);
-                            }}
-                            onBrowse={(venue) => {
-                                show({ kind: 'venue', venue });
-                                setOpenSource(null);
-                            }}
-                            onAddTag={(label) => {
-                                markets.addTag(label);
-                                show({ kind: 'tag' });
-                                setOpenSource(null);
-                            }}
-                            {...onWriteConnector === undefined
-                                ? {}
-                                : { onWriteConnector: () => { setOpenSource(null); onWriteConnector(); } }}
-                        />
-                    </>
-                ) : (
+                : (
                     <Body
                         showing={showing}
                         listing={listing}
-                        rowCount={variant === 'library' && !isWide ? mine.length + rows.length : rows.length}
+                        rowCount={rows.length}
                         query={query}
                         translate={translate}
-                        {...everywhere !== null
-                            ? { emptySaid: translate('markets.noneAnywhere') }
-                            : variant === 'library' && !isWide
-                                ? { emptySaid: translate('markets.libraryEmpty') }
-                                : {}}
                         onRetry={() => {
                             if (showing.kind === 'venue') {
                                 void markets.readListing(showing.venue);
                             }
                         }}
                     >
-                        {variant === 'library' && !isWide
-                            ? (
-                                <div className="min-h-0 flex-1 overflow-y-auto">
-                                    {/* What the reader has, first and always. The
-                                    catalogues fall in underneath only once
-                                    something is typed, so the screen they open
-                                    on is four or five rows they recognise
-                                    rather than nine hundred they do not. */}
-                                    <h4 className="px-3 py-1 field-label">{translate('markets.mine')}</h4>
-                                    <PairTable
-                                        rows={mine}
-                                        hasVenueColumn
-                                        open={open}
-                                        tags={state.tags}
-                                        translate={translate}
-                                        onOpen={openOne}
-                                        onKeep={keepOne}
-                                    />
-                                    {/* The catalogues, reached deliberately. The
-                                    library is what a reader has; browsing is
-                                    the other question, and it has to be asked
-                                    somewhere. */}
-                                    {query.trim() === '' && (
-                                        <div className="px-3 py-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => { setOpenSource('venue'); }}
-                                                className={`${PANEL_ADD_CLASSES} min-h-11 w-full`}
-                                            >
-                                                {translate('markets.browseAVenue')}
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {query.trim() !== '' && rows.length > 0 && (
-                                        <>
-                                            <h4 className="px-3 py-1 field-label">
-                                                {translate('markets.onTheVenues')}
-                                            </h4>
-                                            <PairTable
-                                                rows={rows}
-                                                hasVenueColumn
-                                                open={open}
-                                                tags={state.tags}
-                                                translate={translate}
-                                                onOpen={openOne}
-                                                onKeep={keepOne}
-                                            />
-                                        </>
-                                    )}
-                                </div>
-                            )
-                            : (
-                                <PairTable
-                                    rows={rows}
-                                    hasVenueColumn={showing.kind === 'tag'}
-                                    open={open}
-                                    tags={state.tags}
-                                    translate={translate}
-                                    onOpen={openOne}
-                                    onKeep={keepOne}
-                                />
-                            )}
+                        <PairTable
+                            rows={rows}
+                            hasVenueColumn={showing.kind === 'tag'}
+                            open={open}
+                            tags={state.tags}
+                            translate={translate}
+                            onOpen={openOne}
+                            onKeep={keepOne}
+                        />
                     </Body>
                 )}
 
@@ -769,8 +461,6 @@ interface BodyProps {
     readonly query: string;
     readonly translate: Translate;
     readonly onRetry: () => void;
-    /** Said instead of the rows, where the search crossed every venue. */
-    readonly emptySaid?: string | undefined;
     readonly children: ReactElement;
 }
 
@@ -781,13 +471,7 @@ interface BodyProps {
  * unread, never refused, and empty for a reason of its own. That is the whole
  * of what this adds to the shared body.
  */
-function Body({ showing, listing, rowCount, query, translate, onRetry, emptySaid, children }: BodyProps): ReactElement {
-    // A search across every catalogue is not about this venue's listing: it is
-    // never unread and never refused, and finding nothing means something else.
-    if (emptySaid !== undefined) {
-        return rowCount === 0 ? <Said said={emptySaid} /> : children;
-    }
-
+function Body({ showing, listing, rowCount, query, translate, onRetry, children }: BodyProps): ReactElement {
     if (showing.kind === 'tag') {
         return rowCount === 0 ? <Said said={translate('markets.emptyTag')} /> : children;
     }
