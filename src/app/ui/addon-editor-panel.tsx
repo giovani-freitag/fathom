@@ -72,7 +72,7 @@ const buildEditor: Parameters<typeof useAddonEditor>[0]['buildEditor'] = (config
     new AddonEditorService(config)
 );
 
-interface AddonEditorPanelProps {
+export interface AddonEditorPanelProps {
     readonly onClose: () => void;
     /** Which saved reading to open on, when the reader picked one. */
     readonly openKey?: string | undefined;

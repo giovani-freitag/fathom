@@ -2,6 +2,7 @@ import {
     CONTROL_CHIP_CLASSES,
     CONTROL_CHOSEN_CLASSES,
     CONTROL_OFFERED_CLASSES,
+    LIST_ROW_CLASSES,
     PANEL_ADD_CLASSES,
 } from '../control-shell.ts';
 import type { PairTag } from '../../../shared/core/pair-tags.ts';
@@ -178,7 +179,7 @@ function SourceRow({ said, count, isOn, mark, onPress }: SourceRowProps): ReactE
             type="button"
             aria-current={isOn}
             onClick={onPress}
-            className={`flex min-h-12 w-full items-center gap-3 border-b border-hairline/40 px-3 text-left text-sm transition-colors hover:bg-abyss-700 ${
+            className={`${LIST_ROW_CLASSES} border-b border-hairline/40 text-sm transition-colors hover:bg-abyss-700 ${
                 isOn ? 'text-phosphor' : 'text-ink-200'
             }`}
         >

@@ -1,3 +1,4 @@
+import { LIST_ROW_CLASSES } from '../control-shell.ts';
 import type { ReactElement } from 'react';
 import type { MarketPair, PairTag } from '../../../shared/core/pair-tags.ts';
 import { PairIdentity } from './pair-identity.tsx';
@@ -77,7 +78,7 @@ export function PairTable(props: PairTableProps): ReactElement {
                                 ? translate('markets.openIt', { symbol: row.pair.symbol })
                                 : `${row.pair.symbol} — ${row.whyNot}`}
                             onClick={() => { props.onOpen(row.pair); }}
-                            className={`flex min-w-0 flex-1 items-center gap-3 px-2 py-2 text-left transition-colors hover:bg-abyss-700 disabled:hover:bg-transparent ${
+                            className={`${LIST_ROW_CLASSES} min-w-0 flex-1 px-2 transition-colors hover:bg-abyss-700 disabled:hover:bg-transparent ${
                                 isShowing ? 'text-phosphor' : 'text-ink-100'
                             }`}
                         >

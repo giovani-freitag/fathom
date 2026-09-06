@@ -131,4 +131,23 @@ export const ROOMY_CARD_CLASSES =
     'flex h-[min(34rem,var(--radix-popover-content-available-height))]'
     + ' w-[min(52rem,calc(100vw-1.5rem))] flex-col overflow-hidden !p-0';
 
+/**
+ * How tall a row is in a list a thumb picks from.
+ *
+ * One figure for every list, because a reader running down a sheet reads the
+ * rhythm before they read the words: rows of three different heights read as
+ * three different kinds of thing. Forty-eight rather than thirty-six — the
+ * smaller number fits more on a desk and misses more on a phone.
+ */
+export const LIST_ROW_CLASSES = 'flex min-h-12 w-full items-center gap-3 px-3 text-left';
+
+/**
+ * How wide a control that answers "which one" is.
+ *
+ * Fixed rather than grown from the word inside it: two selects side by side
+ * whose widths follow their own contents jump about as the answers change, and
+ * the pair stops reading as one row of controls.
+ */
+export const CONTROL_SELECT_CLASSES = 'min-w-0 flex-1';
+
 export const PANEL_TITLE_CLASSES = 'text-sm font-semibold tracking-wide text-ink-100';

@@ -88,7 +88,7 @@ export function MarketsPanel({
     // opens on an empty one has answered nothing and offers nowhere obvious to
     // go.
     const [showing, setShowing] = useState<Showing>(
-        readPickerVariant(globalThis.location.search) === 'search'
+        ['search', 'selects'].includes(readPickerVariant(globalThis.location.search))
             ? { kind: 'venue', venue: FIRST_VENUE }
             : { kind: 'tag' },
     );
@@ -383,7 +383,7 @@ export function MarketsPanel({
                                     type="button"
                                     aria-label={translate('markets.newTag')}
                                     onClick={() => { setIsNamingTag(true); }}
-                                    className={`${CONTROL_BUTTON_CLASSES} ${CONTROL_RESTING_CLASSES}`}
+                                    className={`${CONTROL_BUTTON_CLASSES} shrink-0 border border-hairline bg-abyss-800/80 ${CONTROL_RESTING_CLASSES}`}
                                 >
                                     <Plus className="size-4" />
                                 </button>
@@ -401,7 +401,7 @@ export function MarketsPanel({
                                         type="button"
                                         aria-label={translate('markets.addVenue')}
                                         onClick={onWriteConnector}
-                                        className={`${CONTROL_BUTTON_CLASSES} ${CONTROL_RESTING_CLASSES}`}
+                                        className={`${CONTROL_BUTTON_CLASSES} shrink-0 border border-hairline bg-abyss-800/80 ${CONTROL_RESTING_CLASSES}`}
                                     >
                                         <Plus className="size-4" />
                                     </button>

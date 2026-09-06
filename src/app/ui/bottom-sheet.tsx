@@ -1,6 +1,7 @@
 import { Dialog } from 'radix-ui';
 import { EscapeGuardContext } from './escape-guard.ts';
 import { OVERLAY_CLASSES, PANEL_TITLE_CLASSES } from './control-shell.ts';
+import { SHEET_SURFACE_CLASSES } from './editor-shell.ts';
 import { type ReactElement, type ReactNode, useMemo, useRef } from 'react';
 import { X } from 'lucide-react';
 
@@ -55,8 +56,7 @@ export function BottomSheet({
                             event.preventDefault();
                         }
                     }}
-                    className={'fixed inset-x-0 bottom-0 z-50 flex h-[88dvh] flex-col rounded-t-2xl'
-                        + ' border-t border-hairline bg-abyss-850 shadow-2xl shadow-black/80'
+                    className={`${SHEET_SURFACE_CLASSES} z-50 h-[88dvh]`
                         + ' duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in'
                         + ' data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom'}
                 >

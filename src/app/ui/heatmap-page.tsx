@@ -9,6 +9,8 @@ import type { TranslationKey } from '../i18n/dictionaries/en.ts';
 import type { Translate } from '../i18n/translator.ts';
 import { ControlButton } from './control-button.tsx';
 import { EditorPlaceholder } from './editor-placeholder.tsx';
+import type { AddonEditorPanelProps } from './addon-editor-panel.tsx';
+import type { ComponentType } from 'react';
 import type { AddedIndicator } from '../../shared/core/indicator-selection.ts';
 import type { ChartState } from '../core/chart-controller.ts';
 import { ChartSurface } from './chart-surface.tsx';
@@ -59,10 +61,35 @@ const readSampleIntervalMs = (state: ChartState): number => state.dataset.sample
  * The editor carries a compiler, which is several times the weight of the chart
  * itself and of no use to anybody who never writes a reading.
  */
+/** The editor's module, fetched once and shared by both callers. */
+function loadEditor(): Promise<{ readonly AddonEditorPanel: ComponentType<AddonEditorPanelProps> }> {
+    return import('./addon-editor-panel.tsx');
+}
+
 const AddonEditorPanel = lazy(async () => {
-    const loaded = await import('./addon-editor-panel.tsx');
+    const loaded = await loadEditor();
     return { default: loaded.AddonEditorPanel };
 });
+
+/**
+ * Fetches the editor once the chart has had the machine to itself.
+ *
+ * Split off so the chart is not made to wait behind a compiler nobody has asked
+ * for, and warmed on idle so that pressing the control does not then start the
+ * download: the reader who does want it is the one who waited, and a second of
+ * nothing after a press reads as a control that did not work.
+ */
+function usePreloadedEditor(): void {
+    useEffect(() => {
+        const idle = globalThis.requestIdleCallback;
+        if (typeof idle !== 'function') {
+            const soon = setTimeout(() => { void loadEditor(); }, 2_000);
+            return () => { clearTimeout(soon); };
+        }
+        const asked = idle(() => { void loadEditor(); }, { timeout: 5_000 });
+        return () => { globalThis.cancelIdleCallback(asked); };
+    }, []);
+}
 
 /**
  * The whole product: one chart, and just enough chrome to explain it.
@@ -70,6 +97,8 @@ const AddonEditorPanel = lazy(async () => {
  * @returns The page.
  */
 export function HeatmapPage(): ReactElement {
+    usePreloadedEditor();
+
     const kernel = useKernel();
     // Sliced rather than read whole: a drag rewrites the viewport many times a
     // second, and a page that followed all of it rebuilt every control on the

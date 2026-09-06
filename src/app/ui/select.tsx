@@ -1,7 +1,7 @@
 import { Check, ChevronDown } from 'lucide-react';
 import type { Choice } from './choice.ts';
 import type { ReactElement } from 'react';
-import { CONTROL_HEIGHT } from './control-shell.ts';
+import { CONTROL_HEIGHT, LIST_ROW_CLASSES } from './control-shell.ts';
 import { Select as RadixSelect } from 'radix-ui';
 
 interface SelectProps {
@@ -45,7 +45,7 @@ export function Select({ value, choices, onSelect, label }: SelectProps): ReactE
         <RadixSelect.Root value={value} onValueChange={onSelect}>
             <RadixSelect.Trigger
                 aria-label={label}
-                className={`inline-flex min-w-0 items-center justify-between gap-2 rounded-md border border-hairline bg-abyss-800/80 px-3 text-ink-100 transition-colors hover:border-hairline-bright data-[state=open]:border-phosphor/60 ${height}`}
+                className={`flex w-full min-w-0 items-center justify-between gap-2 rounded-md border border-hairline bg-abyss-800/80 px-3 text-ink-100 transition-colors hover:border-hairline-bright data-[state=open]:border-phosphor/60 ${height}`}
             >
                 {/* Cut rather than wrapped: a name long enough to break over two
                     lines pushed the control past the height every other one
@@ -89,7 +89,7 @@ export function Select({ value, choices, onSelect, label }: SelectProps): ReactE
                                         value={choice.value}
                                         disabled={choice.isDisabled === true}
                                         {...choice.title === undefined ? {} : { title: choice.title }}
-                                        className="flex min-h-9 cursor-pointer select-none items-center justify-between gap-6 rounded-md px-3 text-xs text-ink-300 outline-none data-[disabled]:cursor-default data-[disabled]:opacity-40 data-[highlighted]:bg-abyss-700 data-[highlighted]:text-ink-100"
+                                        className={`${LIST_ROW_CLASSES} cursor-pointer select-none justify-between gap-6 rounded-md text-xs text-ink-300 outline-none data-[disabled]:cursor-default data-[disabled]:opacity-40 data-[highlighted]:bg-abyss-700 data-[highlighted]:text-ink-100`}
                                     >
                                         <RadixSelect.ItemText>
                                             <span className="flex items-center gap-2">
