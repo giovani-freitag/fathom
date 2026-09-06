@@ -1,5 +1,5 @@
 import { CONTROL_INPUT_CLASSES } from '../control-shell.ts';
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactElement, ReactNode, RefObject } from 'react';
 import { Search } from 'lucide-react';
 
 interface ListingCardProps {
@@ -13,6 +13,24 @@ interface ListingCardProps {
     readonly footing?: ReactNode;
     /** The rows, which scroll inside the card rather than moving it. */
     readonly children: ReactNode;
+    /**
+     * The card's own box, for whoever decides which shape to lay out in.
+     *
+     * That decision belongs to the room the card has rather than to the room
+     * the window has: this one has been mounted in a two-hundred-and-
+     * eighty-eight pixel settings column and in an eight-hundred-pixel
+     * dropdown, on the same screen, in the same minute.
+     */
+    readonly boxRef?: RefObject<HTMLDivElement | null> | undefined;
+    /**
+     * Whether the rail handed in is a column beside the rows or a bar above.
+     *
+     * Told rather than worked out, because whoever built the rail already
+     * decided which of the two it is. Worked out here from a window breakpoint,
+     * the two disagreed: the caller handed in a bar and this laid it out as a
+     * column, which took the bar's whole content width and left the rows none.
+     */
+    readonly isRailBeside?: boolean | undefined;
 }
 
 /**
@@ -28,14 +46,22 @@ interface ListingCardProps {
  * here holds its own height, so the rows are the only thing that moves and the
  * search and the rail stay where the reader left them.
  */
-export function ListingCard({ search, rail, banner, footing, children }: ListingCardProps): ReactElement {
+export function ListingCard({
+    search,
+    rail,
+    banner,
+    footing,
+    children,
+    boxRef,
+    isRailBeside = false,
+}: ListingCardProps): ReactElement {
     return (
-        <div className="flex min-h-0 flex-1 flex-col">
+        <div ref={boxRef} className="flex min-h-0 flex-1 flex-col">
             <header className="relative shrink-0 border-b border-hairline p-2">
                 {search}
             </header>
 
-            <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+            <div className={`flex min-h-0 flex-1 ${isRailBeside ? 'flex-row' : 'flex-col'}`}>
                 {rail}
 
                 {/* The rows measure themselves against this, not against

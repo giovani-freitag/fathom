@@ -1,4 +1,4 @@
-import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ListingBanner, ListingCard, RailBar, SearchField } from './listing-card.tsx';
 import { FAVOURITES_ID, findTagsHolding, type MarketPair, type PairTag } from '../../../shared/core/pair-tags.ts';
 import { ArrowLeft, Pencil, Plug, TagPlus } from 'lucide-react';
@@ -19,8 +19,8 @@ import { readFactsFor } from '../../../shared/venues/venue-registry.ts';
 import { useChartSlice } from '../../react/use-chart-state.ts';
 import { useMarkets } from '../../react/use-markets.ts';
 import { useTranslate } from '../../react/use-appearance.ts';
-import { useIsViewportAtLeast } from '../../react/use-viewport-width.ts';
 import { useVenueListing } from '../../react/use-venue-listing.ts';
+import { useHasRoomForRail } from '../../react/use-room-for-rail.ts';
 import { TYPING_SETTLES_MS, useSettled } from '../../react/use-long-listing.ts';
 
 /** What the card that names a tag is open on. */
@@ -62,7 +62,10 @@ export function MarketsPanel({
     // On a phone the select above says what is being looked at, so the banner
     // saying it again is the same answer twice on the screen with least room
     // for it.
-    const isWide = useIsViewportAtLeast('lg');
+    // Measured off this card rather than off the window: the same card is
+    // mounted in a dropdown and in a sheet, and the room it has is its own.
+    const card = useRef<HTMLDivElement>(null);
+    const isWide = useHasRoomForRail(card);
     const { state, markets } = useMarkets();
     // On what the reader keeps rather than on a catalogue. Only a recorded
     // pair can be drawn, and those are the ones under a tag: a venue's listing
@@ -234,6 +237,8 @@ export function MarketsPanel({
 
     return (
         <ListingCard
+            boxRef={card}
+            isRailBeside={isWide}
             search={(
                 <SearchField
                     hasFocus

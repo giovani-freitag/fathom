@@ -23,7 +23,7 @@ const ROW_ACTION_CLASSES =
 /** A heading in the rail, which lies down with it on a phone. */
 export function RailHeading({ said }: { readonly said: string }): ReactElement {
     return (
-        <h3 className="hidden px-2 pb-1 pt-3 field-label first:pt-1 lg:block">{said}</h3>
+        <h3 className="px-2 pb-1 pt-3 field-label first:pt-1">{said}</h3>
     );
 }
 

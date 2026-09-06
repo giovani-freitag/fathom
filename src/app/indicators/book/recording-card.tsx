@@ -11,9 +11,8 @@ import { ListingBanner, ListingCard, RailColumn, SearchField } from '../../ui/ma
 import { ListingBody, ListingFooting, QuoteFilter } from '../../ui/markets/listing-body.tsx';
 import { VenueMark } from '../../ui/markets/venue-mark.tsx';
 import { Select } from '../../ui/select.tsx';
-import { useIsViewportAtLeast } from '../../react/use-viewport-width.ts';
 import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
-import { memo, type ReactElement, useMemo, useState } from 'react';
+import { memo, type ReactElement, useMemo, useRef, useState } from 'react';
 import { PairIdentity } from '../../ui/markets/pair-identity.tsx';
 import { RailHeading, RailRow } from '../../ui/markets/rail-row.tsx';
 import type { RecordedContract } from '../../../shared/core/recording-control.ts';
@@ -23,6 +22,7 @@ import { useMarkets } from '../../react/use-markets.ts';
 import { useEscapeGuard } from '../../ui/escape-guard.ts';
 import type { VenueInstrument } from '../../../shared/core/venue-connector.ts';
 import { useSettled, useWholeWhenIdle } from '../../react/use-long-listing.ts';
+import { useHasRoomForRail } from '../../react/use-room-for-rail.ts';
 import { readInstruments } from '../../core/markets-controller.ts';
 import { useVenueListing } from '../../react/use-venue-listing.ts';
 
@@ -63,8 +63,11 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
     const [quote, setQuote] = useState('');
     const [chosen, setChosen] = useState<string | null>(null);
     // One layout or the other, never both: two rails in the tree is two
-    // controls answering to the same name.
-    const isWide = useIsViewportAtLeast('lg');
+    // controls answering to the same name. Measured off this card, because the
+    // window is not what it has to fit in — it opens inside a settings column
+    // two hundred and eighty-eight pixels wide.
+    const card = useRef<HTMLDivElement>(null);
+    const isWide = useHasRoomForRail(card);
     // Which contract is being deleted, while the reader is being asked about it.
     const [dropping, setDropping] = useState<RecordedContract | null>(null);
 
@@ -128,6 +131,8 @@ export function RecordingListing(props: RecordingListingProps): ReactElement {
 
     return (
         <ListingCard
+            boxRef={card}
+            isRailBeside={isWide}
             search={(
                 <SearchField
                     hasFocus

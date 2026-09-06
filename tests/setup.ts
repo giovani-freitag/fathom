@@ -1,5 +1,6 @@
 import { afterEach, beforeAll } from 'vitest';
 import { cleanup } from '@testing-library/react';
+import { observedSize } from './fixtures/observed-size.ts';
 
 /**
  * Gives jsdom a canvas that reports no drawing context.
@@ -28,7 +29,7 @@ afterEach(() => {
  *
  * jsdom implements no layout, so nothing would ever observe a size and the
  * surface would stay at zero by zero — which is the one state its paint path
- * refuses to run in.
+ * refuses to run in. What it reports is what the test asked for.
  */
 beforeAll(() => {
     globalThis.ResizeObserver = class {
@@ -40,7 +41,7 @@ beforeAll(() => {
 
         observe(target: Element): void {
             this.announce(
-                [{ target, contentRect: { width: 1_000, height: 600 } } as ResizeObserverEntry],
+                [{ target, contentRect: { ...observedSize } } as ResizeObserverEntry],
                 this,
             );
         }

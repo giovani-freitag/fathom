@@ -4,6 +4,7 @@ import { createIndicatorKernel, renderWithKernel } from '../../../../mocks/indic
 import { FIRST_VENUE } from '../../../../../src/shared/core/recording-control.ts';
 import type { RecordedContract, RecordingControl, StorageBudget } from '../../../../../src/shared/core/recording-control.ts';
 import { buildTranslate } from '../../../../../src/app/i18n/translator.ts';
+import { observedSize } from '../../../../fixtures/observed-size.ts';
 import { stubViewport } from '../../../../fixtures/viewport.ts';
 import { RecordingPanel } from '../../../../../src/app/indicators/book/recording-panel.tsx';
 
@@ -189,6 +190,21 @@ describe('what else could be recorded', () => {
         expect(await screen.findByRole('combobox', { name: 'Venues' })).toBeDefined();
         expect(screen.queryByRole('navigation', { name: 'Venues' })).toBeNull();
         expect(screen.getByText(/No connector here reads a book/)).toBeDefined();
+    });
+
+    it('lays out for the box it is in rather than for the window around it', async () => {
+        // It opens inside a settings column two hundred and eighty-eight pixels
+        // wide. Asked of the window, the answer on a desk was "wide": the card
+        // laid out a two-hundred-and-twenty-four pixel rail, left sixty-four
+        // pixels for a thousand contracts, and scrolled sideways.
+        showAt(1_440);
+        observedSize.width = 288;
+        renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+
+        expect(await screen.findByRole('combobox', { name: 'Venues' })).toBeDefined();
+        expect(screen.queryByRole('navigation', { name: 'Venues' })).toBeNull();
     });
 
     it('does not say which venue twice over on the screen with least room', async () => {
