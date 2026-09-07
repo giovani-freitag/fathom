@@ -7,6 +7,7 @@ import { RecordingPanel } from './recording-panel.tsx';
 import { resolveRecordedSpanMs } from '../../core/viewport-policy.ts';
 import { useKernel } from '../../react/kernel-context.ts';
 import { useTranslate } from '../../react/use-appearance.ts';
+import type { OpenPair } from './current-pair-recording.tsx';
 
 interface BookPanelProps {
     readonly state: ChartState;
@@ -76,7 +77,20 @@ export function BookPanel({ state }: BookPanelProps): ReactElement {
                 </>
             )}
 
-            <RecordingSection translate={translate} isPicking={isPicking} onPickingChange={setIsPicking} />
+            <RecordingSection
+                translate={translate}
+                isPicking={isPicking}
+                onPickingChange={setIsPicking}
+                {...state.instrumentSymbol === null || state.venue === null
+                    ? {}
+                    : {
+                        openPair: {
+                            venue: state.venue,
+                            symbol: state.instrumentSymbol,
+                            lastPrice: state.dataset.bars.bars.at(-1)?.closePrice ?? null,
+                        },
+                    }}
+            />
         </>
     );
 }
@@ -84,7 +98,7 @@ export function BookPanel({ state }: BookPanelProps): ReactElement {
 /**
  * The collector, beside the readings it feeds.
  */
-function RecordingSection({ translate, isPicking, onPickingChange }: RecordingSectionProps): ReactElement | null {
+function RecordingSection({ translate, isPicking, onPickingChange, openPair }: RecordingSectionProps): ReactElement | null {
     const kernel = useKernel();
     if (kernel.recording === null) {
         return null;
@@ -97,12 +111,15 @@ function RecordingSection({ translate, isPicking, onPickingChange }: RecordingSe
             translate={translate}
             isPicking={isPicking}
             onPickingChange={onPickingChange}
+            {...openPair === undefined ? {} : { openPair }}
         />
     );
 }
 
 interface RecordingSectionProps {
     readonly translate: Translate;
+    /** The contract the chart is on, so its own switch can be offered. */
+    readonly openPair?: OpenPair | undefined;
     /** True while the pairs are being chosen, which takes the whole panel. */
     readonly isPicking: boolean;
     readonly onPickingChange: (isPicking: boolean) => void;

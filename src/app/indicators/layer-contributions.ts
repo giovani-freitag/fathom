@@ -19,7 +19,7 @@ export interface LayerContribution {
      * changes far more often than the row or the page that mounts it, and
      * passing the whole window down would rebuild both on every change.
      */
-    readonly Overlay?: ComponentType<LayerOverlayProps>;
+    readonly Overlay?: ComponentType;
     /** What it reads under the cursor, shown beside its name in the legend. */
     readonly Readout?: ComponentType;
     /** False for a layer that must not be taken off the chart. */
@@ -54,21 +54,9 @@ export function findLayerContribution(layerId: string): LayerContribution | null
     return CONTRIBUTIONS[layerId] ?? null;
 }
 
-/** What every mark a layer puts on the chart is told. */
-export interface LayerOverlayProps {
-    /**
-     * Which copy of the layer drew it.
-     *
-     * So a mark can open its own settings: a reader who pressed what a layer
-     * drew has already said which one they mean, and the shell would otherwise
-     * have to guess between two copies of it.
-     */
-    readonly instanceId: string;
-}
-
 export interface DrawnOverlay {
     readonly instanceId: string;
-    readonly Overlay: ComponentType<LayerOverlayProps>;
+    readonly Overlay: ComponentType;
 }
 
 /**

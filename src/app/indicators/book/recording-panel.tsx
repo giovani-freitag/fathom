@@ -1,4 +1,5 @@
 import { CONTROL_CHIP_CLASSES, CONTROL_OFFERED_CLASSES } from '../../ui/control-shell.ts';
+import { CurrentPairRecording, type OpenPair } from './current-pair-recording.tsx';
 import { isRecordable } from '../../markets/recordable.ts';
 import { listConnectors } from '../../../shared/venues/venue-registry.ts';
 import { PanelSection } from '../../ui/panel-section.tsx';
@@ -29,6 +30,13 @@ export interface RecordingPanelProps {
     readonly onPickingChange?: ((isPicking: boolean) => void) | undefined;
     /** Called after a contract is switched on or off, so the picker keeps up. */
     readonly onContractsChanged: () => void;
+    /**
+     * The contract the chart is on, for the switch that acts on it alone.
+     *
+     * Handed in rather than read here: this panel is given everything it needs
+     * and reaches for nothing, which is what lets it be drawn on its own.
+     */
+    readonly openPair?: OpenPair | undefined;
     readonly translate: Translate;
 }
 
@@ -168,6 +176,18 @@ export function RecordingPanel(props: RecordingPanelProps): ReactElement {
                 and the same rows written twice are two places to keep in step. */}
             <p className="text-xs text-ink-200">{summarise(state.contracts, translate)}</p>
 
+            {/* The one contract a reader has already named by looking at it. */}
+            <CurrentPairRecording
+                pair={props.openPair}
+                contracts={state.contracts}
+                isSaving={isSaving}
+                translate={translate}
+                onRecord={(venue, symbol, priceBucketSize) => {
+                    listing.onRecord(venue, standInFor(symbol), priceBucketSize);
+                }}
+                onToggle={listing.onToggle}
+            />
+
             <button
                 type="button"
                 onClick={() => { setIsPicking(true); }}
@@ -282,4 +302,15 @@ function formatGigabytes(bytes: number): string {
     return gigabytes < 0.1
         ? `${formatFixed(bytes / 1_048_576, 0)} MB`
         : `${formatFixed(gigabytes, 1)} GB`;
+}
+
+/**
+ * A pair named by the chart rather than found in a listing.
+ *
+ * Only the symbol is known, which is the one field the recording is keyed on.
+ * The rest is what the venue would have said, and none of it is read once the
+ * grid has been chosen.
+ */
+function standInFor(symbol: string): VenueInstrument {
+    return { symbol, base: '', quote: '', priceStep: 0, isTrading: true };
 }

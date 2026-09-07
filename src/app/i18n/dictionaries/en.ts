@@ -303,7 +303,6 @@ export const EN_DICTIONARY = {
 
     'legend.book': 'book',
     'legend.notRecorded': 'book not recorded here',
-    'legend.recordThis': 'Record the book for {symbol}',
 
     'interval.auto': 'Auto · {interval}',
     'interval.label': 'Bar interval',
@@ -392,6 +391,11 @@ export const EN_DICTIONARY = {
     'recording.toggle': 'Record {symbol}',
     'recording.saveFailed': 'That change could not be saved.',
     'recording.addPair': 'Choose what to record',
+    'recording.startThis': 'Record {symbol}',
+    'recording.stopThis': 'Stop recording {symbol}',
+    'recording.resumeThis': 'Record {symbol} again',
+    'recording.gridFor': 'Price per row for {symbol}',
+    'recording.noGridYet': 'No price has arrived yet, so there is no ladder to choose from.',
     'recording.onVenues': 'Recording {pairs} on {venues}',
     'recording.someOff': '{count} switched off',
     'recording.noneYet': 'Nothing is being recorded yet.',

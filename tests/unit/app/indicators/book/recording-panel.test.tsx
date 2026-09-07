@@ -7,6 +7,7 @@ import { buildTranslate } from '../../../../../src/app/i18n/translator.ts';
 import { observedSize } from '../../../../fixtures/observed-size.ts';
 import { stubViewport } from '../../../../fixtures/viewport.ts';
 import { RecordingPanel } from '../../../../../src/app/indicators/book/recording-panel.tsx';
+import type { OpenPair } from '../../../../../src/app/indicators/book/current-pair-recording.tsx';
 
 const CONTRACTS: RecordedContract[] = [
     { venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT', priceBucketSize: 10, frameIntervalMs: 1_000, isEnabled: true },
@@ -19,7 +20,7 @@ describe('RecordingPanel', () => {
     let setBudget: Mock<(maximumBytes: number) => Promise<void>>;
     let onContractsChanged: Mock<() => void>;
 
-    function renderPanel(): void {
+    function renderPanel(openPair?: OpenPair): void {
         const recording = {
             listContracts: () => Promise.resolve(CONTRACTS),
             readBudget: () => Promise.resolve(budget),
@@ -33,6 +34,7 @@ describe('RecordingPanel', () => {
                 recording={recording}
                 onContractsChanged={onContractsChanged}
                 translate={buildTranslate('en')}
+                {...openPair === undefined ? {} : { openPair }}
             />,
         );
     }
@@ -43,6 +45,44 @@ describe('RecordingPanel', () => {
         onContractsChanged = vi.fn<() => void>();
         setBudget = vi.fn<(maximumBytes: number) => Promise<void>>().mockResolvedValue(undefined);
         budget = { maximumBytes: 10_737_418_240, usedBytes: 1_073_741_824, availableBytes: null };
+    });
+
+    it('switches the contract on the chart off without opening the listing', async () => {
+        // A reader looking at a pair has already said which one they mean.
+        // Managing it meant opening a card, finding it among nine hundred rows,
+        // and coming back.
+        renderPanel({ venue: FIRST_VENUE, symbol: 'BTCUSDT', lastPrice: 79_000 });
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Stop recording BTCUSDT' }));
+
+        await vi.waitFor(() => {
+            expect(saveContract).toHaveBeenCalledWith(
+                expect.objectContaining({ instrumentSymbol: 'BTCUSDT', isEnabled: false }),
+            );
+        });
+    });
+
+    it('offers to record the contract on the chart, asking the grid first', async () => {
+        // The grid cannot be changed once a recording holds history on it, so
+        // the press this shortcut saves is the one that opens the list, never
+        // the one that decides.
+        renderPanel({ venue: 'bybit', symbol: 'AAVEUSDT', lastPrice: 133.5 });
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Record AAVEUSDT' }));
+        const grids = await screen.findByText('Price per row for AAVEUSDT');
+        fireEvent.click(within(grids.parentElement!).getAllByRole('button')[0]!);
+
+        await vi.waitFor(() => {
+            expect(saveContract).toHaveBeenCalledWith(
+                expect.objectContaining({ venue: 'bybit', instrumentSymbol: 'AAVEUSDT', isEnabled: true }),
+            );
+        });
+    });
+
+    it('offers nothing about a chart that is on no contract', () => {
+        renderPanel();
+
+        expect(screen.queryByRole('button', { name: /Record |Stop recording/ })).toBeNull();
     });
 
     it('counts what is being recorded rather than listing it twice', async () => {

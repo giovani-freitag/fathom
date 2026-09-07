@@ -305,7 +305,6 @@ export const PT_BR_DICTIONARY: Dictionary = {
 
     'legend.book': 'book',
     'legend.notRecorded': 'livro não gravado aqui',
-    'legend.recordThis': 'Gravar o livro de {symbol}',
 
     'interval.auto': 'Auto · {interval}',
     'interval.label': 'Intervalo da barra',
@@ -394,6 +393,11 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'recording.toggle': 'Gravar {symbol}',
     'recording.saveFailed': 'Não foi possível salvar essa alteração.',
     'recording.addPair': 'Escolher o que gravar',
+    'recording.startThis': 'Gravar {symbol}',
+    'recording.stopThis': 'Parar de gravar {symbol}',
+    'recording.resumeThis': 'Gravar {symbol} de novo',
+    'recording.gridFor': 'Preço por linha de {symbol}',
+    'recording.noGridYet': 'Nenhum preço chegou ainda, então não há escada para escolher.',
     'recording.onVenues': 'Gravando {pairs} em {venues}',
     'recording.someOff': '{count} desligados',
     'recording.noneYet': 'Nada está sendo gravado ainda.',

@@ -1,7 +1,5 @@
 import { CircleDashed } from 'lucide-react';
 import { DepthColourScale } from './depth-colour-scale.ts';
-import type { LayerOverlayProps } from '../layer-contributions.ts';
-import { useIndicators } from '../../react/use-indicators.ts';
 import { formatQuantity, resolveBaseAsset } from '../../core/formatting.ts';
 import { type ReactElement, useEffect, useRef } from 'react';
 import { useAppearance, useTranslate } from '../../react/use-appearance.ts';
@@ -14,14 +12,12 @@ const SHELL_CLASSES =
 /**
  * The colour ramp, with the sizes at each of its ends.
  *
- * Or, on a contract nothing recorded, the way to start recording one. A book is
- * the one thing here that cannot be fetched after the fact, so a reader looking
- * at a pair whose candles came from the venue is one press from keeping its
- * book too — and told, rather than left to read an empty ramp as a quiet market.
+ * Or, on a contract nothing recorded, that there is no book to ramp. Said
+ * rather than left out: an empty ramp over a live chart reads as a quiet
+ * market, which is a different thing from one nobody was recording.
  */
-export function DepthLegend({ instanceId }: LayerOverlayProps): ReactElement {
+export function DepthLegend(): ReactElement {
     const state = useChartState();
-    const indicators = useIndicators();
     const { colourGain, instrumentSymbol } = state;
     const { floorQuantity, saturationQuantity } = state.dataset;
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -54,17 +50,12 @@ export function DepthLegend({ instanceId }: LayerOverlayProps): ReactElement {
 
     if (!state.isRecorded) {
         return (
-            <button
-                type="button"
-                aria-label={translate('legend.recordThis', { symbol: instrumentSymbol ?? '' })}
-                onClick={() => { indicators.pick(instanceId); }}
-                className={`${SHELL_CLASSES} pointer-events-auto gap-1.5 text-ink-400 transition-colors hover:border-hairline-bright hover:text-ink-100`}
-            >
+            <div className={`${SHELL_CLASSES} pointer-events-none gap-1.5 text-ink-500`}>
                 <CircleDashed className="size-3 shrink-0" />
                 <span className="text-[10px] font-semibold uppercase tracking-widest">
                     {translate('legend.notRecorded')}
                 </span>
-            </button>
+            </div>
         );
     }
 
