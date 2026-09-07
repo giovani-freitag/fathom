@@ -33,11 +33,12 @@ here when you want to keep what it recorded.
 ## Configuration
 
 The command above runs on the defaults. Every variable is documented in
-`.env.example`, but these four are the ones you are likely to change.
+`.env.example`, but these five are the ones you are likely to change.
 
 | | |
 |---|---|
-| `INSTRUMENT_SYMBOL` | Which contract to record. Any Binance USD-M perpetual. |
+| `VENUE` | Which exchange to read it from: `binance-futures`, `bybit`, `okx`, `coinbase`, `kraken` or `gate`. Named here only for the seed; every contract after that carries its own. |
+| `INSTRUMENT_SYMBOL` | Which contract to record, spelled the way that venue spells it. |
 | `PRICE_BUCKET_SIZE` | How tall one row of the heat map is, in quote units. Ten dollars on Bitcoin, a hundredth of that on Litecoin. |
 | `RECORDED_PRICE_RANGE_RATIO` | How far either side of the price the recording reaches. This is what decides what a day of it costs on disk. |
 | `POSTGRES_PASSWORD` | Defaults to `fathom`. Fine while the port is on loopback, and not otherwise. |
@@ -46,7 +47,7 @@ Pass them with `-e`:
 
 ```bash
 docker run -p 8787:8787 -v fathom:/var/lib/postgresql/data \
-  -e INSTRUMENT_SYMBOL=ETHUSDT -e PRICE_BUCKET_SIZE=0.5 \
+  -e VENUE=bybit -e INSTRUMENT_SYMBOL=ETHUSDT -e PRICE_BUCKET_SIZE=0.5 \
   ghcr.io/giovani-freitag/fathom
 ```
 

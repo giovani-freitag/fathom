@@ -98,7 +98,7 @@ closes the difference — switching a contract on starts a collector for it with
 an interval, without touching the others or restarting anything.
 
 One process holds every contract. There is no unit per symbol and no environment
-variable to edit; `INSTRUMENT_SYMBOL` in `.env` is only the seed a fresh database
+variable to edit; `VENUE` and `INSTRUMENT_SYMBOL` in `.env` are only the seed a fresh database
 needs so that a first run records something before anyone opens the chart.
 
 The supervisor also replaces a collector that stopped producing frames. A runtime
