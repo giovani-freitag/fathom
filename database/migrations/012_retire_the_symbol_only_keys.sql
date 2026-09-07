@@ -21,6 +21,18 @@
 --
 -- Safe to run twice, like every migration here.
 
+-- Twice over, because these indexes answer to two names. A database that has
+-- been through the rename in 008 carries them as `spike_chunks_*` — the tables
+-- were renamed and the indexes over them were not — while 008 itself declares
+-- them as `whole_book_*` and creates them on a database that has neither.
+--
+-- And 008 runs before this file, every time, because the runner applies them all
+-- in order and keeps no ledger. So the name 008 creates has to be dropped here
+-- as well as the name history left behind: written for one name only, this would
+-- have taken away an index the same run had just put back.
+DROP INDEX IF EXISTS whole_book.spike_chunks_block_identity_idx;
+DROP INDEX IF EXISTS whole_book.spike_chunks_chunk_identity_idx;
+DROP INDEX IF EXISTS whole_book.spike_chunks_chunk_window_idx;
 DROP INDEX IF EXISTS whole_book.whole_book_block_identity_idx;
 DROP INDEX IF EXISTS whole_book.whole_book_chunk_identity_idx;
 DROP INDEX IF EXISTS whole_book.whole_book_chunk_window_idx;

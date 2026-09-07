@@ -12,18 +12,11 @@ condition is met; the next run picks it up.
 
 ## What is waiting
 
-- **`012_retire_the_symbol_only_keys.sql`** — waits for the collector on this
-  machine to be running a build whose upsert names the venue. Until then the
-  old indexes have to stay, because Postgres resolves `ON CONFLICT (cols)` by
-  finding a unique index on exactly those columns, and an insert that fails is
-  a hole in a book nobody can record again.
+Nothing, at the moment. Both of the migrations this directory was made for have
+run: `012` once the collector was rebuilt to name the venue in its upsert, and
+the venue on `trade_cluster` as `013` alongside
+`scripts/rekey-trade-rollups.mjs`, which rebuilds the two continuous aggregates
+that a migration cannot alter.
 
-- **The venue on `trade_cluster`** — not written yet. Its two continuous
-  aggregates, `trade_cluster_minute` and `trade_cluster_hour`, group by the
-  symbol, and a continuous aggregate's definition cannot be altered: it has to
-  be dropped, recreated and re-materialised, over twelve compressed chunks.
-  That needs a window somebody chose. Until it runs, two things go by the
-  symbol alone: what a window of executions answers with, and what taking a
-  contract away deletes — so removing one exchange's `BTCUSDT` takes every
-  exchange's executions of that symbol with it, while leaving each one's book
-  where it is.
+The directory stays because the next migration that has to wait for something
+will need it, and because the reason above is worth keeping written down.

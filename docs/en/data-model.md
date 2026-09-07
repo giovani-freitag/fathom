@@ -224,10 +224,8 @@ grid of the first — with a recording already under way on the old one.
 A row can be taken away as well as switched off, and the two are opposite
 decisions: switching off stops the recording and keeps everything it captured,
 while removing it deletes what that contract recorded across the tables the
-collector writes to — by the venue and the symbol together wherever the table
-names a venue, so that taking one exchange's `BTCUSDT` away leaves another's
-where it is. `trade_cluster` is the exception until its aggregates are rebuilt
-around the venue: its executions still go by symbol alone. The registry row goes last — while it is there the
+collector writes to — by the venue and the symbol together, so that taking one
+exchange's `BTCUSDT` away leaves another's where it is. The registry row goes last — while it is there the
 supervisor may still be recording, and a delete that ran before the collector
 let go would be emptying tables still being written into.
 
