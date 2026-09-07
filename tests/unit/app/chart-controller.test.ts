@@ -13,6 +13,7 @@ import {
 
 import { buildBar, buildWindow as buildBarWindow } from '../../mocks/price-bars.ts';
 import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
+import { isOpenRecorded } from '../../../src/app/core/chart-controller.ts';
 
 const SURFACE_WIDTH = 1_000;
 
@@ -605,7 +606,7 @@ describe('ChartController.selectInstrument', () => {
 
         expect(controller.store.read().instrumentSymbol).toBe('DOGEUSDT');
         expect(controller.store.read().venue).toBe('bybit');
-        expect(controller.store.read().isRecorded).toBe(false);
+        expect(isOpenRecorded(controller.store.read())).toBe(false);
     });
 
     it('lets a contract nothing recorded keep a band its own price fits in', async () => {
@@ -629,6 +630,30 @@ describe('ChartController.selectInstrument', () => {
 
         const { viewport } = controller.store.read();
         expect(viewport.highPrice - viewport.lowPrice).toBeLessThan(0.001);
+    });
+
+    it('starts asking for the book once the reader records the contract on screen', async () => {
+        // The reader presses record on the pair in front of them, and the chart
+        // was asking the archive nothing about it: no frames in any request and
+        // no tail. Nothing changed on screen, and nothing would have until
+        // something else happened to reload the window.
+        const mocks = buildTwoInstrumentMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        act(() => { controller.selectInstrument({ venue: 'bybit', symbol: 'DOGEUSDT' }); });
+        await vi.waitFor(() => { expect(controller.store.read().phase).not.toBe('loading'); });
+        mocks.fetchFrameWindow.mockClear();
+        mocks.connect.mockClear();
+
+        mocks.fetchInstruments.mockResolvedValue([
+            INSTRUMENT,
+            { ...INSTRUMENT, instrumentSymbol: 'DOGEUSDT', venue: 'bybit' },
+        ]);
+        await controller.refreshInstruments();
+
+        expect(isOpenRecorded(controller.store.read())).toBe(true);
+        await vi.waitFor(() => { expect(mocks.fetchFrameWindow).toHaveBeenCalled(); });
+        expect(mocks.connect).toHaveBeenCalled();
     });
 
     it('leaves the tail alone on a contract nothing recorded', async () => {

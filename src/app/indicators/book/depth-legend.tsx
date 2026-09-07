@@ -1,5 +1,6 @@
 import { CircleDashed } from 'lucide-react';
 import { DepthColourScale } from './depth-colour-scale.ts';
+import { isOpenRecorded } from '../../core/chart-controller.ts';
 import { formatQuantity, resolveBaseAsset } from '../../core/formatting.ts';
 import { type ReactElement, useEffect, useRef } from 'react';
 import { useAppearance, useTranslate } from '../../react/use-appearance.ts';
@@ -48,7 +49,7 @@ export function DepthLegend(): ReactElement {
         // painted once would keep showing the colours of the theme it was born in.
     }, [resolvedTheme]);
 
-    if (!state.isRecorded) {
+    if (!isOpenRecorded(state)) {
         return (
             <div className={`${SHELL_CLASSES} pointer-events-none gap-1.5 text-ink-500`}>
                 <CircleDashed className="size-3 shrink-0" />

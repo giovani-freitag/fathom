@@ -88,14 +88,6 @@ export interface ChartState {
      * handful being recorded are in `instruments` to be found.
      */
     readonly venue: string | null;
-    /**
-     * Whether the open contract is one this recording holds.
-     *
-     * Said outright rather than read off an empty window: a window is empty
-     * while the first one is still arriving, and a chart cannot tell a reader
-     * "nothing was ever recorded here" on the strength of that.
-     */
-    readonly isRecorded: boolean;
     readonly viewport: ChartViewport;
     readonly dataset: ChartDataset;
     readonly liveStatus: LiveFeedStatus;
@@ -136,6 +128,25 @@ export interface ChartState {
      * reader who has just pointed at a line has said which one they mean.
      */
     readonly pickedInstanceId: string | null;
+}
+
+/**
+ * Whether the open contract is one this recording holds a book for.
+ *
+ * Derived rather than kept, because it is a fact about two things that move
+ * independently: which contract is open, and what the archive covers. Held as a
+ * field it was written when the contract changed and never again — so a reader
+ * who started recording the pair in front of them saw nothing change, on a
+ * chart that had stopped asking for frames.
+ *
+ * @param state - The chart as it stands.
+ * @returns True where the archive lists the open contract.
+ */
+export function isOpenRecorded(state: ChartState): boolean {
+    return state.instruments.some((candidate) => (
+        candidate.instrumentSymbol === state.instrumentSymbol
+        && candidate.venue === state.venue
+    ));
 }
 
 export interface ChartControllerConfig {
@@ -243,7 +254,17 @@ export class ChartController {
     async refreshInstruments(): Promise<void> {
         try {
             const instruments = await this.config.api.fetchInstruments();
+            const wasRecorded = isOpenRecorded(this.store.read());
             this.store.update((current) => ({ ...current, instruments }));
+            // A contract the reader has just started recording is a contract
+            // this chart was asking nothing about: the frames were left out of
+            // every request, so the window it holds would go on showing candles
+            // alone until something else happened to reload it.
+            if (isOpenRecorded(this.store.read()) === wasRecorded) {
+                return;
+            }
+            await this.loadWindow();
+            this.openLiveTail();
         } catch {
             // The chart still has the contracts it knew about; a failed refresh
             // is not worth replacing a working screen with an error.
@@ -276,7 +297,6 @@ export class ChartController {
                 instruments,
                 instrumentSymbol: preferred.instrumentSymbol,
                 venue: preferred.venue,
-                isRecorded: true,
                 viewport: buildInitialViewport(preferred, current.viewport.toMs - current.viewport.fromMs),
                 phase: 'ready',
             }));
@@ -370,7 +390,6 @@ export class ChartController {
             ...state,
             instrumentSymbol: pair.symbol,
             venue: pair.venue,
-            isRecorded: instrument !== undefined,
             dataset: EMPTY_DATASET,
             isFollowingLive: true,
             viewport: buildInitialViewport(instrument ?? null, state.viewport.toMs - state.viewport.fromMs),
@@ -381,7 +400,7 @@ export class ChartController {
             // socket for a contract it never recorded, and closes it with a
             // code the feed reads as permanent — so a reader who opened a pair
             // to look at its candles was shown a live status of "refused".
-            if (this.store.read().isRecorded) {
+            if (isOpenRecorded(this.store.read())) {
                 this.openLiveTail();
             }
         });
@@ -543,7 +562,7 @@ export class ChartController {
             // with a bucket of one, which on a pair worth three ten-thousandths
             // is a floor four units tall. It flattened the band the candles had
             // just been framed on into the whole axis.
-            priceBucketSize: state.isRecorded ? state.dataset.priceBucketSize : 0,
+            priceBucketSize: isOpenRecorded(state) ? state.dataset.priceBucketSize : 0,
             nowMs: Date.now(),
             rightMarginMs: resolveRightMarginMs(state),
         });
@@ -878,7 +897,7 @@ function resolveWindowSources(state: ChartState): readonly WindowSource[] {
     //
     // The book and the tape are recorded; the candles and the volume that rides
     // on them come from the venue and are asked for regardless.
-    if (!state.isRecorded) {
+    if (!isOpenRecorded(state)) {
         return sources;
     }
     if (state.isDepthVisible) {
@@ -925,7 +944,6 @@ function buildInitialState(preferences: ViewerPreferences): ChartState {
         instruments: [],
         instrumentSymbol: null,
         venue: null,
-        isRecorded: false,
         barIntervalMs: preferences.barIntervalMs,
         viewport: {
             fromMs: nowMs - preferences.visibleSpanMs,
