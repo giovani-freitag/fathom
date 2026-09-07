@@ -67,7 +67,15 @@ export interface ChartServiceMocks {
     readonly fetchTradeClusters: ReturnType<typeof vi.fn>;
     readonly fetchGaps: ReturnType<typeof vi.fn>;
     readonly fetchPriceBars: ReturnType<typeof vi.fn<PriceBarRead>>;
-    readonly connect: ReturnType<typeof vi.fn>;
+    /**
+     * Typed, so a test can read the subscription the chart opened.
+     *
+     * An untyped spy hands back `any` calls, and a test asking which contract a
+     * tail was opened for was then reaching into a value the compiler could not
+     * check — on the assertion that exists to catch a tail opened for the wrong
+     * one.
+     */
+    readonly connect: ReturnType<typeof vi.fn<(subscription: LiveFeedSubscription) => void>>;
     readonly disconnect: ReturnType<typeof vi.fn>;
     readonly writePreferences: ReturnType<typeof vi.fn>;
     /** The subscription the controller opened, so a test can push live frames. */
@@ -96,7 +104,7 @@ export function createChartServiceMocks(
     });
     const fetchGaps = vi.fn().mockResolvedValue([]);
     const fetchPriceBars = vi.fn<PriceBarRead>().mockResolvedValue(EMPTY_BAR_WINDOW);
-    const connect = vi.fn();
+    const connect = vi.fn<(subscription: LiveFeedSubscription) => void>();
     const disconnect = vi.fn();
     const writePreferences = vi.fn();
 
@@ -120,9 +128,9 @@ export function createChartServiceMocks(
         connect,
         disconnect,
         writePreferences,
-        lastSubscription: () => connect.mock.calls.at(-1)?.[0] as LiveFeedSubscription | undefined,
+        lastSubscription: () => connect.mock.calls.at(-1)?.[0],
         deliverFrames: (window: LiquidityFrameWindow) => {
-            const subscription = connect.mock.calls.at(-1)?.[0] as LiveFeedSubscription | undefined;
+            const subscription = connect.mock.calls.at(-1)?.[0];
             subscription?.onMessage({ kind: 'frames', window });
         },
     };

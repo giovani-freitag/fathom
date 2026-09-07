@@ -142,6 +142,11 @@ export interface ChartState {
  * @param state - The chart as it stands.
  * @returns True where the archive lists the open contract.
  */
+/** The open contract as one string, for comparing one against another. */
+function describeContract(state: ChartState): string {
+    return `${state.venue ?? ''}/${state.instrumentSymbol ?? ''}`;
+}
+
 export function isOpenRecorded(state: ChartState): boolean {
     return state.instruments.some((candidate) => (
         candidate.instrumentSymbol === state.instrumentSymbol
@@ -211,7 +216,15 @@ export class ChartController {
     /** Newest instant the tail has handed over, which is where it will resume. */
     private tailDeliveredMs = 0;
     /** The store the running tail is streaming out of. */
-    private hasOpenedTail = false;
+    /**
+     * Which contract the running tail is on, or null while none is running.
+     *
+     * The contract rather than a flag, because the question every reader of it
+     * asks is "is there a tail on THIS one". A boolean answered "was one ever
+     * opened", was never written back to false, and so let the window's own
+     * correction reopen a tail on a contract the selection had just refused.
+     */
+    private tailContract: string | null = null;
     /** The prices the running tail is reading over, as the window key spells them. */
     private tailBandKey: string | null = null;
     /** The prices the newest window was read over, which is what a tail extends. */
@@ -358,6 +371,7 @@ export class ChartController {
         }
         this.windowLoader.dispose();
         this.config.liveFeed.disconnect();
+        this.tailContract = null;
     }
 
     /**
@@ -384,6 +398,7 @@ export class ChartController {
         // message names no instrument, so anything the old tail delivers in
         // between is appended to the contract the reader moved to.
         this.config.liveFeed.disconnect();
+        this.tailContract = null;
         this.windowLoader.reset();
         this.needsPriceFraming = instrument?.lastMidPrice == null;
         this.store.update((state) => ({
@@ -395,15 +410,7 @@ export class ChartController {
             viewport: buildInitialViewport(instrument ?? null, state.viewport.toMs - state.viewport.fromMs),
         }));
         this.persistPreferences();
-        void this.loadWindow().then(() => {
-            // Only where there is a recording to tail. The gateway closes a
-            // socket for a contract it never recorded, and closes it with a
-            // code the feed reads as permanent — so a reader who opened a pair
-            // to look at its candles was shown a live status of "refused".
-            if (isOpenRecorded(this.store.read())) {
-                this.openLiveTail();
-            }
-        });
+        void this.loadWindow().then(() => { this.openLiveTail(); });
     }
 
     /**
@@ -666,7 +673,7 @@ export class ChartController {
         // Only once there is a tail to reopen: before the first one is opened
         // there is nothing to correct, and opening here would leave the caller
         // that is about to open one holding a second socket.
-        const hasTail = this.hasOpenedTail;
+        const hasTail = this.tailContract === describeContract(this.store.read());
         // And a tail reading a band the window no longer covers leaves the
         // prices the reader has just panned onto standing still. Compared here,
         // after the window has landed, so the socket that reopens asks for the
@@ -684,8 +691,15 @@ export class ChartController {
             return;
         }
 
+        // The gate lives here rather than at each caller, so no caller can get
+        // past it: the window's own correction used to reopen a tail with no
+        // such check at all, on a contract the archive has never held.
+        if (!isOpenRecorded(state)) {
+            return;
+        }
+
         this.tailDeliveredMs = newestFrameTimestamp(state.dataset) ?? 0;
-        this.hasOpenedTail = true;
+        this.tailContract = describeContract(state);
         const band = this.loadedPriceBand;
         this.tailBandKey = describeBand(band);
 

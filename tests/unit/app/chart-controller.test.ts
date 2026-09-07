@@ -588,24 +588,44 @@ describe('ChartController.selectInstrument', () => {
         await controller.initialize();
 
         act(() => { controller.selectInstrument({ venue: FIRST_VENUE, symbol: 'ETHUSDT' }); });
-        await vi.waitFor(() => { expect(controller.store.read().phase).not.toBe('loading'); });
+        await vi.waitFor(() => { expect(mocks.fetchPriceBars).toHaveBeenCalled(); });
 
         expect(controller.store.read().instrumentSymbol).toBe('ETHUSDT');
     });
 
-    it('opens a contract that has never been recorded, and says it has none', async () => {
-        // The candles and the volume come from the venue and were never
-        // recorded. Refused, a reader had four of the eight hundred and
-        // fifty-five contracts on offer, and no word about the rest.
+    it('asks the archive for a contract it holds, and asks it nothing about one it does not', async () => {
+        // Both halves in one test on purpose. Asserted alone, "the archive was
+        // not asked" passed against a `selectInstrument` that did nothing at
+        // all: nothing can break an absence. The recorded half is what forces
+        // the load to run, so the unrecorded half means something.
+        const mocks = buildTwoInstrumentMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        mocks.fetchFrameWindow.mockClear();
+
+        act(() => { controller.selectInstrument({ venue: FIRST_VENUE, symbol: 'ETHUSDT' }); });
+        await vi.waitFor(() => { expect(mocks.fetchFrameWindow).toHaveBeenCalled(); });
+        mocks.fetchFrameWindow.mockClear();
+
+        act(() => { controller.selectInstrument({ venue: 'bybit', symbol: 'DOGEUSDT' }); });
+        await vi.waitFor(() => { expect(mocks.fetchPriceBars).toHaveBeenCalled(); });
+
+        // The candles were fetched from the venue; the book was not asked for.
+        expect(controller.store.read().instrumentSymbol).toBe('DOGEUSDT');
+        expect(controller.store.read().venue).toBe('bybit');
+        expect(mocks.fetchFrameWindow).not.toHaveBeenCalled();
+    });
+
+    it('reads the coverage by venue as well as by symbol', async () => {
+        // One term of the comparison, varied. Matched on the symbol alone,
+        // opening BTCUSDT on a venue nothing recorded was handed the coverage,
+        // the grid and the extent of the venue that did.
         const mocks = buildTwoInstrumentMocks();
         const controller = buildController(mocks);
         await controller.initialize();
 
-        act(() => { controller.selectInstrument({ venue: 'bybit', symbol: 'DOGEUSDT' }); });
-        await vi.waitFor(() => { expect(controller.store.read().phase).not.toBe('loading'); });
+        act(() => { controller.selectInstrument({ venue: 'bybit', symbol: 'BTCUSDT' }); });
 
-        expect(controller.store.read().instrumentSymbol).toBe('DOGEUSDT');
-        expect(controller.store.read().venue).toBe('bybit');
         expect(isOpenRecorded(controller.store.read())).toBe(false);
     });
 
@@ -618,7 +638,7 @@ describe('ChartController.selectInstrument', () => {
         const controller = buildController(mocks);
         await controller.initialize();
         act(() => { controller.selectInstrument({ venue: 'bybit', symbol: 'DOGEUSDT' }); });
-        await vi.waitFor(() => { expect(controller.store.read().phase).not.toBe('loading'); });
+        await vi.waitFor(() => { expect(mocks.fetchPriceBars).toHaveBeenCalled(); });
 
         const nowMs = Date.now();
         act(() => {
@@ -641,7 +661,7 @@ describe('ChartController.selectInstrument', () => {
         const controller = buildController(mocks);
         await controller.initialize();
         act(() => { controller.selectInstrument({ venue: 'bybit', symbol: 'DOGEUSDT' }); });
-        await vi.waitFor(() => { expect(controller.store.read().phase).not.toBe('loading'); });
+        await vi.waitFor(() => { expect(mocks.fetchPriceBars).toHaveBeenCalled(); });
         mocks.fetchFrameWindow.mockClear();
         mocks.connect.mockClear();
 
@@ -656,19 +676,40 @@ describe('ChartController.selectInstrument', () => {
         expect(mocks.connect).toHaveBeenCalled();
     });
 
-    it('leaves the tail alone on a contract nothing recorded', async () => {
-        // The gateway closes the socket for a contract it never recorded, with
-        // a code the feed reads as permanent — so a reader who opened a pair to
-        // look at its candles was shown a live status of "refused".
+    it('opens the tail for a contract the archive holds, and not for one it does not', async () => {
+        // The unrecorded one goes first, and its window is allowed to land, so
+        // that if the gate ever stops holding its tail is opened before the
+        // recorded one's. Then the recorded contract is the clock, and what the
+        // assertion reads is which contracts a tail was opened for — never an
+        // absence, which is the shape nothing can break.
         const mocks = buildTwoInstrumentMocks();
         const controller = buildController(mocks);
         await controller.initialize();
         mocks.connect.mockClear();
 
+        mocks.fetchPriceBars.mockClear();
         act(() => { controller.selectInstrument({ venue: 'bybit', symbol: 'DOGEUSDT' }); });
-        await vi.waitFor(() => { expect(controller.store.read().phase).not.toBe('loading'); });
+        await vi.waitFor(() => { expect(mocks.fetchPriceBars).toHaveBeenCalled(); });
 
-        expect(mocks.connect).not.toHaveBeenCalled();
+        // A macrotask, because the tail is opened in the `then` after the
+        // window lands and a contract that opens none leaves no store change to
+        // await. Crossing the boundary drains what is pending rather than
+        // racing it, which is what let this assertion pass against an
+        // `openLiveTail` with its gate deleted.
+        await new Promise((settle) => { setTimeout(settle, 0); });
+
+        mocks.fetchPriceBars.mockClear();
+        act(() => { controller.selectInstrument({ venue: FIRST_VENUE, symbol: 'ETHUSDT' }); });
+        await vi.waitFor(() => { expect(mocks.connect).toHaveBeenCalled(); });
+
+        // The gateway closes the socket for a contract it never recorded, with a
+        // code the feed reads as permanent, so a reader who opened a pair to look
+        // at its candles was shown a live status of "refused".
+        // Which contracts got a tail, not how many times: reopening on a band
+        // the chart has just framed itself onto is the correction this is
+        // allowed to make, and counting the opens would forbid it.
+        const tailed = new Set(mocks.connect.mock.calls.map(([one]) => one.instrumentSymbol));
+        expect([...tailed]).toEqual(['ETHUSDT']);
     });
 
     it('lets go of the tail on the contract it is leaving', async () => {
