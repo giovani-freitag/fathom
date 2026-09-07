@@ -9,6 +9,7 @@ CREATE EXTENSION IF NOT EXISTS timescaledb;
 -- visible after aggregation instead of dissolving into its neighbours.
 CREATE TABLE IF NOT EXISTS trade_cluster (
     executed_at            TIMESTAMPTZ      NOT NULL,
+    venue                  TEXT             NOT NULL DEFAULT 'binance-futures',
     instrument_symbol      TEXT             NOT NULL,
     price_bucket_size      DOUBLE PRECISION NOT NULL,
     price_bucket_index     INTEGER          NOT NULL,
@@ -29,6 +30,17 @@ CREATE TABLE IF NOT EXISTS recording_gap (
     gap_reason        TEXT        NOT NULL,
     CONSTRAINT recording_gap_ends_after_it_starts CHECK (gap_ended_at >= gap_started_at)
 );
+
+-- The column on a table that already exists, which the line above cannot add.
+-- Here rather than in the migration that keys the tape by it, because the
+-- rollups two files down group by this column and every file runs in order on
+-- every database: declared later, those rollups would be planned against a
+-- column that does not exist yet, and the whole run would stop there.
+--
+-- Metadata only. Every row already stored came from one venue and the default
+-- names it, so this is not a rewrite of the tape.
+ALTER TABLE trade_cluster
+    ADD COLUMN IF NOT EXISTS venue TEXT NOT NULL DEFAULT 'binance-futures';
 
 SELECT create_hypertable(
     'trade_cluster', by_range('executed_at', INTERVAL '1 day'),

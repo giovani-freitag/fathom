@@ -134,11 +134,19 @@ the symbol alone, two venues' prints at one price would be summed into a figure
 neither of them traded.
 
 A continuous aggregate's definition cannot be altered, only dropped and built
-again, so a database created before the venue was named on them does not get the
-new grouping from a migration. `scripts/rekey-trade-rollups.mjs` does that once:
-it rebuilds both and materialises them over their whole history, which is safe
-to run against a live recording because everything in them is derived from
-`trade_cluster` and nothing is derived from them.
+again, so the grouping does not come from a migration. `npm run migrate` runs
+`scripts/rekey-trade-rollups.mjs` after the SQL, which rebuilds both and
+materialises them over their whole history. It is safe against a live recording
+— everything in them is derived from `trade_cluster` and nothing is derived from
+them — and it does nothing at all on the second run, so the cost is paid once
+per database.
+
+The reason it cannot be a migration is worth knowing, because the failure is
+not the obvious one. `CREATE MATERIALIZED VIEW IF NOT EXISTS` skips a view that
+is already there, but it still *plans* the statement first. The hour rollup is
+built from the minute one, so a definition naming the venue is planned against a
+view that has not got it, and the migration fails — on every database that has
+ever run it, at the file that comes third of thirteen.
 
 The same table answers a second question with the price bands dropped rather
 than kept: how much traded in a stretch of time, which is what a bar means by

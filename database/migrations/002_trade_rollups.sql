@@ -3,6 +3,20 @@
 -- rollups below pre-compute the two coarser time grids the viewer actually asks for.
 -- Price granularity is preserved at every level; only time is rolled up, which lets
 -- a query pick the coarsest grid finer than its requested resolution.
+--
+-- These group by the symbol alone, and `scripts/rekey-trade-rollups.mjs` builds
+-- them again grouped by the venue as well. It has to be a script rather than a
+-- line here, and the reason is worth writing down because it is not obvious.
+--
+-- A continuous aggregate cannot be altered, only dropped and made again, so a
+-- database that already holds these keeps whatever shape it has: `IF NOT EXISTS`
+-- finds them and skips. But it does not skip *planning* the statement — and the
+-- hour rollup is built from the minute one, so a definition naming the venue is
+-- planned against a view that does not have it, and the run stops here. Every
+-- database that has ever run this file would fail on its next migration.
+--
+-- The script runs straight after this one, out of `npm run migrate`, and leaves
+-- them named by the venue on a fresh database and an old one alike.
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS trade_cluster_minute
 WITH (timescaledb.continuous) AS

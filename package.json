@@ -27,7 +27,7 @@
         "database:up": "docker compose up -d",
         "database:down": "docker compose down",
         "database:logs": "docker compose logs -f timescaledb",
-        "migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
+        "migrate": "node --env-file-if-exists=.env scripts/migrate.mjs && node --env-file-if-exists=.env scripts/rekey-trade-rollups.mjs",
         "build:demo": "vite build --config vite.demo.config.ts",
         "dev:demo": "vite --config vite.demo.config.ts",
         "build:addon-types": "node scripts/build-addon-types.mjs && node scripts/build-addon-types.mjs --dts packages/types/fathom.d.ts && node scripts/build-addon-runtime.mjs",
