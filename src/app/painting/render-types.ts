@@ -127,6 +127,19 @@ export interface FieldLayerPainter {
      */
     isDrawn(request: RenderRequest): boolean;
     /**
+     * Everything about the frame that would change what this draws.
+     *
+     * Declared by the painter rather than restated by the renderer, so a field
+     * a painter reads is in the repaint key by construction. Restated, the list
+     * fell three fields behind what the painters actually read — the grid
+     * choice, whether gaps are marked, and how each layer is tuned — so
+     * changing any of them left the last frame on screen.
+     *
+     * @param request - Everything the frame is being drawn from.
+     * @returns A fragment naming what this painter cares about.
+     */
+    describe(request: RenderRequest): string;
+    /**
      * Draws it.
      *
      * @param paint - The surface, the layout, and what to read.

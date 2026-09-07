@@ -35,6 +35,17 @@ interface CandlePaint {
  * stretch nothing was recorded in.
  */
 export class CandlePainter implements FieldLayerPainter {
+    /**
+     * @param request - Everything the frame is being drawn from.
+     * @returns Whether candles are drawn, and in which of the five shapes.
+     */
+    describe(request: RenderRequest): string {
+        // Both: whether it draws at all, which `isDrawn` reads off the request,
+        // and which of the five shapes, which `paint` reads off the settings.
+        const style = readCandleSettings(request.layerSettings[CANDLES_LAYER_ID]).candleStyle;
+        return `candles:${String(request.isCandleOverlayVisible)}:${style}`;
+    }
+
     /** Over the backdrop and under what crossed it, because the price is the thing the rest is read against. */
     readonly order = 20;
 

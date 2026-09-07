@@ -66,6 +66,14 @@ interface BubblePaint {
  * Draws aggressive executions as bubbles over the depth field.
  */
 export class TradePainter implements FieldLayerPainter {
+    /**
+     * @param request - Everything the frame is being drawn from.
+     * @returns Whether the tape is drawn at all.
+     */
+    describe(request: RenderRequest): string {
+        return `tape:${String(request.isTradeOverlayVisible)}`;
+    }
+
     /** Last of the book, so an execution is never hidden by the price it happened at. */
     readonly order = 30;
 

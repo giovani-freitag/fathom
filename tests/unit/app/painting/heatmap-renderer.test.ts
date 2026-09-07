@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createRecordingContext, DEFAULT_VIEWPORT, type RecordingContext } from '../../../mocks/canvas-context.ts';
+import { buildBar, buildWindow } from '../../../mocks/price-bars.ts';
 import { buildFrame } from '../../../mocks/chart-services.ts';
+import { CANDLES_LAYER_ID } from '../../../../src/app/indicators/candles/candles.ts';
 import { EMPTY_DATASET } from '../../../../src/app/core/chart-dataset.ts';
 import { EMPTY_DRAWINGS_VIEW } from '../../../../src/app/drawings/drawing-painter.ts';
 import { HeatmapRenderer } from '../../../../src/app/painting/heatmap-renderer.ts';
@@ -119,6 +121,51 @@ describe('HeatmapRenderer layering', () => {
         const drawnOnce = surface.overlay.calls.length;
 
         surface.renderer.render(buildRequest({ locale: 'pt-BR' }));
+
+        expect(surface.overlay.calls.length).toBeGreaterThan(drawnOnce);
+    });
+
+    it('redraws when the grid is changed, which the grid painter reads', () => {
+        // The key restated the request by hand and fell three fields behind
+        // what the painters read. Changing any of them left the last frame on
+        // screen: the reader turned the grid off and it stayed drawn.
+        surface.renderer.render(buildRequest());
+        const drawnOnce = surface.overlay.calls.length;
+
+        surface.renderer.render(buildRequest({ gridChoice: 'none' }));
+
+        expect(surface.overlay.calls.length).toBeGreaterThan(drawnOnce);
+    });
+
+    it('redraws when the gaps are hidden, which the gap painter reads', () => {
+        surface.renderer.render(buildRequest());
+        const drawnOnce = surface.overlay.calls.length;
+
+        surface.renderer.render(buildRequest({ areGapsVisible: false }));
+
+        expect(surface.overlay.calls.length).toBeGreaterThan(drawnOnce);
+    });
+
+    it('redraws when a candle is drawn in another shape, which its painter reads', () => {
+        // With bars in the window, because this measures what was drawn: the
+        // shape reaches the painter through the layer's settings rather than
+        // through a flag on the request, and that whole field was missing from
+        // the key.
+        const drawn = {
+            dataset: {
+                ...EMPTY_DATASET,
+                frames: [buildFrame(DEFAULT_VIEWPORT.fromMs, 78_500)],
+                revision: 1,
+                bars: buildWindow([buildBar(DEFAULT_VIEWPORT.fromMs, 78_500)]),
+            },
+        };
+        surface.renderer.render(buildRequest(drawn));
+        const drawnOnce = surface.overlay.calls.length;
+
+        surface.renderer.render(buildRequest({
+            ...drawn,
+            layerSettings: { [CANDLES_LAYER_ID]: { candleStyle: 'bars' } },
+        }));
 
         expect(surface.overlay.calls.length).toBeGreaterThan(drawnOnce);
     });

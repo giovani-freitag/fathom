@@ -55,6 +55,14 @@ interface VolumeProfile {
  * Draws traded volume per price level, in its own band beside the plot.
  */
 export class VolumeProfilePainter implements FieldLayerPainter {
+    /**
+     * @param request - Everything the frame is being drawn from.
+     * @returns Whether the profile is drawn at all.
+     */
+    describe(request: RenderRequest): string {
+        return `profile:${String(request.isVolumeProfileVisible)}`;
+    }
+
     /** Under the candles: it is a backdrop for the price, not a mark on it. */
     readonly order = 10;
 

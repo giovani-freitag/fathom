@@ -6,13 +6,13 @@ import { EMPTY_LAYOUT, resolveChartLayout } from './chart-layout.ts';
 import { AxisPainter } from './painters/axis-painter.ts';
 import { buildBackgroundPainters, buildFieldPainters } from '../indicators/layer-painters.ts';
 import { CrosshairPainter } from './painters/crosshair-painter.ts';
-import { describeDrawings, DrawingPainter } from '../drawings/drawing-painter.ts';
+import { DrawingPainter } from '../drawings/drawing-painter.ts';
 import { GapPainter } from './painters/gap-painter.ts';
 import { GridPainter } from './painters/grid-painter.ts';
 import { TouchLinePainter } from './painters/touch-line-painter.ts';
 import { PlotPainter } from './painters/plot-painter.ts';
 import { RENDER_METRICS } from './render-palette.ts';
-import type { ChartLayout, PaintContext, RenderRequest } from './render-types.ts';
+import type { ChartLayout, FieldLayerPainter, PaintContext, RenderRequest } from './render-types.ts';
 import type { DrawPlan } from '../../shared/core/draw-plan.ts';
 import { countPanedPlans, placePanes } from './pane-projector.ts';
 
@@ -153,7 +153,13 @@ export class HeatmapRenderer {
         // Moving the cursor changes nothing the data layers drew. Repainting it
         // anyway is what makes an indicator cost its own price on every frame
         // rather than once per change.
-        const overlayKey = describeOverlayState(request, this.layout);
+        const overlayKey = describeOverlayState(request, this.layout, [
+            ...this.fieldPainters,
+            // Held apart from the list because it is painted over every band
+            // rather than inside one, and it reads the marks, which nothing
+            // else does.
+            this.drawingPainter,
+        ]);
         if (overlayKey !== this.paintedOverlayKey) {
             this.paintOverlay(this.buildPaintContext(this.overlayContext!, request));
             this.paintedOverlayKey = overlayKey;
@@ -322,7 +328,11 @@ function describePlan(plan: DrawPlan): string {
     ].join(':');
 }
 
-function describeOverlayState(request: RenderRequest, layout: ChartLayout): string {
+function describeOverlayState(
+    request: RenderRequest,
+    layout: ChartLayout,
+    painters: readonly FieldLayerPainter[],
+): string {
     const { viewport, dataset } = request;
 
     return [
@@ -335,9 +345,6 @@ function describeOverlayState(request: RenderRequest, layout: ChartLayout): stri
         layout.plotWidth,
         layout.paneStackHeight,
         layout.pricePaneHeight,
-        request.isCandleOverlayVisible,
-        request.isTradeOverlayVisible,
-        request.isVolumeProfileVisible,
         request.isDepthVisible,
         // A plan appearing, leaving or being retuned does not move the dataset,
         // so what the plans are has to be in the key itself.
@@ -345,8 +352,12 @@ function describeOverlayState(request: RenderRequest, layout: ChartLayout): stri
         request.theme,
         // The volume profile writes sizes, which every language groups its own way.
         request.locale,
-        // A mark moved, added or selected changes nothing else about the frame,
-        // so what is drawn has to be in the key itself.
-        describeDrawings(request.drawings),
+        // The two that cross every band, and are painted whatever else is on.
+        `grid:${request.gridChoice}`,
+        `gaps:${String(request.areGapsVisible)}`,
+        // And each painter's own, so a field a painter reads is in the key by
+        // construction. Restated here, the list fell three fields behind what
+        // the painters read, and changing any of them left the last frame up.
+        ...painters.map((painter) => painter.describe(request)),
     ].join('|');
 }

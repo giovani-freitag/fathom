@@ -77,6 +77,16 @@ export const EMPTY_DRAWINGS_VIEW: DrawingsView = { settled: [], draft: null, sel
  * Draws the marks a reader left, pinned to the instants they were left at.
  */
 export class DrawingPainter implements FieldLayerPainter {
+    /**
+     * What it draws is the marks themselves.
+     *
+     * @param request - Everything the frame is being drawn from.
+     * @returns The marks, as the key the renderer already builds for them.
+     */
+    describe(request: RenderRequest): string {
+        return describeDrawings(request.drawings);
+    }
+
     readonly order = DRAWING_ORDER;
 
     /**
