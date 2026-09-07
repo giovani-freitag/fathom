@@ -39,6 +39,22 @@ describe('StoredDepthTailSource', () => {
             .toEqual([1, 0]);
     });
 
+    it('reads the venue the tail is following, not whichever the store reaches', async () => {
+        // The archive keys a square by the venue and the symbol together. Asked
+        // for by the symbol alone, a tail on one exchange is extended with
+        // another exchange's book — and the two disagree about every price.
+        const { source, readWindow } = buildSource();
+
+        await source.fetchFramesAfter({
+            symbol: 'BTCUSDT',
+            venue: 'bybit-futures',
+            afterMs: NOW_MS - 5_000,
+            maxFrames: 60,
+        });
+
+        expect(readWindow.mock.calls[0]?.[0]).toMatchObject({ venue: 'bybit-futures' });
+    });
+
     it('resumes strictly after the instant the reader already holds', async () => {
         // Handed back its own newest instant, the reader discards it, and a tail
         // that kept offering it would never move.

@@ -4,7 +4,6 @@ import { PostgresService } from '../database/postgres/postgres-service.ts';
 import { PostgresChunkRowStore } from '../database/postgres/postgres-chunk-row-store.ts';
 import { ChunkArchiveService } from '../database/services/chunk-archive-service.ts';
 import { StoredDepthTailSource } from '../shared/core/stored-depth-tail-source.ts';
-import { FIRST_VENUE } from '../shared/core/recording-control.ts';
 import {
     LIVE_TAIL_SETTINGS,
     readGatewayConfiguration,
@@ -37,10 +36,7 @@ const companions = new PostgresLiveTailSource({ query });
 
 const liveTail = new LiveTailService({
     source: new StoredDepthTailSource({
-        // Same door, same reason as the history route: a subscription names
-        // a symbol, so the tail can only be following the venue every
-        // recording came from. It moves when the socket carries one.
-        readWindow: (request) => chunks.fetchWindow({ venue: FIRST_VENUE, ...request }),
+        readWindow: (request) => chunks.fetchWindow(request),
         rest: companions,
         readNowMs: () => Date.now(),
     }),

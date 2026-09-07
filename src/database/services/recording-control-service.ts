@@ -27,22 +27,6 @@ const RECORDED_TABLES = [
     'whole_book.liquidity_chunk',
 ] as const;
 
-/**
- * Every recorded table, all of which now name the venue a row came from.
- *
- * Kept as its own list rather than folded into the one above, because the two
- * answer different questions — that one is what the disk budget counts, this is
- * what a contract taken away can be deleted from without touching another
- * venue's. They agree today; a store added to one and not the other is a bug
- * either way, and the difference should be visible rather than assumed.
- */
-const TABLES_NAMING_THE_VENUE: readonly string[] = [
-    'trade_cluster',
-    'whole_book.liquidity_block',
-    'whole_book.liquidity_chunk',
-    'recording_gap',
-];
-
 interface InstrumentRow {
     readonly venue: string;
     readonly instrument_symbol: string;
@@ -135,15 +119,13 @@ export class RecordingControlService implements RecordingControl {
         );
 
         for (const table of [...RECORDED_TABLES, 'recording_gap']) {
-            // By the whole contract. Deleted by the symbol alone, taking
-            // bybit's BTCUSDT away would take binance's recording of it too —
-            // and an order book cannot be recorded again after the fact.
-            const namesVenue = TABLES_NAMING_THE_VENUE.includes(table);
+            // By the whole contract, in every one of them. Deleted by the
+            // symbol alone, taking bybit's BTCUSDT away would take binance's
+            // recording of it too — and an order book cannot be recorded again
+            // after the fact.
             await this.postgres.execute(
-                namesVenue
-                    ? `DELETE FROM ${table} WHERE venue = $1 AND instrument_symbol = $2`
-                    : `DELETE FROM ${table} WHERE instrument_symbol = $1`,
-                namesVenue ? [venue, instrumentSymbol] : [instrumentSymbol],
+                `DELETE FROM ${table} WHERE venue = $1 AND instrument_symbol = $2`,
+                [venue, instrumentSymbol],
             );
         }
 

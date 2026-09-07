@@ -10,6 +10,15 @@ import type { TradeCluster } from './trade-cluster.ts';
 
 /** One window of depth, in the terms every store answers in. */
 export interface StoredDepthWindowRequest {
+    /**
+     * Which venue's recording the window comes out of.
+     *
+     * Carried down from the tail rather than chosen by whoever answers: the
+     * archive keys a square by the venue and the symbol together, so a read
+     * that names one half is a read of whichever venue the store happens to
+     * reach first.
+     */
+    readonly venue: string;
     readonly instrumentSymbol: string;
     readonly fromMs: number;
     readonly toMs: number;
@@ -61,6 +70,7 @@ export class StoredDepthTailSource implements LiveTailSource {
         // window that included it would be discarded on arrival anyway.
         const fromMs = request.afterMs + 1;
         return this.config.readWindow({
+            venue: request.venue,
             instrumentSymbol: request.symbol,
             fromMs,
             toMs: this.reachOf(fromMs, request),

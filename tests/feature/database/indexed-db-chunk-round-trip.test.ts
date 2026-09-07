@@ -269,9 +269,7 @@ describe('the whole book as squares, kept in a page', () => {
         // teeth along the live edge, one tooth per price the band does not hold.
         await roundTrip(40);
         const tail = new StoredDepthTailSource({
-            readWindow: (request) => archive.fetchWindow({
-                venue: CONTRACT.venue, ...request,
-            }),
+            readWindow: (request) => archive.fetchWindow(request),
             rest: new IndexedDbLiveTailSource({ database }),
             readNowMs: () => STARTED_AT_MS + 40 * INTERVAL_MS,
         });
