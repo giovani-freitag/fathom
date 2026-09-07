@@ -4,6 +4,7 @@ import type {
     ChunkBlockRange,
     ChunkBlockRow,
     ChunkBlockWrite,
+    ChunkContract,
     ChunkRowStore,
     ChunkSquareQuery,
     ChunkSquareRow,
@@ -87,8 +88,8 @@ export class IndexedDbChunkRowStore implements ChunkRowStore {
             // window, which is exact: blocks of one level are fixed and never
             // overlap, so reaching order and opening order are one order.
             const request = store!.index(BLOCK_REACH_INDEX).openCursor(IDBKeyRange.bound(
-                [range.instrumentSymbol, range.detailLevel, range.fromMs],
-                [range.instrumentSymbol, range.detailLevel, Number.MAX_SAFE_INTEGER],
+                [range.venue, range.instrumentSymbol, range.detailLevel, range.fromMs],
+                [range.venue, range.instrumentSymbol, range.detailLevel, Number.MAX_SAFE_INTEGER],
             ));
             request.onsuccess = () => {
                 const cursor = request.result;
@@ -116,15 +117,12 @@ export class IndexedDbChunkRowStore implements ChunkRowStore {
         return recorded.length === 0 ? null : Math.min(...recorded);
     }
 
-    async readFinestGrid(instrumentSymbol: string): Promise<FinestChunkGrid | null> {
+    async readFinestGrid(contract: ChunkContract): Promise<FinestChunkGrid | null> {
         const newest: BlockRecord[] = [];
         await this.config.database.transact([STORES.liquidityBlock], 'readonly', ([store]) => {
             // Backwards from the newest and stopped at the first, rather than
             // every block of the level read to keep its last.
-            const request = store!.openCursor(IDBKeyRange.bound(
-                [instrumentSymbol, 0],
-                [instrumentSymbol, 0, Number.MAX_SAFE_INTEGER],
-            ), 'prev');
+            const request = store!.openCursor(toFinestLevelRange(contract), 'prev');
             request.onsuccess = () => {
                 const cursor = request.result;
                 if (cursor !== null) {
@@ -138,9 +136,9 @@ export class IndexedDbChunkRowStore implements ChunkRowStore {
             : { columnIntervalMs: found.columnIntervalMs, priceBucketSize: found.priceBucketSize };
     }
 
-    async readCoverage(instrumentSymbol: string): Promise<ChunkCoverage | null> {
-        const oldest = await this.readEdgeBlock(instrumentSymbol, 'next');
-        const newest = await this.readEdgeBlock(instrumentSymbol, 'prev');
+    async readCoverage(contract: ChunkContract): Promise<ChunkCoverage | null> {
+        const oldest = await this.readEdgeBlock(contract, 'next');
+        const newest = await this.readEdgeBlock(contract, 'prev');
         if (oldest === null || newest === null) {
             return null;
         }
@@ -163,15 +161,12 @@ export class IndexedDbChunkRowStore implements ChunkRowStore {
      * the touch prices these two carry rather than in the blocks themselves.
      */
     private async readEdgeBlock(
-        instrumentSymbol: string,
+        contract: ChunkContract,
         direction: IDBCursorDirection,
     ): Promise<ChunkBlockRow | null> {
         const found: BlockRecord[] = [];
         await this.config.database.transact([STORES.liquidityBlock], 'readonly', ([store]) => {
-            const request = store!.openCursor(IDBKeyRange.bound(
-                [instrumentSymbol, 0],
-                [instrumentSymbol, 0, Number.MAX_SAFE_INTEGER],
-            ), direction);
+            const request = store!.openCursor(toFinestLevelRange(contract), direction);
             request.onsuccess = () => {
                 const cursor = request.result;
                 if (cursor !== null) {
@@ -189,7 +184,7 @@ export class IndexedDbChunkRowStore implements ChunkRowStore {
         // every level. The key alone is what a store can answer cheaply.
         let revision: string | null = null;
         await this.config.database.transact([STORES.liquidityBlock], 'readonly', ([store]) => {
-            const request = store!.get([at.instrumentSymbol, at.detailLevel, at.startedAtMs]);
+            const request = store!.get(toBlockKey(at));
             request.onsuccess = () => {
                 revision = (request.result as { revision?: string } | undefined)?.revision ?? null;
             };
@@ -202,6 +197,7 @@ export class IndexedDbChunkRowStore implements ChunkRowStore {
         this.stamp += 1;
         const revision = `${this.writer}-${String(this.stamp)}`;
         const record: BlockRecord = {
+            venue: write.venue,
             instrumentSymbol: write.instrumentSymbol,
             detailLevel: write.detailLevel,
             startedAtMs: row.startedAtMs,
@@ -224,6 +220,7 @@ export class IndexedDbChunkRowStore implements ChunkRowStore {
     async writeSquare(write: ChunkSquareWrite): Promise<void> {
         const { row } = write;
         const record: SquareRecord = {
+            venue: write.venue,
             instrumentSymbol: write.instrumentSymbol,
             detailLevel: write.detailLevel,
             startedAtMs: row.startedAtMs,
@@ -256,8 +253,8 @@ export class IndexedDbChunkRowStore implements ChunkRowStore {
             for (const startedAtMs of query.startedAtMs) {
                 if (query.lowestBucketIndexes === null) {
                     const walk = store!.openCursor(IDBKeyRange.bound(
-                        [query.instrumentSymbol, query.detailLevel, startedAtMs],
-                        [query.instrumentSymbol, query.detailLevel, startedAtMs,
+                        [query.venue, query.instrumentSymbol, query.detailLevel, startedAtMs],
+                        [query.venue, query.instrumentSymbol, query.detailLevel, startedAtMs,
                             Number.MAX_SAFE_INTEGER],
                     ));
                     walk.onsuccess = () => {
@@ -272,7 +269,8 @@ export class IndexedDbChunkRowStore implements ChunkRowStore {
                 }
                 for (const lowestBucketIndex of query.lowestBucketIndexes) {
                     gather(store!.get([
-                        query.instrumentSymbol, query.detailLevel, startedAtMs, lowestBucketIndex,
+                        query.venue, query.instrumentSymbol, query.detailLevel, startedAtMs,
+                        lowestBucketIndex,
                     ]));
                 }
             }
@@ -300,11 +298,30 @@ export class IndexedDbChunkRowStore implements ChunkRowStore {
     private async readBlockRecord(at: ChunkBlockAddress): Promise<BlockRecord | null> {
         let found: BlockRecord | null = null;
         await this.config.database.transact([STORES.liquidityBlock], 'readonly', ([store]) => {
-            const request = store!.get([at.instrumentSymbol, at.detailLevel, at.startedAtMs]);
+            const request = store!.get(toBlockKey(at));
             request.onsuccess = () => { found = (request.result as BlockRecord | undefined) ?? null; };
         });
         return found;
     }
+}
+
+/** The key one block is stored under: its whole address, venue first. */
+function toBlockKey(at: ChunkBlockAddress): IDBValidKey {
+    return [at.venue, at.instrumentSymbol, at.detailLevel, at.startedAtMs];
+}
+
+/**
+ * Every block of one contract's finest level, from the first to the last.
+ *
+ * Open at the far end rather than bounded by a real instant: the walk it serves
+ * wants whichever block is nearest each edge, and which instant that is is what
+ * it is trying to find out.
+ */
+function toFinestLevelRange(contract: ChunkContract): IDBKeyRange {
+    return IDBKeyRange.bound(
+        [contract.venue, contract.instrumentSymbol, 0],
+        [contract.venue, contract.instrumentSymbol, 0, Number.MAX_SAFE_INTEGER],
+    );
 }
 
 /** Whether this browser can squeeze a plane at all. */

@@ -131,6 +131,9 @@ describe('BrowserRecordingControl', () => {
         // Split between them rather than spent on whichever was asked first:
         // a busy contract must not prune a quiet one out of existence.
         expect(dropped).toBeGreaterThan(0);
-        expect(await archive.findLastFrameTimestamp('ETHUSDT')).toBe(1_004_000);
+        expect(await archive.findLastFrameTimestamp({
+            venue: FIRST_VENUE,
+            instrumentSymbol: 'ETHUSDT',
+        })).toBe(1_004_000);
     });
 });

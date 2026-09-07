@@ -68,8 +68,8 @@ const chunkTiles = new ChunkTileRecorder({
 const supervisor = new CollectorSupervisor({
     control,
     archive: new LiquidityArchiveService({ postgres, chunks: chunkRows }),
-    buildWideRecordings: (instrumentSymbol, priceBucketSize) => [
-        chunkTiles.buildRecording(instrumentSymbol, priceBucketSize),
+    buildWideRecordings: (contract, priceBucketSize) => [
+        chunkTiles.buildRecording(contract, priceBucketSize),
     ],
     openSocket: openNodeMarketDataSocket,
     log,

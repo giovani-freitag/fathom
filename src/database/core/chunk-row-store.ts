@@ -12,16 +12,27 @@
  * a reason to spend a frame on gzip for a session's recording.
  */
 
-/** Which block: one contract, one level, and where the block opens. */
-export interface ChunkBlockAddress {
+/**
+ * Which contract: the venue and the symbol, never the symbol alone.
+ *
+ * Two venues both list BTCUSDT. Addressed by the symbol alone, the identity
+ * index over the squares could not tell them apart — and a block still filling
+ * is written over as it grows, so the second venue's squares would have landed
+ * on the first venue's rather than beside them.
+ */
+export interface ChunkContract {
+    readonly venue: string;
     readonly instrumentSymbol: string;
+}
+
+/** Which block: one contract, one level, and where the block opens. */
+export interface ChunkBlockAddress extends ChunkContract {
     readonly detailLevel: number;
     readonly startedAtMs: number;
 }
 
 /** The blocks of one level overlapping a stretch of time. */
-export interface ChunkBlockRange {
-    readonly instrumentSymbol: string;
+export interface ChunkBlockRange extends ChunkContract {
     readonly detailLevel: number;
     readonly fromMs: number;
     readonly toMs: number;
@@ -67,8 +78,7 @@ export interface ChunkSquareWrite extends ChunkBlockAddress {
 }
 
 /** Which squares to read: the blocks they belong to, and the band drawn. */
-export interface ChunkSquareQuery {
-    readonly instrumentSymbol: string;
+export interface ChunkSquareQuery extends ChunkContract {
     readonly detailLevel: number;
     readonly startedAtMs: readonly number[];
     /** The lowest bucket of each square wanted, or null for every square. */
@@ -181,18 +191,18 @@ export interface ChunkRowStore {
     /**
      * The grid the finest level of one contract stands on.
      *
-     * @param instrumentSymbol - The contract.
+     * @param contract - The venue and the symbol.
      * @returns Its grid, or null where nothing is stored for it.
      */
-    readFinestGrid(instrumentSymbol: string): Promise<FinestChunkGrid | null>;
+    readFinestGrid(contract: ChunkContract): Promise<FinestChunkGrid | null>;
 
     /**
      * The stretch one contract is recorded through, and where it ended up.
      *
-     * @param instrumentSymbol - The contract.
+     * @param contract - The venue and the symbol.
      * @returns Its coverage, or null where nothing is stored for it.
      */
-    readCoverage(instrumentSymbol: string): Promise<ChunkCoverage | null>;
+    readCoverage(contract: ChunkContract): Promise<ChunkCoverage | null>;
 
     /**
      * What write the stored block stands on, for telling one writer from another.

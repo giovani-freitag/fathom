@@ -5,6 +5,7 @@ import type { PostgresService } from '../../../src/database/postgres/postgres-se
 
 const REGISTRY_ROW = {
     instrument_symbol: 'BTCUSDT',
+    venue: 'binance-futures',
     price_bucket_size: 10,
     frame_interval_ms: 1_000,
 };
@@ -48,7 +49,10 @@ describe('LiquidityQueryService', () => {
         // stretch was recorded that the chart cannot draw a column of.
         await service.listInstruments();
 
-        expect(readCoverage).toHaveBeenCalledWith('BTCUSDT');
+        expect(readCoverage).toHaveBeenCalledWith({
+            venue: 'binance-futures',
+            instrumentSymbol: 'BTCUSDT',
+        });
     });
 
     it('carries the coverage it was given, both edges and the touch', async () => {

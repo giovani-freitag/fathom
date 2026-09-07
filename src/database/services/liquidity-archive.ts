@@ -1,3 +1,4 @@
+import type { ChunkContract } from '../core/chunk-row-store.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
 
@@ -35,7 +36,7 @@ export interface LiquidityArchive {
     appendTradeClusters(request: TradeClusterAppendRequest): Promise<void>;
     recordGap(request: GapRecordRequest): Promise<void>;
     /** Instant of the newest recorded instant, or null when nothing is stored. */
-    findLastFrameTimestamp(instrumentSymbol: string): Promise<number | null>;
+    findLastFrameTimestamp(contract: ChunkContract): Promise<number | null>;
 }
 
 /**

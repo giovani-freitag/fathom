@@ -633,6 +633,7 @@ export class WindowLoader {
     ): Promise<LoadedWindow> {
         const query = {
             symbol: request.symbol,
+            venue: request.venue,
             fromMs: range.fromMs,
             toMs: range.toMs,
             maxColumns: range.maxColumns,
@@ -745,6 +746,7 @@ function describeRungs(rungs: readonly SessionRequest[]): string {
 function toFrameQuery(request: WindowLoadRequest, range: ResolvedRange): FrameWindowQuery {
     return {
         symbol: request.symbol,
+        venue: request.venue,
         fromMs: range.fromMs,
         toMs: range.toMs,
         maxColumns: range.maxColumns,

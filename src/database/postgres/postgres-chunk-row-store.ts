@@ -5,6 +5,7 @@ import {
 } from '../core/chunk-row-store.ts';
 import type {
     ChunkBlockAddress,
+    ChunkContract,
     ChunkBlockRange,
     ChunkBlockRow,
     ChunkCoverage,
@@ -65,8 +66,9 @@ export class PostgresChunkRowStore implements ChunkRowStore {
         const rows = await this.config.postgres.selectRows<BlockRecord>(
             `SELECT ${BLOCK_COLUMNS}
              FROM whole_book.liquidity_block
-             WHERE instrument_symbol = $1 AND detail_level = $2 AND started_at = $3::timestamptz`,
-            [at.instrumentSymbol, at.detailLevel, new Date(at.startedAtMs)],
+             WHERE venue = $1 AND instrument_symbol = $2
+               AND detail_level = $3 AND started_at = $4::timestamptz`,
+            [at.venue, at.instrumentSymbol, at.detailLevel, new Date(at.startedAtMs)],
         );
         const row = rows[0];
         return row === undefined ? null : toBlockRow(row);
@@ -76,10 +78,16 @@ export class PostgresChunkRowStore implements ChunkRowStore {
         const rows = await this.config.postgres.selectRows<BlockRecord>(
             `SELECT ${BLOCK_COLUMNS}
              FROM whole_book.liquidity_block
-             WHERE instrument_symbol = $1 AND detail_level = $2
-               AND ended_at >= $3::timestamptz AND started_at <= $4::timestamptz
+             WHERE venue = $1 AND instrument_symbol = $2 AND detail_level = $3
+               AND ended_at >= $4::timestamptz AND started_at <= $5::timestamptz
              ORDER BY started_at`,
-            [range.instrumentSymbol, range.detailLevel, new Date(range.fromMs), new Date(range.toMs)],
+            [
+                range.venue,
+                range.instrumentSymbol,
+                range.detailLevel,
+                new Date(range.fromMs),
+                new Date(range.toMs),
+            ],
         );
         return rows.map(toBlockRow);
     }
@@ -95,21 +103,21 @@ export class PostgresChunkRowStore implements ChunkRowStore {
                          WHERE best_bid_prices[i] > 0), 1) - 1)) * interval '1 millisecond')
                     AS started_at
              FROM whole_book.liquidity_block
-             WHERE instrument_symbol = $1 AND detail_level = 0
-               AND ended_at >= $2::timestamptz AND started_at <= $3::timestamptz`,
-            [range.instrumentSymbol, new Date(range.fromMs), new Date(range.toMs)],
+             WHERE venue = $1 AND instrument_symbol = $2 AND detail_level = 0
+               AND ended_at >= $3::timestamptz AND started_at <= $4::timestamptz`,
+            [range.venue, range.instrumentSymbol, new Date(range.fromMs), new Date(range.toMs)],
         );
         return rows[0]?.started_at?.getTime() ?? null;
     }
 
-    async readFinestGrid(instrumentSymbol: string): Promise<FinestChunkGrid | null> {
+    async readFinestGrid(contract: ChunkContract): Promise<FinestChunkGrid | null> {
         const rows = await this.config.postgres.selectRows<{
             column_interval_ms: number; price_bucket_size: number;
         }>(
             `SELECT column_interval_ms, price_bucket_size FROM whole_book.liquidity_block
-             WHERE instrument_symbol = $1 AND detail_level = 0
+             WHERE venue = $1 AND instrument_symbol = $2 AND detail_level = 0
              ORDER BY started_at DESC LIMIT 1`,
-            [instrumentSymbol],
+            [contract.venue, contract.instrumentSymbol],
         );
         const row = rows[0];
         return row === undefined
@@ -117,7 +125,7 @@ export class PostgresChunkRowStore implements ChunkRowStore {
             : { columnIntervalMs: row.column_interval_ms, priceBucketSize: row.price_bucket_size };
     }
 
-    async readCoverage(instrumentSymbol: string): Promise<ChunkCoverage | null> {
+    async readCoverage(contract: ChunkContract): Promise<ChunkCoverage | null> {
         // The oldest block and the newest, and the touch prices inside each.
         // A block is addressed by a fixed grid and carries empty places until
         // the recording reaches it, so its own edges say nothing about where the
@@ -125,14 +133,14 @@ export class PostgresChunkRowStore implements ChunkRowStore {
         const rows = await this.config.postgres.selectRows<BlockEdgeRow>(
             `(SELECT started_at, column_interval_ms, best_bid_prices, best_ask_prices
               FROM whole_book.liquidity_block
-              WHERE instrument_symbol = $1 AND detail_level = 0
+              WHERE venue = $1 AND instrument_symbol = $2 AND detail_level = 0
               ORDER BY started_at ASC LIMIT 1)
              UNION ALL
              (SELECT started_at, column_interval_ms, best_bid_prices, best_ask_prices
               FROM whole_book.liquidity_block
-              WHERE instrument_symbol = $1 AND detail_level = 0
+              WHERE venue = $1 AND instrument_symbol = $2 AND detail_level = 0
               ORDER BY started_at DESC LIMIT 1)`,
-            [instrumentSymbol],
+            [contract.venue, contract.instrumentSymbol],
         );
         const oldest = rows[0] === undefined ? null : toEdgeBlock(rows[0]);
         const newest = rows[rows.length - 1] === undefined ? null : toEdgeBlock(rows[rows.length - 1]!);
@@ -157,8 +165,9 @@ export class PostgresChunkRowStore implements ChunkRowStore {
         // without opening a byte of what is in it.
         const rows = await this.config.postgres.selectRows<{ revision: string }>(
             `SELECT xmin::text AS revision FROM whole_book.liquidity_block
-             WHERE instrument_symbol = $1 AND detail_level = $2 AND started_at = $3::timestamptz`,
-            [at.instrumentSymbol, at.detailLevel, new Date(at.startedAtMs)],
+             WHERE venue = $1 AND instrument_symbol = $2
+               AND detail_level = $3 AND started_at = $4::timestamptz`,
+            [at.venue, at.instrumentSymbol, at.detailLevel, new Date(at.startedAtMs)],
         );
         return rows[0]?.revision ?? null;
     }
@@ -167,20 +176,24 @@ export class PostgresChunkRowStore implements ChunkRowStore {
         const { row } = write;
         const stamped = await this.config.postgres.selectRows<{ revision: string }>(
             `INSERT INTO whole_book.liquidity_block (
-                 instrument_symbol, detail_level, started_at, ended_at, column_interval_ms,
-                 price_bucket_size, column_count, step_ratio, smallest_quantity,
-                 best_bid_prices, best_ask_prices)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-             ON CONFLICT (instrument_symbol, detail_level, started_at) DO UPDATE SET
+                 venue, instrument_symbol, detail_level, started_at, ended_at,
+                 column_interval_ms, price_bucket_size, column_count, step_ratio,
+                 smallest_quantity, best_bid_prices, best_ask_prices)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+             -- The venue leads, because a contract is a venue and a symbol: keyed
+             -- by the symbol alone this clause landed a second venue's block on
+             -- the first venue's row rather than beside it.
+             ON CONFLICT (venue, instrument_symbol, detail_level, started_at) DO UPDATE SET
                  ended_at = EXCLUDED.ended_at, column_count = EXCLUDED.column_count,
                  price_bucket_size = EXCLUDED.price_bucket_size,
                  best_bid_prices = EXCLUDED.best_bid_prices,
                  best_ask_prices = EXCLUDED.best_ask_prices
              RETURNING xmin::text AS revision`,
             [
-                write.instrumentSymbol, write.detailLevel, new Date(row.startedAtMs),
-                new Date(write.endedAtMs), row.columnIntervalMs, row.priceBucketSize,
-                row.columnCount, row.stepRatio, row.smallestQuantity,
+                write.venue, write.instrumentSymbol, write.detailLevel,
+                new Date(row.startedAtMs), new Date(write.endedAtMs),
+                row.columnIntervalMs, row.priceBucketSize, row.columnCount,
+                row.stepRatio, row.smallestQuantity,
                 [...row.bestBidPrices], [...row.bestAskPrices],
             ],
         );
@@ -194,15 +207,16 @@ export class PostgresChunkRowStore implements ChunkRowStore {
         const squeeze = write.isComplete ? compressPlane : compressFillingPlane;
         await this.config.postgres.execute(
             `INSERT INTO whole_book.liquidity_chunk (
-                 instrument_symbol, detail_level, started_at, lowest_bucket_index,
-                 column_count, low_plane, high_plane)
-             VALUES ($1,$2,$3,$4,$5,$6,$7)
-             ON CONFLICT (instrument_symbol, detail_level, started_at, lowest_bucket_index)
+                 venue, instrument_symbol, detail_level, started_at,
+                 lowest_bucket_index, column_count, low_plane, high_plane)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+             ON CONFLICT (venue, instrument_symbol, detail_level, started_at, lowest_bucket_index)
              DO UPDATE SET column_count = EXCLUDED.column_count,
                  low_plane = EXCLUDED.low_plane, high_plane = EXCLUDED.high_plane`,
             [
-                write.instrumentSymbol, write.detailLevel, new Date(row.startedAtMs),
-                row.lowestBucketIndex, row.columnCount, squeeze(row.lowPlane),
+                write.venue, write.instrumentSymbol, write.detailLevel,
+                new Date(row.startedAtMs), row.lowestBucketIndex, row.columnCount,
+                squeeze(row.lowPlane),
                 row.highPlane === null ? null : squeeze(row.highPlane),
             ],
         );
@@ -212,11 +226,11 @@ export class PostgresChunkRowStore implements ChunkRowStore {
         const rows = await this.config.postgres.selectRows<SquareRecord>(
             `SELECT started_at, lowest_bucket_index, column_count, low_plane, high_plane
              FROM whole_book.liquidity_chunk
-             WHERE instrument_symbol = $1 AND detail_level = $2
-               AND started_at = ANY($3::timestamptz[])
-               AND ($4::int[] IS NULL OR lowest_bucket_index = ANY($4::int[]))`,
+             WHERE venue = $1 AND instrument_symbol = $2 AND detail_level = $3
+               AND started_at = ANY($4::timestamptz[])
+               AND ($5::int[] IS NULL OR lowest_bucket_index = ANY($5::int[]))`,
             [
-                query.instrumentSymbol, query.detailLevel,
+                query.venue, query.instrumentSymbol, query.detailLevel,
                 query.startedAtMs.map((at) => new Date(at)),
                 query.lowestBucketIndexes === null ? null : [...query.lowestBucketIndexes],
             ],

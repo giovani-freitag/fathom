@@ -43,7 +43,10 @@ export async function recordInstants(request: RecordingRequest): Promise<number>
         intervalMs: RECORDING_GRID.frameIntervalMs,
         stepRatio: STEP_RATIO,
     });
-    const recording = recorder.buildRecording(instrumentSymbol, RECORDING_GRID.priceBucketSize);
+    const recording = recorder.buildRecording(
+        { venue: RECORDING_GRID.venue, instrumentSymbol },
+        RECORDING_GRID.priceBucketSize,
+    );
 
     let lastMs = request.fromMs;
     for (let offset = 0; offset < request.count; offset += 1) {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { PostgresChunkRowStore } from '../../../src/database/postgres/postgres-chunk-row-store.ts';
 import { ChunkArchiveService } from '../../../src/database/services/chunk-archive-service.ts';
 import { createChunkStoreMock } from '../../mocks/chunk-store.ts';
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 
 const INTERVAL_MS = 1_000;
 const BUCKET_SIZE = 10;
@@ -26,6 +27,7 @@ describe('ChunkArchiveService writing a block', () => {
         const archive = new ChunkArchiveService({ rows: new PostgresChunkRowStore({ postgres: store.service }) });
 
         await archive.writeBlock({
+            venue: FIRST_VENUE,
             instrumentSymbol: 'BTCUSDT',
             detailLevel: 0,
             columnIntervalMs: INTERVAL_MS,

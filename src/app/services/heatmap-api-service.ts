@@ -1,4 +1,9 @@
-import type { ArchiveSource } from '../../shared/core/heatmap-source.ts';
+import type {
+    ArchiveSource,
+    FrameWindowQuery,
+    TradeClusterQuery,
+    TradeClusterResult,
+} from '../../shared/core/heatmap-source.ts';
 import {
     API_ROUTES,
     type InstrumentCoverage,
@@ -26,34 +31,6 @@ export interface HeatmapApiServiceConfig {
      * Absolute origin of the gateway.
      */
     readonly baseUrl: string;
-}
-
-/** The stretch of price a window is asked to answer for, and the rows for it. */
-export interface PriceBandQuery {
-    readonly lowPrice: number;
-    readonly highPrice: number;
-    readonly maxRows: number;
-}
-
-export interface FrameWindowQuery {
-    readonly symbol: string;
-    readonly fromMs: number;
-    readonly toMs: number;
-    readonly maxColumns: number;
-    /** Which stored shape the window is read out of. */
-    /** The prices the reader will draw, or absent for every price stored. */
-    readonly priceBand?: PriceBandQuery;
-}
-
-export interface TradeClusterQuery extends FrameWindowQuery {
-    readonly priceGroupSize: number;
-    readonly minimumQuantity: number;
-}
-
-export interface TradeClusterResult {
-    readonly priceBucketSize: number;
-    readonly sampleIntervalMs: number;
-    readonly clusters: TradeClusterResponse['clusters'];
 }
 
 /**
@@ -188,6 +165,7 @@ function toWindowParameters(query: FrameWindowQuery): URLSearchParams {
     // declared as an integer, so rounding here beats a schema rejection.
     return new URLSearchParams({
         symbol: query.symbol,
+        venue: query.venue,
         fromMs: String(Math.floor(query.fromMs)),
         toMs: String(Math.ceil(query.toMs)),
         maxColumns: String(Math.max(1, Math.round(query.maxColumns))),

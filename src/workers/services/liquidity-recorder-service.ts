@@ -208,7 +208,10 @@ export class LiquidityRecorderService {
     }
 
     private async reopenGapFromPreviousRun(): Promise<void> {
-        const lastRecordedAtMs = await this.config.archive.findLastFrameTimestamp(this.config.instrumentSymbol);
+        const lastRecordedAtMs = await this.config.archive.findLastFrameTimestamp({
+            venue: this.config.venue,
+            instrumentSymbol: this.config.instrumentSymbol,
+        });
         if (lastRecordedAtMs === null) {
             return;
         }

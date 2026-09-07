@@ -75,7 +75,10 @@ export class LiquidityQueryService {
         // it is a contract that was switched on and has not been captured yet,
         // which is a real answer and not an omission.
         const covered = await Promise.all(rows.map(
-            (row) => this.chunks.readCoverage(row.instrument_symbol),
+            (row) => this.chunks.readCoverage({
+                venue: row.venue,
+                instrumentSymbol: row.instrument_symbol,
+            }),
         ));
 
         return rows.map((row, index) => {

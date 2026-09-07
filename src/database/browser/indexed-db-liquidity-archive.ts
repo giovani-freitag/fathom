@@ -6,7 +6,7 @@ import {
     type TradeClusterAppendRequest,
 } from '../services/liquidity-archive.ts';
 import { IndexedDbQueryError, type IndexedDbService } from './indexed-db-service.ts';
-import type { ChunkRowStore } from '../core/chunk-row-store.ts';
+import type { ChunkContract, ChunkRowStore } from '../core/chunk-row-store.ts';
 import { STORES } from './browser-schema.ts';
 import {
     toTradeClusterRecord,
@@ -30,10 +30,9 @@ const INSTANT_MS = 1_000;
  * The browser's write side, keeping the newest window and dropping the rest.
  */
 /** Which squares a prune is dropping, and the stores holding them. */
-interface SquarePrune {
+interface SquarePrune extends ChunkContract {
     readonly blocks: IDBObjectStore;
     readonly squares: IDBObjectStore;
-    readonly instrumentSymbol: string;
     readonly horizonMs: number;
 }
 
@@ -103,11 +102,11 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
     /**
      * Instant of the newest recorded instant.
      *
-     * @param instrumentSymbol - Which contract.
+     * @param contract - The venue and symbol to look up.
      * @returns The instant, or null when nothing is stored.
      */
-    async findLastFrameTimestamp(instrumentSymbol: string): Promise<number | null> {
-        const coverage = await this.chunks.readCoverage(instrumentSymbol);
+    async findLastFrameTimestamp(contract: ChunkContract): Promise<number | null> {
+        const coverage = await this.chunks.readCoverage(contract);
         return coverage?.lastFrameAtMs ?? null;
     }
 
@@ -119,12 +118,13 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
      * a block of columns rather than a row per instant, so a count of records
      * would be a count of the wrong thing.
      *
-     * @param instrumentSymbol - Which contract to trim.
+     * @param contract - Which contract to trim.
      * @param frameCapacity - Overrides the capacity this archive was built with.
      * @returns How many instants of recording were dropped.
      */
-    async pruneToCapacity(instrumentSymbol: string, frameCapacity?: number): Promise<number> {
-        const coverage = await this.chunks.readCoverage(instrumentSymbol);
+    async pruneToCapacity(contract: ChunkContract, frameCapacity?: number): Promise<number> {
+        const { instrumentSymbol } = contract;
+        const coverage = await this.chunks.readCoverage(contract);
         if (coverage === null) {
             return 0;
         }
@@ -149,7 +149,7 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
                 clusters!.delete(expired);
                 this.deleteGapsEndingBefore(gaps!, instrumentSymbol, horizonMs);
                 this.deleteSquaresEndingBefore({
-                    blocks: blocks!, squares: squares!, instrumentSymbol, horizonMs,
+                    ...contract, blocks: blocks!, squares: squares!, horizonMs,
                 });
             },
         );
@@ -164,10 +164,10 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
      * ask for, and a block is stored whole or not at all.
      */
     private deleteSquaresEndingBefore(prune: SquarePrune): void {
-        const { blocks, squares, instrumentSymbol, horizonMs } = prune;
+        const { blocks, squares, venue, instrumentSymbol, horizonMs } = prune;
         const request = blocks.openCursor(IDBKeyRange.bound(
-            [instrumentSymbol],
-            [instrumentSymbol, []],
+            [venue, instrumentSymbol],
+            [venue, instrumentSymbol, []],
         ));
         request.onsuccess = () => {
             const cursor = request.result;
@@ -179,8 +179,8 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
             };
             if (block.endedAtMs < horizonMs) {
                 squares.delete(IDBKeyRange.bound(
-                    [instrumentSymbol, block.detailLevel, block.startedAtMs],
-                    [instrumentSymbol, block.detailLevel, block.startedAtMs, []],
+                    [venue, instrumentSymbol, block.detailLevel, block.startedAtMs],
+                    [venue, instrumentSymbol, block.detailLevel, block.startedAtMs, []],
                 ));
                 cursor.delete();
             }

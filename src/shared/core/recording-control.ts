@@ -7,6 +7,27 @@
  */
 export const FIRST_VENUE = 'binance-futures';
 
+/**
+ * What names a contract: the venue and the symbol, never the symbol alone.
+ *
+ * Written here because both halves of the recording key contracts this way —
+ * the supervisor deciding which collector is already running, and the recorder
+ * deciding which levels a frame belongs to. Two spellings of the same key would
+ * agree until one of them was changed.
+ *
+ * @param contract - The contract to name.
+ * @returns Its key.
+ */
+export function nameContract(contract: ContractIdentity): string {
+    return `${contract.venue}/${contract.instrumentSymbol}`;
+}
+
+/** The two halves that name a contract, and nothing else about it. */
+export interface ContractIdentity {
+    readonly venue: string;
+    readonly instrumentSymbol: string;
+}
+
 /** One contract a supervisor may record, and the grid it records on. */
 export interface RecordedContract {
     /**

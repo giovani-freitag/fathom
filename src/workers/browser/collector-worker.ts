@@ -163,7 +163,11 @@ function subscribe(instrumentSymbol: string, afterMs: number): void {
         // inside go on — which draws as a row of teeth along the live edge.
         // The executions and the holes stay behind it: neither is in a square.
         source: new StoredDepthTailSource({
-            readWindow: (request) => wholeBook!.fetchWindow(request),
+            // The venue a subscription does not carry. A page records the
+            // one venue it knows, so that is the only one this can mean —
+            // named here, at the seam, rather than defaulted inside the
+            // archive where a caller that knows better would lose it.
+            readWindow: (request) => wholeBook!.fetchWindow({ venue: FIRST_VENUE, ...request }),
             rest: recorded,
             readNowMs: () => Date.now(),
         }),

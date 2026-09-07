@@ -4,7 +4,12 @@ import type { CollectorLog } from './core/collector-log.ts';
 import { CollectorRuntime } from './collector-runtime.ts';
 import type { WideRecordingConfig } from './services/liquidity-recorder-service.ts';
 import { describeError } from './core/collector-log.ts';
-import type { RecordedContract, RecordingControl } from '../shared/core/recording-control.ts';
+import {
+    type ContractIdentity,
+    nameContract,
+    type RecordedContract,
+    type RecordingControl,
+} from '../shared/core/recording-control.ts';
 import type { LiquidityArchive } from '../database/services/liquidity-archive.ts';
 import type { MarketDataSocketFactory } from './core/market-data-socket.ts';
 import { releaseTimerFromEventLoop, type TimerHandle } from '../shared/core/timers.ts';
@@ -35,16 +40,6 @@ interface RunningCollector {
     readonly contract: RecordedContract;
     /** When it started, which is its liveness until its first frame lands. */
     readonly startedAtMs: number;
-}
-
-/**
- * What names a contract: the venue and the symbol, never the symbol alone.
- *
- * @param contract - The contract to name.
- * @returns Its key.
- */
-function nameContract(contract: RecordedContract): string {
-    return `${contract.venue}/${contract.instrumentSymbol}`;
 }
 
 /**
@@ -86,7 +81,7 @@ export interface CollectorSupervisorConfig {
      * field and writes it under its own name.
      */
     readonly buildWideRecordings?: (
-        instrumentSymbol: string,
+        contract: ContractIdentity,
         priceBucketSize: number,
     ) => readonly WideRecordingConfig[];
     /** How often the enabled set and the disk budget are re-read. */
@@ -326,7 +321,7 @@ export class CollectorSupervisor {
                 ? {}
                 : {
                     wideRecordings: this.config.buildWideRecordings(
-                        instrument.instrumentSymbol, instrument.priceBucketSize,
+                        instrument, instrument.priceBucketSize,
                     ),
                 },
             // Bound to the contract, so every line a runtime writes says which

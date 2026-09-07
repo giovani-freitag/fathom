@@ -11,6 +11,9 @@ import { IndexedDbService } from '../../../src/database/browser/indexed-db-servi
 import { StoredDepthTailSource } from '../../../src/shared/core/stored-depth-tail-source.ts';
 import type { LiquidityFrame } from '../../../src/shared/core/liquidity-frame.ts';
 
+/** The contract every recording here is written and read back under. */
+const CONTRACT = { venue: 'binance-futures', instrumentSymbol: 'BTCUSDT' };
+
 const BUCKET_SIZE = 10;
 const INTERVAL_MS = 1_000;
 const STEP_RATIO = 1.02;
@@ -96,14 +99,14 @@ describe('the whole book as squares, kept in a page', () => {
         maxColumns?: number; lowPrice?: number; highPrice?: number; maxRows?: number;
     } = {}) {
         const frames = buildRecording(count);
-        const recording = recorder.buildRecording('BTCUSDT', BUCKET_SIZE);
+        const recording = recorder.buildRecording(CONTRACT, BUCKET_SIZE);
         for (const frame of frames) {
             recording.onFrame(frame, BUCKET_SIZE);
         }
         await recorder.flush();
 
         return archive.fetchWindow({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             fromMs: STARTED_AT_MS,
             toMs: STARTED_AT_MS + count * INTERVAL_MS,
             maxColumns: read.maxColumns ?? 4_000,
@@ -162,14 +165,14 @@ describe('the whole book as squares, kept in a page', () => {
         await roundTrip(40);
         const rows = new IndexedDbChunkRowStore({ database });
         const blocks = await rows.readBlocksWithin({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             detailLevel: 0,
             fromMs: STARTED_AT_MS,
             toMs: STARTED_AT_MS + 40 * INTERVAL_MS,
         });
 
         const opened = await rows.readSquares({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             detailLevel: 0,
             startedAtMs: blocks.map((one) => one.startedAtMs),
             lowestBucketIndexes: [Math.floor(NEAR_BUCKET / 512) * 512],
@@ -195,7 +198,7 @@ describe('the whole book as squares, kept in a page', () => {
         for (let block = 0; block < 3; block += 1) {
             const startedAtMs = STARTED_AT_MS + block * blockMs;
             await rows.writeBlock({
-                instrumentSymbol: 'BTCUSDT',
+                ...CONTRACT,
                 detailLevel: 0,
                 startedAtMs,
                 endedAtMs: startedAtMs + blockMs,
@@ -213,7 +216,7 @@ describe('the whole book as squares, kept in a page', () => {
         }
 
         const within = (fromMs: number, toMs: number) => rows.readBlocksWithin({
-            instrumentSymbol: 'BTCUSDT', detailLevel: 0, fromMs, toMs,
+            ...CONTRACT, detailLevel: 0, fromMs, toMs,
         });
 
         // Past the instant the block before it reaches, not on it: a block
@@ -244,14 +247,14 @@ describe('the whole book as squares, kept in a page', () => {
         const second = new ChunkTileRecorder({
             archive, priceRangeRatio: 1, intervalMs: INTERVAL_MS, stepRatio: STEP_RATIO,
         });
-        const recording = second.buildRecording('BTCUSDT', BUCKET_SIZE);
+        const recording = second.buildRecording(CONTRACT, BUCKET_SIZE);
         for (const frame of buildRecording(40).slice(20)) {
             recording.onFrame(frame, BUCKET_SIZE);
         }
         await second.flush();
 
         const window = await archive.fetchWindow({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             fromMs: STARTED_AT_MS,
             toMs: STARTED_AT_MS + 40 * INTERVAL_MS,
             maxColumns: 4_000,
@@ -266,7 +269,9 @@ describe('the whole book as squares, kept in a page', () => {
         // teeth along the live edge, one tooth per price the band does not hold.
         await roundTrip(40);
         const tail = new StoredDepthTailSource({
-            readWindow: (request) => archive.fetchWindow(request),
+            readWindow: (request) => archive.fetchWindow({
+                venue: CONTRACT.venue, ...request,
+            }),
             rest: new IndexedDbLiveTailSource({ database }),
             readNowMs: () => STARTED_AT_MS + 40 * INTERVAL_MS,
         });

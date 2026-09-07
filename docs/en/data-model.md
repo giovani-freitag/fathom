@@ -33,6 +33,7 @@ whole book at the finest level.
 
 ```sql
 CREATE TABLE whole_book.liquidity_block (   -- one row per level per 512 instants
+    venue              TEXT,                  -- with the symbol, what names a contract
     instrument_symbol  TEXT,
     detail_level       SMALLINT,
     started_at         TIMESTAMPTZ,
@@ -45,8 +46,14 @@ CREATE TABLE whole_book.liquidity_block (   -- one row per level per 512 instant
     best_bid_prices    REAL[],                -- the touch, per instant
     best_ask_prices    REAL[]
 );
+-- What makes a block one block. A block still filling is written over as it
+-- grows, so a rewrite has to land on the row it wrote before — and keyed by the
+-- symbol alone, two venues listing BTCUSDT would land on one another.
+CREATE UNIQUE INDEX ON whole_book.liquidity_block
+    (venue, instrument_symbol, detail_level, started_at DESC);
 
 CREATE TABLE whole_book.liquidity_chunk (   -- one row per square of that block
+    venue               TEXT,
     instrument_symbol   TEXT,
     detail_level        SMALLINT,
     started_at          TIMESTAMPTZ,
@@ -55,6 +62,8 @@ CREATE TABLE whole_book.liquidity_chunk (   -- one row per square of that block
     low_plane           BYTEA,                -- brotli, one byte per cell
     high_plane          BYTEA
 );
+CREATE UNIQUE INDEX ON whole_book.liquidity_chunk
+    (venue, instrument_symbol, detail_level, started_at DESC, lowest_bucket_index);
 ```
 
 ### Six levels, folding time only
@@ -130,6 +139,7 @@ to whichever grid the other needed.
 CREATE TABLE recording_gap (
     gap_started_at    TIMESTAMPTZ,
     gap_ended_at      TIMESTAMPTZ,
+    venue             TEXT,
     instrument_symbol TEXT,
     gap_reason        TEXT
 );

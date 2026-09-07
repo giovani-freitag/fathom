@@ -191,7 +191,7 @@ export class BrowserRecordingControl implements RecordingControl {
         const framesEach = Math.max(1, Math.floor(budget.maximumBytes / BYTES_PER_FRAME / enabled.length));
         let dropped = 0;
         for (const contract of enabled) {
-            dropped += await this.config.archive.pruneToCapacity(contract.instrumentSymbol, framesEach);
+            dropped += await this.config.archive.pruneToCapacity(contract, framesEach);
         }
         return dropped;
     }

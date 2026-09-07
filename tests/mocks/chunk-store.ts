@@ -41,6 +41,17 @@ export interface ChunkStoreMock {
 }
 
 /**
+ * What the real unique index over a block is: the venue, then everything else.
+ *
+ * Taken off the bound parameters in the order the store binds them, so that a
+ * double keyed one way and a store keyed another cannot quietly disagree.
+ */
+function toBlockKey(parameters: readonly unknown[]): string {
+    const [venue, symbol, level, startedAt] = parameters;
+    return `${String(venue)}:${String(symbol)}:${String(level)}:${(startedAt as Date).getTime()}`;
+}
+
+/**
  * The two chunk tables in memory, keyed the way the real unique indexes are.
  *
  * A spy that only records statements cannot answer a round trip, and the thing
@@ -58,11 +69,12 @@ export function createChunkStoreMock(): ChunkStoreMock {
 
     /** Stores one block and stamps it, as an upsert returning `xmin` does. */
     const writeBlock = (parameters: readonly unknown[]): string => {
-        const [symbol, level, startedAt, endedAt, interval, bucketSize, count, ratio, smallest, bids, asks] = parameters;
-        const key = `${String(symbol)}:${String(level)}:${(startedAt as Date).getTime()}`;
+        const [venue, symbol, level, startedAt, endedAt,
+            interval, bucketSize, count, ratio, smallest, bids, asks] = parameters;
+        const key = toBlockKey(parameters);
         blockWrites.set(level as number, (blockWrites.get(level as number) ?? 0) + 1);
         blocks.set(key, {
-            instrument_symbol: symbol, detail_level: level,
+            venue, instrument_symbol: symbol, detail_level: level,
             started_at: startedAt, ended_at: endedAt,
             column_interval_ms: interval, price_bucket_size: bucketSize,
             column_count: count, step_ratio: ratio, smallest_quantity: smallest,
@@ -76,9 +88,9 @@ export function createChunkStoreMock(): ChunkStoreMock {
 
     const execute = vi.fn((statement: string, parameters: readonly unknown[] = []) => {
         if (statement.includes('liquidity_chunk')) {
-            const [symbol, level, startedAt, lowest, count, low, high] = parameters;
-            chunks.set(`${String(symbol)}:${String(level)}:${(startedAt as Date).getTime()}:${String(lowest)}`, {
-                instrument_symbol: symbol, detail_level: level, started_at: startedAt,
+            const [venue, symbol, level, startedAt, lowest, count, low, high] = parameters;
+            chunks.set(`${toBlockKey(parameters)}:${String(lowest)}`, {
+                venue, instrument_symbol: symbol, detail_level: level, started_at: startedAt,
                 lowest_bucket_index: lowest, column_count: count,
                 low_plane: low, high_plane: high,
             });
@@ -87,23 +99,24 @@ export function createChunkStoreMock(): ChunkStoreMock {
     });
 
     const selectRows = vi.fn((statement: string, parameters: readonly unknown[] = []) => {
-        const [symbol] = parameters;
+        const [venue, symbol] = parameters;
+        const isContract = (row: Row): boolean => (
+            row['venue'] === venue && row['instrument_symbol'] === symbol
+        );
         if (statement.includes('INSERT INTO whole_book.liquidity_block')) {
             return Promise.resolve([{ revision: writeBlock(parameters) }]);
         }
         if (statement.includes('xmin::text AS revision')) {
-            const [, level, startedAt] = parameters;
-            const key = `${String(symbol)}:${String(level)}:${(startedAt as Date).getTime()}`;
-            const revision = revisions.get(key);
+            const revision = revisions.get(toBlockKey(parameters));
             return Promise.resolve(revision === undefined ? [] : [{ revision }]);
         }
         if (statement.includes('AS started_at')) {
-            const [, fromMs, toMs] = parameters;
+            const [, , fromMs, toMs] = parameters;
             // The first instant each block holds a recording of, not where the
             // block opens: a block is addressed by a fixed grid and carries
             // empty places until the recording reaches it.
             const recorded = [...blocks.values()]
-                .filter((row) => row['instrument_symbol'] === symbol && row['detail_level'] === 0
+                .filter((row) => isContract(row) && row['detail_level'] === 0
                     && (row['ended_at'] as Date) >= (fromMs as Date)
                     && (row['started_at'] as Date) <= (toMs as Date))
                 .map((row) => {
@@ -117,30 +130,30 @@ export function createChunkStoreMock(): ChunkStoreMock {
         }
         if (statement.includes('column_interval_ms, price_bucket_size FROM')) {
             const finest = [...blocks.values()]
-                .filter((row) => row['instrument_symbol'] === symbol && row['detail_level'] === 0);
+                .filter((row) => isContract(row) && row['detail_level'] === 0);
             return Promise.resolve(finest.slice(-1));
         }
-        if (statement.includes('AND started_at = $3::timestamptz')) {
-            const [, level, startedAt] = parameters;
+        if (statement.includes('AND started_at = $4::timestamptz')) {
+            const [, , level, startedAt] = parameters;
             blockReads.set(level as number, (blockReads.get(level as number) ?? 0) + 1);
             return Promise.resolve([...blocks.values()].filter((row) => (
-                row['instrument_symbol'] === symbol && row['detail_level'] === level
+                isContract(row) && row['detail_level'] === level
                 && (row['started_at'] as Date).getTime() === (startedAt as Date).getTime()
             )));
         }
         if (statement.includes('FROM whole_book.liquidity_block')) {
-            const [, level, fromMs, toMs] = parameters;
+            const [, , level, fromMs, toMs] = parameters;
             return Promise.resolve([...blocks.values()]
-                .filter((row) => row['instrument_symbol'] === symbol && row['detail_level'] === level
+                .filter((row) => isContract(row) && row['detail_level'] === level
                     && (row['ended_at'] as Date) >= (fromMs as Date)
                     && (row['started_at'] as Date) <= (toMs as Date))
                 .sort((left, right) => (left['started_at'] as Date).getTime() - (right['started_at'] as Date).getTime()));
         }
         if (statement.includes('FROM whole_book.liquidity_chunk')) {
-            const [, level, startedAt, wanted] = parameters;
+            const [, , level, startedAt, wanted] = parameters;
             const wantedTimes = (startedAt as Date[]).map((one) => one.getTime());
             return Promise.resolve([...chunks.values()].filter((row) => (
-                row['instrument_symbol'] === symbol && row['detail_level'] === level
+                isContract(row) && row['detail_level'] === level
                 && wantedTimes.includes((row['started_at'] as Date).getTime())
                 && (wanted === null || (wanted as number[]).includes(row['lowest_bucket_index'] as number))
             )));

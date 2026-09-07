@@ -1,6 +1,6 @@
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
 import type { PostgresService } from '../postgres/postgres-service.ts';
-import type { ChunkRowStore } from '../core/chunk-row-store.ts';
+import type { ChunkContract, ChunkRowStore } from '../core/chunk-row-store.ts';
 import { buildValuesClause, chunkItems } from '../postgres/multi-row-insert.ts';
 import type {
     GapRecordRequest,
@@ -100,14 +100,14 @@ export class LiquidityArchiveService implements LiquidityArchive {
     }
 
     /**
-     * Instant of the newest recorded frame for an instrument.
+     * Instant of the newest recorded frame for a contract.
      *
-     * @param instrumentSymbol - Contract to look up.
+     * @param contract - The venue and symbol to look up.
      * @returns Unix milliseconds of the newest frame, or null when none exist.
      * @throws PostgresQueryError when the read fails.
      */
-    async findLastFrameTimestamp(instrumentSymbol: string): Promise<number | null> {
-        const coverage = await this.chunks.readCoverage(instrumentSymbol);
+    async findLastFrameTimestamp(contract: ChunkContract): Promise<number | null> {
+        const coverage = await this.chunks.readCoverage(contract);
         return coverage?.lastFrameAtMs ?? null;
     }
 

@@ -2,10 +2,22 @@
 export const DATABASE_NAME = 'fathom-demo';
 
 /** Bumped only when a store or a key path changes. */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 /** The store a page kept a row per instant in, before it kept squares. */
 const RETIRED_STORE = 'liquidity_frame';
+
+/**
+ * The square stores whose key gained the venue, and what it cost to add it.
+ *
+ * A key path cannot be altered, so a store keyed by the symbol alone has to be
+ * dropped and made again — and what a page recorded under the old key goes with
+ * it. It is allowed to go because this store is a window, not an archive: it is
+ * bounded by a disk budget and drops its own oldest recording to stay inside
+ * one, so everything in it was already on its way out. The history that cannot
+ * be recorded again lives on a server, under a migration that kept every row.
+ */
+const REKEYED_STORES = ['liquidity_block', 'liquidity_chunk'] as const;
 
 /**
  * Store names, deliberately identical to the SQL tables.
@@ -47,6 +59,14 @@ export function createStores(database: IDBDatabase, upgrade: IDBTransaction): vo
         database.deleteObjectStore(RETIRED_STORE);
     }
 
+    // Before they are made again below, and only where one is already there
+    // under the old key. On a first visit there is nothing to drop.
+    for (const store of REKEYED_STORES) {
+        if (database.objectStoreNames.contains(store)) {
+            database.deleteObjectStore(store);
+        }
+    }
+
     if (!database.objectStoreNames.contains(STORES.instrumentRegistry)) {
         database.createObjectStore(STORES.instrumentRegistry, { keyPath: 'instrumentSymbol' });
     }
@@ -70,17 +90,24 @@ export function createStores(database: IDBDatabase, upgrade: IDBTransaction): vo
     // block is addressed by where it sits rather than by when it was written,
     // so the key is the address and a rewrite of a block still filling lands on
     // the record it is replacing.
+    //
+    // The venue opens that address. Two venues both list BTCUSDT, and keyed by
+    // the symbol alone the second one recorded would land its squares on the
+    // first one's rather than beside them — over a book nobody can record
+    // again.
     const blocks = database.objectStoreNames.contains(STORES.liquidityBlock)
         ? upgrade.objectStore(STORES.liquidityBlock)
         : database.createObjectStore(STORES.liquidityBlock, {
-            keyPath: ['instrumentSymbol', 'detailLevel', 'startedAtMs'],
+            keyPath: ['venue', 'instrumentSymbol', 'detailLevel', 'startedAtMs'],
         });
     if (!blocks.indexNames.contains(BLOCK_REACH_INDEX)) {
-        blocks.createIndex(BLOCK_REACH_INDEX, ['instrumentSymbol', 'detailLevel', 'endedAtMs']);
+        blocks.createIndex(BLOCK_REACH_INDEX, [
+            'venue', 'instrumentSymbol', 'detailLevel', 'endedAtMs',
+        ]);
     }
     if (!database.objectStoreNames.contains(STORES.liquidityChunk)) {
         database.createObjectStore(STORES.liquidityChunk, {
-            keyPath: ['instrumentSymbol', 'detailLevel', 'startedAtMs', 'lowestBucketIndex'],
+            keyPath: ['venue', 'instrumentSymbol', 'detailLevel', 'startedAtMs', 'lowestBucketIndex'],
         });
     }
 }

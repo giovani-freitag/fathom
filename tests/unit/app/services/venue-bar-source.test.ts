@@ -76,9 +76,10 @@ describe('VenueBarSource', () => {
         const asked: Asked = { archive: [], venue: [] };
         const source = buildSource(asked);
 
-        await source.fetchFrameWindow({ symbol: 'BTCUSDT', fromMs: 0, toMs: 1, maxColumns: 1 });
-        await source.fetchGaps({ symbol: 'BTCUSDT', fromMs: 0, toMs: 1, maxColumns: 1 });
-        await source.fetchTradeClusters({ symbol: 'BTCUSDT', fromMs: 0, toMs: 1, maxColumns: 1 });
+        const window = { symbol: 'BTCUSDT', venue: FIRST_VENUE, fromMs: 0, toMs: 1, maxColumns: 1 };
+        await source.fetchFrameWindow(window);
+        await source.fetchGaps(window);
+        await source.fetchTradeClusters({ ...window, priceGroupSize: 1, minimumQuantity: 0 });
         await source.fetchInstruments();
 
         expect(asked.archive).toEqual(['frames', 'gaps', 'clusters', 'instruments']);

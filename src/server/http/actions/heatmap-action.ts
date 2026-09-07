@@ -2,6 +2,7 @@ import { encodeLiquidityFrameWindow } from '../../../shared/codec/heatmap-codec.
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { refuseUnansweredWindow } from './window-guard.ts';
 import type { ChunkArchiveService } from '../../../database/services/chunk-archive-service.ts';
+import { FIRST_VENUE } from '../../../shared/core/recording-control.ts';
 import type { WindowFilters } from '../schemas/window-schema.ts';
 
 export interface HeatmapHandlerConfig {
@@ -31,6 +32,11 @@ export function createHeatmapHandler(config: HeatmapHandlerConfig) {
         }
 
         const window = await config.chunks.fetchWindow({
+            // Named by the caller where it knows, and the venue everything
+            // was recorded under where it does not. Chosen here, at the door,
+            // rather than inside the archive, where a caller that does know its
+            // venue would have it quietly replaced.
+            venue: filters.venue ?? FIRST_VENUE,
             instrumentSymbol: filters.symbol,
             fromMs: filters.fromMs,
             toMs: filters.toMs,

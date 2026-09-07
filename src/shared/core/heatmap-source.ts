@@ -13,17 +13,25 @@ export interface PriceBandQuery {
 
 export interface FrameWindowQuery {
     readonly symbol: string;
+    /**
+     * Which venue's recording is being read.
+     *
+     * Part of what names the window rather than a label on it: the archive keys
+     * a square by the venue and the symbol together, so a window asked for by
+     * the symbol alone is one the store cannot address.
+     */
+    readonly venue: string;
     readonly fromMs: number;
     readonly toMs: number;
     readonly maxColumns: number;
-    /** Which stored shape the window is read out of. */
     /** The prices the reader will draw, or absent for every price stored. */
     readonly priceBand?: PriceBandQuery;
 }
 
+/** A window of executions, and the grid they are counted onto. */
 export interface TradeClusterQuery extends FrameWindowQuery {
-    readonly priceGroupSize?: number;
-    readonly minimumQuantity?: number;
+    readonly priceGroupSize: number;
+    readonly minimumQuantity: number;
 }
 
 export interface TradeClusterResult {

@@ -7,6 +7,9 @@ import { IndexedDbService } from '../../../src/database/browser/indexed-db-servi
 import { recordInstants, RECORDING_GRID } from '../../mocks/browser-recording.ts';
 import { STORES } from '../../../src/database/browser/browser-schema.ts';
 
+/** The contract every recording here is written and read back under. */
+const CONTRACT = { venue: 'binance-futures', instrumentSymbol: 'BTCUSDT' };
+
 const FIRST_MS = 1_000_000;
 
 /** Instants kept, which the prune measures its horizon back from. */
@@ -24,7 +27,7 @@ describe('IndexedDbLiquidityArchive', () => {
             frameCapacity: CAPACITY,
         });
         await archive.open();
-        await archive.registerInstrument({ instrumentSymbol: 'BTCUSDT', ...RECORDING_GRID });
+        await archive.registerInstrument({ ...CONTRACT, ...RECORDING_GRID });
     });
 
     afterEach(async () => {
@@ -41,23 +44,23 @@ describe('IndexedDbLiquidityArchive', () => {
         // restart writes a hole covering everything it actually recorded.
         await recordInstants({ database, fromMs: FIRST_MS, count: 5 });
 
-        expect(await archive.findLastFrameTimestamp('BTCUSDT')).toBe(FIRST_MS + 4_000);
+        expect(await archive.findLastFrameTimestamp(CONTRACT)).toBe(FIRST_MS + 4_000);
     });
 
     it('answers for a contract it has never recorded', async () => {
-        expect(await archive.findLastFrameTimestamp('ETHUSDT')).toBeNull();
+        expect(await archive.findLastFrameTimestamp({ ...CONTRACT, instrumentSymbol: 'ETHUSDT' })).toBeNull();
     });
 
     it('leaves a window that still fits alone', async () => {
         await recordInstants({ database, fromMs: FIRST_MS, count: CAPACITY });
 
-        expect(await archive.pruneToCapacity('BTCUSDT')).toBe(0);
+        expect(await archive.pruneToCapacity(CONTRACT)).toBe(0);
     });
 
     it('drops the oldest recording once the window is longer than it may be', async () => {
         await recordInstants({ database, fromMs: FIRST_MS, count: 1_200 });
 
-        const dropped = await archive.pruneToCapacity('BTCUSDT');
+        const dropped = await archive.pruneToCapacity(CONTRACT);
 
         expect(dropped).toBeGreaterThan(0);
     });
@@ -65,7 +68,7 @@ describe('IndexedDbLiquidityArchive', () => {
     it('takes the executions that fell below the horizon with it', async () => {
         await recordInstants({ database, fromMs: FIRST_MS, count: 1_200 });
         await archive.appendTradeClusters({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             priceBucketSize: RECORDING_GRID.priceBucketSize,
             clusters: [
                 { executedAtMs: FIRST_MS, priceBucketIndex: 7_900, buyQuantity: 1, sellQuantity: 0, tradeCount: 1, largestTradeQuantity: 1 },
@@ -73,7 +76,7 @@ describe('IndexedDbLiquidityArchive', () => {
             ],
         });
 
-        await archive.pruneToCapacity('BTCUSDT');
+        await archive.pruneToCapacity(CONTRACT);
 
         expect(await database.countRange(STORES.tradeCluster, null)).toBe(1);
     });
@@ -83,7 +86,7 @@ describe('IndexedDbLiquidityArchive', () => {
         // survive, or the chart claims a stretch was recorded when it was not.
         await recordInstants({ database, fromMs: FIRST_MS, count: 1_200 });
         await archive.recordGap({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             gap: {
                 gapStartedAtMs: FIRST_MS + 500,
                 gapEndedAtMs: FIRST_MS + 1_198_000,
@@ -91,7 +94,7 @@ describe('IndexedDbLiquidityArchive', () => {
             },
         });
 
-        await archive.pruneToCapacity('BTCUSDT');
+        await archive.pruneToCapacity(CONTRACT);
 
         expect(await database.countRange(STORES.recordingGap, null)).toBe(1);
     });
@@ -102,7 +105,7 @@ describe('IndexedDbLiquidityArchive', () => {
         await recordInstants({ database, fromMs: FIRST_MS, count: 1_200 });
         const before = await countBlocks();
 
-        await archive.pruneToCapacity('BTCUSDT');
+        await archive.pruneToCapacity(CONTRACT);
 
         expect(await countBlocks()).toBeLessThan(before);
     });

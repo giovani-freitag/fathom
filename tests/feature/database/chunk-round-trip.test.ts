@@ -6,6 +6,9 @@ import { createChunkStoreMock } from '../../mocks/chunk-store.ts';
 import type { LiquidityFrame } from '../../../src/shared/core/liquidity-frame.ts';
 import { COLUMNS_PER_CHUNK, ROWS_PER_CHUNK } from '../../../src/shared/codec/chunk-grid.ts';
 
+/** The contract every recording here is written and read back under. */
+const CONTRACT = { venue: 'binance-futures', instrumentSymbol: 'BTCUSDT' };
+
 const BUCKET_SIZE = 10;
 const INTERVAL_MS = 1_000;
 const STEP_RATIO = 1.07;
@@ -58,6 +61,15 @@ function buildRecording(count: number): LiquidityFrame[] {
     });
 }
 
+/** The same instant quoted a bucket higher, as another venue would have it. */
+function shiftPrices(frame: LiquidityFrame, buckets: number): LiquidityFrame {
+    return {
+        ...frame,
+        bestBidPrice: frame.bestBidPrice + buckets * BUCKET_SIZE,
+        bestAskPrice: frame.bestAskPrice + buckets * BUCKET_SIZE,
+    };
+}
+
 /** What one frame says is resting at each price. */
 function readByBucket(frame: LiquidityFrame): Map<number, number> {
     const byBucket = new Map<number, number>();
@@ -108,7 +120,7 @@ async function roundTrip(frames: readonly LiquidityFrame[], read: {
     const recorder = new ChunkTileRecorder({
         archive, priceRangeRatio: 1, intervalMs: INTERVAL_MS, stepRatio: STEP_RATIO,
     });
-    const recording = recorder.buildRecording('BTCUSDT', BUCKET_SIZE);
+    const recording = recorder.buildRecording(CONTRACT, BUCKET_SIZE);
     for (const frame of frames) {
         recording.onFrame(frame, BUCKET_SIZE);
     }
@@ -125,7 +137,7 @@ async function roundTrip(frames: readonly LiquidityFrame[], read: {
     return {
         store,
         window: await archive.fetchWindow({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             fromMs: read.fromMs ?? STARTED_AT_MS,
             toMs: STARTED_AT_MS + frames.length * INTERVAL_MS,
             maxColumns: read.maxColumns ?? 4_000,
@@ -382,7 +394,7 @@ describe('reading a coarse level', () => {
         const recorder = new ChunkTileRecorder({
             archive, priceRangeRatio: 1, intervalMs: INTERVAL_MS, stepRatio: STEP_RATIO,
         });
-        const feeding = recorder.buildRecording('BTCUSDT', BUCKET_SIZE);
+        const feeding = recorder.buildRecording(CONTRACT, BUCKET_SIZE);
         for (const frame of recording) {
             feeding.onFrame(frame, BUCKET_SIZE);
         }
@@ -390,7 +402,7 @@ describe('reading a coarse level', () => {
         store.forgetEarly(2, 6);
 
         const window = await archive.fetchWindow({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             fromMs: STARTED_AT_MS,
             toMs: STARTED_AT_MS + recording.length * INTERVAL_MS,
             maxColumns: 10,
@@ -419,14 +431,14 @@ describe('reading a coarse level', () => {
         const recorder = new ChunkTileRecorder({
             archive, priceRangeRatio: 1, intervalMs: INTERVAL_MS, stepRatio: STEP_RATIO,
         });
-        const feeding = recorder.buildRecording('BTCUSDT', BUCKET_SIZE);
+        const feeding = recorder.buildRecording(CONTRACT, BUCKET_SIZE);
         for (const frame of late) {
             feeding.onFrame(frame, BUCKET_SIZE);
         }
         await recorder.flush();
 
         const window = await archive.fetchWindow({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             // Reaching back further than anything was recorded, which is what a
             // reader zoomed out over a young archive is always doing.
             fromMs: openedAtMs - 600 * INTERVAL_MS,
@@ -460,7 +472,7 @@ describe('two reads of overlapping stretches', () => {
         const recorder = new ChunkTileRecorder({
             archive, priceRangeRatio: 1, intervalMs: INTERVAL_MS, stepRatio: STEP_RATIO,
         });
-        const feeding = recorder.buildRecording('BTCUSDT', BUCKET_SIZE);
+        const feeding = recorder.buildRecording(CONTRACT, BUCKET_SIZE);
         for (const frame of recording) {
             feeding.onFrame(frame, BUCKET_SIZE);
         }
@@ -473,7 +485,7 @@ describe('two reads of overlapping stretches', () => {
         // where each read began, the same stretch comes back on two grids half a
         // column apart and everything already held has to be thrown away.
         const read = (fromColumn: number) => archive.fetchWindow({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             fromMs: STARTED_AT_MS + fromColumn * INTERVAL_MS,
             toMs: STARTED_AT_MS + (fromColumn + 400) * INTERVAL_MS,
             // Three stored instants to a drawn column, so where the stride
@@ -491,7 +503,7 @@ describe('two reads of overlapping stretches', () => {
 
     it('reports the same grid for both, so one can be laid on the other', async () => {
         const read = (fromColumn: number) => archive.fetchWindow({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             fromMs: STARTED_AT_MS + fromColumn * INTERVAL_MS,
             toMs: STARTED_AT_MS + (fromColumn + 400) * INTERVAL_MS,
             maxColumns: 150,
@@ -517,7 +529,7 @@ describe('zooming back in after zooming out', () => {
         const recorder = new ChunkTileRecorder({
             archive, priceRangeRatio: 1, intervalMs: INTERVAL_MS, stepRatio: STEP_RATIO,
         });
-        const feeding = recorder.buildRecording('BTCUSDT', BUCKET_SIZE);
+        const feeding = recorder.buildRecording(CONTRACT, BUCKET_SIZE);
         for (const frame of recording) {
             feeding.onFrame(frame, BUCKET_SIZE);
         }
@@ -530,7 +542,7 @@ describe('zooming back in after zooming out', () => {
         // get is that grid still standing once they have zoomed back in: it
         // reads as a picture that thickened and will not thin again.
         const read = (spanColumns: number, maxColumns: number) => archive.fetchWindow({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             fromMs: STARTED_AT_MS,
             toMs: STARTED_AT_MS + spanColumns * INTERVAL_MS,
             maxColumns,
@@ -548,7 +560,7 @@ describe('zooming back in after zooming out', () => {
         // drew as seven bands a hundred and twenty-eight pixels tall where the
         // pane had room for a hundred and twelve.
         const read = (spanColumns: number, maxColumns: number) => archive.fetchWindow({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             fromMs: STARTED_AT_MS,
             toMs: STARTED_AT_MS + spanColumns * INTERVAL_MS,
             maxColumns,
@@ -568,7 +580,7 @@ describe('zooming back in after zooming out', () => {
 
         // Rows enough for every price in the band, so nothing was to be folded.
         const window = await archive.fetchWindow({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             fromMs: STARTED_AT_MS,
             toMs: STARTED_AT_MS + 300 * INTERVAL_MS,
             maxColumns: 100,
@@ -594,7 +606,7 @@ describe('rebuilding the levels above the finest', () => {
         const recorder = new ChunkTileRecorder({
             archive, priceRangeRatio: 1, intervalMs: INTERVAL_MS, stepRatio: STEP_RATIO,
         });
-        const feeding = recorder.buildRecording('BTCUSDT', BUCKET_SIZE);
+        const feeding = recorder.buildRecording(CONTRACT, BUCKET_SIZE);
         for (const frame of recording) {
             feeding.onFrame(frame, BUCKET_SIZE);
         }
@@ -609,12 +621,12 @@ describe('rebuilding the levels above the finest', () => {
         for (const block of store.rows('block').filter((row) => row['detail_level'] === 0)) {
             const startedAtMs = (block['started_at'] as Date).getTime();
             const columns = await archive.readBlock({
-                instrumentSymbol: 'BTCUSDT', detailLevel: 0, startedAtMs, priceBucketSize: BUCKET_SIZE,
+                ...CONTRACT, detailLevel: 0, startedAtMs, priceBucketSize: BUCKET_SIZE,
             });
             for (const [index, column] of columns.entries()) {
                 if (column.bestBidPrice > 0) {
                     await rebuilder.replay({
-                        instrumentSymbol: 'BTCUSDT',
+                        ...CONTRACT,
                         priceBucketSize: BUCKET_SIZE,
                         column,
                         capturedAtMs: startedAtMs + index * INTERVAL_MS,
@@ -625,7 +637,7 @@ describe('rebuilding the levels above the finest', () => {
         await rebuilder.flush();
 
         const rebuilt = await archive.fetchWindow({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             fromMs: STARTED_AT_MS,
             toMs: STARTED_AT_MS + recording.length * INTERVAL_MS,
             maxColumns: 10,
@@ -645,7 +657,7 @@ describe('rebuilding the levels above the finest', () => {
         const recorder = new ChunkTileRecorder({
             archive, priceRangeRatio: 1, intervalMs: INTERVAL_MS, stepRatio: STEP_RATIO,
         });
-        const feeding = recorder.buildRecording('BTCUSDT', BUCKET_SIZE);
+        const feeding = recorder.buildRecording(CONTRACT, BUCKET_SIZE);
         for (const frame of recording) {
             feeding.onFrame(frame, BUCKET_SIZE);
         }
@@ -657,12 +669,12 @@ describe('rebuilding the levels above the finest', () => {
         for (const block of store.rows('block').filter((row) => row['detail_level'] === 0)) {
             const startedAtMs = (block['started_at'] as Date).getTime();
             const columns = await archive.readBlock({
-                instrumentSymbol: 'BTCUSDT', detailLevel: 0, startedAtMs, priceBucketSize: BUCKET_SIZE,
+                ...CONTRACT, detailLevel: 0, startedAtMs, priceBucketSize: BUCKET_SIZE,
             });
             for (const [index, column] of columns.entries()) {
                 if (column.bestBidPrice > 0) {
                     await rebuilder.replay({
-                        instrumentSymbol: 'BTCUSDT',
+                        ...CONTRACT,
                         priceBucketSize: BUCKET_SIZE,
                         column,
                         capturedAtMs: startedAtMs + index * INTERVAL_MS,
@@ -673,7 +685,7 @@ describe('rebuilding the levels above the finest', () => {
         await rebuilder.flush();
 
         const rebuilt = await archive.fetchWindow({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             fromMs: STARTED_AT_MS,
             toMs: STARTED_AT_MS + recording.length * INTERVAL_MS,
             maxColumns: 10,
@@ -703,7 +715,7 @@ describe('a recorder picking up where another left off', () => {
 
         const archive = new ChunkArchiveService({ rows: new PostgresChunkRowStore({ postgres: store.service }) });
         const window = await archive.fetchWindow({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             fromMs: STARTED_AT_MS,
             toMs: STARTED_AT_MS + 120 * INTERVAL_MS,
             maxColumns: 4_000,
@@ -721,7 +733,7 @@ describe('a recorder picking up where another left off', () => {
 
         const archive = new ChunkArchiveService({ rows: new PostgresChunkRowStore({ postgres: store.service }) });
         const window = await archive.fetchWindow({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             fromMs: STARTED_AT_MS,
             toMs: STARTED_AT_MS + 120 * INTERVAL_MS,
             maxColumns: 4_000,
@@ -740,7 +752,7 @@ async function record(store: ReturnType<typeof createChunkStoreMock>, frames: re
         intervalMs: INTERVAL_MS,
         stepRatio: STEP_RATIO,
     });
-    const recording = recorder.buildRecording('BTCUSDT', BUCKET_SIZE);
+    const recording = recorder.buildRecording(CONTRACT, BUCKET_SIZE);
     for (const frame of frames) {
         recording.onFrame(frame, BUCKET_SIZE);
     }
@@ -758,7 +770,7 @@ describe('two instants crossing a block boundary together', () => {
         const recorder = new ChunkTileRecorder({
             archive, priceRangeRatio: 1, intervalMs: INTERVAL_MS, stepRatio: STEP_RATIO,
         });
-        const recording = recorder.buildRecording('BTCUSDT', BUCKET_SIZE);
+        const recording = recorder.buildRecording(CONTRACT, BUCKET_SIZE);
         // A run that walks over the boundary of a five-hundred-and-twelve
         // column block, fed as fast as the capture feeds it.
         const acrossBoundary = buildRecording(20).map((frame, offset) => ({
@@ -788,7 +800,7 @@ describe('two instants crossing a block boundary together', () => {
         const recorder = new ChunkTileRecorder({
             archive, priceRangeRatio: 1, intervalMs: INTERVAL_MS, stepRatio: STEP_RATIO,
         });
-        const recording = recorder.buildRecording('BTCUSDT', BUCKET_SIZE);
+        const recording = recorder.buildRecording(CONTRACT, BUCKET_SIZE);
         const blockOpensAtMs = STARTED_AT_MS - 7_000 + COLUMNS_PER_CHUNK * INTERVAL_MS;
         const acrossBoundary = buildRecording(40).map((frame, offset) => ({
             ...frame,
@@ -801,7 +813,7 @@ describe('two instants crossing a block boundary together', () => {
 
         // Thirteen drawn columns of forty instants is four to each of them.
         const window = await archive.fetchWindow({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             fromMs: acrossBoundary[0]!.capturedAtMs,
             toMs: acrossBoundary.at(-1)!.capturedAtMs,
             maxColumns: 13,
@@ -854,7 +866,7 @@ async function write(
     recorder: ChunkTileRecorder,
     frames: readonly LiquidityFrame[],
 ): Promise<void> {
-    const recording = recorder.buildRecording('BTCUSDT', BUCKET_SIZE);
+    const recording = recorder.buildRecording(CONTRACT, BUCKET_SIZE);
     for (const frame of frames) {
         recording.onFrame(frame, BUCKET_SIZE);
     }
@@ -890,7 +902,7 @@ describe('two writers meeting on one block', () => {
         await write(live, recordingAt(LIVE_MS + 8 * INTERVAL_MS, 8));
 
         const block = await archive.readBlock({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             detailLevel: 1,
             startedAtMs: BLOCK_START_MS,
             priceBucketSize: BUCKET_SIZE,
@@ -949,7 +961,7 @@ describe('two writers meeting on one block', () => {
         }
 
         const block = await archive.readBlock({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             detailLevel: 1,
             startedAtMs: BLOCK_START_MS,
             priceBucketSize: BUCKET_SIZE,
@@ -957,4 +969,65 @@ describe('two writers meeting on one block', () => {
         const column = block[Math.floor((LIVE_MS - BLOCK_START_MS) / COLUMN_MS)];
         return column?.steps.get(HIGH_WALL_BUCKET) ?? 0;
     }
+});
+
+describe('two venues recording one symbol', () => {
+    /**
+     * Records the same run under two venues and reads each of them back.
+     *
+     * The two recordings differ only in the venue, and a block still filling is
+     * written over as it grows — so keyed by the symbol alone the second would
+     * land on the first's rows rather than beside them, and the first venue's
+     * book would be gone.
+     */
+    async function bothVenues() {
+        const store = createChunkStoreMock();
+        const archive = new ChunkArchiveService({ rows: new PostgresChunkRowStore({ postgres: store.service }) });
+        const venues = ['binance-futures', 'bybit-futures'];
+
+        for (const [index, venue] of venues.entries()) {
+            const recorder = new ChunkTileRecorder({
+                archive, priceRangeRatio: 1, intervalMs: INTERVAL_MS, stepRatio: STEP_RATIO,
+            });
+            const recording = recorder.buildRecording(
+                { venue, instrumentSymbol: CONTRACT.instrumentSymbol },
+                BUCKET_SIZE,
+            );
+            // A price apiece, so a window can say which venue answered it. Two
+            // venues quoting one contract never agree to the cent, and here the
+            // difference is what a read is checked against.
+            for (const frame of buildRecording(20)) {
+                recording.onFrame(shiftPrices(frame, index), BUCKET_SIZE);
+            }
+            await recorder.flush();
+        }
+
+        const read = async (venue: string) => archive.fetchWindow({
+            venue,
+            instrumentSymbol: CONTRACT.instrumentSymbol,
+            fromMs: STARTED_AT_MS,
+            toMs: STARTED_AT_MS + 20 * INTERVAL_MS,
+            maxColumns: 4_000,
+        });
+        return { store, first: await read(venues[0]!), second: await read(venues[1]!) };
+    }
+
+    it('keeps each venue its own squares rather than one over the other', async () => {
+        const { store } = await bothVenues();
+
+        // Twice what one venue alone leaves behind. Landing on one another they
+        // would leave exactly one venue's worth, and the read below would still
+        // answer — with the wrong venue's book.
+        const alone = (await roundTrip(buildRecording(20))).store.count('block');
+        expect(store.count('block')).toBe(alone * 2);
+    });
+
+    it('answers each venue with the prices that venue quoted', async () => {
+        const { first, second } = await bothVenues();
+
+        const priceOf = (window: Awaited<ReturnType<typeof bothVenues>>['first']) =>
+            window.frames[0]?.bestBidPrice ?? 0;
+        expect(priceOf(first)).toBeGreaterThan(0);
+        expect(priceOf(second)).toBe(priceOf(first) + BUCKET_SIZE);
+    });
 });

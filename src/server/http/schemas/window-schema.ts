@@ -27,6 +27,14 @@ const HIGHEST_ASKABLE_PRICE = 1e12;
 
 export const WindowFiltersSchema = Type.Object({
     symbol: Type.String({ minLength: 1, maxLength: 32 }),
+    /**
+     * Which venue's recording to read, or absent for the one that came first.
+     *
+     * Optional so that a page built before the archive was keyed by venue is
+     * still answered, rather than refused at the door by a gateway it has no
+     * way of knowing changed.
+     */
+    venue: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
     fromMs: Type.Integer({ minimum: 0 }),
     toMs: Type.Integer({ minimum: 0 }),
     maxColumns: Type.Integer({

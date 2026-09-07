@@ -1,6 +1,7 @@
 import { foldFrameWindow, toLadders } from '../../shared/core/frame-fold.ts';
 import type {
     ChunkBlockRow,
+    ChunkContract,
     ChunkRowStore,
     ChunkSquareRow,
 } from '../core/chunk-row-store.ts';
@@ -36,8 +37,7 @@ export interface ChunkArchiveServiceConfig {
 }
 
 /** One stretch of instants, already folded onto one level's own grid. */
-export interface ChunkWriteRequest {
-    readonly instrumentSymbol: string;
+export interface ChunkWriteRequest extends ChunkContract {
     readonly detailLevel: number;
     /** What one column of this level covers, already multiplied out. */
     readonly columnIntervalMs: number;
@@ -67,8 +67,7 @@ export interface ChunkColumn {
     readonly steps: ReadonlyMap<number, number>;
 }
 
-export interface ChunkWindowQuery {
-    readonly instrumentSymbol: string;
+export interface ChunkWindowQuery extends ChunkContract {
     readonly fromMs: number;
     readonly toMs: number;
     readonly maxColumns: number;
@@ -122,6 +121,7 @@ export interface ChunkWindowQuery {
         }
 
         const revision = await this.config.rows.writeBlock({
+            venue: request.venue,
             instrumentSymbol: request.instrumentSymbol,
             detailLevel: request.detailLevel,
             startedAtMs: request.startedAtMs,
@@ -176,6 +176,7 @@ export interface ChunkWindowQuery {
         }
 
         const squares = await this.readSquares({
+            venue: resume.venue,
             instrumentSymbol: resume.instrumentSymbol,
             detailLevel: resume.detailLevel,
             startedAt: [block.startedAtMs],
@@ -196,7 +197,7 @@ export interface ChunkWindowQuery {
      * @returns The window, in the shape the chart draws every store in.
      */
     async fetchWindow(query: ChunkWindowQuery): Promise<LiquidityFrameWindow> {
-        const finest = await this.config.rows.readFinestGrid(query.instrumentSymbol);
+        const finest = await this.config.rows.readFinestGrid(query);
         if (finest === null) {
             return { priceBucketSize: 1, sampleIntervalMs: 1, frames: [] };
         }
@@ -272,6 +273,7 @@ export interface ChunkWindowQuery {
             recordedCeiling: read.recordedCeiling,
         });
         const squares = await this.readSquares({
+            venue: read.query.venue,
             instrumentSymbol: read.query.instrumentSymbol,
             detailLevel: read.detailLevel,
             startedAt: read.blocks.map((one) => one.startedAtMs),
@@ -344,6 +346,7 @@ export interface ChunkWindowQuery {
         }), grid);
 
         await this.config.rows.writeSquare({
+            venue: request.venue,
             instrumentSymbol: request.instrumentSymbol,
             detailLevel: request.detailLevel,
             startedAtMs: request.startedAtMs,
@@ -371,6 +374,7 @@ export interface ChunkWindowQuery {
             : priceBlocksAcross(band.lowestBucketIndex, band.bucketCount)
                 .map((block) => block * ROWS_PER_CHUNK);
         const rows = await this.config.rows.readSquares({
+            venue: read.venue,
             instrumentSymbol: read.instrumentSymbol,
             detailLevel: read.detailLevel,
             startedAtMs: read.startedAt,
@@ -387,8 +391,7 @@ export interface ChunkWindowQuery {
 
 /** Which block a recorder is picking back up. */
 /** Where one block sits: the instrument, the level, and when it starts. */
-export interface BlockAddress {
-    readonly instrumentSymbol: string;
+export interface BlockAddress extends ChunkContract {
     readonly detailLevel: number;
     readonly startedAtMs: number;
 }
@@ -399,8 +402,7 @@ export interface BlockResume extends BlockAddress {
 }
 
 /** Which squares a read wants: the blocks it found, and the band it draws. */
-interface SquareRead {
-    readonly instrumentSymbol: string;
+interface SquareRead extends ChunkContract {
     readonly detailLevel: number;
     readonly startedAt: readonly number[];
     readonly band: PriceBand | null;

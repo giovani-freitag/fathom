@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HeatmapApiError, HeatmapApiService } from '../../../../src/app/services/heatmap-api-service.ts';
+import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 
 describe('HeatmapApiService', () => {
     let service: HeatmapApiService;
@@ -33,7 +34,7 @@ describe('HeatmapApiService', () => {
         answerWith({ json: () => Promise.resolve({ clusters: [], priceBucketSize: 10, sampleIntervalMs: 1_000 }) });
 
         await service.fetchTradeClusters({
-            symbol: 'BTCUSDT', fromMs: 1_000, toMs: 2_000, maxColumns: 60,
+            symbol: 'BTCUSDT', venue: FIRST_VENUE, fromMs: 1_000, toMs: 2_000, maxColumns: 60,
             priceGroupSize: 1, minimumQuantity: 0,
         });
 

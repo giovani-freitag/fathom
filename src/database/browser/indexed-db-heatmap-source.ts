@@ -48,10 +48,14 @@ export class IndexedDbHeatmapSource implements ArchiveSource {
         const registered = await this.read<InstrumentRecord>(STORES.instrumentRegistry, null);
 
         return Promise.all(registered.map(async (record) => {
-            const coverage = await this.rows.readCoverage(record.instrumentSymbol);
+            const venue = record.venue ?? FIRST_VENUE;
+            const coverage = await this.rows.readCoverage({
+                venue,
+                instrumentSymbol: record.instrumentSymbol,
+            });
             return {
                 instrumentSymbol: record.instrumentSymbol,
-                venue: record.venue ?? FIRST_VENUE,
+                venue,
                 priceBucketSize: record.priceBucketSize,
                 frameIntervalMs: record.frameIntervalMs,
                 firstFrameAtMs: coverage?.firstFrameAtMs ?? null,
@@ -80,6 +84,7 @@ export class IndexedDbHeatmapSource implements ArchiveSource {
      */
     async fetchFrameWindow(query: FrameWindowQuery): Promise<LiquidityFrameWindow> {
         return this.chunks.fetchWindow({
+            venue: query.venue,
             instrumentSymbol: query.symbol,
             fromMs: query.fromMs,
             toMs: query.toMs,

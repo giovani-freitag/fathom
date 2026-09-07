@@ -6,6 +6,9 @@ import { createChunkStoreMock } from '../../mocks/chunk-store.ts';
 import type { LiquidityFrame } from '../../../src/shared/core/liquidity-frame.ts';
 import { PostgresChunkRowStore } from '../../../src/database/postgres/postgres-chunk-row-store.ts';
 
+/** The contract every recording here is written and read back under. */
+const CONTRACT = { venue: 'binance-futures', instrumentSymbol: 'BTCUSDT' };
+
 const INTERVAL_MS = 1_000;
 const STEP_RATIO = 1.07;
 const SCALE = { stepRatio: STEP_RATIO, smallestQuantity: 0.25 };
@@ -39,7 +42,7 @@ function columnOn(bucketSize: number) {
 /** Writes one whole block of one grid, at one of the two block starts. */
 async function writeBlockOn(archive: ChunkArchiveService, startedAtMs: number, bucketSize: number) {
     await archive.writeBlock({
-        instrumentSymbol: 'BTCUSDT',
+        ...CONTRACT,
         detailLevel: 0,
         columnIntervalMs: INTERVAL_MS,
         priceBucketSize: bucketSize,
@@ -71,7 +74,7 @@ async function readAcross(first: number, second: number) {
     await writeBlockOn(archive, SECOND_BLOCK_MS, second);
 
     return archive.fetchWindow({
-        instrumentSymbol: 'BTCUSDT',
+        ...CONTRACT,
         fromMs: FIRST_BLOCK_MS,
         toMs: SECOND_BLOCK_MS + 8 * INTERVAL_MS,
         maxColumns: 2_000,
@@ -124,20 +127,20 @@ describe('a recorder picking up a block written on another grid', () => {
             archive, priceRangeRatio: 1, intervalMs: INTERVAL_MS, stepRatio: STEP_RATIO,
         });
 
-        const before = recorder.buildRecording('BTCUSDT', first);
+        const before = recorder.buildRecording(CONTRACT, first);
         for (let at = 0; at < 8; at += 1) {
             before.onFrame(frameOn(FIRST_BLOCK_MS + at * INTERVAL_MS, first), first);
         }
         await recorder.flush();
 
-        const after = recorder.buildRecording('BTCUSDT', second);
+        const after = recorder.buildRecording(CONTRACT, second);
         for (let at = 8; at < 16; at += 1) {
             after.onFrame(frameOn(FIRST_BLOCK_MS + at * INTERVAL_MS, second), second);
         }
         await recorder.flush();
 
         return archive.fetchWindow({
-            instrumentSymbol: 'BTCUSDT',
+            ...CONTRACT,
             fromMs: FIRST_BLOCK_MS,
             toMs: FIRST_BLOCK_MS + 16 * INTERVAL_MS,
             maxColumns: 2_000,

@@ -3,6 +3,9 @@ import { LiquidityArchiveService } from '../../../src/database/services/liquidit
 import { createPostgresServiceMock } from '../../mocks/postgres-service.ts';
 import type { ChunkRowStore } from '../../../src/database/core/chunk-row-store.ts';
 
+/** The contract these reads are addressed to. */
+const CONTRACT = { venue: 'binance-futures', instrumentSymbol: 'BTCUSDT' };
+
 /** An archive that answers with whatever coverage a test names. */
 function buildChunks(lastFrameAtMs: number | null): ChunkRowStore {
     return {
@@ -22,7 +25,7 @@ describe('LiquidityArchiveService reporting the previous run', () => {
             chunks: buildChunks(null),
         });
 
-        expect(await archive.findLastFrameTimestamp('BTCUSDT')).toBeNull();
+        expect(await archive.findLastFrameTimestamp(CONTRACT)).toBeNull();
     });
 
     it('returns the newest recorded instant, which is where a gap reopens', async () => {
@@ -34,7 +37,7 @@ describe('LiquidityArchiveService reporting the previous run', () => {
             chunks: buildChunks(1_700_000_000_000),
         });
 
-        expect(await archive.findLastFrameTimestamp('BTCUSDT')).toBe(1_700_000_000_000);
+        expect(await archive.findLastFrameTimestamp(CONTRACT)).toBe(1_700_000_000_000);
     });
 
     it('asks the archive the chart draws, not a store kept beside it', async () => {
@@ -46,7 +49,7 @@ describe('LiquidityArchiveService reporting the previous run', () => {
             chunks: buildChunks(1_700_000_000_000),
         });
 
-        await archive.findLastFrameTimestamp('BTCUSDT');
+        await archive.findLastFrameTimestamp(CONTRACT);
 
         expect(postgres.selectRows).not.toHaveBeenCalled();
     });

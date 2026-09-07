@@ -1,4 +1,6 @@
 import type { ChunkArchiveService, ChunkColumn } from './chunk-archive-service.ts';
+import type { ChunkContract } from '../core/chunk-row-store.ts';
+import { nameContract } from '../../shared/core/recording-control.ts';
 import {
     COLUMNS_PER_CHUNK,
     columnsPerCell,
@@ -78,6 +80,13 @@ export interface ChunkTileRecorderConfig {
      * store it rather than on its next interval. Announced after the write and
      * never before: told to catch up on a write that then failed, a reader
      * fetches nothing and moves its cursor past the range it was meant to read.
+     *
+     * Named by the symbol alone, unlike everything this recorder stores. Two
+     * venues recording one symbol would each wake the other's readers, which
+     * costs a fetch that finds nothing new — where a stored square addressed
+     * that way would have been written over history nobody can record again.
+     * The announcement is a wire between two processes, so it moves when they
+     * are both replaced, and it is not what makes the recording safe.
      */
     readonly onWritten?: (instrumentSymbol: string) => void;
 }
@@ -92,16 +101,14 @@ export interface ChunkRecording {
 }
 
 /** One column being handed to a level, and when it happened. */
-interface ColumnHandOver {
-    readonly instrumentSymbol: string;
+interface ColumnHandOver extends ChunkContract {
     readonly detailLevel: number;
     readonly column: ChunkColumn;
     readonly capturedAtMs: number;
 }
 
 /** One block being picked back up, and the level picking it up. */
-interface BlockPickUp {
-    readonly instrumentSymbol: string;
+interface BlockPickUp extends ChunkContract {
     readonly detailLevel: number;
     readonly level: Level;
     readonly startedAtMs: number;
@@ -110,27 +117,32 @@ interface BlockPickUp {
 }
 
 /** One level being written out, and whether its block is finished. */
-interface LevelWrite {
-    readonly instrumentSymbol: string;
+interface LevelWrite extends ChunkContract {
     readonly detailLevel: number;
     readonly level: Level;
     readonly isComplete: boolean;
 }
 
 /** One stored column of the finest level, offered back to the fold. */
-export interface ColumnReplay {
-    readonly instrumentSymbol: string;
+export interface ColumnReplay extends ChunkContract {
     readonly priceBucketSize: number;
     readonly column: ChunkColumn;
     readonly capturedAtMs: number;
 }
 
 /** One column on its way into the column of the level above it. */
-interface ColumnFold {
-    readonly instrumentSymbol: string;
+interface ColumnFold extends ChunkContract {
     readonly detailLevel: number;
     readonly columnIndex: number;
     readonly column: ChunkColumn;
+}
+
+/** One contract's levels, and the grid every column in them was placed on. */
+interface RecordedLevels {
+    readonly contract: ChunkContract;
+    levels: Level[];
+    /** Null until a frame has named one, which is what holds a write back. */
+    priceBucketSize: number | null;
 }
 
 /** One level's place: the block it is filling and what is folding into it. */
@@ -189,8 +201,15 @@ interface Level {
  */
 export class ChunkTileRecorder {
     private readonly config: ChunkTileRecorderConfig;
-    private readonly levels = new Map<string, Level[]>();
-    private readonly bucketSizes = new Map<string, number>();
+    /**
+     * What is being gathered, by contract.
+     *
+     * The levels and the grid they were placed on live in one entry, because a
+     * grid without levels records nothing and levels without a grid cannot be
+     * written: kept apart, the pair had a third state where a block was filling
+     * and no size was known for it, and the write silently did nothing.
+     */
+    private readonly recorded = new Map<string, RecordedLevels>();
     /**
      * The instants of each contract, taken one after another.
      *
@@ -208,17 +227,17 @@ export class ChunkTileRecorder {
     /**
      * The framing one contract's whole book is recorded under.
      *
-     * @param instrumentSymbol - The contract the frames will belong to.
+     * @param contract - The venue and symbol the frames will belong to.
      * @param priceBucketSize - The grid that contract is recorded on.
      * @returns What the recorder needs to build and deliver them.
      */
-    buildRecording(instrumentSymbol: string, priceBucketSize: number): ChunkRecording {
+    buildRecording(contract: ChunkContract, priceBucketSize: number): ChunkRecording {
         return {
             priceRangeRatio: this.config.priceRangeRatio,
             resolveBucketSize: () => priceBucketSize,
             intervalMs: this.config.intervalMs,
             combine: 'sum',
-            onFrame: (frame, grid) => { this.accept(instrumentSymbol, frame, grid); },
+            onFrame: (frame, grid) => { this.accept(contract, frame, grid); },
         };
     }
 
@@ -235,8 +254,8 @@ export class ChunkTileRecorder {
         // write's own folding queues one on the level above it.
         for (let pass = 0; pass < 2; pass += 1) {
             await Promise.all([...this.accepting.values()]);
-            await Promise.all([...this.levels.values()]
-                .flatMap((levels) => levels.map((level) => level.writing)));
+            await Promise.all([...this.recorded.values()]
+                .flatMap((held) => held.levels.map((level) => level.writing)));
         }
     }
 
@@ -248,52 +267,81 @@ export class ChunkTileRecorder {
         // may be some still waiting their turn. Written out without them, the
         // block replaces what is stored with less than it holds.
         await this.settled();
-        const pending = [...this.levels];
-        for (const [instrumentSymbol, levels] of pending) {
-            for (const [detailLevel, level] of levels.entries()) {
-                await this.store({ instrumentSymbol, detailLevel, level, isComplete: false });
+        const pending = [...this.recorded.values()];
+        for (const held of pending) {
+            for (const [detailLevel, level] of held.levels.entries()) {
+                await this.store({ ...held.contract, detailLevel, level, isComplete: false });
             }
         }
     }
 
     /** Takes one whole-book instant onto the finest level. */
     private accept(
-        instrumentSymbol: string,
+        contract: ChunkContract,
         frame: LiquidityFrame,
         priceBucketSize: number,
     ): void {
-        if (this.bucketSizes.get(instrumentSymbol) !== priceBucketSize) {
-            this.levels.set(instrumentSymbol, buildLevels());
-            this.bucketSizes.set(instrumentSymbol, priceBucketSize);
-        }
+        this.regrid(contract, priceBucketSize);
 
-        const queued = (this.accepting.get(instrumentSymbol) ?? Promise.resolve())
+        const name = nameContract(contract);
+        const queued = (this.accepting.get(name) ?? Promise.resolve())
             .then(() => this.offer({
-                instrumentSymbol,
+                ...contract,
                 detailLevel: 0,
                 column: toColumn(frame, this.config.stepRatio),
                 capturedAtMs: frame.capturedAtMs,
             }));
-        this.accepting.set(instrumentSymbol, queued.catch(() => undefined));
+        this.accepting.set(name, queued.catch(() => undefined));
+    }
+
+    /**
+     * The levels being gathered for one contract, started if there are none.
+     */
+    private hold(contract: ChunkContract): RecordedLevels {
+        const name = nameContract(contract);
+        const held = this.recorded.get(name);
+        if (held !== undefined) {
+            return held;
+        }
+
+        const started: RecordedLevels = { contract, levels: buildLevels(), priceBucketSize: null };
+        this.recorded.set(name, started);
+        return started;
+    }
+
+    /**
+     * Starts a contract's levels over where the grid under them has changed.
+     *
+     * Everything gathered was placed on the old grid, and a block is written
+     * whole: kept, its columns would be stored under a size they were never
+     * measured against.
+     */
+    private regrid(contract: ChunkContract, priceBucketSize: number): void {
+        const held = this.hold(contract);
+        if (held.priceBucketSize === priceBucketSize) {
+            return;
+        }
+
+        held.levels = buildLevels();
+        held.priceBucketSize = priceBucketSize;
     }
 
     /**
      * Offers one column to a level, folding it upward when four have gathered.
      */
     private async offer(handOver: ColumnHandOver): Promise<void> {
-        const { instrumentSymbol, detailLevel, column, capturedAtMs } = handOver;
+        const { venue, instrumentSymbol, detailLevel, column, capturedAtMs } = handOver;
         if (detailLevel >= LEVEL_COUNT) {
             return;
         }
-        const levels = this.levels.get(instrumentSymbol) ?? buildLevels();
-        this.levels.set(instrumentSymbol, levels);
-        const level = levels[detailLevel]!;
+        const held = this.hold(handOver);
+        const level = held.levels[detailLevel]!;
 
         const columnIntervalMs = this.config.intervalMs * columnsPerCell(detailLevel);
         const columnIndex = toColumnIndex(detailLevel, capturedAtMs, this.config.intervalMs);
         const blockIndex = Math.floor(columnIndex / COLUMNS_PER_CHUNK);
         if (level.blockIndex !== null && level.blockIndex !== blockIndex) {
-            await this.store({ instrumentSymbol, detailLevel, level, isComplete: true });
+            await this.store({ venue, instrumentSymbol, detailLevel, level, isComplete: true });
             level.columns = [];
             level.writtenColumns = 0;
         }
@@ -304,11 +352,12 @@ export class ChunkTileRecorder {
             // stored with what it has gathered since — and a block of the
             // coarsest level spans six days.
             level.resuming = this.resume({
+                venue,
                 instrumentSymbol,
                 detailLevel,
                 level,
                 startedAtMs: blockIndex * COLUMNS_PER_CHUNK * columnIntervalMs,
-                priceBucketSize: this.bucketSizes.get(instrumentSymbol) ?? 0,
+                priceBucketSize: held.priceBucketSize ?? 0,
             });
         }
         await level.resuming;
@@ -330,10 +379,10 @@ export class ChunkTileRecorder {
             >= columnsBetweenRewrites(
                 detailLevel, columnIntervalMs, this.config.liveEdgeColumns,
             )) {
-            await this.store({ instrumentSymbol, detailLevel, level, isComplete: false });
+            await this.store({ venue, instrumentSymbol, detailLevel, level, isComplete: false });
         }
 
-        await this.foldUpward({ instrumentSymbol, detailLevel, columnIndex, column });
+        await this.foldUpward({ venue, instrumentSymbol, detailLevel, columnIndex, column });
     }
 
     /**
@@ -348,16 +397,13 @@ export class ChunkTileRecorder {
      * @param replay - The contract, its grid, one stored column and its instant.
      */
     async replay(replay: ColumnReplay): Promise<void> {
-        const { instrumentSymbol, priceBucketSize } = replay;
-        if (this.bucketSizes.get(instrumentSymbol) !== priceBucketSize) {
-            this.levels.set(instrumentSymbol, buildLevels());
-            this.bucketSizes.set(instrumentSymbol, priceBucketSize);
-        }
+        this.regrid(replay, replay.priceBucketSize);
         // Straight to the fold, never to the store: the finest level is the
         // recording itself and rewriting it from a read of itself could only
         // ever lose something.
         await this.foldUpward({
-            instrumentSymbol,
+            venue: replay.venue,
+            instrumentSymbol: replay.instrumentSymbol,
             detailLevel: 0,
             columnIndex: toColumnIndex(0, replay.capturedAtMs, this.config.intervalMs),
             column: replay.column,
@@ -372,27 +418,25 @@ export class ChunkTileRecorder {
      * waiting for a group to fill.
      */
     private async foldUpward(fold: ColumnFold): Promise<void> {
-        const { instrumentSymbol, detailLevel, columnIndex, column } = fold;
-        const levels = this.levels.get(instrumentSymbol) ?? buildLevels();
-        this.levels.set(instrumentSymbol, levels);
-        const level = levels[detailLevel]!;
+        const { venue, instrumentSymbol, detailLevel, columnIndex, column } = fold;
+        const level = this.hold(fold).levels[detailLevel]!;
 
         const parentIndex = Math.floor(columnIndex / LEVEL_FACTOR);
         const held = level.folding?.parentIndex === parentIndex ? level.folding.column : null;
         level.folding = { parentIndex, column: mergeColumns(held, column) };
-        await this.handUp(instrumentSymbol, detailLevel, level.folding);
+        await this.handUp({ venue, instrumentSymbol }, detailLevel, level.folding);
     }
 
     /**
      * Offers a level's column to the level above, at the instant it addresses.
      */
     private async handUp(
-        instrumentSymbol: string,
+        contract: ChunkContract,
         detailLevel: number,
         folding: { parentIndex: number; column: ChunkColumn },
     ): Promise<void> {
         await this.offer({
-            instrumentSymbol,
+            ...contract,
             detailLevel: detailLevel + 1,
             column: folding.column,
             // The first instant of the parent's own cell, so the level above
@@ -413,12 +457,14 @@ export class ChunkTileRecorder {
         const { level } = pick;
         try {
             const stored = await this.config.archive.readBlock({
+                venue: pick.venue,
                 instrumentSymbol: pick.instrumentSymbol,
                 detailLevel: pick.detailLevel,
                 startedAtMs: pick.startedAtMs,
                 priceBucketSize: pick.priceBucketSize,
             });
             level.revision = await this.config.archive.readBlockRevision({
+                venue: pick.venue,
                 instrumentSymbol: pick.instrumentSymbol,
                 detailLevel: pick.detailLevel,
                 startedAtMs: pick.startedAtMs,
@@ -465,6 +511,7 @@ export class ChunkTileRecorder {
     private async gathered(pick: BlockPickUp): Promise<ChunkColumn[]> {
         const held = [...pick.level.columns];
         const resume = {
+            venue: pick.venue,
             instrumentSymbol: pick.instrumentSymbol,
             detailLevel: pick.detailLevel,
             startedAtMs: pick.startedAtMs,
@@ -497,19 +544,20 @@ export class ChunkTileRecorder {
 
     /** Writes one level's block out, as it stands the moment its turn comes. */
     private async storeNow(write: LevelWrite): Promise<void> {
-        const { instrumentSymbol, detailLevel, level, isComplete } = write;
-        const priceBucketSize = this.bucketSizes.get(instrumentSymbol);
-        if (level.blockIndex === null || level.columns.length === 0 || priceBucketSize === undefined) {
+        const { venue, instrumentSymbol, detailLevel, level, isComplete } = write;
+        const priceBucketSize = this.hold(write).priceBucketSize;
+        if (level.blockIndex === null || level.columns.length === 0 || priceBucketSize === null) {
             return;
         }
 
         const columnIntervalMs = this.config.intervalMs * columnsPerCell(detailLevel);
         const startedAtMs = level.blockIndex * COLUMNS_PER_CHUNK * columnIntervalMs;
         const columns = await this.gathered({
-            instrumentSymbol, detailLevel, level, startedAtMs, priceBucketSize,
+            venue, instrumentSymbol, detailLevel, level, startedAtMs, priceBucketSize,
         });
         try {
             level.revision = await this.config.archive.writeBlock({
+                venue,
                 instrumentSymbol,
                 detailLevel,
                 columnIntervalMs,

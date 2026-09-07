@@ -61,7 +61,7 @@ describe('IndexedDbHeatmapSource', () => {
         // to the first level coarse enough — never finer than asked, which is
         // the promise that matters, and never so coarse the window empties.
         const window = await source.fetchFrameWindow({
-            symbol: 'BTCUSDT', fromMs: FIRST_MS, toMs: FIRST_MS + 600_000, maxColumns: 60,
+            symbol: 'BTCUSDT', venue: FIRST_VENUE, fromMs: FIRST_MS, toMs: FIRST_MS + 600_000, maxColumns: 60,
         });
 
         expect(window.sampleIntervalMs).toBeGreaterThanOrEqual(10_000);
@@ -71,7 +71,7 @@ describe('IndexedDbHeatmapSource', () => {
 
     it('never samples finer than the grid the frames were recorded on', async () => {
         const window = await source.fetchFrameWindow({
-            symbol: 'BTCUSDT', fromMs: FIRST_MS, toMs: FIRST_MS + 10_000, maxColumns: 4_000,
+            symbol: 'BTCUSDT', venue: FIRST_VENUE, fromMs: FIRST_MS, toMs: FIRST_MS + 10_000, maxColumns: 4_000,
         });
 
         expect(window.sampleIntervalMs).toBe(GRID.frameIntervalMs);
@@ -79,7 +79,7 @@ describe('IndexedDbHeatmapSource', () => {
 
     it('answers with the grid a contract was recorded on', async () => {
         const window = await source.fetchFrameWindow({
-            symbol: 'BTCUSDT', fromMs: FIRST_MS, toMs: FIRST_MS + 60_000, maxColumns: 60,
+            symbol: 'BTCUSDT', venue: FIRST_VENUE, fromMs: FIRST_MS, toMs: FIRST_MS + 60_000, maxColumns: 60,
         });
 
         expect(window.priceBucketSize).toBe(GRID.priceBucketSize);
@@ -98,7 +98,7 @@ describe('IndexedDbHeatmapSource', () => {
         });
 
         const gaps = await source.fetchGaps({
-            symbol: 'BTCUSDT', fromMs: FIRST_MS, toMs: FIRST_MS + 60_000, maxColumns: 60,
+            symbol: 'BTCUSDT', venue: FIRST_VENUE, fromMs: FIRST_MS, toMs: FIRST_MS + 60_000, maxColumns: 60,
         });
 
         expect(gaps).toHaveLength(1);
@@ -117,7 +117,9 @@ describe('IndexedDbHeatmapSource', () => {
         });
 
         const result = await source.fetchTradeClusters({
-            symbol: 'BTCUSDT', fromMs: FIRST_MS, toMs: FIRST_MS + 60_000, maxColumns: 60,
+            symbol: 'BTCUSDT', venue: FIRST_VENUE,
+            fromMs: FIRST_MS, toMs: FIRST_MS + 60_000, maxColumns: 60,
+            priceGroupSize: 1, minimumQuantity: 0,
         });
 
         expect(result.clusters).toHaveLength(2);
@@ -134,7 +136,10 @@ describe('IndexedDbHeatmapSource', () => {
             intervalMs: GRID.frameIntervalMs,
             stepRatio: 1.02,
         });
-        const recording = recorder.buildRecording('BTCUSDT', GRID.priceBucketSize);
+        const recording = recorder.buildRecording(
+            { venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT' },
+            GRID.priceBucketSize,
+        );
         for (let offset = 0; offset < 20; offset += 1) {
             recording.onFrame(withFarWall(buildFrame(FIRST_MS + offset * 1_000)), GRID.priceBucketSize);
         }
@@ -142,6 +147,7 @@ describe('IndexedDbHeatmapSource', () => {
 
         const window = await source.fetchFrameWindow({
             symbol: 'BTCUSDT',
+            venue: FIRST_VENUE,
             fromMs: FIRST_MS,
             toMs: FIRST_MS + 20_000,
             maxColumns: 100,
