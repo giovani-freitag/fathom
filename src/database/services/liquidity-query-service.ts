@@ -104,6 +104,15 @@ export class LiquidityQueryService {
      */
     async fetchTradeClusters(query: TradeClusterQuery): Promise<TradeClusterWindow> {
         const grid = await this.resolveInstrumentGrid(query);
+        // Nothing recorded is an answer, not a fault. A reader can open any
+        // contract a venue lists, and asking what traded on one nobody has
+        // recorded is an ordinary question with an empty answer — where a throw
+        // reaches them as a five hundred, which reads as the gateway being
+        // broken rather than as this contract having no tape.
+        if (grid === null) {
+            return { priceBucketSize: 0, sampleIntervalMs: 0, clusters: [] };
+        }
+
         const sampleIntervalMs = Math.max(resolveSampleInterval(query), grid.frameIntervalMs);
         const source = selectTradeSource(sampleIntervalMs);
 
@@ -161,7 +170,13 @@ export class LiquidityQueryService {
         return rows.map(toRecordingGap);
     }
 
-    private async resolveInstrumentGrid(contract: WindowQuery): Promise<InstrumentGrid> {
+    /**
+     * The grid one contract is recorded on, or nothing where none has been.
+     *
+     * @param contract - The venue and symbol to look up.
+     * @returns Its grid, or null where that contract has never been recorded.
+     */
+    private async resolveInstrumentGrid(contract: WindowQuery): Promise<InstrumentGrid | null> {
         const rows = await this.postgres.selectRows<{
             price_bucket_size: number;
             frame_interval_ms: number;
@@ -174,9 +189,7 @@ export class LiquidityQueryService {
 
         const row = rows[0];
         if (row === undefined) {
-            throw new Error(
-                `${contract.venue} has never recorded ${contract.symbol}`,
-            );
+            return null;
         }
         return {
             priceBucketSize: row.price_bucket_size,

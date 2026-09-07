@@ -29,9 +29,17 @@ describe('LiquidityQueryService', () => {
 
     beforeEach(() => {
         asked = [];
-        const selectRows = vi.fn((statement: string, values: readonly unknown[]) => {
+        // The real one defaults its parameters, and the listing calls it with
+        // none — so a double that insists on them hides which call is which.
+        const selectRows = vi.fn((statement: string, values: readonly unknown[] = []) => {
             asked.push({ statement, values });
-            return Promise.resolve(statement.includes('instrument_registry') ? [REGISTRY_ROW] : []);
+            // The registry answers per contract now, so a grid asked for under
+            // a venue that has no row there gets none — which is what makes the
+            // listing above, with no parameters at all, the one that returns it.
+            const isRegistry = statement.includes('instrument_registry');
+            const named = values[0];
+            const isKnown = named === undefined || named === REGISTRY_ROW.venue;
+            return Promise.resolve(isRegistry && isKnown ? [REGISTRY_ROW] : []);
         });
         readCoverage = vi.fn().mockResolvedValue(COVERAGE);
         service = new LiquidityQueryService({
@@ -92,6 +100,26 @@ describe('LiquidityQueryService', () => {
             .toContain('gap_ended_at >= $3 AND gap_started_at < $4');
     });
 
+    it('asks the registry for the grid of the venue that was named', async () => {
+        // Two venues listing one symbol are recorded on two grids, and every
+        // price in the answer is placed against whichever grid came back. Looked
+        // up by the symbol alone, the row that sorted first would decide what
+        // the other venue's executions are laid on.
+        await service.fetchTradeClusters({
+            symbol: 'BTCUSDT',
+            venue: 'a-venue-nobody-recorded',
+            fromMs: 1_000,
+            toMs: 2_000,
+            maxColumns: 60,
+            priceGroupSize: 1,
+            minimumQuantity: 0,
+            maxClusters: 100,
+        });
+
+        const registry = asked.find((one) => one.statement.includes('instrument_registry'));
+        expect(registry?.values).toEqual(['a-venue-nobody-recorded', 'BTCUSDT']);
+    });
+
     it('reads what traded from the execution grid', async () => {
         await service.fetchTradeClusters({
             symbol: 'BTCUSDT',
@@ -105,5 +133,36 @@ describe('LiquidityQueryService', () => {
         });
 
         expect(theQuery().statement).toContain('trade_cluster');
+    });
+});
+
+describe('LiquidityQueryService asked about a contract nobody recorded', () => {
+    let service: LiquidityQueryService;
+
+    beforeEach(() => {
+        const selectRows = vi.fn(() => Promise.resolve([]));
+        service = new LiquidityQueryService({
+            postgres: { selectRows } as unknown as PostgresService,
+            chunks: { readCoverage: vi.fn() } as unknown as ChunkRowStore,
+        });
+    });
+
+    it('answers with an empty tape rather than refusing', async () => {
+        // A reader may open any contract a venue lists, and the executions come
+        // from the recording. Asking what traded on one nobody recorded is an
+        // ordinary question — answered as a fault, it reaches the reader as the
+        // gateway being broken rather than as this contract having no tape.
+        const window = await service.fetchTradeClusters({
+            symbol: 'BTCUSDT',
+            venue: 'a-venue-nobody-recorded',
+            fromMs: 1_000,
+            toMs: 2_000,
+            maxColumns: 60,
+            priceGroupSize: 1,
+            minimumQuantity: 0,
+            maxClusters: 100,
+        });
+
+        expect(window.clusters).toEqual([]);
     });
 });

@@ -25,6 +25,12 @@
 -- safely, and what it would buy is a narrower scan once two venues share a
 -- symbol — not a different answer.
 --
+-- The earlier migrations are left exactly as they were, the way 011 left 008.
+-- They run before this one every time, so a fresh database gets the original
+-- shape from them and this shape from here — and an index declared up there over
+-- a column added down here would fail on every existing database, before it ever
+-- reached the statement that adds it.
+--
 -- Safe to run twice, like every migration here.
 
 ALTER TABLE trade_cluster
