@@ -18,6 +18,7 @@ import { AddonLibraryService } from '../services/addon-library/addon-library-ser
 import { PreferencesService } from '../services/preferences-service.ts';
 import { WorkerLiveFeedService } from '../services/worker-live-feed-service.ts';
 import type { ServiceContainer } from './service-container.ts';
+import { newId } from './new-id.ts';
 
 /** A visitor should see something moving quickly, so the first window is short. */
 const DEMO_VISIBLE_SPAN_MS = 5 * 60 * 1_000;
@@ -117,7 +118,7 @@ export function createDemoServiceContainer(
         drawings: new DrawingsController({
             preferences,
             readContract: () => openContractOf(chart.store.read()),
-            newId: () => crypto.randomUUID(),
+            newId,
         }),
         appearance: new AppearanceController({ preferences, host: config.appearanceHost }),
         addons,

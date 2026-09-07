@@ -19,6 +19,7 @@ import { API_ROUTES } from '../../shared/core/api-contract.ts';
 import { MarketsController } from './markets-controller.ts';
 import { registerConnector } from '../../shared/venues/venue-registry.ts';
 import { VenueGateway } from '../../shared/venues/venue-gateway.ts';
+import { newId } from './new-id.ts';
 
 export interface ServiceContainer {
     readonly api: HeatmapSource;
@@ -93,7 +94,7 @@ export function createServiceContainer(config: ServiceContainerConfig): ServiceC
         drawings: new DrawingsController({
             preferences,
             readContract: () => openContractOf(chart.store.read()),
-            newId: () => crypto.randomUUID(),
+            newId,
         }),
         appearance,
         cursor,
