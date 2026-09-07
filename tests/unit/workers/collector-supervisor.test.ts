@@ -19,8 +19,18 @@ function buildArchive(): LiquidityArchive {
     };
 }
 
-function buildContract(instrumentSymbol: string): RecordedContract {
-    return { venue: FIRST_VENUE, instrumentSymbol, priceBucketSize: 10, frameIntervalMs: 1_000, isEnabled: true };
+function buildContract(instrumentSymbol: string, venue = FIRST_VENUE): RecordedContract {
+    return { venue, instrumentSymbol, priceBucketSize: 10, frameIntervalMs: 1_000, isEnabled: true };
+}
+
+/**
+ * What the supervisor names a contract, which is the venue and the symbol.
+ *
+ * Asserted through this rather than as a bare symbol, so a test cannot pass
+ * while the supervisor holds two venues' contracts under one key.
+ */
+function named(instrumentSymbol: string, venue = FIRST_VENUE): string {
+    return `${venue}/${instrumentSymbol}`;
 }
 
 interface Harness {
@@ -82,8 +92,31 @@ describe('CollectorSupervisor liveness', () => {
         await harness.supervisor.start();
     });
 
-    it('brings up every enabled contract', () => {
-        expect([...harness.supervisor.recording].sort()).toEqual(['BTCUSDT', 'ETHUSDT']);
+    it('brings up every enabled contract, and only those', async () => {
+        // A disabled one in the list, because there was none: every contract
+        // the fixture built was enabled, so the filter that leaves the disabled
+        // ones alone could be deleted and this still passed.
+        harness.setContracts([
+            buildContract('BTCUSDT'),
+            buildContract('ETHUSDT'),
+            { ...buildContract('SOLUSDT'), isEnabled: false },
+        ]);
+        await harness.supervisor.reconcileNow();
+
+        expect([...harness.supervisor.recording].sort())
+            .toEqual([named('BTCUSDT'), named('ETHUSDT')]);
+    });
+
+    it('records the same symbol on two venues as two contracts', () => {
+        // Keyed by the symbol alone, the second to be enabled was taken for the
+        // first — already running, so never started — and the chart was shown a
+        // recording of the wrong market under the right name.
+        harness.setContracts([buildContract('BTCUSDT'), buildContract('BTCUSDT', 'bybit')]);
+
+        return harness.supervisor.reconcileNow().then(() => {
+            expect([...harness.supervisor.recording].sort())
+                .toEqual([named('BTCUSDT'), named('BTCUSDT', 'bybit')]);
+        });
     });
 
     it('keeps a collector that has not yet had time to record', async () => {
@@ -111,7 +144,7 @@ describe('CollectorSupervisor liveness', () => {
 
         await harness.supervisor.reconcileNow();
 
-        expect([...harness.supervisor.recording].sort()).toEqual(['BTCUSDT', 'ETHUSDT']);
+        expect([...harness.supervisor.recording].sort()).toEqual([named('BTCUSDT'), named('ETHUSDT')]);
     });
 
     it('says which contract stalled', async () => {
@@ -226,7 +259,7 @@ describe('CollectorSupervisor reconciling', () => {
         harness.setContracts([buildContract('BTCUSDT'), { ...buildContract('ETHUSDT'), isEnabled: false }]);
         await harness.supervisor.reconcileNow();
 
-        expect(harness.supervisor.recording).toEqual(['BTCUSDT']);
+        expect(harness.supervisor.recording).toEqual([named('BTCUSDT')]);
     });
 
     it('says which contract it stopped recording', async () => {
@@ -239,7 +272,7 @@ describe('CollectorSupervisor reconciling', () => {
         expect(harness.log.lines).toContainEqual({
             level: 'info',
             message: 'Stopped recording',
-            fields: { instrumentSymbol: 'ETHUSDT' },
+            fields: { venue: FIRST_VENUE, instrumentSymbol: 'ETHUSDT' },
         });
     });
 
@@ -275,7 +308,7 @@ describe('CollectorSupervisor reconciling', () => {
         harness.listContracts.mockRejectedValueOnce(new Error('database unreachable'));
         await harness.supervisor.reconcileNow();
 
-        expect(harness.supervisor.recording).toEqual(['BTCUSDT']);
+        expect(harness.supervisor.recording).toEqual([named('BTCUSDT')]);
     });
 });
 
@@ -319,7 +352,7 @@ describe('a contract that was changed rather than switched off', () => {
         harness.setContracts([{ ...buildContract('BTCUSDT'), priceBucketSize: 50 }]);
         await harness.supervisor.reconcileNow();
 
-        expect(harness.supervisor.recording).toEqual(['BTCUSDT']);
+        expect(harness.supervisor.recording).toEqual([named('BTCUSDT')]);
         expect(registered).toHaveBeenCalledWith(expect.objectContaining({ priceBucketSize: 50 }));
         await harness.supervisor.stop();
     });

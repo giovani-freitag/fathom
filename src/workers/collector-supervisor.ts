@@ -21,9 +21,45 @@ import { releaseTimerFromEventLoop, type TimerHandle } from '../shared/core/time
  * @returns True where the running one is writing something else.
  */
 function isRetuned(held: RecordedContract, asked: RecordedContract): boolean {
+    // Not the venue: a contract on another venue is another contract, and the
+    // key it is held under says so — so it is stopped and started rather than
+    // retuned, and comparing it here could never be true.
     return held.priceBucketSize !== asked.priceBucketSize
-        || held.frameIntervalMs !== asked.frameIntervalMs
-        || held.venue !== asked.venue;
+        || held.frameIntervalMs !== asked.frameIntervalMs;
+}
+
+/** One running collector, and everything the passes ask about it. */
+interface RunningCollector {
+    readonly runtime: CollectorRuntime;
+    /** What it was started with, so a contract changed since can be spotted. */
+    readonly contract: RecordedContract;
+    /** When it started, which is its liveness until its first frame lands. */
+    readonly startedAtMs: number;
+}
+
+/**
+ * What names a contract: the venue and the symbol, never the symbol alone.
+ *
+ * @param contract - The contract to name.
+ * @returns Its key.
+ */
+function nameContract(contract: RecordedContract): string {
+    return `${contract.venue}/${contract.instrumentSymbol}`;
+}
+
+/**
+ * The last sign of life a collector gave, or the moment it was started.
+ *
+ * Held in one entry with the runtime, so there is no third state where a
+ * collector is running and nothing knows when it started. It used to fall
+ * through to the clock — which reads as "alive right now" — for a collector
+ * whose start time had gone missing from the second map.
+ *
+ * @param held - The running collector.
+ * @returns When it was last known to be working.
+ */
+function lastSignOf(held: RunningCollector): number {
+    return held.runtime.lastRecordedAtMs ?? held.startedAtMs;
 }
 
 /**
@@ -71,18 +107,21 @@ export interface CollectorSupervisorConfig {
  */
 export class CollectorSupervisor {
     private readonly config: CollectorSupervisorConfig;
-    private readonly running = new Map<string, CollectorRuntime>();
     /**
-     * What each running collector was started with.
+     * One entry per running collector, keyed by the contract it is recording.
      *
-     * Kept because a contract can be changed as well as switched off: a grid
-     * edited in the registry means every column written from now on belongs on
-     * a different one, and a supervisor that only asks "is it running" would go
-     * on writing the old grid until the process was restarted.
+     * Keyed by venue and symbol together, because that is what names a
+     * contract: two venues both list BTCUSDT, and keyed by the symbol alone the
+     * second to be enabled was taken for the first — already running, so never
+     * started, and the reader was shown a recording of the wrong market.
+     *
+     * One entry rather than three parallel maps. Three are three things that
+     * can disagree about one collector, and the entry carries everything the
+     * passes ask: the runtime, what it was started with — a grid edited in the
+     * registry means every column from now on belongs on a different one — and
+     * when, which is its liveness before its first frame.
      */
-    private readonly startedWith = new Map<string, RecordedContract>();
-    /** When each runtime was started, which is its liveness before its first frame. */
-    private readonly startedAtMs = new Map<string, number>();
+    private readonly running = new Map<string, RunningCollector>();
     private reconcileTimer: TimerHandle | null = null;
     private reconcilePass: Promise<void> | null = null;
     private wasStopped = false;
@@ -119,7 +158,7 @@ export class CollectorSupervisor {
         await this.config.archive.close();
     }
 
-    /** Which contracts are being recorded right now. */
+    /** Which contracts are being recorded right now, by venue and symbol. */
     get recording(): readonly string[] {
         return [...this.running.keys()];
     }
@@ -165,13 +204,16 @@ export class CollectorSupervisor {
     private async stopDisabled(registered: readonly RecordedContract[]): Promise<void> {
         const wanted = new Map(
             registered.filter((instrument) => instrument.isEnabled)
-                .map((instrument) => [instrument.instrumentSymbol, instrument] as const),
+                .map((instrument) => [nameContract(instrument), instrument] as const),
         );
 
-        const dropping = [...this.running].filter(([symbol]) => !wanted.has(symbol));
+        const dropping = [...this.running].filter(([key]) => !wanted.has(key));
         await this.discardAll(dropping);
-        for (const [symbol] of dropping) {
-            this.config.log.info('Stopped recording', { instrumentSymbol: symbol });
+        for (const [, held] of dropping) {
+            this.config.log.info('Stopped recording', {
+                venue: held.contract.venue,
+                instrumentSymbol: held.contract.instrumentSymbol,
+            });
         }
 
         // A contract whose grid or rate was changed is let go of here and built
@@ -179,17 +221,16 @@ export class CollectorSupervisor {
         // was started on: the archive says which grid each block holds, so what
         // is already stored stays readable, but every new column would be
         // written on a grid nobody asked for any more.
-        const restarting = [...this.running].filter(([symbol, runtime]) => {
-            void runtime;
-            const asked = wanted.get(symbol);
-            const held = this.startedWith.get(symbol);
-            return asked !== undefined && held !== undefined && isRetuned(held, asked);
+        const restarting = [...this.running].filter(([key, held]) => {
+            const asked = wanted.get(key);
+            return asked !== undefined && isRetuned(held.contract, asked);
         });
 
         await this.discardAll(restarting);
-        for (const [symbol] of restarting) {
+        for (const [, held] of restarting) {
             this.config.log.info('Recording again on the grid it was changed to', {
-                instrumentSymbol: symbol,
+                venue: held.contract.venue,
+                instrumentSymbol: held.contract.instrumentSymbol,
             });
         }
     }
@@ -203,16 +244,16 @@ export class CollectorSupervisor {
      */
     private async dropStalled(): Promise<void> {
         const nowMs = this.config.readNowMs();
-        const silent = [...this.running].filter(([symbol, runtime]) => {
-            const lastSignMs = runtime.lastRecordedAtMs ?? this.startedAtMs.get(symbol) ?? nowMs;
-            return nowMs - lastSignMs >= this.config.stallTimeoutMs;
-        });
+        const silent = [...this.running].filter(([, held]) => (
+            nowMs - lastSignOf(held) >= this.config.stallTimeoutMs
+        ));
 
         await this.discardAll(silent);
-        for (const [symbol, runtime] of silent) {
+        for (const [, held] of silent) {
             this.config.log.warning('Collector stopped recording and is being replaced', {
-                instrumentSymbol: symbol,
-                silentForMs: nowMs - (runtime.lastRecordedAtMs ?? this.startedAtMs.get(symbol) ?? nowMs),
+                venue: held.contract.venue,
+                instrumentSymbol: held.contract.instrumentSymbol,
+                silentForMs: nowMs - lastSignOf(held),
             });
         }
     }
@@ -225,8 +266,8 @@ export class CollectorSupervisor {
      * pass that has to finish before any recording resumes is behind all of
      * them. Bounded so that a shutdown does not open every teardown at once.
      */
-    private async discardAll(held: readonly (readonly [string, CollectorRuntime])[]): Promise<void> {
-        await pMap(held, async ([symbol, runtime]) => { await this.discard(symbol, runtime); }, {
+    private async discardAll(held: readonly (readonly [string, RunningCollector])[]): Promise<void> {
+        await pMap(held, async ([key, one]) => { await this.discard(key, one); }, {
             concurrency: TEARDOWNS_AT_ONCE,
         });
     }
@@ -240,11 +281,9 @@ export class CollectorSupervisor {
         return this.wasStopped;
     }
 
-    private async discard(symbol: string, runtime: CollectorRuntime): Promise<void> {
-        await runtime.stop();
-        this.running.delete(symbol);
-        this.startedWith.delete(symbol);
-        this.startedAtMs.delete(symbol);
+    private async discard(key: string, held: RunningCollector): Promise<void> {
+        await held.runtime.stop();
+        this.running.delete(key);
     }
 
     /**
@@ -257,7 +296,7 @@ export class CollectorSupervisor {
      */
     private async startEnabled(registered: readonly RecordedContract[]): Promise<void> {
         const wanted = registered.filter((instrument) => instrument.isEnabled
-            && !this.running.has(instrument.instrumentSymbol));
+            && !this.running.has(nameContract(instrument)));
 
         await pMap(wanted, async (instrument) => { await this.startOne(instrument); }, {
             concurrency: TEARDOWNS_AT_ONCE,
@@ -292,7 +331,10 @@ export class CollectorSupervisor {
                 },
             // Bound to the contract, so every line a runtime writes says which
             // one wrote it. Four collectors share one log.
-            log: this.config.log.child({ instrumentSymbol: instrument.instrumentSymbol }),
+            log: this.config.log.child({
+                venue: instrument.venue,
+                instrumentSymbol: instrument.instrumentSymbol,
+            }),
         });
 
         try {
@@ -304,13 +346,16 @@ export class CollectorSupervisor {
                 await runtime.stop();
                 return;
             }
-            this.running.set(instrument.instrumentSymbol, runtime);
-            this.startedWith.set(instrument.instrumentSymbol, instrument);
-            this.startedAtMs.set(instrument.instrumentSymbol, this.config.readNowMs());
+            this.running.set(nameContract(instrument), {
+                runtime,
+                contract: instrument,
+                startedAtMs: this.config.readNowMs(),
+            });
         } catch (error) {
             // One venue refusing must not stop the others: the next reconcile
             // tries again, and every other contract keeps writing.
             this.config.log.warning('Could not start a collector', {
+                venue: instrument.venue,
                 instrumentSymbol: instrument.instrumentSymbol,
                 reason: describeError(error),
             });
