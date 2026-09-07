@@ -9,6 +9,7 @@ import { ConfigurationError } from '../../../src/workers/core/collector-configur
 
 /** Every variable the collector reads, so a host's own settings cannot leak in. */
 const COLLECTOR_VARIABLES = [
+    'VENUE',
     'INSTRUMENT_SYMBOL',
     'PRICE_BUCKET_SIZE',
     'FRAME_INTERVAL_MS',
@@ -25,6 +26,27 @@ describe('readCollectorConfiguration', () => {
     });
 
     afterEach(() => { vi.unstubAllEnvs(); });
+
+    it('records the venue it was told to, not the one it was built for', () => {
+        vi.stubEnv('VENUE', 'bybit');
+
+        expect(readCollectorConfiguration().venue).toBe('bybit');
+    });
+
+    it('refuses a venue this build cannot read at all', () => {
+        vi.stubEnv('VENUE', 'a-venue-nobody-wrote');
+
+        expect(() => readCollectorConfiguration()).toThrow(ConfigurationError);
+    });
+
+    it('refuses a venue this build reads but cannot record', () => {
+        // Half the shipped venues publish no order book. Seeded with one of
+        // them, the collector starts, connects and records nothing for as long
+        // as it is left running — which reads as a fault somewhere else.
+        vi.stubEnv('VENUE', 'kraken');
+
+        expect(() => readCollectorConfiguration()).toThrow(/no order book/);
+    });
 
     it('runs on defaults when the environment says nothing', () => {
         const configuration = readCollectorConfiguration();

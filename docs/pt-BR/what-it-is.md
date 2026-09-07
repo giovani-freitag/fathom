@@ -59,8 +59,13 @@ Fathom mostra cada arquivo, o tamanho e de onde veio antes de buscar um byte.
 
 ## Corretoras
 
-O Fathom grava perpétuos USD-M da Binance, e já vem lendo outras: Bybit, OKX,
-Coinbase, Kraken e Gate. Se você quer uma que não está aí, escreve um
+O Fathom grava as corretoras que publicam um livro — perpétuos USD-M da
+Binance, Bybit e Gate — e a gravação é endereçada pela corretora e pelo símbolo
+juntos, então o mesmo contrato em duas delas são duas gravações, não uma escrita
+por cima da outra. OKX, Coinbase e Kraken também vêm junto, lidas para candles e
+execuções; seus conectores não declaram livro, e o Fathom não oferece
+profundidade nelas em vez de desenhar uma vazia. Se você quer uma que não está
+aí, escreve um
 **conector** — o mesmo tipo de addon, no mesmo editor, contra a mesma interface
 que as nativas usam. Um conector diz ao Fathom o que aquela corretora consegue
 responder e como ler a resposta, e o Fathom faz as chamadas.

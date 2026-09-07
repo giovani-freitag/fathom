@@ -3,7 +3,7 @@ import {
     ConfigurationError,
 } from './core/collector-configuration.ts';
 import { FIRST_VENUE } from '../shared/core/recording-control.ts';
-import { isShippedVenue } from '../shared/venues/venue-registry.ts';
+import { findConnector } from '../shared/venues/venue-registry.ts';
 
 /** Where the dated log files go when the environment does not say. */
 const DEFAULT_LOG_FILE_PATH = 'logs/collector';
@@ -58,21 +58,32 @@ export function readLogFilePath(): string {
 /**
  * The venue the seed contract is recorded from.
  *
- * Checked here rather than where the socket is opened, because an unknown name
- * fails deep inside a runtime that has already been started for it — and the
+ * A book, not merely a connector. Half the venues this build reads publish no
+ * order book at all, and a collector seeded with one of those starts, connects,
+ * and records nothing for as long as it is left running — which looks exactly
+ * like a fault somewhere else.
+ *
+ * Checked here rather than where the socket is opened, because a name that
+ * nothing can record fails deep inside a runtime already started for it, and the
  * message a reader gets then names a connector rather than the setting that
  * asked for one.
  *
  * @param variableName - The variable to read.
  * @param fallbackValue - The venue an unset variable means.
- * @returns The venue, which some connector in this build reads.
- * @throws ConfigurationError when nothing in this build reads that venue.
+ * @returns The venue, which some connector in this build records.
+ * @throws ConfigurationError when nothing in this build records that venue.
  */
 function readVenue(variableName: string, fallbackValue: string): string {
     const chosen = readText(variableName, fallbackValue);
-    if (!isShippedVenue(chosen)) {
+    const connector = findConnector(chosen);
+    if (connector === null) {
         throw new ConfigurationError(
             `${variableName} names “${chosen}”, which no connector in this build reads`,
+        );
+    }
+    if (connector.declaration.book === null) {
+        throw new ConfigurationError(
+            `${variableName} names “${chosen}”, which publishes no order book to record`,
         );
     }
     return chosen;

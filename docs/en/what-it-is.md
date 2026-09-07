@@ -57,8 +57,13 @@ shows you every file, its size and where it came from before it fetches a byte.
 
 ## Exchanges
 
-Fathom records Binance USD-M perpetuals, and reads several more out of the box:
-Bybit, OKX, Coinbase, Kraken and Gate. If you want one that is not there, you
+Fathom records the exchanges that publish an order book — Binance USD-M
+perpetuals, Bybit and Gate — and the recording is keyed by the venue and the
+symbol together, so the same contract on two of them is two recordings rather
+than one written over the other. OKX, Coinbase and Kraken ship too, and are read
+for candles and executions; their connectors declare no book, and Fathom offers
+no depth against them rather than drawing an empty one. If you want one that is
+not there, you
 write a **connector** — the same kind of addon, in the same editor, against the
 same interface the shipped ones are written to. A connector tells Fathom what a
 venue can answer and how to read its replies, and Fathom does the fetching.

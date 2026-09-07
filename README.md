@@ -51,7 +51,7 @@ be running before you need the data.
 - 📱 **Touch first** — one finger pans, two pinch both axes, the axes are scale handles
 - ⚡ **Live tail** — a WebSocket appends each new second without refetching the window
 - 🎛️ **Recording control** — pick which contracts record and cap the disk, from the chart itself
-- 🔌 **Venue-neutral core** — Binance USD-M, Bybit, OKX, Coinbase, Kraken and Gate ship read-ready, and a reader adds their own
+- 🔌 **Venue-neutral core** — Binance USD-M, Bybit and Gate ship with a book to record; OKX, Coinbase and Kraken ship read-ready for candles and executions, and a reader adds their own
 - 🌐 **Runs with no backend** — the same collector registers as a Web Worker and records into IndexedDB
 
 ## 🚀 Run it
@@ -116,11 +116,12 @@ docker compose down -v                # stop and delete it, permanently
 
 The commands above run on the defaults. A `.env` beside the compose file is
 read as usual. `.env.example` documents every
-variable; these four decide what you get:
+variable; these five decide what you get:
 
 | | |
 |---|---|
-| `INSTRUMENT_SYMBOL` | Which contract to record. Any Binance USD-M perpetual. |
+| `VENUE` | Which exchange to record from: `binance-futures`, `bybit` or `gate`, the shipped connectors that publish a book. Only the seed; every contract after that carries its own. |
+| `INSTRUMENT_SYMBOL` | Which contract to record, spelled the way that venue spells it. |
 | `PRICE_BUCKET_SIZE` | How tall one row of the heat map is, in quote units. Ten dollars on Bitcoin; a hundredth of that on Litecoin. |
 | `RECORDED_PRICE_RANGE_RATIO` | How far either side of the price the recording reaches. This is what a day of it costs on disk. |
 | `POSTGRES_PASSWORD` | Defaults to `fathom`, which is fine while the port is on the loopback and not otherwise. |

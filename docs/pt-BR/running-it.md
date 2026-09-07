@@ -34,11 +34,12 @@ quiser guardar o que foi gravado.
 ## Configuração
 
 O comando acima roda nos padrões. Toda variável está documentada no
-`.env.example`, mas estas quatro são as que você provavelmente vai mexer.
+`.env.example`, mas estas cinco são as que você provavelmente vai mexer.
 
 | | |
 |---|---|
-| `INSTRUMENT_SYMBOL` | Qual contrato gravar. Qualquer perpétuo USD-M da Binance. |
+| `VENUE` | De qual corretora gravar: `binance-futures`, `bybit` ou `gate`, os conectores que publicam livro. Nomeada aqui só para a semente; todo contrato depois disso carrega a sua. |
+| `INSTRUMENT_SYMBOL` | Qual contrato gravar, escrito como aquela corretora o escreve. |
 | `PRICE_BUCKET_SIZE` | A altura de uma linha do mapa de calor, na moeda de cotação. Dez dólares no Bitcoin, um centésimo disso no Litecoin. |
 | `RECORDED_PRICE_RANGE_RATIO` | Quão longe do preço, para cada lado, a gravação alcança. É isso que decide quanto um dia dela custa em disco. |
 | `POSTGRES_PASSWORD` | Padrão `fathom`. Tudo bem enquanto a porta estiver no loopback, e não além disso. |
@@ -47,7 +48,7 @@ Passe com `-e`:
 
 ```bash
 docker run -p 8787:8787 -v fathom:/var/lib/postgresql/data \
-  -e INSTRUMENT_SYMBOL=ETHUSDT -e PRICE_BUCKET_SIZE=0.5 \
+  -e VENUE=bybit -e INSTRUMENT_SYMBOL=ETHUSDT -e PRICE_BUCKET_SIZE=0.5 \
   ghcr.io/giovani-freitag/fathom
 ```
 

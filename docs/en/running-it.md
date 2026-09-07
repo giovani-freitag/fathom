@@ -37,7 +37,7 @@ The command above runs on the defaults. Every variable is documented in
 
 | | |
 |---|---|
-| `VENUE` | Which exchange to read it from: `binance-futures`, `bybit`, `okx`, `coinbase`, `kraken` or `gate`. Named here only for the seed; every contract after that carries its own. |
+| `VENUE` | Which exchange to record from: `binance-futures`, `bybit` or `gate`, the shipped connectors that publish a book. Named here only for the seed; every contract after that carries its own. |
 | `INSTRUMENT_SYMBOL` | Which contract to record, spelled the way that venue spells it. |
 | `PRICE_BUCKET_SIZE` | How tall one row of the heat map is, in quote units. Ten dollars on Bitcoin, a hundredth of that on Litecoin. |
 | `RECORDED_PRICE_RANGE_RATIO` | How far either side of the price the recording reaches. This is what decides what a day of it costs on disk. |
