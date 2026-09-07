@@ -387,6 +387,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'settings.backfillNote': 'Candles e volume vêm da corretora, então o gráfico já abre com histórico. O livro não: ele só cobre o período em que a gravação esteve ligada, e um livro de ofertas não pode ser recuperado depois.',
 
     'recording.reading': 'Lendo o que está sendo gravado…',
+    'recording.readFailed': 'Não foi possível ler o que está sendo gravado. Tentar de novo',
     'recording.title': 'Gravação',
     'recording.usage': '{used} de {total}',
     'recording.contractsHelp': 'O que é capturado é o livro e tudo que negocia nele, na grade de preço mostrada. Desligar um contrato interrompe a gravação dele; tudo o que ele já capturou permanece.',

@@ -22,6 +22,38 @@ describe('LiveTail', () => {
         });
     });
 
+    it('counts a run of passes that could not read, and forgets the run once one does', async () => {
+        // One failed pass is nothing: the cursors did not move, so the next
+        // reads the same range. Every pass failing is another thing — the tail
+        // held its socket open and delivered nothing, for as long as the reader
+        // left the page open, and the bare catch told no one on either side.
+        const told: number[] = [];
+        const failing = new LiveTail({
+            source: source.source,
+            instrumentSymbol: 'BTCUSDT',
+            afterMs: RESUME_FROM_MS,
+            maxFramesPerPoll: 50,
+            deliver: () => undefined,
+            onAdvanceFailed: (failuresInARow) => { told.push(failuresInARow); },
+        });
+        source.fetchFramesAfter.mockRejectedValue(new Error('the store is unavailable'));
+
+        await failing.advance();
+        await failing.advance();
+        await failing.advance();
+
+        expect(told).toEqual([1, 2, 3]);
+
+        // And a pass that reads clears the run, so a hiccup never accumulates
+        // into a close.
+        source.fetchFramesAfter.mockResolvedValue(buildTailWindow([]));
+        await failing.advance();
+        source.fetchFramesAfter.mockRejectedValue(new Error('unavailable again'));
+        await failing.advance();
+
+        expect(told).toEqual([1, 2, 3, 1]);
+    });
+
     it('resumes strictly after the instant the reader already holds', async () => {
         await tail.advance();
 

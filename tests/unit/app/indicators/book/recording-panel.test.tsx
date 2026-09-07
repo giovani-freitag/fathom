@@ -18,7 +18,7 @@ describe('RecordingPanel', () => {
     let budget: StorageBudget;
     let saveContract: Mock<(contract: RecordedContract) => Promise<void>>;
     let setBudget: Mock<(maximumBytes: number) => Promise<void>>;
-    let onContractsChanged: Mock<() => void>;
+    let onContractsChanged: Mock<() => Promise<void> | void>;
 
     function renderPanel(openPair?: OpenPair): void {
         const recording = {
@@ -42,9 +42,22 @@ describe('RecordingPanel', () => {
     beforeEach(() => {
         saveContract = vi.fn<(contract: RecordedContract) => Promise<void>>()
             .mockResolvedValue(undefined);
-        onContractsChanged = vi.fn<() => void>();
+        onContractsChanged = vi.fn<() => Promise<void> | void>();
         setBudget = vi.fn<(maximumBytes: number) => Promise<void>>().mockResolvedValue(undefined);
         budget = { maximumBytes: 10_737_418_240, usedBytes: 1_073_741_824, availableBytes: null };
+    });
+
+    it('says a change failed when the listing that confirms it will not answer', async () => {
+        // The save succeeded and the confirmation did not. Run after the guard
+        // rather than inside it, the failure told nobody: the reader was shown a
+        // recording that had started against a listing that never said so.
+        onContractsChanged = vi.fn<() => Promise<void> | void>()
+            .mockRejectedValue(new Error('the listing is unavailable'));
+        renderPanel({ venue: FIRST_VENUE, symbol: 'BTCUSDT', lastPrice: 79_000 });
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Stop recording BTCUSDT' }));
+
+        expect(await screen.findByText('That change could not be saved.')).toBeDefined();
     });
 
     it('switches the contract on the chart off without opening the listing', async () => {

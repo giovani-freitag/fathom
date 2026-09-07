@@ -107,7 +107,7 @@ function RecordingSection({ translate, isPicking, onPickingChange, openPair }: R
     return (
         <RecordingPanel
             recording={kernel.recording}
-            onContractsChanged={() => { void kernel.chart.refreshInstruments(); }}
+            onContractsChanged={() => kernel.chart.readInstruments()}
             translate={translate}
             isPicking={isPicking}
             onPickingChange={onPickingChange}

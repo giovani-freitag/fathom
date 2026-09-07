@@ -9,6 +9,8 @@ export interface LiveTailSubscriptionRequest {
     readonly afterMs: number;
     readonly priceBucketSize: number;
     readonly onMessage: (message: LiveMessage) => void;
+    /** Told when a run of passes has read nothing, so the socket can be let go. */
+    readonly onAdvanceFailed?: ((failuresInARow: number, reason: unknown) => void) | undefined;
     /**
      * Which store the reader is drawing, or absent for the frame table.
      *
@@ -88,6 +90,9 @@ export class LiveTailService {
             afterMs: request.afterMs,
             maxFramesPerPoll: this.config.maxFramesPerPoll,
             deliver: request.onMessage,
+            ...(request.onAdvanceFailed === undefined
+                ? {}
+                : { onAdvanceFailed: request.onAdvanceFailed }),
             ...(request.lowPrice === undefined ? {} : { lowPrice: request.lowPrice }),
             ...(request.highPrice === undefined ? {} : { highPrice: request.highPrice }),
             ...(request.frameIntervalMs === undefined

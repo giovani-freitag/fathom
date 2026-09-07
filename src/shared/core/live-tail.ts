@@ -64,6 +64,17 @@ export interface LiveTailConfig {
     readonly highPrice?: number;
     /** What one instant of the recording covers, so no read is folded. */
     readonly frameIntervalMs?: number;
+    /**
+     * Told when a pass could not read, and how many have failed in a row.
+     *
+     * One failed pass is nothing: the cursors did not move, so the next reads
+     * the same range, and closing a reader's tail over one unavailable read
+     * would cost them the stretch that arrives while they reconnect. A tail
+     * whose every pass fails is another thing entirely — it holds its socket
+     * open and delivers nothing, and without this nobody on either side of the
+     * wire is told.
+     */
+    readonly onAdvanceFailed?: (failuresInARow: number, reason: unknown) => void;
 }
 
 /**
@@ -75,6 +86,9 @@ export interface LiveTailConfig {
  * what lets a missed trigger cost latency and never data.
  */
 export class LiveTail {
+    /** How many passes have failed since the last one that read anything. */
+    private failedPasses = 0;
+
     private readonly config: LiveTailConfig;
     private frameCursorMs: number;
     private tradeCursorMs: number;
@@ -117,10 +131,15 @@ export class LiveTail {
             await this.deliverFrames();
             await this.deliverTradeClusters();
             await this.deliverGaps();
-        } catch {
+            this.failedPasses = 0;
+        } catch (reason) {
             // The cursors did not move, so the next pass reads the same range.
             // Closing a reader's tail over one unavailable read would cost them
-            // the stretch that arrives while they reconnect.
+            // the stretch that arrives while they reconnect — so this counts
+            // rather than closes, and whoever owns the socket decides when a
+            // run of them has gone on long enough.
+            this.failedPasses += 1;
+            this.config.onAdvanceFailed?.(this.failedPasses, reason);
         } finally {
             this.isAdvancing = false;
         }

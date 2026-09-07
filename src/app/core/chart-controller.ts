@@ -257,31 +257,46 @@ export class ChartController {
     }
 
     /**
-     * Loads the instrument list and opens the first window.
-     */
-    /**
      * Re-reads which contracts exist, without disturbing what is on screen.
      *
-     * @throws nothing: a listing that will not answer leaves the current one.
+     * For the poll, which runs every half minute whether anybody asked or not:
+     * a listing that will not answer leaves the current one, and replacing a
+     * working screen with an error over a refresh nobody requested is worse
+     * than being a little out of date.
+     *
+     * @throws nothing.
      */
     async refreshInstruments(): Promise<void> {
         try {
-            const instruments = await this.config.api.fetchInstruments();
-            const wasRecorded = isOpenRecorded(this.store.read());
-            this.store.update((current) => ({ ...current, instruments }));
-            // A contract the reader has just started recording is a contract
-            // this chart was asking nothing about: the frames were left out of
-            // every request, so the window it holds would go on showing candles
-            // alone until something else happened to reload it.
-            if (isOpenRecorded(this.store.read()) === wasRecorded) {
-                return;
-            }
-            await this.loadWindow();
-            this.openLiveTail();
+            await this.readInstruments();
         } catch {
-            // The chart still has the contracts it knew about; a failed refresh
-            // is not worth replacing a working screen with an error.
+            // Deliberately: see above. The caller that is confirming a change
+            // the reader just made calls `readInstruments` instead, so one
+            // catch does not serve both.
         }
+    }
+
+    /**
+     * Re-reads which contracts exist, and says so when it could not.
+     *
+     * For whoever is confirming a change a reader has just made — swallowed,
+     * the reader is told their recording started when nothing confirmed it.
+     *
+     * @throws Whatever the listing threw.
+     */
+    async readInstruments(): Promise<void> {
+        const instruments = await this.config.api.fetchInstruments();
+        const wasRecorded = isOpenRecorded(this.store.read());
+        this.store.update((current) => ({ ...current, instruments }));
+        // A contract the reader has just started recording is a contract this
+        // chart was asking nothing about: the frames were left out of every
+        // request, so the window it holds would go on showing candles alone
+        // until something else happened to reload it.
+        if (isOpenRecorded(this.store.read()) === wasRecorded) {
+            return;
+        }
+        await this.loadWindow();
+        this.openLiveTail();
     }
 
     async initialize(): Promise<void> {

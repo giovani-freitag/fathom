@@ -15,6 +15,8 @@ export interface LiveSocketBridgeConfig {
     readonly highPrice?: number;
     /** What one instant of the recording covers, so no read is folded. */
     readonly frameIntervalMs?: number;
+    /** Where a tail that has stopped reading is reported, if anywhere. */
+    readonly log?: { readonly warning: (said: string, detail?: unknown) => void } | undefined;
 }
 
 /**
@@ -28,6 +30,7 @@ export class LiveSocketBridge {
         this.config = config;
         this.handleMessage = this.handleMessage.bind(this);
         this.handleSocketClose = this.handleSocketClose.bind(this);
+        this.handleAdvanceFailed = this.handleAdvanceFailed.bind(this);
     }
 
     /**
@@ -43,6 +46,7 @@ export class LiveSocketBridge {
                 afterMs: this.config.afterMs,
                 priceBucketSize: this.config.priceBucketSize,
                 onMessage: this.handleMessage,
+                onAdvanceFailed: this.handleAdvanceFailed,
                 ...(this.config.lowPrice === undefined ? {} : { lowPrice: this.config.lowPrice }),
                 ...(this.config.highPrice === undefined
                     ? {}
@@ -84,6 +88,27 @@ export class LiveSocketBridge {
         this.config.socket.send(JSON.stringify(message));
     }
 
+    /**
+     * Lets the socket go once a run of passes has read nothing.
+     *
+     * One failed pass is nothing — the cursors did not move, so the next reads
+     * the same range. A tail whose every pass fails held its socket open and
+     * delivered nothing, for as long as the reader left the page open, with no
+     * word on either side of the wire. Closed with the code that means "try
+     * again", because that is what it is: the client reconnects and resumes.
+     */
+    private handleAdvanceFailed(failuresInARow: number, reason: unknown): void {
+        if (failuresInARow < PASSES_BEFORE_LETTING_GO) {
+            return;
+        }
+        this.config.log?.warning('A live tail could not read, and was let go', {
+            instrumentSymbol: this.config.instrumentSymbol,
+            failuresInARow,
+            reason: reason instanceof Error ? reason.message : String(reason),
+        });
+        this.config.socket.close(SOCKET_TRY_AGAIN_LATER, 'Could not read what is recorded');
+    }
+
     private handleSocketClose(): void {
         this.stop();
     }
@@ -92,6 +117,15 @@ export class LiveSocketBridge {
         return this.config.socket.readyState === this.config.socket.OPEN;
     }
 }
+
+/**
+ * How many passes in a row may fail before the socket is let go.
+ *
+ * More than one, because a single unavailable read costs the reader the stretch
+ * that arrives while they reconnect. Few enough that a tail which has stopped
+ * reading for good does not sit there delivering nothing.
+ */
+const PASSES_BEFORE_LETTING_GO = 5;
 
 /** Close code for a refusal that will still stand however long the viewer waits. */
 const SOCKET_POLICY_VIOLATION = 1008;

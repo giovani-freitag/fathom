@@ -29,7 +29,14 @@ export interface RecordingPanelProps {
     readonly isPicking?: boolean;
     readonly onPickingChange?: ((isPicking: boolean) => void) | undefined;
     /** Called after a contract is switched on or off, so the picker keeps up. */
-    readonly onContractsChanged: () => void;
+    /**
+      * Confirms the change, and may refuse.
+      *
+      * Awaited inside the same guard as the change itself: run after it, a
+      * confirmation that failed told nobody, and the reader was shown a
+      * recording that had started against a listing that never said so.
+      */
+    readonly onContractsChanged: () => Promise<void> | void;
     /**
      * The contract the chart is on, for the switch that acts on it alone.
      *
@@ -81,6 +88,7 @@ export function RecordingPanel(props: RecordingPanelProps): ReactElement {
         setIsSaving(true);
         try {
             await change;
+            await onContractsChanged();
             setState(await read());
             setHasFailed(false);
         } catch {
@@ -90,11 +98,21 @@ export function RecordingPanel(props: RecordingPanelProps): ReactElement {
         } finally {
             setIsSaving(false);
         }
-    }, [read]);
+    }, [read, onContractsChanged]);
 
     useEffect(() => {
         let wasCancelled = false;
-        read().then((next) => { if (!wasCancelled) { setState(next); } }, () => undefined);
+        read().then(
+            (next) => { if (!wasCancelled) { setState(next); } },
+            () => {
+                // The same branch the change path has. An empty handler on a
+                // promise the render depends on is a screen stuck on its
+                // loading state for as long as the reader leaves it open.
+                if (!wasCancelled) {
+                    setHasFailed(true);
+                }
+            },
+        );
         return () => { wasCancelled = true; };
     }, [read]);
 
@@ -107,7 +125,17 @@ export function RecordingPanel(props: RecordingPanelProps): ReactElement {
     }, [isPicking, takeover]);
 
     if (state === null) {
-        return <p className="panel-note">{translate('recording.reading')}</p>;
+        return hasFailed
+            ? (
+                <button
+                    type="button"
+                    onClick={() => { void apply(Promise.resolve()); }}
+                    className={`${CONTROL_CHIP_CLASSES} w-full justify-center ${CONTROL_OFFERED_CLASSES}`}
+                >
+                    {translate('recording.readFailed')}
+                </button>
+            )
+            : <p className="panel-note">{translate('recording.reading')}</p>;
     }
 
     const listing = {
@@ -132,14 +160,13 @@ export function RecordingPanel(props: RecordingPanelProps): ReactElement {
                 // control says it changes the grid, and starting a recording is
                 // the other control on the same row.
                 isEnabled: held?.isEnabled ?? true,
-            })).then(onContractsChanged);
+            }));
         },
         onToggle: (contract: RecordedContract, isEnabled: boolean): void => {
-            void apply(recording.saveContract({ ...contract, isEnabled })).then(onContractsChanged);
+            void apply(recording.saveContract({ ...contract, isEnabled }));
         },
         onRemove: (contract: RecordedContract): void => {
-            void apply(recording.removeContract(contract.venue, contract.instrumentSymbol))
-                .then(onContractsChanged);
+            void apply(recording.removeContract(contract.venue, contract.instrumentSymbol));
         },
     };
 

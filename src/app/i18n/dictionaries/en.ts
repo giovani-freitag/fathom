@@ -385,6 +385,7 @@ export const EN_DICTIONARY = {
     'settings.backfillNote': 'Candles and volume come from the venue, so the chart opens on history. The book does not: it only covers the time recording was on, and an order book cannot be recovered after the fact.',
 
     'recording.reading': 'Reading what is being recorded…',
+    'recording.readFailed': 'Could not read what is being recorded. Try again',
     'recording.title': 'Recording',
     'recording.usage': '{used} of {total}',
     'recording.contractsHelp': 'What is captured is the book and everything that trades in it, on the price grid shown. Turning a contract off stops recording it; everything it already captured stays.',

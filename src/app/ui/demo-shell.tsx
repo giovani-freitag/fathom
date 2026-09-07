@@ -31,6 +31,13 @@ const GAP_NOTICE_MS = 12_000;
  */
 export function DemoShell({ factory, storage, appearanceHost, build }: DemoShellProps): ReactElement {
     const [state, setState] = useState<CollectorState>('starting');
+    /**
+     * Which of the several ways into this state the collector took.
+     *
+     * Carried on the event and dropped on the floor, so a page whose recording
+     * had stopped for a reason the collector knew said only "stopped".
+     */
+    const [stateDetail, setStateDetail] = useState<string | null>(null);
     const [wasHidden, setWasHidden] = useState(false);
     // Said once and then let go of. A reader who has moved between tabs a few
     // times knows why the gaps are there, and a page that keeps saying so is a
@@ -44,10 +51,24 @@ export function DemoShell({ factory, storage, appearanceHost, build }: DemoShell
         storage,
         appearanceHost,
         onCollectorEvent: (event: CollectorEvent) => {
+            // The collector's own words, which nothing here used to read. A
+            // browser recording that has filled its storage, or whose venue has
+            // refused it, says so on this channel and said it to a callback
+            // that returned — so the page went on looking healthy while the
+            // recording behind it had stopped.
+            if (event.kind === 'log') {
+                if (event.level === 'warning') {
+                    console.warn(`[collector] ${event.message}`);
+                }
+                return;
+            }
             if (event.kind !== 'state') {
                 return;
             }
+            // Kept beside the state, because it is the sentence that says which
+            // of the several ways into this state the collector took.
             setState(event.state);
+            setStateDetail(event.detail ?? null);
         },
     }));
 
@@ -142,6 +163,7 @@ export function DemoShell({ factory, storage, appearanceHost, build }: DemoShell
             <App container={container} />
             <DemoBanner
                 state={state}
+                {...stateDetail === null ? {} : { detail: stateDetail }}
                 wasHidden={wasHidden && !hasHeardAboutGaps}
                 onDismissGaps={() => {
                     setWasHidden(false);
@@ -162,16 +184,21 @@ function PreRollNotice({ translate }: { readonly translate: Translate }): ReactE
     );
 }
 
-function DemoBanner({ state, wasHidden, onDismissGaps, translate }: {
+function DemoBanner({ state, detail, wasHidden, onDismissGaps, translate }: {
     readonly state: CollectorState;
+    /** What the collector said about how it got here, where it said anything. */
+    readonly detail?: string | undefined;
     readonly wasHidden: boolean;
     readonly onDismissGaps: () => void;
     readonly translate: Translate;
 }): ReactElement | null {
-    const message = resolveBannerMessage(state, wasHidden, translate);
-    if (message === null) {
+    const said = resolveBannerMessage(state, wasHidden, translate);
+    if (said === null) {
         return null;
     }
+    // The collector's own sentence after the interface's, because the interface
+    // names the state and only the collector knows which way it got there.
+    const message = detail === undefined ? said : `${said} — ${detail}`;
 
     // What the collector is doing is the page's own state and stays until it
     // changes. What a backgrounded tab did is a thing that happened, and the
