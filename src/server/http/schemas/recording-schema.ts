@@ -1,4 +1,5 @@
 import { Type } from '@sinclair/typebox';
+import { MINIMUM_BUDGET_BYTES } from '../../../shared/core/recording-control.ts';
 
 const RecordedInstrumentSchema = Type.Object({
     venue: Type.String(),
@@ -51,7 +52,7 @@ export const InstrumentUpdateRouteSchema = {
 // A gigabyte floor: a smaller ceiling would drop every partition the moment it
 // was set, and a control that erases the archive in one click is not a control.
 export const BudgetUpdateSchema = Type.Object({
-    maximumBytes: Type.Integer({ minimum: 1_073_741_824 }),
+    maximumBytes: Type.Integer({ minimum: MINIMUM_BUDGET_BYTES }),
 });
 
 export const BudgetUpdateRouteSchema = {

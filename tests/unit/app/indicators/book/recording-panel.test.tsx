@@ -3,16 +3,29 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { createIndicatorKernel, renderWithKernel } from '../../../../mocks/indicator-kernel.tsx';
 import { FIRST_VENUE } from '../../../../../src/shared/core/recording-control.ts';
 import type { RecordedContract, RecordingControl, StorageBudget } from '../../../../../src/shared/core/recording-control.ts';
+import { type ReactElement, useState } from 'react';
 import { buildTranslate } from '../../../../../src/app/i18n/translator.ts';
 import { observedSize } from '../../../../fixtures/observed-size.ts';
 import { stubViewport } from '../../../../fixtures/viewport.ts';
-import { RecordingPanel } from '../../../../../src/app/indicators/book/recording-panel.tsx';
+import { RecordingPanel, type RecordingPanelProps } from '../../../../../src/app/indicators/book/recording-panel.tsx';
 import type { OpenPair } from '../../../../../src/app/indicators/book/current-pair-recording.tsx';
 
 const CONTRACTS: RecordedContract[] = [
     { venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT', priceBucketSize: 10, frameIntervalMs: 1_000, isEnabled: true },
     { venue: FIRST_VENUE, instrumentSymbol: 'ETHUSDT', priceBucketSize: 0.5, frameIntervalMs: 1_000, isEnabled: false },
 ];
+
+/**
+ * The panel with whoever mounts it holding the step it is on.
+ *
+ * The app holds it in `BookPanel`, because the listing takes the whole card
+ * over. Left optional, the panel kept a copy to fall back on and every test
+ * drove that copy — so the one path production runs had no test at all.
+ */
+function HoldingPanel(props: Omit<RecordingPanelProps, 'isPicking' | 'onPickingChange'>): ReactElement {
+    const [isPicking, setIsPicking] = useState(false);
+    return <RecordingPanel {...props} isPicking={isPicking} onPickingChange={setIsPicking} />;
+}
 
 describe('RecordingPanel', () => {
     let budget: StorageBudget;
@@ -30,7 +43,7 @@ describe('RecordingPanel', () => {
         } as unknown as RecordingControl;
 
         render(
-            <RecordingPanel
+            <HoldingPanel
                 recording={recording}
                 onContractsChanged={onContractsChanged}
                 translate={buildTranslate('en')}
@@ -184,7 +197,7 @@ describe('what else could be recorded', () => {
         } as unknown as RecordingControl;
 
         renderWithKernel(createIndicatorKernel(), (
-            <RecordingPanel
+            <HoldingPanel
                 recording={recording}
                 onContractsChanged={() => undefined}
                 translate={buildTranslate('en')}
@@ -465,7 +478,7 @@ describe('what else could be recorded', () => {
         } as unknown as RecordingControl;
 
         renderWithKernel(createIndicatorKernel(), (
-            <RecordingPanel
+            <HoldingPanel
                 recording={recording}
                 onContractsChanged={() => undefined}
                 translate={buildTranslate('en')}
@@ -567,7 +580,7 @@ describe('what else could be recorded', () => {
         renderWithKernel(
             createIndicatorKernel([], () => new Promise(() => undefined)),
             (
-                <RecordingPanel
+                <HoldingPanel
                     recording={recording}
                     onContractsChanged={() => undefined}
                     translate={buildTranslate('en')}
@@ -595,7 +608,7 @@ describe('what else could be recorded', () => {
         renderWithKernel(
             createIndicatorKernel([], () => Promise.reject(new Error('the venue is down'))),
             (
-                <RecordingPanel
+                <HoldingPanel
                     recording={recording}
                     onContractsChanged={() => undefined}
                     translate={buildTranslate('en')}

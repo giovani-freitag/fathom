@@ -6,6 +6,7 @@ import type {
 import type { IndexedDbLiquidityArchive } from './indexed-db-liquidity-archive.ts';
 import type { IndexedDbService } from './indexed-db-service.ts';
 import { STORES } from './browser-schema.ts';
+import { MINIMUM_BUDGET_BYTES } from '../../shared/core/recording-control.ts';
 
 /** Key of the single row holding what this browser chose. */
 const CHOICE_KEY = 'choice';
@@ -165,7 +166,10 @@ export class BrowserRecordingControl implements RecordingControl {
      */
     async setBudget(maximumBytes: number): Promise<void> {
         const current = await this.listContracts();
-        await this.write({ contracts: current, maximumBytes: Math.max(1, Math.floor(maximumBytes)) });
+        await this.write({
+            contracts: current,
+            maximumBytes: Math.max(MINIMUM_BUDGET_BYTES, Math.floor(maximumBytes)),
+        });
     }
 
     /**

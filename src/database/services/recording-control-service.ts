@@ -1,4 +1,5 @@
 import type { PostgresService } from '../postgres/postgres-service.ts';
+import { MINIMUM_BUDGET_BYTES } from '../../shared/core/recording-control.ts';
 import type {
     RecordedContract,
     RecordingControl,
@@ -179,7 +180,7 @@ export class RecordingControlService implements RecordingControl {
     async setBudget(maximumBytes: number): Promise<void> {
         await this.postgres.execute(
             'UPDATE recording_budget SET maximum_bytes = $1, updated_at = now()',
-            [Math.max(1, Math.floor(maximumBytes))],
+            [Math.max(MINIMUM_BUDGET_BYTES, Math.floor(maximumBytes))],
         );
     }
 

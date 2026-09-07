@@ -25,9 +25,15 @@ const BYTES_PER_GIGABYTE = 1_073_741_824;
 
 export interface RecordingPanelProps {
     readonly recording: RecordingControl;
-    /** Held by the panel above, which the listing takes over while it is open. */
-    readonly isPicking?: boolean;
-    readonly onPickingChange?: ((isPicking: boolean) => void) | undefined;
+    /**
+     * Held by the panel above, which the listing takes over while it is open.
+     *
+     * Required, both of them. Optional, this kept a second copy to fall back
+     * on — and every test drove that copy, so the path the app actually runs
+     * had no test at all.
+     */
+    readonly isPicking: boolean;
+    readonly onPickingChange: (isPicking: boolean) => void;
     /** Called after a contract is switched on or off, so the picker keeps up. */
     /**
       * Confirms the change, and may refuse.
@@ -61,9 +67,7 @@ export function RecordingPanel(props: RecordingPanelProps): ReactElement {
     const [hasFailed, setHasFailed] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const takeover = usePanelTakeover();
-    const [isPickingHere, setIsPickingHere] = useState(false);
-    const isPicking = props.isPicking ?? isPickingHere;
-    const setIsPicking = props.onPickingChange ?? setIsPickingHere;
+    const { isPicking, onPickingChange: setIsPicking } = props;
 
     // Which venues have a book to record, and which have none. Read from the
     // registry rather than from what is already being recorded: the answer to

@@ -23,6 +23,23 @@ export interface RecordedContract {
     readonly isEnabled: boolean;
 }
 
+/**
+ * The least storage a reader may set a recording's ceiling to.
+ *
+ * One number, because it was three: the wire refused anything under a gibibyte
+ * while both controls clamped at a single byte, so the property the test names
+ * — that a ceiling is a real amount of room — held only on the path the test
+ * did not take.
+ *
+ * Sixty-four mebibytes rather than the gibibyte the wire used to insist on. A
+ * browser was measured offering two gibibytes in all, so a gibibyte floor put
+ * half of everything the host had below the least a reader could choose.
+ *
+ * This is a floor on a choice, not on what a host offers: a browser whose whole
+ * quota is smaller than this still records into the share of it that exists.
+ */
+export const MINIMUM_BUDGET_BYTES = 67_108_864;
+
 /** How much storage the whole recording may take, what it takes, and what exists. */
 export interface StorageBudget {
     /** The ceiling in force. */

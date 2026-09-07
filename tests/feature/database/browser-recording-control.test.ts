@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 import { recordInstants } from '../../mocks/browser-recording.ts';
 import { IndexedDbChunkRowStore } from '../../../src/database/browser/indexed-db-chunk-row-store.ts';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { MINIMUM_BUDGET_BYTES } from '../../../src/shared/core/recording-control.ts';
 import { BrowserRecordingControl } from '../../../src/database/browser/browser-recording-control.ts';
 import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 import { IDBFactory } from 'fake-indexeddb';
@@ -58,11 +59,12 @@ describe('BrowserRecordingControl', () => {
         // Both live in one stored row, so each writer has to carry the other's
         // half forward or the last one to write erases it.
         const control = buildControl();
-        await control.setBudget(2_000_000);
+        const chosen = MINIMUM_BUDGET_BYTES * 2;
+        await control.setBudget(chosen);
 
         await control.saveContract({ ...CATALOGUE[1]!, isEnabled: true });
 
-        expect((await control.readBudget()).maximumBytes).toBe(2_000_000);
+        expect((await control.readBudget()).maximumBytes).toBe(chosen);
     });
 
     it('keeps the contracts when the ceiling is changed', async () => {
@@ -99,9 +101,11 @@ describe('BrowserRecordingControl', () => {
     });
 
     it('splits what may be kept across the contracts being recorded', async () => {
+        // A host with almost no room to offer, rather than a ceiling the reader
+        // chose: a choice is clamped to a real amount of storage, and a quota is
+        // whatever the host actually has.
         const control = buildControl();
-        await control.setBudget(2_600);
-        estimate = { quota: 4_000_000_000, usage: 999_999 };
+        estimate = { quota: 10_400, usage: 999_999 };
         await control.saveContract({ ...CATALOGUE[1]!, isEnabled: true });
         for (const instrumentSymbol of ['BTCUSDT', 'ETHUSDT']) {
             await recordInstants({ database, instrumentSymbol, fromMs: 1_000_000, count: 5 });

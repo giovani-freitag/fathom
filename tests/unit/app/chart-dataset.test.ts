@@ -4,10 +4,10 @@ import { EMPTY_BAR_WINDOW } from '../../../src/shared/core/price-bar.ts';
 import type { LiquidityFrame } from '../../../src/shared/core/liquidity-frame.ts';
 import type { TradeCluster } from '../../../src/shared/core/trade-cluster.ts';
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_SATURATION_PERCENTILE } from '../../../src/app/indicators/book/book.ts';
 import {
     appendClusters,
     appendFrames,
-    DEFAULT_SATURATION_PERCENTILE,
     type ChartDataset,
     EMPTY_DATASET,
     foldFramesIntoBars,

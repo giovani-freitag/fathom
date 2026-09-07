@@ -8,10 +8,6 @@ import { resolveDepthRange } from '../indicators/book/depth-colour-scale.ts';
 /** Quantities inspected when picking the saturation point, at most. */
 const SATURATION_SAMPLE_LIMIT = 40_000;
 
-/** Where resting size stops brightening; above this the whole field washes out. */
-export const DEFAULT_SATURATION_PERCENTILE = 0.995;
-
-
 /**
  * How far the saturation point must move before it is adopted.
  */

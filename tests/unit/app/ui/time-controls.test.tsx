@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { BarIntervalControl, SpanControl } from '../../../../src/app/ui/time-controls.tsx';
+import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 import { createIndicatorKernel } from '../../../mocks/indicator-kernel.tsx';
 import { EN_DICTIONARY } from '../../../../src/app/i18n/dictionaries/en.ts';
 import { KernelProvider } from '../../../../src/app/react/kernel-provider.tsx';
@@ -31,9 +32,10 @@ function renderSpans(options: { isCollapsed?: boolean } = {}): Chosen {
     return chosen;
 }
 
-function renderIntervals(): Chosen {
+function renderIntervals(venue = FIRST_VENUE): Chosen {
     const chosen: Chosen = { spans: [], intervals: [] };
     const kernel = createIndicatorKernel();
+    kernel.setState((state) => ({ ...state, venue, instrumentSymbol: 'BTCUSDT' }));
 
     render(
         <KernelProvider container={kernel.container}>
@@ -131,6 +133,24 @@ describe('BarIntervalControl', () => {
         renderIntervals();
 
         expect(screen.queryByRole('radio', { name: '1s' })).toBeNull();
+    });
+
+    it('drops the rungs the open venue does not serve', () => {
+        // Coinbase's ladder runs 1m, 5m, 15m, 1h, 6h, 1d. Offered the whole
+        // ladder, a reader was given a half-hour and a four-hour bar it serves
+        // neither of, and both answered with nothing.
+        renderIntervals('coinbase');
+
+        expect(screen.getByRole('radio', { name: '15min' })).toBeTruthy();
+        expect(screen.queryByRole('radio', { name: '30min' })).toBeNull();
+        expect(screen.queryByRole('radio', { name: '4h' })).toBeNull();
+    });
+
+    it('offers the whole ladder on a venue this build cannot name', () => {
+        // A chart that does not know where it is has no business hiding rungs.
+        renderIntervals('a-venue-nobody-registered');
+
+        expect(screen.getByRole('radio', { name: '30min' })).toBeTruthy();
     });
 
     it('hands the decision back when the automatic choice is pressed', () => {

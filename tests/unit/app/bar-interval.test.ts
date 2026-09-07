@@ -36,10 +36,15 @@ describe('chooseBarIntervalMs', () => {
         expect(chooseBarIntervalMs({ viewportSpanMs: 100, targetBarCount: 120 })).toBe(60_000);
     });
 
-    it('offers only rungs the venue publishes a candle for', () => {
-        const unpublished = BAR_INTERVALS_MS.filter((rung) => nameVenueInterval(rung) === null);
+    it('is named end to end by the venue this build ships against', () => {
+        // Named for what it checks. It read "offers only rungs the venue
+        // publishes a candle for", which is a claim about every venue, tested
+        // against one table — and Coinbase serves neither the half-hour nor the
+        // four-hour rung this ladder holds. What narrows the ladder to a venue
+        // is the control, and `rungs` is what it reads.
+        const unnamed = BAR_INTERVALS_MS.filter((rung) => nameVenueInterval(rung) === null);
 
-        expect(unpublished).toEqual([]);
+        expect(unnamed).toEqual([]);
     });
 });
 

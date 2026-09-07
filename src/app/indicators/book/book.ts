@@ -12,6 +12,15 @@ import {
  */
 export const DEFAULT_FLOOR_PERCENTILE = 0.40;
 
+/**
+ * Where resting size stops brightening; above this the whole field washes out.
+ *
+ * Beside the floor, because the layer that draws with them is the one that gets
+ * to say what they are. Written here and again in the dataset, the copy the
+ * tests imported was not the number production used.
+ */
+export const DEFAULT_SATURATION_PERCENTILE = 0.995;
+
 /** Limits the two cuts are held inside, so neither can erase the other. */
 export const DEPTH_CUT_RANGE = {
     floorMinimum: 0,
@@ -46,7 +55,7 @@ const FLOOR_PERCENTILE: NumericParameter = {
 const SATURATION_PERCENTILE: NumericParameter = {
     name: 'saturationPercentile',
     kind: 'decimal',
-    defaultValue: 0.995,
+    defaultValue: DEFAULT_SATURATION_PERCENTILE,
     minimum: DEPTH_CUT_RANGE.saturationMinimum,
     maximum: DEPTH_CUT_RANGE.saturationMaximum,
     step: DEPTH_CUT_RANGE.saturationStep,

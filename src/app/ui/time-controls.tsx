@@ -6,7 +6,9 @@ import { memo, type ReactElement } from 'react';
 import { Select } from './select.tsx';
 import { matchesSpan, SPAN_PRESETS } from './span-preset-catalogue.ts';
 import type { Translate } from '../i18n/translator.ts';
+import { findConnector } from '../../shared/venues/venue-registry.ts';
 import { useTranslate } from '../react/use-appearance.ts';
+import { useVenue } from '../react/use-venue.ts';
 
 interface SpanControlProps {
     readonly activeSpanMs: number;
@@ -73,8 +75,9 @@ interface BarIntervalControlProps {
  */
 function BarIntervalControlComponent(props: BarIntervalControlProps): ReactElement {
     const translate = useTranslate();
+    const venue = useVenue();
     const value = props.barIntervalMs === null ? AUTOMATIC_INTERVAL : String(props.barIntervalMs);
-    const choices = listIntervalChoices(props, translate);
+    const choices = listIntervalChoices(props, venue, translate);
     const choose = (chosen: string): void => {
         props.onSelect(chosen === AUTOMATIC_INTERVAL ? null : (Number(chosen) as BarIntervalMs));
     };
@@ -121,16 +124,32 @@ function listSpanChoices(translate: Translate): readonly Choice[] {
 }
 
 /**
- * The bar rungs the chart offers.
+ * The bar rungs the chart offers, on the venue it is looking at.
+ *
+ * Narrowed to what the venue publishes a candle for, which is the field every
+ * connector already builds. Offered unconditionally, Coinbase was handed a
+ * request for a half-hour and a four-hour bar it serves neither of — its ladder
+ * runs 1m, 5m, 15m, 1h, 6h, 1d — and the reader was given two rungs that answer
+ * with nothing.
+ *
+ * A venue this build cannot name gets the whole ladder: a chart that does not
+ * know where it is has no business hiding rungs.
  *
  * @param request - What the window settled on, for the automatic choice.
+ * @param venue - Which venue the open contract is on.
  * @param translate - The reader's words.
- * @returns The automatic choice, then every rung the recording can carry.
+ * @returns The automatic choice, then every rung the venue serves.
  */
 function listIntervalChoices(
     request: Pick<BarIntervalControlProps, 'effectiveIntervalMs'>,
+    venue: string,
     translate: Translate,
 ): readonly Choice[] {
+    const served = findConnector(venue)?.declaration.bars?.rungs;
+    const offered = served === undefined
+        ? BAR_INTERVALS_MS
+        : BAR_INTERVALS_MS.filter((rung) => served.some((one) => one.widthMs === rung));
+
     return [
         {
             value: AUTOMATIC_INTERVAL,
@@ -138,9 +157,7 @@ function listIntervalChoices(
                 interval: formatDuration(request.effectiveIntervalMs, translate),
             }),
         },
-        // Every rung, because every rung is one the venue publishes a candle
-        // for. They were filtered by the recording when bars came out of it.
-        ...BAR_INTERVALS_MS.map((rung) => ({
+        ...offered.map((rung) => ({
             value: String(rung),
             label: formatDuration(rung, translate),
         })),
