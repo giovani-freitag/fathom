@@ -3,7 +3,7 @@ import { restoreInstalledConnectors } from './service-container.ts';
 import { VenueGateway } from '../../shared/venues/venue-gateway.ts';
 import { type AppearanceHost, AppearanceController } from './appearance-controller.ts';
 import { IndexedDbChunkRowStore } from '../../database/browser/indexed-db-chunk-row-store.ts';
-import { ChartController } from './chart-controller.ts';
+import { ChartController, openContractOf } from './chart-controller.ts';
 import { DrawingsController } from '../drawings/drawings-controller.ts';
 import { createCursorStore } from './cursor-store.ts';
 import type { CollectorEvent } from '../../shared/core/collector-worker-contract.ts';
@@ -116,12 +116,7 @@ export function createDemoServiceContainer(
         cursor,
         drawings: new DrawingsController({
             preferences,
-            readContract: () => {
-                const state = chart.store.read();
-                return state.venue === null || state.instrumentSymbol === null
-                    ? null
-                    : { venue: state.venue, symbol: state.instrumentSymbol };
-            },
+            readContract: () => openContractOf(chart.store.read()),
             newId: () => crypto.randomUUID(),
         }),
         appearance: new AppearanceController({ preferences, host: config.appearanceHost }),

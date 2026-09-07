@@ -1,7 +1,7 @@
 import type { Translate } from '../../i18n/translator.ts';
 import { PanelSection } from '../../ui/panel-section.tsx';
 import { type ReactElement, type ReactNode, useState } from 'react';
-import type { ChartState } from '../../core/chart-controller.ts';
+import { type ChartState, openContractOf } from '../../core/chart-controller.ts';
 import { formatDuration, formatFixed } from '../../core/formatting.ts';
 import { RecordingPanel } from './recording-panel.tsx';
 import { resolveRecordedSpanMs } from '../../core/viewport-policy.ts';
@@ -53,7 +53,7 @@ export function BookPanel({ state }: BookPanelProps): ReactElement {
                     >
                         <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
                             <Stat isLead term={translate('settings.recordedSoFar')}>
-                                {formatDuration(resolveRecordedSpanMs(state.instruments, state.instrumentSymbol), translate)}
+                                {formatDuration(resolveRecordedSpanMs(state.instruments, openContractOf(state)), translate)}
                             </Stat>
                             <Stat term={translate('settings.resolution')}>
                                 {translate('settings.perColumn', { value: formatDuration(state.dataset.sampleIntervalMs, translate) })}

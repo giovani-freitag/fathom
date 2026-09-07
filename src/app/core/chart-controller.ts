@@ -155,6 +155,22 @@ export function isOpenRecorded(state: ChartState): state is OpenRecordedChart {
 }
 
 /**
+ * The contract the chart is on, or nothing where it is on none.
+ *
+ * Both halves or neither: the two are set together and a state holding one of
+ * them is a state nothing can address, so the callers that need a contract are
+ * spared deciding what half of one would mean.
+ *
+ * @param state - What the chart is showing.
+ * @returns The venue and symbol, or null before either is chosen.
+ */
+export function openContractOf(state: ChartState): MarketPair | null {
+    return state.venue === null || state.instrumentSymbol === null
+        ? null
+        : { venue: state.venue, symbol: state.instrumentSymbol };
+}
+
+/**
  * A chart open on a contract the archive holds, with both halves of it named.
  *
  * Narrowed by the check above rather than asserted beside it: a listed

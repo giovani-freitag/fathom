@@ -1,5 +1,5 @@
 import { type AppearanceHost, AppearanceController } from './appearance-controller.ts';
-import { ChartController } from './chart-controller.ts';
+import { ChartController, openContractOf } from './chart-controller.ts';
 import { DrawingsController } from '../drawings/drawings-controller.ts';
 import { type CursorReadout, createCursorStore } from './cursor-store.ts';
 import type { ObservableStore } from './observable-store.ts';
@@ -92,12 +92,7 @@ export function createServiceContainer(config: ServiceContainerConfig): ServiceC
         recording: new RecordingApiService({ baseUrl: config.baseUrl }),
         drawings: new DrawingsController({
             preferences,
-            readContract: () => {
-                const state = chart.store.read();
-                return state.venue === null || state.instrumentSymbol === null
-                    ? null
-                    : { venue: state.venue, symbol: state.instrumentSymbol };
-            },
+            readContract: () => openContractOf(chart.store.read()),
             newId: () => crypto.randomUUID(),
         }),
         appearance,

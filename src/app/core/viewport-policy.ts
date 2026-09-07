@@ -1,6 +1,7 @@
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
 import type { ChartViewport, ViewportBounds } from './chart-viewport.ts';
 import { type ChartDataset, newestFrameTimestamp } from './chart-dataset.ts';
+import type { MarketPair } from '../../shared/core/pair-tags.ts';
 
 const MINIMUM_SPAN_MS = 5_000;
 const MAXIMUM_SPAN_MS = 90 * 24 * 60 * 60 * 1_000;
@@ -217,15 +218,16 @@ export function resolveTradePriceGroupSize(
  * How much history exists for an instrument.
  *
  * @param instruments - Everything the archive reports.
- * @param instrumentSymbol - The contract on screen, if one is chosen.
+ * @param contract - The contract on screen, if one is chosen.
  * @returns Milliseconds between the first and newest recorded frame.
  */
 export function resolveRecordedSpanMs(
     instruments: readonly InstrumentCoverage[],
-    instrumentSymbol: string | null,
+    contract: MarketPair | null,
 ): number {
-    const instrument = instruments.find(
-        (candidate) => candidate.instrumentSymbol === instrumentSymbol,
+    const instrument = contract === null ? undefined : instruments.find(
+        (candidate) => candidate.venue === contract.venue
+            && candidate.instrumentSymbol === contract.symbol,
     );
     if (instrument?.firstFrameAtMs == null || instrument.lastFrameAtMs == null) {
         return 0;

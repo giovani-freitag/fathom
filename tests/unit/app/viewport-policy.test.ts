@@ -310,12 +310,14 @@ describe('resolveTradePriceGroupSize', () => {
 });
 
 describe('resolveRecordedSpanMs', () => {
+    const OPEN = { venue: FIRST_VENUE, symbol: 'BTCUSDT' };
+
     it('measures between the first and newest recorded frame', () => {
-        expect(resolveRecordedSpanMs([INSTRUMENT], 'BTCUSDT')).toBe(1_500_000);
+        expect(resolveRecordedSpanMs([INSTRUMENT], OPEN)).toBe(1_500_000);
     });
 
     it('reports nothing for an instrument that was never recorded', () => {
-        expect(resolveRecordedSpanMs([{ ...INSTRUMENT, firstFrameAtMs: null }], 'BTCUSDT')).toBe(0);
+        expect(resolveRecordedSpanMs([{ ...INSTRUMENT, firstFrameAtMs: null }], OPEN)).toBe(0);
     });
 
     it('reports nothing when no instrument is chosen', () => {
@@ -323,7 +325,14 @@ describe('resolveRecordedSpanMs', () => {
     });
 
     it('reports nothing for an unknown instrument', () => {
-        expect(resolveRecordedSpanMs([INSTRUMENT], 'ETHUSDT')).toBe(0);
+        expect(resolveRecordedSpanMs([INSTRUMENT], { ...OPEN, symbol: 'ETHUSDT' })).toBe(0);
+    });
+
+    it('reports nothing for the same symbol on a venue that never recorded it', () => {
+        // Two venues list one symbol and record it for different stretches. The
+        // span is what bounds how far back the chart lets a reader pan, so the
+        // other venue's history would offer a window this one cannot fill.
+        expect(resolveRecordedSpanMs([INSTRUMENT], { ...OPEN, venue: 'bybit' })).toBe(0);
     });
 });
 

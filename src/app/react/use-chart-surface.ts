@@ -12,6 +12,7 @@ import type { ServiceContainer } from '../core/service-container.ts';
 import { ViewportProjector } from '../core/viewport-projector.ts';
 import { useKernel } from './kernel-context.ts';
 import { useElementSize } from './use-element-size.ts';
+import { openContractOf } from '../core/chart-controller.ts';
 
 /** Retina beyond this buys nothing visible and costs four times the fill rate. */
 const MAXIMUM_PIXEL_RATIO = 2;
@@ -196,12 +197,7 @@ export function useChartSurface(): ChartSurfaceHandles {
         const claimant = new DrawingSurfaceClaimant({
             drawings: kernel.drawings,
             readProjector: () => resolveSurfaceProjector(container, kernel),
-            readContract: () => {
-                const state = kernel.chart.store.read();
-                return state.venue === null || state.instrumentSymbol === null
-                    ? null
-                    : { venue: state.venue, symbol: state.instrumentSymbol };
-            },
+            readContract: () => openContractOf(kernel.chart.store.read()),
             readLayerAt: (point) => readLayerAt(container, kernel, point),
             onPickLayer: (instanceId) => { kernel.chart.pickLayer(instanceId); },
         });
