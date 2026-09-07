@@ -5,6 +5,11 @@ import { ChunkTileRecorder } from '../../../src/database/services/chunk-tile-rec
 import { createChunkStoreMock } from '../../mocks/chunk-store.ts';
 import type { LiquidityFrame } from '../../../src/shared/core/liquidity-frame.ts';
 import { COLUMNS_PER_CHUNK, ROWS_PER_CHUNK } from '../../../src/shared/codec/chunk-grid.ts';
+import {
+    compressFillingPlane,
+    compressPlane,
+    decompressPlane,
+} from '../../../src/database/services/tile-compression.ts';
 
 /** The contract every recording here is written and read back under. */
 const CONTRACT = { venue: 'binance-futures', instrumentSymbol: 'BTCUSDT' };
@@ -1075,5 +1080,39 @@ describe('two venues recording one symbol', () => {
             window.frames[0]?.bestBidPrice ?? 0;
         expect(priceOf(first)).toBeGreaterThan(0);
         expect(priceOf(second)).toBe(priceOf(first) + BUCKET_SIZE);
+    });
+});
+
+describe('a block left behind by the recording', () => {
+    /** Which of the two squeezes produced a stored plane, by the size it left. */
+    function squeezedBy(stored: Buffer): 'hard' | 'cheap' | 'neither' {
+        const plane = decompressPlane(stored);
+        if (stored.byteLength === compressPlane(plane).byteLength) {
+            return 'hard';
+        }
+        return stored.byteLength === compressFillingPlane(plane).byteLength ? 'cheap' : 'neither';
+    }
+
+    it('is squeezed hard once, where the one still filling is squeezed cheaply', async () => {
+        // A block still filling is written over within seconds, and squeezing
+        // hard was four fifths of what a write cost. So the cheap setting pays
+        // for the drafts and the hard one for the version that is kept — and a
+        // recording that never says a block is finished pays the cheap size for
+        // ever, on an archive whose disk is already driven by its rewrites.
+        const { store } = await roundTrip(buildRecording(COLUMNS_PER_CHUNK + 40));
+
+        const finest = store.rows('chunk')
+            .filter((row) => row['detail_level'] === 0)
+            .map((row) => ({
+                openedAtMs: (row['started_at'] as Date).getTime(),
+                squeeze: squeezedBy(row['low_plane'] as Buffer),
+            }));
+        const opened = [...new Set(finest.map((one) => one.openedAtMs))].sort((a, b) => a - b);
+        const squeezeOf = (openedAtMs: number) => [...new Set(finest
+            .filter((one) => one.openedAtMs === openedAtMs)
+            .map((one) => one.squeeze))];
+
+        expect([opened.length, squeezeOf(opened[0]!), squeezeOf(opened[1]!)])
+            .toEqual([2, ['hard'], ['cheap']]);
     });
 });
