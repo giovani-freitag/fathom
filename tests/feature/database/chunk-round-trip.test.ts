@@ -883,11 +883,57 @@ describe('two writers meeting on one block', () => {
     const BLOCK_START_MS = Math.ceil(STARTED_AT_MS / BLOCK_MS) * BLOCK_MS;
     const BACKFILLED_MS = BLOCK_START_MS + 7 * INTERVAL_MS;
     const LIVE_MS = BLOCK_START_MS + 1_200 * INTERVAL_MS;
+    /** A stretch of its own column, far from the one the backfill opens with. */
+    const LANDED_MS = BLOCK_START_MS + 40 * INTERVAL_MS;
 
     /** Whether the block holds a recording at the column covering an instant. */
     function isRecordedAt(block: readonly ChunkColumn[], atMs: number): boolean {
         return (block[Math.floor((atMs - BLOCK_START_MS) / COLUMN_MS)]?.steps.size ?? 0) > 0;
     }
+
+    it('keeps what landed between its two reads of the block it picked up', async () => {
+        // Picking a block up is two reads: what is in it, and the stamp saying
+        // who wrote it last. A writer that lands between them is invisible to
+        // the first read and named by the second — so the stamp says nothing has
+        // changed since, about a block that changed. The next write believes it,
+        // skips reading the block again, and puts back what it read over the top.
+        const store = createChunkStoreMock();
+        const archive = new ChunkArchiveService({ rows: new PostgresChunkRowStore({ postgres: store.service }) });
+        const live = buildWriter(archive);
+        const backfill = buildWriter(archive);
+
+        await write(backfill, recordingAt(BACKFILLED_MS, 8));
+
+        const reads = store.service as unknown as {
+            selectRows: (statement: string, parameters?: readonly unknown[]) => Promise<unknown[]>;
+        };
+        const asked = reads.selectRows.bind(reads);
+        let landedDuringTheRead = false;
+        reads.selectRows = async (statement, parameters) => {
+            const rows = await asked(statement, parameters);
+            // The level the assertion is about, not whichever level reads first:
+            // every level picks its own block up, and one that reads after the
+            // other writer has landed sees it and is never in the race.
+            if (!landedDuringTheRead
+                && statement.includes('AND started_at = $4::timestamptz')
+                && parameters?.[2] === 1) {
+                landedDuringTheRead = true;
+                await write(backfill, recordingAt(LANDED_MS, 8));
+            }
+            return rows;
+        };
+
+        await write(live, recordingAt(LIVE_MS, 8));
+
+        const block = await archive.readBlock({
+            ...CONTRACT,
+            detailLevel: 1,
+            startedAtMs: BLOCK_START_MS,
+            priceBucketSize: BUCKET_SIZE,
+        });
+        expect([landedDuringTheRead, isRecordedAt(block, LANDED_MS)])
+            .toEqual([true, true]);
+    });
 
     it('keeps what the other one wrote while it was gathering', async () => {
         const store = createChunkStoreMock();

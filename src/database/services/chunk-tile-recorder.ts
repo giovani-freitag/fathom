@@ -450,18 +450,27 @@ export class ChunkTileRecorder {
     private async resume(pick: BlockPickUp): Promise<void> {
         const { level } = pick;
         try {
+            // The stamp first, and the block after it. The two are separate
+            // reads, so another writer can land between them — and taken the
+            // other way round that writer is missing from the block and named by
+            // the stamp, which then says nothing has changed since a change. The
+            // next write believes it, skips reading the block again, and puts
+            // back what it read over the top of them.
+            //
+            // This way round the error is the harmless one: a stamp older than
+            // the block costs a read that was not needed, never a read that was.
+            level.revision = await this.config.archive.readBlockRevision({
+                venue: pick.venue,
+                instrumentSymbol: pick.instrumentSymbol,
+                detailLevel: pick.detailLevel,
+                startedAtMs: pick.startedAtMs,
+            });
             const stored = await this.config.archive.readBlock({
                 venue: pick.venue,
                 instrumentSymbol: pick.instrumentSymbol,
                 detailLevel: pick.detailLevel,
                 startedAtMs: pick.startedAtMs,
                 priceBucketSize: pick.priceBucketSize,
-            });
-            level.revision = await this.config.archive.readBlockRevision({
-                venue: pick.venue,
-                instrumentSymbol: pick.instrumentSymbol,
-                detailLevel: pick.detailLevel,
-                startedAtMs: pick.startedAtMs,
             });
             if (stored.length > level.columns.length) {
                 // Whatever arrived while the read was running stays where it is.
