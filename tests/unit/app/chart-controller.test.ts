@@ -12,6 +12,7 @@ import {
 } from '../../mocks/chart-services.ts';
 
 import { buildBar, buildWindow as buildBarWindow } from '../../mocks/price-bars.ts';
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 
 const SURFACE_WIDTH = 1_000;
 
@@ -585,20 +586,41 @@ describe('ChartController.selectInstrument', () => {
         const controller = buildController(mocks);
         await controller.initialize();
 
-        act(() => { controller.selectInstrument('ETHUSDT'); });
+        act(() => { controller.selectInstrument({ venue: FIRST_VENUE, symbol: 'ETHUSDT' }); });
         await vi.waitFor(() => { expect(controller.store.read().phase).not.toBe('loading'); });
 
         expect(controller.store.read().instrumentSymbol).toBe('ETHUSDT');
     });
 
-    it('ignores a contract that has never been recorded', async () => {
+    it('opens a contract that has never been recorded, and says it has none', async () => {
+        // The candles and the volume come from the venue and were never
+        // recorded. Refused, a reader had four of the eight hundred and
+        // fifty-five contracts on offer, and no word about the rest.
         const mocks = buildTwoInstrumentMocks();
         const controller = buildController(mocks);
         await controller.initialize();
 
-        controller.selectInstrument('DOGEUSDT');
+        act(() => { controller.selectInstrument({ venue: 'bybit', symbol: 'DOGEUSDT' }); });
+        await vi.waitFor(() => { expect(controller.store.read().phase).not.toBe('loading'); });
 
-        expect(controller.store.read().instrumentSymbol).toBe('BTCUSDT');
+        expect(controller.store.read().instrumentSymbol).toBe('DOGEUSDT');
+        expect(controller.store.read().venue).toBe('bybit');
+        expect(controller.store.read().isRecorded).toBe(false);
+    });
+
+    it('leaves the tail alone on a contract nothing recorded', async () => {
+        // The gateway closes the socket for a contract it never recorded, with
+        // a code the feed reads as permanent — so a reader who opened a pair to
+        // look at its candles was shown a live status of "refused".
+        const mocks = buildTwoInstrumentMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        mocks.connect.mockClear();
+
+        act(() => { controller.selectInstrument({ venue: 'bybit', symbol: 'DOGEUSDT' }); });
+        await vi.waitFor(() => { expect(controller.store.read().phase).not.toBe('loading'); });
+
+        expect(mocks.connect).not.toHaveBeenCalled();
     });
 
     it('lets go of the tail on the contract it is leaving', async () => {
@@ -609,7 +631,7 @@ describe('ChartController.selectInstrument', () => {
         await controller.initialize();
         mocks.disconnect.mockClear();
 
-        controller.selectInstrument('ETHUSDT');
+        controller.selectInstrument({ venue: FIRST_VENUE, symbol: 'ETHUSDT' });
 
         expect(mocks.disconnect).toHaveBeenCalled();
     });

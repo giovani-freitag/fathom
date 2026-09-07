@@ -44,7 +44,6 @@ function renderHeader(hasRoomForPresets: boolean): void {
                 indicators={{ added: [], addedCounts: new Map(), isFull: false } as unknown as IndicatorControls}
                 instruments={[INSTRUMENT]}
                 instrumentSymbol="BTCUSDT"
-                onInstrumentSelect={() => undefined}
                 openPair={null}
                 onPairOpen={() => undefined}
                 onWriteAReading={() => undefined}

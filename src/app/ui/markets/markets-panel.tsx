@@ -120,22 +120,16 @@ export function MarketsPanel({
         return () => { clearTimeout(asking); };
     }, [markets, query, showing]);
 
-    // Two different answers, because a reader who reads the first one for the
-    // second goes looking for a broken recording instead of for the `null` their
-    // own connector declared.
-    const sayWhyNot = useCallback((pair: MarketPair): string => (
-        readFactsFor(pair.venue).size === 0
-            ? translate('markets.nothingToDraw')
-            : translate('markets.notRecorded')
-    ), [translate]);
+    // What a row can be opened on is what the venue publishes, not what this
+    // recording happens to hold: the candles and the traded volume come from
+    // the venue and were never recorded, so a contract nobody recorded still
+    // draws. Only a venue that declares nothing at all has nothing to show.
+    const canDraw = useCallback((pair: MarketPair): boolean => (
+        readFactsFor(pair.venue).size > 0
+    ), []);
 
-    // The same answer in two words, for the column at the end of a row. The
-    // whole sentence is on the row's own label and its tooltip, where there is
-    // room for it.
-    const noteWhyNot = useCallback((pair: MarketPair): string => (
-        readFactsFor(pair.venue).size === 0
-            ? translate('markets.noteNothingToDraw')
-            : translate('markets.noteNotRecorded')
+    const sayWhyNot = useCallback((): string => (
+        translate('markets.nothingToDraw')
     ), [translate]);
 
     // Pointing the listing somewhere else clears what was typed at the last
@@ -202,38 +196,44 @@ export function MarketsPanel({
     const rows: readonly PairRow[] = useMemo(() => {
         if (showing.kind === 'tag') {
             return (openTag?.pairs ?? []).map((pair) => {
-                const isOpenable = recorded.has(`${pair.venue}/${pair.symbol}`);
+                const isOpenable = canDraw(pair);
                 return {
                     pair,
                     base: '',
                     quote: '',
                     held: heldBy(pair),
                     isOpenable,
-                    whyNot: sayWhyNot(pair),
-                    // Under a tag, what a reader wants to know is why the one
-                    // they kept will not open.
-                    note: isOpenable ? '' : noteWhyNot(pair),
+                    whyNot: sayWhyNot(),
+                    // Under a tag, the rare fact is which of the kept pairs
+                    // this recording also holds a book for.
+                    note: recorded.has(`${pair.venue}/${pair.symbol}`)
+                        ? translate('markets.recorded')
+                        : '',
                 };
             }).filter((row) => matchesQuery(row.pair.symbol, narrowedBy));
         }
 
         return (narrowed?.shown ?? []).map((instrument) => {
             const pair = { venue: showing.venue, symbol: instrument.symbol };
-            const isOpenable = recorded.has(`${pair.venue}/${pair.symbol}`);
+            const isOpenable = canDraw(pair);
             return {
                 pair,
                 base: instrument.base,
                 quote: instrument.quote,
                 held: heldBy(pair),
                 isOpenable,
-                whyNot: sayWhyNot(pair),
+                whyNot: sayWhyNot(),
                 // On a venue's own listing the reason is true of almost every
                 // row, and a column that repeats nine hundred times says
                 // nothing. What is rare here is the handful this chart holds.
-                note: markNote(instrument.isTrading, isOpenable, translate),
+                note: markNote(
+                    instrument.isTrading,
+                    recorded.has(`${pair.venue}/${pair.symbol}`),
+                    translate,
+                ),
             };
         });
-    }, [showing, openTag, recorded, sayWhyNot, noteWhyNot, heldBy, narrowed, narrowedBy, translate]);
+    }, [showing, openTag, recorded, canDraw, sayWhyNot, heldBy, narrowed, narrowedBy, translate]);
 
     return (
         <ListingCard
@@ -533,11 +533,11 @@ function Body({ showing, listing, rowCount, query, translate, onRetry, children 
 /**
  * The word at the end of a venue's row: what is rare about it, or nothing.
  */
-function markNote(isTrading: boolean, isOpenable: boolean, translate: Translate): string {
+function markNote(isTrading: boolean, isRecorded: boolean, translate: Translate): string {
     if (!isTrading) {
         return translate('markets.halted');
     }
-    return isOpenable ? translate('markets.recorded') : '';
+    return isRecorded ? translate('markets.recorded') : '';
 }
 
 /**

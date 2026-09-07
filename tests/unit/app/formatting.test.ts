@@ -104,6 +104,18 @@ describe('formatPrice', () => {
     it('groups thousands the way the locale does', () => {
         expect(formatPrice(78_945.7)).toBe('78,945.7');
     });
+
+    it('says a price under a cent instead of rounding it to nothing', () => {
+        // Most of what a venue lists trades under a cent. At two decimals every
+        // label on one of those axes read `0`, and the chart drew a price it
+        // would not name.
+        expect(formatPrice(0.000_612_34)).toBe('0.0006123');
+        expect(formatPrice(0.000_012_3)).toBe('0.0000123');
+    });
+
+    it('leaves a price of one or more as it was', () => {
+        expect([formatPrice(1.5), formatPrice(0)]).toEqual(['1.5', '0']);
+    });
 });
 
 describe('formatDuration', () => {

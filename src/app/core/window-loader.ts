@@ -657,7 +657,10 @@ export class WindowLoader {
                     signal,
                 )
                 : Promise.resolve(EMPTY_TRADE_RESULT),
-            this.config.api.fetchGaps(query, signal),
+            // With the frames, because a gap is a stretch of the recording:
+            // asked about a contract nothing ever recorded, the archive is
+            // being asked which parts of nothing are missing.
+            wanted.has('frames') ? this.config.api.fetchGaps(query, signal) : Promise.resolve([]),
             this.config.api.fetchPriceBars({
                 symbol: request.symbol,
                 venue: request.venue,

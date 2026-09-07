@@ -60,7 +60,6 @@ export interface ChartDockProps {
     readonly indicators: IndicatorControls;
     readonly instruments: readonly InstrumentCoverage[];
     readonly instrumentSymbol: string | null;
-    readonly onInstrumentSelect: (instrumentSymbol: string) => void;
     /** The pair on the chart, venue included, or null before one is chosen. */
     readonly openPair: MarketPair | null;
     /** Puts a pair from a list on the chart. */

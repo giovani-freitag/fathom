@@ -153,14 +153,13 @@ export function frameOnBook(
     dataset: ChartDataset,
     isDepthVisible = true,
 ): ChartViewport {
-    const framedOnPrice = isDepthVisible ? null : frameOnBars(viewport, dataset);
-    if (framedOnPrice !== null) {
-        return framedOnPrice;
-    }
-
-    const newestFrame = dataset.frames[dataset.frames.length - 1];
+    // The book first where there is one, the bars wherever there is not. Asked
+    // only when the book was switched off, a contract with no recording behind
+    // it framed on nothing at all: the axis kept the band of whatever was open
+    // before, and the candles were drawn somewhere off it.
+    const newestFrame = isDepthVisible ? dataset.frames[dataset.frames.length - 1] : undefined;
     if (newestFrame === undefined) {
-        return viewport;
+        return frameOnBars(viewport, dataset) ?? viewport;
     }
 
     const midPrice = (newestFrame.bestBidPrice + newestFrame.bestAskPrice) / 2;

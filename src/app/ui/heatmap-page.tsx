@@ -136,12 +136,8 @@ export function HeatmapPage(): ReactElement {
         void kernel.chart.initialize();
     }, [kernel]);
 
-    const handleInstrumentSelect = useCallback((symbol: string) => {
-        kernel.chart.selectInstrument(symbol);
-    }, [kernel]);
-
     const handlePairOpen = useCallback((pair: MarketPair) => {
-        kernel.chart.selectInstrument(pair.symbol);
+        kernel.chart.selectInstrument(pair);
     }, [kernel]);
 
     const [editing, setEditing] = useState<EditorRequest | null>(null);
@@ -188,7 +184,6 @@ export function HeatmapPage(): ReactElement {
         indicators,
         instruments,
         instrumentSymbol,
-        onInstrumentSelect: handleInstrumentSelect,
         openPair: openVenue === '' || instrumentSymbol === null
             ? null
             : { venue: openVenue, symbol: instrumentSymbol },

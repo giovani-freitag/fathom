@@ -9,6 +9,8 @@ const FORMATTING_TAGS: Record<Locale, string> = {
 
 interface Formatters {
     readonly price: Intl.NumberFormat;
+    /** For a price under one, where two decimals are all zeroes. */
+    readonly smallPrice: Intl.NumberFormat;
     readonly compact: Intl.NumberFormat;
     readonly quantity: Intl.NumberFormat;
     readonly preciseQuantity: Intl.NumberFormat;
@@ -25,6 +27,7 @@ interface Formatters {
 function buildFormatters(tag: string): Formatters {
     return {
         price: new Intl.NumberFormat(tag, { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
+        smallPrice: new Intl.NumberFormat(tag, { maximumSignificantDigits: 4 }),
         compact: new Intl.NumberFormat(tag, { notation: 'compact', maximumFractionDigits: 1 }),
         quantity: new Intl.NumberFormat(tag, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
         preciseQuantity: new Intl.NumberFormat(tag, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
@@ -98,11 +101,18 @@ export function formatFixed(value: number, fractionDigits: number): string {
 /**
  * Renders a price for an axis label or readout.
  *
+ * Two decimals down to a whole unit, and the first four figures that are not
+ * zero below one. A venue lists nine hundred contracts and most of them trade
+ * under a cent: at two decimals every label on the axis of one of those read
+ * `0`, and the reader was given a chart of a price the chart would not say.
+ *
  * @param price - Price in quote currency.
  * @returns The formatted price.
  */
 export function formatPrice(price: number): string {
-    return formatters.price.format(price);
+    return Math.abs(price) >= 1 || price === 0
+        ? formatters.price.format(price)
+        : formatters.smallPrice.format(price);
 }
 
 /**

@@ -70,7 +70,6 @@ function renderDock(overrides: Partial<DrawingControls> = {}): Pressed {
         } as unknown as IndicatorControls,
         instruments: [INSTRUMENT],
         instrumentSymbol: 'BTCUSDT',
-        onInstrumentSelect: () => undefined,
         openPair: null,
         onPairOpen: () => undefined,
         time: {

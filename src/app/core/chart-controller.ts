@@ -47,6 +47,7 @@ import { type AddedIndicator, resolveBandKey } from '../../shared/core/indicator
 import { completePlan, isPlanWithinBudget, recolourPlan } from '../../shared/core/draw-plan.ts';
 import { collectSessions } from '../../shared/core/settled-sessions.ts';
 import { FIRST_VENUE } from '../../shared/core/recording-control.ts';
+import type { MarketPair } from '../../shared/core/pair-tags.ts';
 
 /** How often the instrument listing and its coverage are re-read. */
 /** Bars of clear space kept after the newest one. */
@@ -79,6 +80,22 @@ export interface ChartState {
     readonly failureKey: TranslationKey | null;
     readonly instruments: readonly InstrumentCoverage[];
     readonly instrumentSymbol: string | null;
+    /**
+     * Which venue the open contract is on.
+     *
+     * Carried rather than looked up, because the contract may not be one this
+     * recording holds: a reader can open anything the venue lists, and only the
+     * handful being recorded are in `instruments` to be found.
+     */
+    readonly venue: string | null;
+    /**
+     * Whether the open contract is one this recording holds.
+     *
+     * Said outright rather than read off an empty window: a window is empty
+     * while the first one is still arriving, and a chart cannot tell a reader
+     * "nothing was ever recorded here" on the strength of that.
+     */
+    readonly isRecorded: boolean;
     readonly viewport: ChartViewport;
     readonly dataset: ChartDataset;
     readonly liveStatus: LiveFeedStatus;
@@ -258,6 +275,8 @@ export class ChartController {
                 ...current,
                 instruments,
                 instrumentSymbol: preferred.instrumentSymbol,
+                venue: preferred.venue,
+                isRecorded: true,
                 viewport: buildInitialViewport(preferred, current.viewport.toMs - current.viewport.fromMs),
                 phase: 'ready',
             }));
@@ -322,37 +341,50 @@ export class ChartController {
     }
 
     /**
-     * Points the chart at another instrument.
+     * Points the chart at another contract, recorded or not.
      *
-     * @param instrumentSymbol - Symbol to show; ignored when it is not recorded.
+     * Anything the venue lists can be opened. The candles and the volume come
+     * from the venue and were never recorded; the book is drawn where this
+     * recording holds one and says so where it does not. Refusing the rest left
+     * a reader with four contracts out of the eight hundred and fifty-five on
+     * offer, and no word about why the other rows did nothing.
+     *
+     * @param pair - The venue and symbol to show.
      */
-    selectInstrument(instrumentSymbol: string): void {
+    selectInstrument(pair: MarketPair): void {
         const current = this.store.read();
-        if (current.instrumentSymbol === instrumentSymbol) {
+        if (current.instrumentSymbol === pair.symbol && current.venue === pair.venue) {
             return;
         }
         const instrument = current.instruments.find(
-            (candidate) => candidate.instrumentSymbol === instrumentSymbol,
+            (candidate) => candidate.instrumentSymbol === pair.symbol && candidate.venue === pair.venue,
         );
-        if (instrument === undefined) {
-            return;
-        }
 
         // Let go before the switch, not after the new window lands: a frame
         // message names no instrument, so anything the old tail delivers in
         // between is appended to the contract the reader moved to.
         this.config.liveFeed.disconnect();
         this.windowLoader.reset();
-        this.needsPriceFraming = instrument.lastMidPrice === null;
+        this.needsPriceFraming = instrument?.lastMidPrice == null;
         this.store.update((state) => ({
             ...state,
-            instrumentSymbol,
+            instrumentSymbol: pair.symbol,
+            venue: pair.venue,
+            isRecorded: instrument !== undefined,
             dataset: EMPTY_DATASET,
             isFollowingLive: true,
-            viewport: buildInitialViewport(instrument, state.viewport.toMs - state.viewport.fromMs),
+            viewport: buildInitialViewport(instrument ?? null, state.viewport.toMs - state.viewport.fromMs),
         }));
         this.persistPreferences();
-        void this.loadWindow().then(() => this.openLiveTail());
+        void this.loadWindow().then(() => {
+            // Only where there is a recording to tail. The gateway closes a
+            // socket for a contract it never recorded, and closes it with a
+            // code the feed reads as permanent — so a reader who opened a pair
+            // to look at its candles was shown a live status of "refused".
+            if (this.store.read().isRecorded) {
+                this.openLiveTail();
+            }
+        });
     }
 
     /**
@@ -527,7 +559,7 @@ export class ChartController {
             symbol: state.instrumentSymbol,
             // The venue the contract is on, which is the venue its candles come
             // from. Without it every pair was drawn with Binance's.
-            venue: instrument?.venue ?? FIRST_VENUE,
+            venue: state.venue ?? FIRST_VENUE,
             viewport: state.viewport,
             surfaceWidthPx: this.surfaceWidthPx,
             pricePaneHeightPx: this.pricePaneHeightPx,
@@ -825,6 +857,16 @@ function describeTuning(entry: AddedIndicator): string {
  */
 function resolveWindowSources(state: ChartState): readonly WindowSource[] {
     const sources: WindowSource[] = [];
+    // Nothing the archive can answer about a contract it never recorded. Asked
+    // anyway, the refusal took the whole window with it — the requests go out
+    // together, so a reader who opened an unrecorded pair to look at its
+    // candles was shown "the server could not answer" and no candles either.
+    //
+    // The book and the tape are recorded; the candles and the volume that rides
+    // on them come from the venue and are asked for regardless.
+    if (!state.isRecorded) {
+        return sources;
+    }
     if (state.isDepthVisible) {
         sources.push('frames');
     }
@@ -868,6 +910,8 @@ function buildInitialState(preferences: ViewerPreferences): ChartState {
         failureKey: null,
         instruments: [],
         instrumentSymbol: null,
+        venue: null,
+        isRecorded: false,
         barIntervalMs: preferences.barIntervalMs,
         viewport: {
             fromMs: nowMs - preferences.visibleSpanMs,
@@ -888,13 +932,13 @@ function buildInitialState(preferences: ViewerPreferences): ChartState {
     };
 }
 
-function buildInitialViewport(instrument: InstrumentCoverage, spanMs: number): ChartViewport {
-    const toMs = instrument.lastFrameAtMs ?? Date.now();
+function buildInitialViewport(instrument: InstrumentCoverage | null, spanMs: number): ChartViewport {
+    const toMs = instrument?.lastFrameAtMs ?? Date.now();
     // Framed on the price the listing carried, so the very first window can ask
     // for the band it will draw. Without it the chart has to read a whole book
     // to find the market — measured, two seconds, with every other request on
     // the page queued behind it and nothing drawn until it landed.
-    const midPrice = instrument.lastMidPrice;
+    const midPrice = instrument?.lastMidPrice ?? null;
     const halfRange = midPrice === null ? 0.5 : midPrice * INITIAL_PRICE_RANGE_RATIO;
     return {
         fromMs: toMs - spanMs,

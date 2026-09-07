@@ -385,11 +385,15 @@ describe('what each half marks', () => {
 
         const held = screen.getByRole('button', { name: /Open BTCUSDT on the chart/ });
         expect(held.textContent).toContain('recorded');
-        expect(screen.getByRole('button', { name: /^NANOUSDT/ }).textContent)
-            .not.toContain('Nothing recorded');
+        // Openable all the same: the candles and the volume come from the
+        // venue. What the mark says is which one this chart also holds a book
+        // for, which on a listing of nine hundred is the rare fact.
+        const rest = screen.getByRole('button', { name: /Open NANOUSDT on the chart/ });
+        expect(rest.hasAttribute('disabled')).toBe(false);
+        expect(rest.textContent).not.toContain('recorded');
     });
 
-    it('says why under a tag, where a reader kept the pair themselves', async () => {
+    it('marks the kept pairs this chart holds a book for, and opens the rest anyway', async () => {
         renderPanel();
         await browse();
         openTags('NANOUSDT');
@@ -397,11 +401,9 @@ describe('what each half marks', () => {
         fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
         fireEvent.click(railRow('Favourites'));
 
-        // Two words in the row, the whole sentence on the row's own label: one
-        // long note held at its own width gave the listing a sideways scroll.
-        const row = screen.getByRole('button', { name: /NANOUSDT — Nothing recorded here yet/ });
-        expect(row.textContent).toContain('not recorded');
-        expect(row.textContent).not.toContain('Nothing recorded here yet');
+        const row = screen.getByRole('button', { name: /Open NANOUSDT on the chart/ });
+        expect(row.hasAttribute('disabled')).toBe(false);
+        expect(row.textContent).not.toContain('recorded');
     });
 });
 
@@ -419,19 +421,15 @@ describe('opening what is kept', () => {
         expect(opened[0]).toEqual({ venue: FIRST_VENUE, symbol: 'BTCUSDT' });
     });
 
-    it('will not open a pair nothing has recorded, and says why', async () => {
+    it('opens a pair nothing has recorded, because its candles are the venue\'s', async () => {
+        // Refused, a reader had four of the eight hundred and fifty-five
+        // contracts the venue lists, and no word about the rest.
         const { opened } = renderPanel();
         await browse();
-        openTags('NANOUSDT');
-        fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'File NANOUSDT under Favourites' }));
-        fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
-        fireEvent.click(railRow('Favourites'));
 
-        const kept = screen.getByRole('button', { name: /NANOUSDT — Nothing recorded here yet/ });
-        fireEvent.click(kept);
+        fireEvent.click(screen.getByRole('button', { name: /Open NANOUSDT on the chart/ }));
 
-        expect(kept.hasAttribute('disabled')).toBe(true);
-        expect(opened).toEqual([]);
+        expect(opened).toEqual([{ venue: FIRST_VENUE, symbol: 'NANOUSDT' }]);
     });
 
     it('says the venue draws nothing, where its connector declared nothing', () => {
