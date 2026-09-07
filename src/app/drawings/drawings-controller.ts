@@ -13,6 +13,7 @@ import { INSTANCE_TONES, type PlotTone } from '../../shared/core/draw-plan.ts';
 import { DrawingHistory } from './drawing-history.ts';
 import { ObservableStore } from '../core/observable-store.ts';
 import type { PreferencesService } from '../services/preferences-service.ts';
+import type { MarketPair } from '../../shared/core/pair-tags.ts';
 
 /** Marks one chart may hold, past which the oldest is forgotten. */
 export const MAXIMUM_DRAWINGS_PER_INSTRUMENT = 64;
@@ -65,7 +66,7 @@ export interface DrawingPress {
 export interface DrawingsControllerConfig {
     readonly preferences: PreferencesService;
     /** The contract on the chart, which a new mark is drawn about. */
-    readonly readInstrumentSymbol: () => string | null;
+    readonly readContract: () => MarketPair | null;
     /** Names a new mark; injected so a test can read what was made. */
     readonly newId: () => string;
 }
@@ -326,8 +327,8 @@ export class DrawingsController {
      * Opens a draft of the armed kind, with every anchor on the press.
      */
     private startDraft(kind: DrawingKind, anchor: DrawingAnchor): void {
-        const instrumentSymbol = this.config.readInstrumentSymbol();
-        if (instrumentSymbol === null) {
+        const contract = this.config.readContract();
+        if (contract === null) {
             return;
         }
 
@@ -338,7 +339,8 @@ export class DrawingsController {
             draft: {
                 id: this.config.newId(),
                 kind,
-                instrumentSymbol,
+                venue: contract.venue,
+                instrumentSymbol: contract.symbol,
                 anchors: Array.from({ length: ANCHORS_PER_KIND[kind] }, () => anchor),
                 tone: chooseDrawingTone(drawn),
             },

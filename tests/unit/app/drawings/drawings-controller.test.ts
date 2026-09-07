@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import type { Drawing, DrawingAnchor } from '../../../../src/shared/core/drawing.ts';
 import {
@@ -21,7 +22,7 @@ function buildHarness(stored: readonly Drawing[] = []): Harness {
             read: () => ({ ...DEFAULT_PREFERENCES, drawings: stored }),
             write,
         } as unknown as PreferencesService,
-        readInstrumentSymbol: () => 'BTCUSDT',
+        readContract: () => ({ venue: FIRST_VENUE, symbol: 'BTCUSDT' }),
         newId: () => `mark-${(names += 1)}`,
     });
 
@@ -263,7 +264,7 @@ describe('DrawingsController remembering what was drawn', () => {
         const stored: Drawing = {
             id: 'kept',
             kind: 'horizontal-line',
-            instrumentSymbol: 'BTCUSDT',
+            venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
             anchors: [at(1_000, 100)],
             tone: 'cyan',
         };
@@ -526,7 +527,7 @@ describe('DrawingsController with no contract on the chart', () => {
                 read: () => DEFAULT_PREFERENCES,
                 write: vi.fn(),
             } as unknown as PreferencesService,
-            readInstrumentSymbol: () => null,
+            readContract: () => null,
             newId: () => 'mark',
         });
         drawings.arm('horizontal-line');

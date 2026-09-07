@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 import type { PriceBar, PriceBarWindow } from '../../../src/shared/core/price-bar.ts';
 import { DEFAULT_FLOOR_PERCENTILE } from '../../../src/app/indicators/book/book.ts';
 import { EMPTY_BAR_WINDOW } from '../../../src/shared/core/price-bar.ts';
@@ -28,7 +29,7 @@ function buildFrame(capturedAtMs: number): LiquidityFrame {
 
 function buildDataset(...capturedAtMs: number[]) {
     return replaceDataset({
-        instrumentSymbol: 'BTCUSDT',
+        venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
         window: { priceBucketSize: 10, sampleIntervalMs: 1_000, frames: capturedAtMs.map(buildFrame) },
         clusters: [],
         clusterPriceBucketSize: 10,
@@ -53,7 +54,7 @@ describe('replaceDataset', () => {
 
     it('never samples finer than one millisecond', () => {
         const dataset = replaceDataset({
-            instrumentSymbol: 'BTCUSDT',
+            venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
             window: { priceBucketSize: 10, sampleIntervalMs: 0, frames: [] },
             clusters: [],
             clusterPriceBucketSize: 10,
@@ -190,7 +191,7 @@ describe('newestFrameTimestamp', () => {
 describe('appendClusters onto a grouped price grid', () => {
     function buildGroupedDataset() {
         return replaceDataset({
-            instrumentSymbol: 'BTCUSDT',
+            venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
             window: { priceBucketSize: 10, sampleIntervalMs: 1_000, frames: [buildFrame(1_000)] },
             clusters: [],
             clusterPriceBucketSize: 50,
@@ -250,7 +251,7 @@ describe('replaceDataset saturation stability', () => {
             asks: { lowestBucketIndex: touchBucket, quantities: Float32Array.from([quantity]) },
         };
         return replaceDataset({
-            instrumentSymbol: 'BTCUSDT',
+            venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
             window: { priceBucketSize: 10, sampleIntervalMs: 1_000, frames: [frame] },
             clusters: [],
             clusterPriceBucketSize: 10,
@@ -318,7 +319,7 @@ describe('colouring a window from what the reader can see', () => {
 
     function cut(offScreen: 'in price' | 'in time', viewport: typeof VIEW | undefined) {
         return replaceDataset({
-            instrumentSymbol: 'BTCUSDT',
+            venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
             window: buildWindow(offScreen),
             clusters: [],
             clusterPriceBucketSize: 10,
@@ -376,7 +377,7 @@ describe('recutDataset', () => {
     function buildSpreadDataset() {
         const quantities = Float32Array.from({ length: 100 }, (_unused, index) => index + 1);
         return replaceDataset({
-            instrumentSymbol: 'BTCUSDT',
+            venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
             window: {
                 priceBucketSize: 10,
                 sampleIntervalMs: 1_000,

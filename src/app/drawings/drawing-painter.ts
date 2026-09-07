@@ -501,9 +501,10 @@ export function resolveBox(drawing: Drawing, projector: ViewportProjector): Draw
  * @returns Only what belongs to this chart.
  */
 function readOwnDrawings(request: RenderRequest): readonly Drawing[] {
-    return request.drawings.settled.filter(
-        (drawing) => drawing.instrumentSymbol === request.dataset.instrumentSymbol,
-    );
+    return request.drawings.settled.filter((drawing) => (
+        drawing.venue === request.dataset.venue
+        && drawing.instrumentSymbol === request.dataset.instrumentSymbol
+    ));
 }
 
 /**

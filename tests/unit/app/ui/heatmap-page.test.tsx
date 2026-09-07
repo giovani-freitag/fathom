@@ -33,7 +33,12 @@ function mountPage(): MountedPage {
         recording: null,
         drawings: new DrawingsController({
             preferences: mocks.preferences,
-            readInstrumentSymbol: () => chart.store.read().instrumentSymbol,
+            readContract: () => {
+                const state = chart.store.read();
+                return state.venue === null || state.instrumentSymbol === null
+                    ? null
+                    : { venue: state.venue, symbol: state.instrumentSymbol };
+            },
             newId: () => 'mark',
         }),
         appearance: {

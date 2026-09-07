@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 import { describe, expect, it } from 'vitest';
 import {
     ANCHORS_PER_KIND,
@@ -20,7 +21,7 @@ function buildLevel(price: number): Drawing {
     return {
         id: 'level',
         kind: 'horizontal-line',
-        instrumentSymbol: 'BTCUSDT',
+        venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
         anchors: [{ atMs: 1_000, price }],
         tone: 'phosphor',
     };
@@ -31,7 +32,7 @@ function buildTrend(): Drawing {
     return {
         id: 'trend',
         kind: 'trend-line',
-        instrumentSymbol: 'BTCUSDT',
+        venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
         anchors: [{ atMs: 1_000, price: 100 }, { atMs: 3_000, price: 200 }],
         tone: 'amber',
     };
@@ -238,7 +239,7 @@ describe('resolveDrawingLabel', () => {
     const LEVEL: Drawing = {
         id: 'level',
         kind: 'horizontal-line',
-        instrumentSymbol: 'BTCUSDT',
+        venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
         anchors: [{ atMs: 1_000, price: 100 }],
         tone: 'phosphor',
     };

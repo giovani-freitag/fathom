@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 import { describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { type Drawing, MAXIMUM_LABEL_LENGTH } from '../../../../src/shared/core/drawing.ts';
@@ -13,7 +14,7 @@ import { KernelProvider } from '../../../../src/app/react/kernel-provider.tsx';
 const LEVEL: Drawing = {
     id: 'level',
     kind: 'horizontal-line',
-    instrumentSymbol: 'BTCUSDT',
+    venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
     anchors: [{ atMs: 1_000, price: 100 }],
     tone: 'phosphor',
 };

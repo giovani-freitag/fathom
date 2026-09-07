@@ -15,6 +15,8 @@ const SATURATION_HYSTERESIS = 0.25;
 
 /** Everything currently loaded for one instrument, as one immutable snapshot. */
 export interface ChartDataset {
+    /** Which venue the contract below is on, which its grid comes from. */
+    readonly venue: string;
     readonly instrumentSymbol: string;
     readonly priceBucketSize: number;
     /** Grid the window was sampled onto; live frames land on the same grid. */
@@ -40,6 +42,7 @@ export interface ChartDataset {
 }
 
 export const EMPTY_DATASET: ChartDataset = {
+    venue: '',
     instrumentSymbol: '',
     priceBucketSize: 1,
     sampleIntervalMs: 1_000,
@@ -56,6 +59,7 @@ export const EMPTY_DATASET: ChartDataset = {
 };
 
 export interface DatasetReplaceRequest {
+    readonly venue: string;
     readonly instrumentSymbol: string;
     readonly window: LiquidityFrameWindow;
     readonly clusters: readonly TradeCluster[];
@@ -92,6 +96,7 @@ export interface DatasetReplaceRequest {
  */
 export function replaceDataset(request: DatasetReplaceRequest): ChartDataset {
     return {
+        venue: request.venue,
         instrumentSymbol: request.instrumentSymbol,
         priceBucketSize: request.window.priceBucketSize,
         sampleIntervalMs: Math.max(1, request.window.sampleIntervalMs),

@@ -13,14 +13,17 @@ import { type Locale, resolveLocale } from '../i18n/locale.ts';
 import { openingTags, type PairTag, readTags } from '../../shared/core/pair-tags.ts';
 import { readStoredConnectors, type StoredConnector } from '../../shared/core/stored-connector.ts';
 import { GRID_CHOICES, type GridChoice, THEME_CHOICES, type ThemeChoice } from '../core/theme.ts';
+import { FIRST_VENUE } from '../../shared/core/recording-control.ts';
 
 const STORAGE_KEY = 'fathom.preferences.v1';
 
 /** Bumped when a stored document has to be read differently than it was written. */
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 export interface ViewerPreferences {
     readonly schemaVersion: number;
+    /** Which venue the contract below is on, which decides its grid. */
+    readonly venue: string;
     readonly instrumentSymbol: string;
     readonly visibleSpanMs: number;
     /** The bar rung the reader named, or null while the window decides. */
@@ -50,6 +53,7 @@ export interface ViewerPreferences {
 
 export const DEFAULT_PREFERENCES: ViewerPreferences = {
     schemaVersion: SCHEMA_VERSION,
+    venue: FIRST_VENUE,
     instrumentSymbol: 'BTCUSDT',
     visibleSpanMs: 15 * 60 * 1_000,
     addedIndicators: buildDefaultLayers(),
@@ -179,7 +183,19 @@ export class PreferencesService {
  * @returns The readable ones, in the order they were written.
  */
 function keepReadableDrawings(stored: unknown): readonly Drawing[] {
-    return Array.isArray(stored) ? stored.filter(isDrawing) : [];
+    if (!Array.isArray(stored)) {
+        return [];
+    }
+
+    // A mark written before a drawing named its venue was drawn on the only one
+    // there was. Filled before the mark is judged rather than after: the guard
+    // narrows to a drawing that has a venue, so asking afterwards whether it has
+    // one is asking a question the type has already answered.
+    return (stored as readonly unknown[])
+        .map((one) => (typeof one === 'object' && one !== null && !('venue' in one)
+            ? { ...one, venue: FIRST_VENUE }
+            : one))
+        .filter(isDrawing);
 }
 
 /**

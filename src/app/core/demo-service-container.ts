@@ -116,7 +116,12 @@ export function createDemoServiceContainer(
         cursor,
         drawings: new DrawingsController({
             preferences,
-            readInstrumentSymbol: () => chart.store.read().instrumentSymbol,
+            readContract: () => {
+                const state = chart.store.read();
+                return state.venue === null || state.instrumentSymbol === null
+                    ? null
+                    : { venue: state.venue, symbol: state.instrumentSymbol };
+            },
             newId: () => crypto.randomUUID(),
         }),
         appearance: new AppearanceController({ preferences, host: config.appearanceHost }),

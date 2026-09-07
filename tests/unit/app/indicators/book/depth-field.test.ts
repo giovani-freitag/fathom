@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../../../src/shared/core/recording-control.ts';
 import { EMPTY_BAR_WINDOW } from '../../../../../src/shared/core/price-bar.ts';
 import type { LiquidityFrame } from '../../../../../src/shared/core/liquidity-frame.ts';
 import { DepthField } from '../../../../../src/app/indicators/book/depth-field.ts';
@@ -19,6 +20,7 @@ function buildFrame(capturedAtMs: number, midPrice = 1_000): LiquidityFrame {
 
 function buildDataset(frames: LiquidityFrame[], overrides: Partial<ChartDataset> = {}): ChartDataset {
     return {
+        venue: FIRST_VENUE,
         instrumentSymbol: 'BTCUSDT',
         priceBucketSize: PRICE_BUCKET_SIZE,
         sampleIntervalMs: 1_000,

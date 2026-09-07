@@ -582,8 +582,11 @@ export class ChartController {
         instruments: readonly InstrumentCoverage[],
     ): InstrumentCoverage | null {
         const recorded = instruments.filter((candidate) => candidate.lastFrameAtMs !== null);
-        const preferredSymbol = this.config.preferences.read().instrumentSymbol;
-        return recorded.find((candidate) => candidate.instrumentSymbol === preferredSymbol)
+        const preferred = this.config.preferences.read();
+        return recorded.find((candidate) => (
+            candidate.venue === preferred.venue
+            && candidate.instrumentSymbol === preferred.instrumentSymbol
+        ))
             ?? recorded[0]
             ?? null;
     }
@@ -646,7 +649,8 @@ export class ChartController {
     }
 
     private handleWindowLoaded(loaded: LoadedWindow): void {
-        const symbol = this.store.read().instrumentSymbol;
+        const opened = this.store.read();
+        const symbol = opened.instrumentSymbol;
         if (symbol === null || this.wasDisposed) {
             return;
         }
@@ -660,6 +664,7 @@ export class ChartController {
 
         this.store.update((current) => {
             const dataset = replaceDataset({
+                venue: opened.venue ?? '',
                 instrumentSymbol: symbol,
                 window: loaded.window,
                 clusters: loaded.clusters,
@@ -877,6 +882,7 @@ export class ChartController {
     private persistPreferences(): void {
         const state = this.store.read();
         this.config.preferences.write({
+            venue: state.venue ?? FIRST_VENUE,
             instrumentSymbol: state.instrumentSymbol ?? 'BTCUSDT',
             visibleSpanMs: state.viewport.toMs - state.viewport.fromMs,
             // The preview a reader is typing is not a layer they chose. Written

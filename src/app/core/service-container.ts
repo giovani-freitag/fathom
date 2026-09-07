@@ -92,7 +92,12 @@ export function createServiceContainer(config: ServiceContainerConfig): ServiceC
         recording: new RecordingApiService({ baseUrl: config.baseUrl }),
         drawings: new DrawingsController({
             preferences,
-            readInstrumentSymbol: () => chart.store.read().instrumentSymbol,
+            readContract: () => {
+                const state = chart.store.read();
+                return state.venue === null || state.instrumentSymbol === null
+                    ? null
+                    : { venue: state.venue, symbol: state.instrumentSymbol };
+            },
             newId: () => crypto.randomUUID(),
         }),
         appearance,

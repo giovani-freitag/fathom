@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Drawing } from '../../../../src/shared/core/drawing.ts';
 import { DEFAULT_PREFERENCES, type PreferencesService } from '../../../../src/app/services/preferences-service.ts';
@@ -17,7 +18,7 @@ const projector = new ViewportProjector({
 const STORED_TREND: Drawing = {
     id: 'trend',
     kind: 'trend-line',
-    instrumentSymbol: 'BTCUSDT',
+    venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
     anchors: [{ atMs: 20_000, price: 20 }, { atMs: 80_000, price: 80 }],
     tone: 'amber',
 };
@@ -25,7 +26,7 @@ const STORED_TREND: Drawing = {
 const STORED_LEVEL: Drawing = {
     id: 'level',
     kind: 'horizontal-line',
-    instrumentSymbol: 'BTCUSDT',
+    venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
     anchors: [{ atMs: 50_000, price: 50 }],
     tone: 'phosphor',
 };
@@ -48,7 +49,7 @@ function buildHarness(
             read: () => ({ ...DEFAULT_PREFERENCES, drawings: stored }),
             write: vi.fn(),
         } as unknown as PreferencesService,
-        readInstrumentSymbol: () => symbol,
+        readContract: () => (symbol === null ? null : { venue: FIRST_VENUE, symbol }),
         newId: () => 'made',
     });
 
@@ -58,7 +59,7 @@ function buildHarness(
         claimant: new DrawingSurfaceClaimant({
             drawings,
             readProjector: () => projector,
-            readInstrumentSymbol: () => symbol,
+            readContract: () => (symbol === null ? null : { venue: FIRST_VENUE, symbol }),
             readLayerAt: () => layerAt,
             onPickLayer: (instanceId) => { picked.push(instanceId); },
         }),
@@ -97,7 +98,16 @@ describe('DrawingSurfaceClaimant offered a press', () => {
     });
 
     it('leaves a mark drawn about another contract to the viewport', () => {
-        const foreign = buildHarness([{ ...STORED_LEVEL, instrumentSymbol: 'ETHUSDT' }]);
+        const foreign = buildHarness([{ ...STORED_LEVEL, venue: FIRST_VENUE, instrumentSymbol: 'ETHUSDT' }]);
+
+        expect(foreign.claimant.offerPress({ x: 100, y: yOf(50) })).toBe(false);
+    });
+
+    it('leaves a mark drawn on another venue to the viewport', () => {
+        // Two venues list one symbol and quote it at different prices. A line
+        // placed against one of them crosses nothing on the other, so a press
+        // that lands on where it would have been is a press on the chart.
+        const foreign = buildHarness([{ ...STORED_LEVEL, venue: 'bybit' }]);
 
         expect(foreign.claimant.offerPress({ x: 100, y: yOf(50) })).toBe(false);
     });

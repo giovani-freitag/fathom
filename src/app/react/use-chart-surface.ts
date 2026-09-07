@@ -196,7 +196,12 @@ export function useChartSurface(): ChartSurfaceHandles {
         const claimant = new DrawingSurfaceClaimant({
             drawings: kernel.drawings,
             readProjector: () => resolveSurfaceProjector(container, kernel),
-            readInstrumentSymbol: () => kernel.chart.store.read().instrumentSymbol,
+            readContract: () => {
+                const state = kernel.chart.store.read();
+                return state.venue === null || state.instrumentSymbol === null
+                    ? null
+                    : { venue: state.venue, symbol: state.instrumentSymbol };
+            },
             readLayerAt: (point) => readLayerAt(container, kernel, point),
             onPickLayer: (instanceId) => { kernel.chart.pickLayer(instanceId); },
         });

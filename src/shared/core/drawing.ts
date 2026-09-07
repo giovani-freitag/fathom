@@ -138,7 +138,13 @@ export function resolveDrawingLabel(drawing: Drawing): string | null {
 export interface Drawing {
     readonly id: string;
     readonly kind: DrawingKind;
-    /** The contract it was drawn about; it is shown on no other. */
+    /**
+     * The contract it was drawn about; it is shown on no other.
+     *
+     * Both halves, because two venues list one symbol and quote it at different
+     * prices: a line placed against one of them crosses nothing on the other.
+     */
+    readonly venue: string;
     readonly instrumentSymbol: string;
     readonly anchors: readonly DrawingAnchor[];
     readonly tone: PlotTone;

@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 import { describe, expect, it } from 'vitest';
 import type { Drawing } from '../../../../src/shared/core/drawing.ts';
 import {
@@ -26,7 +27,7 @@ function buildLevel(id: string, price: number): Drawing {
     return {
         id,
         kind: 'horizontal-line',
-        instrumentSymbol: 'BTCUSDT',
+        venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
         anchors: [{ atMs: 50_000, price }],
         tone: 'phosphor',
     };
@@ -36,7 +37,7 @@ function buildTrend(id: string): Drawing {
     return {
         id,
         kind: 'trend-line',
-        instrumentSymbol: 'BTCUSDT',
+        venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
         anchors: [{ atMs: 20_000, price: 20 }, { atMs: 60_000, price: 60 }],
         tone: 'amber',
     };
@@ -46,7 +47,7 @@ function buildZone(id: string): Drawing {
     return {
         id,
         kind: 'zone',
-        instrumentSymbol: 'BTCUSDT',
+        venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
         anchors: [{ atMs: 20_000, price: 20 }, { atMs: 60_000, price: 60 }],
         tone: 'cyan',
     };
@@ -191,7 +192,7 @@ describe('findAnchorAt', () => {
     const trend: Drawing = {
         id: 'trend',
         kind: 'trend-line',
-        instrumentSymbol: 'BTCUSDT',
+        venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
         anchors: [{ atMs: 20_000, price: 20 }, { atMs: 80_000, price: 80 }],
         tone: 'amber',
     };
@@ -230,7 +231,7 @@ describe('findAnchorAt', () => {
         const level: Drawing = {
             id: 'level',
             kind: 'horizontal-line',
-            instrumentSymbol: 'BTCUSDT',
+            venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
             anchors: [{ atMs: 5_000, price: 50 }],
             tone: 'phosphor',
         };
@@ -245,7 +246,7 @@ describe('findDrawingAt over a retracement', () => {
     const retracement: Drawing = {
         id: 'fib',
         kind: 'fibonacci',
-        instrumentSymbol: 'BTCUSDT',
+        venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
         anchors: [{ atMs: 20_000, price: 20 }, { atMs: 80_000, price: 80 }],
         tone: 'violet',
     };

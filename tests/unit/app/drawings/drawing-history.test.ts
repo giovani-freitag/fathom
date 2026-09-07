@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 import { describe, expect, it } from 'vitest';
 import type { Drawing } from '../../../../src/shared/core/drawing.ts';
 import { DrawingHistory, MAXIMUM_HISTORY_STEPS } from '../../../../src/app/drawings/drawing-history.ts';
@@ -7,7 +8,7 @@ function buildSet(count: number): readonly Drawing[] {
     return Array.from({ length: count }, (unused, index) => ({
         id: `mark-${index}`,
         kind: 'horizontal-line' as const,
-        instrumentSymbol: 'BTCUSDT',
+        venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
         anchors: [{ atMs: 1_000, price: index }],
         tone: 'phosphor' as const,
     }));

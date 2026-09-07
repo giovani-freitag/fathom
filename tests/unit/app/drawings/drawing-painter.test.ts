@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { RENDER_PALETTE } from '../../../../src/app/painting/render-palette.ts';
 import { buildPaintContext, createRecordingContext, type RecordingContext } from '../../../mocks/canvas-context.ts';
@@ -16,7 +17,7 @@ function buildLevel(overrides: Partial<Drawing> = {}): Drawing {
     return {
         id: 'level',
         kind: 'horizontal-line',
-        instrumentSymbol: 'BTCUSDT',
+        venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
         anchors: [{ atMs: MID_MS, price: MID_PRICE }],
         tone: 'phosphor',
         ...overrides,
@@ -27,7 +28,7 @@ function buildTrend(overrides: Partial<Drawing> = {}): Drawing {
     return {
         id: 'trend',
         kind: 'trend-line',
-        instrumentSymbol: 'BTCUSDT',
+        venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
         anchors: [
             { atMs: DEFAULT_VIEWPORT.fromMs, price: DEFAULT_VIEWPORT.lowPrice },
             { atMs: DEFAULT_VIEWPORT.toMs, price: DEFAULT_VIEWPORT.highPrice },
@@ -43,7 +44,7 @@ function buildContext(
     drawings: Partial<typeof EMPTY_DRAWINGS_VIEW>,
 ): ReturnType<typeof buildPaintContext> {
     return buildPaintContext(recording, {
-        dataset: { instrumentSymbol: 'BTCUSDT' },
+        dataset: { venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT' },
         drawings: { ...EMPTY_DRAWINGS_VIEW, ...drawings },
     });
 }
@@ -65,7 +66,7 @@ describe('DrawingPainter deciding whether to draw', () => {
     it('leaves a mark drawn about another contract alone', () => {
         // One reader's levels on Bitcoin have nothing to say about Ether, and a
         // price from one chart drawn on the other is worse than no line at all.
-        const foreign = buildLevel({ instrumentSymbol: 'ETHUSDT' });
+        const foreign = buildLevel({ venue: FIRST_VENUE, instrumentSymbol: 'ETHUSDT' });
 
         expect(painter.isDrawn(buildContext(recording, { settled: [foreign] }).request)).toBe(false);
     });
@@ -259,7 +260,7 @@ describe('DrawingPainter taking a measurement', () => {
         return {
             id: 'measure',
             kind: 'measure',
-            instrumentSymbol: 'BTCUSDT',
+            venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
             anchors: [
                 { atMs: DEFAULT_VIEWPORT.fromMs, price: DEFAULT_VIEWPORT.lowPrice },
                 { atMs: MID_MS, price: toPrice },
@@ -314,7 +315,7 @@ describe('DrawingPainter ruling retracements', () => {
         return {
             id: 'fib',
             kind: 'fibonacci',
-            instrumentSymbol: 'BTCUSDT',
+            venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
             anchors: [
                 { atMs: DEFAULT_VIEWPORT.fromMs, price: DEFAULT_VIEWPORT.lowPrice },
                 { atMs: MID_MS, price: DEFAULT_VIEWPORT.highPrice },

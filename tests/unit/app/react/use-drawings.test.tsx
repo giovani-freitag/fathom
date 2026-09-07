@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render } from '@testing-library/react';
 import type { Drawing } from '../../../../src/shared/core/drawing.ts';
@@ -10,7 +11,7 @@ import { useDrawings } from '../../../../src/app/react/use-drawings.ts';
 const LEVEL: Drawing = {
     id: 'level',
     kind: 'horizontal-line',
-    instrumentSymbol: 'BTCUSDT',
+    venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
     anchors: [{ atMs: 1_000, price: 100 }],
     tone: 'phosphor',
 };
@@ -30,7 +31,7 @@ describe('useDrawings and the keys a reader reaches for', () => {
                 read: () => ({ ...DEFAULT_PREFERENCES, drawings: [LEVEL] }),
                 write: vi.fn(),
             } as unknown as PreferencesService,
-            readInstrumentSymbol: () => 'BTCUSDT',
+            readContract: () => ({ venue: FIRST_VENUE, symbol: 'BTCUSDT' }),
             newId: () => 'made',
         });
 

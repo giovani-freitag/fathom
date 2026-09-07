@@ -3,6 +3,7 @@ import type { PointerClaimant, PointerPosition } from '../core/chart-gesture-con
 import type { DrawingsController } from './drawings-controller.ts';
 import { findAnchorAt, findDrawingAt } from './drawing-hit-test.ts';
 import type { ViewportProjector } from '../core/viewport-projector.ts';
+import type { MarketPair } from '../../shared/core/pair-tags.ts';
 
 /**
  * How far a press has to travel before it is moving something.
@@ -23,7 +24,7 @@ export interface DrawingSurfaceClaimantConfig {
      */
     readonly readProjector: () => ViewportProjector | null;
     /** The contract on the chart, so a press only meets marks drawn about it. */
-    readonly readInstrumentSymbol: () => string | null;
+    readonly readContract: () => MarketPair | null;
     /**
      * Which added layer is drawn under a point, if any.
      *
@@ -196,14 +197,15 @@ export class DrawingSurfaceClaimant implements PointerClaimant {
      */
     private findHit(point: PointerPosition): string | null {
         const projector = this.config.readProjector();
-        const instrumentSymbol = this.config.readInstrumentSymbol();
-        if (projector === null || instrumentSymbol === null) {
+        const contract = this.config.readContract();
+        if (projector === null || contract === null) {
             return null;
         }
 
         return findDrawingAt({
             drawings: this.config.drawings.store.read().drawings.filter(
-                (drawing) => drawing.instrumentSymbol === instrumentSymbol,
+                (drawing) => drawing.venue === contract.venue
+                    && drawing.instrumentSymbol === contract.symbol,
             ),
             projector,
             point,

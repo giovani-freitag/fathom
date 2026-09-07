@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createRecordingContext, DEFAULT_VIEWPORT, type RecordingContext } from '../../../mocks/canvas-context.ts';
 import { buildBar, buildWindow } from '../../../mocks/price-bars.ts';
@@ -249,7 +250,7 @@ describe('HeatmapRenderer and the marks a reader left', () => {
     const LEVEL = {
         id: 'level',
         kind: 'horizontal-line' as const,
-        instrumentSymbol: 'BTCUSDT',
+        venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
         anchors: [{ atMs: 1_500_000, price: 78_500 }],
         tone: 'phosphor' as const,
     };
