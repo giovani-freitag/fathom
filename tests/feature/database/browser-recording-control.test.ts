@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { recordInstants } from '../../mocks/browser-recording.ts';
 import { IndexedDbChunkRowStore } from '../../../src/database/browser/indexed-db-chunk-row-store.ts';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MINIMUM_BUDGET_BYTES } from '../../../src/shared/core/recording-control.ts';
 import { BrowserRecordingControl } from '../../../src/database/browser/browser-recording-control.ts';
 import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
@@ -78,10 +78,20 @@ describe('BrowserRecordingControl', () => {
     });
 
     it('takes a quarter of the quota until the reader picks a ceiling', async () => {
-        expect(await buildControl().readBudget()).toMatchObject({
-            maximumBytes: 1_000_000_000,
-            availableBytes: 4_000_000_000,
-        });
+        // Asserted as a share of whatever the host offers rather than as the
+        // one product: the literal is the arithmetic's answer, so the
+        // arithmetic could be deleted and replaced by it.
+        const budget = await buildControl().readBudget();
+
+        expect(budget.availableBytes).toBe(4_000_000_000);
+        expect(budget.maximumBytes).toBe(Math.floor(4_000_000_000 / 4));
+    });
+
+    it('takes the same quarter of a different quota', async () => {
+        estimate = { quota: 8_000_000_000, usage: 0 };
+
+        expect((await buildControl().readBudget()).maximumBytes)
+            .toBe(Math.floor(8_000_000_000 / 4));
     });
 
     it('says the host will not name a quota rather than inventing one', async () => {
@@ -95,9 +105,14 @@ describe('BrowserRecordingControl', () => {
     });
 
     it('drops nothing while the recording still fits', async () => {
+        // Asserted as "the archive was never asked", because zero is also what
+        // the loop returns over an archive that held nothing to drop: the early
+        // return could be deleted and this still passed.
         estimate = { quota: 4_000_000_000, usage: 10 };
+        const asked = vi.spyOn(archive, 'pruneToCapacity');
 
         expect(await buildControl().pruneToBudget()).toBe(0);
+        expect(asked).not.toHaveBeenCalled();
     });
 
     it('splits what may be kept across the contracts being recorded', async () => {

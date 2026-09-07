@@ -120,10 +120,14 @@ describe('CollectorSupervisor liveness', () => {
     });
 
     it('keeps a collector that has not yet had time to record', async () => {
+        // Asserted as "nothing was torn down", because the count is the same
+        // either way: the same pass that drops a stalled collector starts a
+        // replacement, so two are running whether one was replaced or not.
         harness.setNowMs(1_000_000 + STALL_TIMEOUT_MS - 1);
 
         await harness.supervisor.reconcileNow();
 
+        expect(harness.log.lines.filter((line) => line.level === 'warning')).toEqual([]);
         expect(harness.supervisor.recording).toHaveLength(2);
     });
 
@@ -349,11 +353,13 @@ describe('a contract that was changed rather than switched off', () => {
         const registered = vi.mocked(harness.archive.registerInstrument);
         registered.mockClear();
 
-        harness.setContracts([{ ...buildContract('BTCUSDT'), priceBucketSize: 50 }]);
+        // The rate, not the grid: the grid is caught by the first term of the
+        // comparison, so varying it alone left the second term untested.
+        harness.setContracts([{ ...buildContract('BTCUSDT'), frameIntervalMs: 5_000 }]);
         await harness.supervisor.reconcileNow();
 
         expect(harness.supervisor.recording).toEqual([named('BTCUSDT')]);
-        expect(registered).toHaveBeenCalledWith(expect.objectContaining({ priceBucketSize: 50 }));
+        expect(registered).toHaveBeenCalledWith(expect.objectContaining({ frameIntervalMs: 5_000 }));
         await harness.supervisor.stop();
     });
 

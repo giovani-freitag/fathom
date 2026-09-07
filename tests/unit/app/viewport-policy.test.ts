@@ -108,9 +108,15 @@ describe('resolveViewportBounds', () => {
     });
 
     it('scales the minimum price span with the recorded grid', () => {
-        const bounds = resolveViewportBounds({ instrument: INSTRUMENT, priceBucketSize: 25, nowMs: 0, rightMarginMs: 0 });
+        // Two grids, because one expected number is the arithmetic's answer:
+        // the multiplication could be deleted and replaced by the literal and
+        // this still passed.
+        const ask = (priceBucketSize: number): number => resolveViewportBounds({
+            instrument: INSTRUMENT, priceBucketSize, nowMs: 0, rightMarginMs: 0,
+        }).minimumPriceSpan;
 
-        expect(bounds.minimumPriceSpan).toBe(100);
+        expect([ask(25), ask(50)]).toEqual([ask(25), ask(25) * 2]);
+        expect(ask(25)).toBeGreaterThan(25);
     });
 
     it('survives an instrument that was never recorded', () => {
