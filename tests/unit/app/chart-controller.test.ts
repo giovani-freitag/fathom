@@ -608,6 +608,29 @@ describe('ChartController.selectInstrument', () => {
         expect(controller.store.read().isRecorded).toBe(false);
     });
 
+    it('lets a contract nothing recorded keep a band its own price fits in', async () => {
+        // A dataset with no recording behind it stands in with a bucket of one,
+        // and the floor on the price span is four of those. On a pair worth
+        // three ten-thousandths that floor is four units tall, and it flattened
+        // whatever band the candles were framed on into the whole axis.
+        const mocks = buildTwoInstrumentMocks();
+        const controller = buildController(mocks);
+        await controller.initialize();
+        act(() => { controller.selectInstrument({ venue: 'bybit', symbol: 'DOGEUSDT' }); });
+        await vi.waitFor(() => { expect(controller.store.read().phase).not.toBe('loading'); });
+
+        const nowMs = Date.now();
+        act(() => {
+            controller.applyView({
+                viewport: { fromMs: nowMs - 60_000, toMs: nowMs, lowPrice: 0.000_304_8, highPrice: 0.000_305_0 },
+                surfaceWidthPx: 800,
+            });
+        });
+
+        const { viewport } = controller.store.read();
+        expect(viewport.highPrice - viewport.lowPrice).toBeLessThan(0.001);
+    });
+
     it('leaves the tail alone on a contract nothing recorded', async () => {
         // The gateway closes the socket for a contract it never recorded, with
         // a code the feed reads as permanent — so a reader who opened a pair to

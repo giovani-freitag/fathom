@@ -303,9 +303,35 @@ export function formatSignedPercent(ratio: number): string {
  * @param tickSpacing - How much price lies between two labels.
  * @returns The formatted price, in thousands where that still tells them apart.
  */
+export function formatAxisPrice(price: number, tickSpacing: number): string {
+    if (!(tickSpacing > 0)) {
+        return formatPrice(price);
+    }
+    // Enough decimals to tell one label from the one above it, which is a
+    // property of the gap between them rather than of either figure. Formatted
+    // from the value alone, a band a ten-thousandth of a cent tall printed the
+    // same number six times down the axis and said nothing about where the
+    // price was inside it.
+    const needed = Math.max(0, Math.ceil(-Math.log10(tickSpacing)));
+    return needed <= DECIMALS_A_PRICE_KEEPS
+        ? formatPrice(price)
+        : formatFixed(price, Math.min(needed, MOST_DECIMALS_AN_AXIS_SHOWS));
+}
+
+/** What `formatPrice` already shows, below which it needs no help. */
+const DECIMALS_A_PRICE_KEEPS = 2;
+
+/**
+ * Where the axis stops adding decimals.
+ *
+ * A venue quotes to eight at the very finest, and a label longer than that is
+ * wider than the axis it has to sit in.
+ */
+const MOST_DECIMALS_AN_AXIS_SHOWS = 10;
+
 export function formatShortAxisPrice(price: number, tickSpacing: number): string {
     if (Math.abs(price) < 10_000 || tickSpacing < 100) {
-        return formatPrice(price);
+        return formatAxisPrice(price, tickSpacing);
     }
     return `${formatFixed(price / 1_000, tickSpacing >= 1_000 ? 1 : 2)}K`;
 }

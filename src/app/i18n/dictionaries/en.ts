@@ -302,6 +302,8 @@ export const EN_DICTIONARY = {
     'coverage.gapTitle': 'Stretches with no recording in this window',
 
     'legend.book': 'book',
+    'legend.notRecorded': 'book not recorded here',
+    'legend.recordThis': 'Record the book for {symbol}',
 
     'interval.auto': 'Auto · {interval}',
     'interval.label': 'Bar interval',

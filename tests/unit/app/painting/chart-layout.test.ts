@@ -11,6 +11,27 @@ describe('resolveChartLayout', () => {
         expect(layout.indicatorPanes).toEqual([]);
     });
 
+    it('widens the axis for a price that needs more figures than a big one', () => {
+        // A contract quoted in ten-thousandths of a cent needs eight decimals
+        // before one label differs from the one above it. In an axis sized for
+        // a five-figure price the labels were drawn and then cut by the frame.
+        const wide = resolveChartLayout({
+            ...SURFACE,
+            priceBand: { lowPrice: 0.000_304_9, highPrice: 0.000_305_0 },
+        });
+        const ordinary = resolveChartLayout({
+            ...SURFACE,
+            priceBand: { lowPrice: 79_000, highPrice: 80_000 },
+        });
+
+        expect(wide.priceAxisWidth).toBeGreaterThan(ordinary.priceAxisWidth);
+        expect(wide.plotWidth).toBe(SURFACE.cssWidth - wide.priceAxisWidth);
+    });
+
+    it('leaves the axis alone before there is a price to label', () => {
+        expect(resolveChartLayout(SURFACE).priceAxisWidth).toBe(72);
+    });
+
     it('takes a band out of the price for each indicator that needs one', () => {
         const layout = resolveChartLayout({ ...SURFACE, indicatorPaneCount: 2 });
 

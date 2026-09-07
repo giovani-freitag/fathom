@@ -235,7 +235,7 @@ export function HeatmapPage(): ReactElement {
                         {!isWide && settings}
 
                         {listDrawnOverlays(addedIndicators).map(({ instanceId, Overlay }) => (
-                            <Overlay key={instanceId} />
+                            <Overlay key={instanceId} instanceId={instanceId} />
                         ))}
                     </div>
 

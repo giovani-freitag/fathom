@@ -304,6 +304,8 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'coverage.gapTitle': 'Trechos sem gravação nesta janela',
 
     'legend.book': 'book',
+    'legend.notRecorded': 'livro não gravado aqui',
+    'legend.recordThis': 'Gravar o livro de {symbol}',
 
     'interval.auto': 'Auto · {interval}',
     'interval.label': 'Intervalo da barra',

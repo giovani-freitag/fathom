@@ -1,5 +1,6 @@
 import { RENDER_METRICS } from './render-palette.ts';
 import type { ChartLayout } from './render-types.ts';
+import { formatAxisPrice } from '../core/formatting.ts';
 
 /** Below this width the chart is treated as a phone and the chrome shrinks. */
 const COMPACT_WIDTH_PX = 560;
@@ -16,6 +17,15 @@ export interface ChartLayoutRequest {
     readonly isVolumeProfileVisible: boolean;
     /** Panes below the price pane, one per indicator that needs its own scale. */
     readonly indicatorPaneCount?: number;
+    /**
+     * The prices the axis will have to label, for how wide it has to be.
+     *
+     * A contract quoted in ten-thousandths of a cent needs eight decimals
+     * before one label differs from the one above it, and eight decimals do not
+     * fit in an axis sized for a five-figure price. Left fixed, the labels were
+     * drawn and then cut off by the frame.
+     */
+    readonly priceBand?: { readonly lowPrice: number; readonly highPrice: number } | undefined;
 }
 
 export const EMPTY_LAYOUT: ChartLayout = {
@@ -40,7 +50,7 @@ export function resolveChartLayout(request: ChartLayoutRequest): ChartLayout {
     const isCompact = request.cssWidth < COMPACT_WIDTH_PX;
     const priceAxisWidth = isCompact
         ? RENDER_METRICS.priceAxisWidthCompact
-        : RENDER_METRICS.priceAxisWidth;
+        : widthForPriceLabels(request.priceBand);
     const profileWidth = request.isVolumeProfileVisible
         ? (isCompact ? RENDER_METRICS.profileWidthCompact : RENDER_METRICS.profileWidth)
         : 0;
@@ -69,4 +79,41 @@ export function resolveChartLayout(request: ChartLayoutRequest): ChartLayout {
         priceAxisWidth,
         isCompact,
     };
+}
+
+/**
+ * How many figures the axis draws at once, near enough to size it by.
+ *
+ * The painter decides the real ticks from the room it has; this only has to be
+ * close, because it is answering how many decimals tell one label from another
+ * rather than where any of them sit.
+ */
+const PRICE_LABELS_ABREAST = 8;
+
+/** How wide one figure is in the axis font, which is monospaced. */
+const AXIS_FIGURE_PX = 6.6;
+
+/** The room a label needs either side of it. */
+const AXIS_LABEL_MARGIN_PX = 12;
+
+/**
+ * The axis, as wide as the widest label it has to hold.
+ *
+ * @param band - The prices on screen, or nothing before there are any.
+ * @returns The gutter's width in CSS pixels.
+ */
+function widthForPriceLabels(band: ChartLayoutRequest['priceBand']): number {
+    if (band === undefined) {
+        return RENDER_METRICS.priceAxisWidth;
+    }
+
+    const spacing = Math.abs(band.highPrice - band.lowPrice) / PRICE_LABELS_ABREAST;
+    const figures = Math.max(
+        formatAxisPrice(band.lowPrice, spacing).length,
+        formatAxisPrice(band.highPrice, spacing).length,
+    );
+    return Math.max(
+        RENDER_METRICS.priceAxisWidth,
+        Math.ceil(figures * AXIS_FIGURE_PX) + AXIS_LABEL_MARGIN_PX,
+    );
 }

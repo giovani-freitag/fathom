@@ -5,6 +5,7 @@ import {
     formatClockTime,
     formatDuration,
     formatFixed,
+    formatAxisPrice,
     formatPrice,
     formatQuantity,
     formatShortAxisPrice,
@@ -111,6 +112,21 @@ describe('formatPrice', () => {
         // would not name.
         expect(formatPrice(0.000_612_34)).toBe('0.0006123');
         expect(formatPrice(0.000_012_3)).toBe('0.0000123');
+    });
+
+    it('adds the decimals the gap between two labels needs', () => {
+        // A band a ten-thousandth of a cent tall printed the same figure six
+        // times down the axis, which says nothing about where the price is
+        // inside it.
+        const spacing = 0.000_000_02;
+        expect([
+            formatAxisPrice(0.000_304_9, spacing),
+            formatAxisPrice(0.000_305_0, spacing),
+        ]).toEqual(['0.00030490', '0.00030500']);
+    });
+
+    it('leaves a wide band to the ordinary price formatter', () => {
+        expect(formatAxisPrice(78_945.7, 500)).toBe('78,945.7');
     });
 
     it('leaves a price of one or more as it was', () => {

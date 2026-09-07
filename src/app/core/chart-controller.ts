@@ -537,10 +537,13 @@ export class ChartController {
     private resolveBounds(): ViewportBounds {
         const state = this.store.read();
         return resolveViewportBounds({
-            instrument: state.instruments.find(
-                (candidate) => candidate.instrumentSymbol === state.instrumentSymbol,
-            ),
-            priceBucketSize: state.dataset.priceBucketSize,
+            instrument: this.findOpenInstrument(state),
+            // The grid is what makes a floor on the price span mean anything,
+            // and a contract nothing recorded has no grid: the dataset stands in
+            // with a bucket of one, which on a pair worth three ten-thousandths
+            // is a floor four units tall. It flattened the band the candles had
+            // just been framed on into the whole axis.
+            priceBucketSize: state.isRecorded ? state.dataset.priceBucketSize : 0,
             nowMs: Date.now(),
             rightMarginMs: resolveRightMarginMs(state),
         });
@@ -551,9 +554,7 @@ export class ChartController {
         if (state.instrumentSymbol === null) {
             return null;
         }
-        const instrument = state.instruments.find(
-            (candidate) => candidate.instrumentSymbol === state.instrumentSymbol,
-        );
+        const instrument = this.findOpenInstrument(state);
 
         return {
             symbol: state.instrumentSymbol,
@@ -796,6 +797,19 @@ export class ChartController {
         }
         this.needsPriceFraming = false;
         return frameOnBook(viewport, dataset, this.store.read().isDepthVisible);
+    }
+
+    /**
+     * What this recording holds about the open contract, where it holds any.
+     *
+     * By venue as well as by symbol: two venues both list BTCUSDT, and matched
+     * on the symbol alone one would be handed the other's grid and extent.
+     */
+    private findOpenInstrument(state: ChartState): InstrumentCoverage | undefined {
+        return state.instruments.find((candidate) => (
+            candidate.instrumentSymbol === state.instrumentSymbol
+            && candidate.venue === state.venue
+        ));
     }
 
     private get isDisposed(): boolean {

@@ -4,7 +4,7 @@ import {
     formatFixed,
     formatAxisTime,
     formatClockTime,
-    formatPrice,
+    formatAxisPrice,
 } from '../../core/formatting.ts';
 import { PaneProjector } from '../pane-projector.ts';
 import { RENDER_METRICS, RENDER_PALETTE } from '../render-palette.ts';
@@ -90,7 +90,7 @@ export class AxisPainter {
             // difference between a label that fits and one that runs off.
             const label = layout.isCompact
                 ? formatShortAxisPrice(price, tickSpacing)
-                : formatPrice(price);
+                : formatAxisPrice(price, tickSpacing);
             context.fillText(label, axisX + readAxisPadding(layout), y);
         }
     }

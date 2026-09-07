@@ -143,6 +143,7 @@ export class HeatmapRenderer {
             cssHeight: this.cssHeight,
             isVolumeProfileVisible: request.isVolumeProfileVisible,
             indicatorPaneCount: countPanedPlans(request.plans),
+            priceBand: request.viewport,
         });
 
         const startedAt = performance.now();

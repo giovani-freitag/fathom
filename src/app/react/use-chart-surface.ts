@@ -42,6 +42,7 @@ function resolveSurfaceLayout(container: HTMLElement, kernel: ServiceContainer):
         cssHeight: bounds.height,
         isVolumeProfileVisible: state.isVolumeProfileVisible,
         indicatorPaneCount: countPanedPlans(state.plans),
+        priceBand: state.viewport,
     });
 }
 
