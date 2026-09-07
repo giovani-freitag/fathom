@@ -59,9 +59,6 @@ export function MarketsPanel({
     onEditConnector,
 }: MarketsPanelProps): ReactElement {
     const translate = useTranslate();
-    // On a phone the select above says what is being looked at, so the banner
-    // saying it again is the same answer twice on the screen with least room
-    // for it.
     // Measured off this card rather than off the window: the same card is
     // mounted in a dropdown and in a sheet, and the room it has is its own.
     const card = useRef<HTMLDivElement>(null);
@@ -74,9 +71,6 @@ export function MarketsPanel({
     const [showing, setShowing] = useState<Showing>({ kind: 'tag' });
     const [query, setQuery] = useState('');
     const narrowedBy = useSettled(query);
-    // Which body the sheet is showing on a phone: the pairs, or one kind of
-    // source. Two shapes of the same question are behind `?picker=`, so they
-    // can be put in front of readers rather than argued about.
     // Which tag the card is open on, or that it is open on one being made.
     const [carding, setCarding] = useState<Carding | null>(null);
     // Which tag is being taken away, while the reader is being asked about it.
@@ -366,11 +360,13 @@ export function MarketsPanel({
                             onEditConnector={onEditConnector}
                         />
                     )}
+            // Narrow, the select above already says what is being looked at, and
+            // the banner saying it again is the same answer twice on the screen
+            // with least room for it. And the card is a step of its own: left up,
+            // the strip went on naming the listing behind it, so a reader editing
+            // one tag from the rail was shown another tag's name directly over
+            // the field they were typing into.
             banner={!isWide || carding !== null
-                // The card is a step of its own. Left up, the strip went on
-                // naming the listing behind it — so a reader editing one tag
-                // from the rail was shown another tag's name directly over the
-                // field they were typing into.
                 ? undefined
                 : (
                 // What is being looked at, which is the tag the rail is on or

@@ -31,8 +31,17 @@ export function PairIdentity({ symbol, base = '', quote = '' }: PairIdentityProp
                 the screen; free to shrink to nothing, four of five recorded
                 rows read "PAXGU…", "ETHU…", "LTCU…" — and LTCUSDC trades on the
                 same venue, so the stub was genuinely ambiguous on the one row
-                carrying a control that cannot be undone. */}
-            <span className="w-32 min-w-20 truncate text-sm font-semibold @md:w-40">{symbol}</span>
+                carrying a control that cannot be undone.
+
+                A fixed column only where there is something to line it up
+                against. On a narrow card the row carries the name and nothing
+                else, so a fixed width truncated "1000000BABYDOGEUSDT" with half
+                the row empty beside it — and every venue lists names that long.
+                Wide, the column goes back to a fixed width, because there the
+                venue and the note beside it are what a reader scans down. */}
+            <span className="min-w-20 flex-1 truncate text-sm font-semibold @md:w-40 @md:flex-none">
+                {symbol}
+            </span>
             {base !== '' && (
                 <span className="hidden w-28 shrink-0 truncate text-xs text-ink-400 @md:inline">
                     {base}/{quote}
