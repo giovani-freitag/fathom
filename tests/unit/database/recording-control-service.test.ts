@@ -129,3 +129,39 @@ describe('RecordingControlService pruning to the budget', () => {
         expect(await control.pruneToBudget()).toBe(2);
     });
 });
+
+describe('RecordingControlService taking a contract away', () => {
+    let postgres: PostgresServiceMock;
+    let control: RecordingControlService;
+
+    beforeEach(() => {
+        postgres = createPostgresServiceMock();
+        control = new RecordingControlService({ postgres: postgres.service });
+    });
+
+    /** Every delete the service sent, with the values it bound to each. */
+    function deletesOf(): { statement: string; values: readonly unknown[] }[] {
+        return postgres.execute.mock.calls
+            .map((call) => ({ statement: String(call[0]), values: (call[1] ?? []) as unknown[] }))
+            .filter((one) => one.statement.startsWith('DELETE FROM'));
+    }
+
+    it('names the venue in every delete against a table that holds one', async () => {
+        // The one decision that cannot be taken back. Deleted by the symbol
+        // alone, taking bybit's BTCUSDT away would take binance's recording of
+        // it with it, and an order book cannot be recorded again.
+        await control.removeContract('bybit-futures', 'BTCUSDT');
+
+        const bySymbolAlone = deletesOf()
+            .filter((one) => /liquidity_block|liquidity_chunk|recording_gap/.test(one.statement))
+            .filter((one) => !one.statement.includes('venue = $1'));
+        expect(bySymbolAlone).toEqual([]);
+    });
+
+    it('binds the venue it was asked about, not the one it was built for', async () => {
+        await control.removeContract('bybit-futures', 'BTCUSDT');
+
+        const squares = deletesOf().find((one) => one.statement.includes('liquidity_block'));
+        expect(squares?.values).toEqual(['bybit-futures', 'BTCUSDT']);
+    });
+});

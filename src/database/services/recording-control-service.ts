@@ -27,6 +27,20 @@ const RECORDED_TABLES = [
     'whole_book.liquidity_chunk',
 ] as const;
 
+/**
+ * The recorded tables that name the venue, and can be deleted from by contract.
+ *
+ * `trade_cluster` is not among them. Its two continuous aggregates group by the
+ * symbol and a continuous aggregate cannot be altered, so naming the venue on
+ * it is a migration of its own — until that runs, a contract taken away takes
+ * the executions of every venue's copy of that symbol with it.
+ */
+const TABLES_NAMING_THE_VENUE: readonly string[] = [
+    'whole_book.liquidity_block',
+    'whole_book.liquidity_chunk',
+    'recording_gap',
+];
+
 interface InstrumentRow {
     readonly venue: string;
     readonly instrument_symbol: string;
@@ -119,9 +133,16 @@ export class RecordingControlService implements RecordingControl {
         );
 
         for (const table of [...RECORDED_TABLES, 'recording_gap']) {
+            // By the whole contract wherever the table can say which venue a
+            // row came from. Deleted by the symbol alone, taking bybit's
+            // BTCUSDT away would take binance's recording of it too — and an
+            // order book cannot be recorded again after the fact.
+            const namesVenue = TABLES_NAMING_THE_VENUE.includes(table);
             await this.postgres.execute(
-                `DELETE FROM ${table} WHERE instrument_symbol = $1`,
-                [instrumentSymbol],
+                namesVenue
+                    ? `DELETE FROM ${table} WHERE venue = $1 AND instrument_symbol = $2`
+                    : `DELETE FROM ${table} WHERE instrument_symbol = $1`,
+                namesVenue ? [venue, instrumentSymbol] : [instrumentSymbol],
             );
         }
 
