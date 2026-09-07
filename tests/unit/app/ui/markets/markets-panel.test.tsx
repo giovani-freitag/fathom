@@ -376,6 +376,52 @@ describe('the colour a tag is marked in', () => {
     });
 });
 
+/** The row a pair is listed on, which holds the name and everything beside it. */
+function rowFor(opens: RegExp): HTMLElement {
+    const named = screen.getByRole('button', { name: opens });
+    const row = named.closest('tr');
+    if (row === null) {
+        throw new Error('the pair is not on a row');
+    }
+    return row;
+}
+
+/** Every listed pair, past the heading row the reader never sees. */
+function listedRows(): readonly HTMLElement[] {
+    return screen.getAllByRole('row').filter((row) => row.closest('thead') === null);
+}
+
+describe('the listing as a table', () => {
+    it('gives every row the same cells, which is what lines the columns up', async () => {
+        // Laid out by hand each row sized its own name, so a column was only as
+        // straight as the rows happened to make it. A table decides the widths
+        // once for the whole of it — but only where every row answers with the
+        // same cells, which is what this holds to.
+        renderPanel();
+        await browse();
+
+        const shapes = new Set(listedRows().map((row) => row.children.length));
+
+        expect([...shapes]).toEqual([4]);
+    });
+
+    it('names the venue on its own column only where rows can span venues', async () => {
+        // On a venue's own listing the answer is the same nine hundred times,
+        // and a column that repeats it says nothing. Under a tag it is the one
+        // thing telling two rows of the same symbol apart.
+        renderPanel();
+        await browse();
+        const onOneVenue = listedRows()[0]?.children.length;
+
+        openTags('NANOUSDT');
+        fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'File NANOUSDT under Favourites' }));
+        fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+        fireEvent.click(railRow('Favourites'));
+
+        expect([onOneVenue, listedRows()[0]?.children.length]).toEqual([4, 5]);
+    });
+});
+
 describe('what each half marks', () => {
     it('marks the handful a venue lists that this chart actually holds', async () => {
         // The reason nothing else opens is true of nine hundred rows, and a
@@ -383,14 +429,14 @@ describe('what each half marks', () => {
         renderPanel();
         await browse();
 
-        const held = screen.getByRole('button', { name: /Open BTCUSDT on the chart/ });
+        const held = rowFor(/Open BTCUSDT on the chart/);
         expect(held.textContent).toContain('recorded');
         // Openable all the same: the candles and the volume come from the
         // venue. What the mark says is which one this chart also holds a book
         // for, which on a listing of nine hundred is the rare fact.
         const rest = screen.getByRole('button', { name: /Open NANOUSDT on the chart/ });
         expect(rest.hasAttribute('disabled')).toBe(false);
-        expect(rest.textContent).not.toContain('recorded');
+        expect(rowFor(/Open NANOUSDT on the chart/).textContent).not.toContain('recorded');
     });
 
     it('marks the kept pairs this chart holds a book for, and opens the rest anyway', async () => {
@@ -401,9 +447,9 @@ describe('what each half marks', () => {
         fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
         fireEvent.click(railRow('Favourites'));
 
-        const row = screen.getByRole('button', { name: /Open NANOUSDT on the chart/ });
-        expect(row.hasAttribute('disabled')).toBe(false);
-        expect(row.textContent).not.toContain('recorded');
+        const opens = screen.getByRole('button', { name: /Open NANOUSDT on the chart/ });
+        expect(opens.hasAttribute('disabled')).toBe(false);
+        expect(rowFor(/Open NANOUSDT on the chart/).textContent).not.toContain('recorded');
     });
 });
 
@@ -655,9 +701,9 @@ describe('the card on a phone', () => {
         // the card opens on a tag, and a tag is already a filter.
         await pickSource(new RegExp(FIRST_VENUE));
         await waitFor(() => {
-            expect(screen.getAllByRole('listitem').length).toBeGreaterThan(1);
+            expect(listedRows().length).toBeGreaterThan(1);
         });
-        const before = screen.getAllByRole('listitem').length;
+        const before = listedRows().length;
 
         fireEvent.click(screen.getByRole('button', { name: 'New tag' }));
         fireEvent.change(await screen.findByRole('textbox', { name: /Name this tag/ }), {
@@ -669,7 +715,7 @@ describe('the card on a phone', () => {
         await pickSource(new RegExp(FIRST_VENUE));
 
         await waitFor(() => {
-            expect(screen.getAllByRole('listitem').length).toBe(before);
+            expect(listedRows().length).toBe(before);
         });
     });
 
