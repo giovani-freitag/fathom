@@ -4,6 +4,8 @@ export type LiveFeedStatus = 'idle' | 'connecting' | 'streaming' | 'reconnecting
 
 export interface LiveFeedSubscription {
     readonly instrumentSymbol: string;
+    /** Which venue's recording the tail follows, which the grid depends on. */
+    readonly venue: string;
     /** Newest frame already held; the tail resumes strictly after it. */
     readonly afterMs: number;
     /**

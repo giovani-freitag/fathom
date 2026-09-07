@@ -80,9 +80,7 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
         }
         await this.write([STORES.tradeCluster], ([clusters]) => {
             for (const cluster of request.clusters) {
-                clusters!.put(
-                    toTradeClusterRecord(request.instrumentSymbol, request.priceBucketSize, cluster),
-                );
+                clusters!.put(toTradeClusterRecord(request, request.priceBucketSize, cluster));
             }
         });
     }
@@ -95,7 +93,11 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
      */
     async recordGap(request: GapRecordRequest): Promise<void> {
         await this.write([STORES.recordingGap], ([gaps]) => {
-            gaps!.put({ instrumentSymbol: request.instrumentSymbol, ...request.gap });
+            gaps!.put({
+                venue: request.venue,
+                instrumentSymbol: request.instrumentSymbol,
+                ...request.gap,
+            });
         });
     }
 
@@ -123,7 +125,6 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
      * @returns How many instants of recording were dropped.
      */
     async pruneToCapacity(contract: ChunkContract, frameCapacity?: number): Promise<number> {
-        const { instrumentSymbol } = contract;
         const coverage = await this.chunks.readCoverage(contract);
         if (coverage === null) {
             return 0;
@@ -139,7 +140,7 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
         // One range delete rather than a cursor: the compound key already sorts
         // by time within an instrument, so everything below the horizon is
         // exactly the oldest, and the engine removes it in a single operation.
-        const expired = boundedRange(instrumentSymbol, horizonMs);
+        const expired = boundedRange(contract, horizonMs);
         await this.write(
             [
                 STORES.tradeCluster, STORES.recordingGap,
@@ -147,7 +148,7 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
             ],
             ([clusters, gaps, blocks, squares]) => {
                 clusters!.delete(expired);
-                this.deleteGapsEndingBefore(gaps!, instrumentSymbol, horizonMs);
+                this.deleteGapsEndingBefore(gaps!, contract, horizonMs);
                 this.deleteSquaresEndingBefore({
                     ...contract, blocks: blocks!, squares: squares!, horizonMs,
                 });
@@ -193,10 +194,10 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
      */
     private deleteGapsEndingBefore(
         gaps: IDBObjectStore,
-        instrumentSymbol: string,
+        contract: ChunkContract,
         horizonMs: number,
     ): void {
-        const request = gaps.openCursor(boundedRange(instrumentSymbol, horizonMs));
+        const request = gaps.openCursor(boundedRange(contract, horizonMs));
         request.onsuccess = () => {
             const cursor = request.result;
             if (cursor === null) {
@@ -226,9 +227,14 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
 }
 
 /** Every record of one instrument: `[symbol]` sorts before every `[symbol, n]`. */
-/** One instrument's records strictly older than an instant. */
-function boundedRange(instrumentSymbol: string, horizonMs: number): IDBKeyRange {
-    return IDBKeyRange.bound([instrumentSymbol], [instrumentSymbol, horizonMs], false, true);
+/** One contract's records strictly older than an instant. */
+function boundedRange(contract: ChunkContract, horizonMs: number): IDBKeyRange {
+    return IDBKeyRange.bound(
+        [contract.venue, contract.instrumentSymbol],
+        [contract.venue, contract.instrumentSymbol, horizonMs],
+        false,
+        true,
+    );
 }
 
 /**

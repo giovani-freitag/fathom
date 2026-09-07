@@ -103,25 +103,27 @@ export class LiquidityQueryService {
      * @throws PostgresQueryError when the read fails.
      */
     async fetchTradeClusters(query: TradeClusterQuery): Promise<TradeClusterWindow> {
-        const grid = await this.resolveInstrumentGrid(query.symbol);
+        const grid = await this.resolveInstrumentGrid(query);
         const sampleIntervalMs = Math.max(resolveSampleInterval(query), grid.frameIntervalMs);
         const source = selectTradeSource(sampleIntervalMs);
 
         const rows = await this.postgres.selectRows<TradeClusterRow>(
             `SELECT
-                 time_bucket(make_interval(secs => $4), executed_at)  AS bucket_start,
-                 floor(price_bucket_index::numeric / $5)::int         AS grouped_bucket_index,
+                 time_bucket(make_interval(secs => $5), executed_at)  AS bucket_start,
+                 floor(price_bucket_index::numeric / $6)::int         AS grouped_bucket_index,
                  SUM(buy_quantity)::double precision                  AS buy_quantity,
                  SUM(sell_quantity)::double precision                 AS sell_quantity,
                  SUM(trade_count)::int                                AS trade_count,
                  MAX(largest_trade_quantity)::double precision        AS largest_trade_quantity
              FROM ${source.table}
-             WHERE instrument_symbol = $1 AND executed_at >= $2 AND executed_at < $3
+             WHERE venue = $1 AND instrument_symbol = $2
+               AND executed_at >= $3 AND executed_at < $4
              GROUP BY 1, 2
-             HAVING SUM(buy_quantity) + SUM(sell_quantity) >= $6
+             HAVING SUM(buy_quantity) + SUM(sell_quantity) >= $7
              ORDER BY 1, 2
-             LIMIT $7`,
+             LIMIT $8`,
             [
+                query.venue,
                 query.symbol,
                 new Date(query.fromMs),
                 new Date(query.toMs),
@@ -150,28 +152,31 @@ export class LiquidityQueryService {
         const rows = await this.postgres.selectRows<RecordingGapRow>(
             `SELECT gap_started_at, gap_ended_at, gap_reason
              FROM recording_gap
-             WHERE instrument_symbol = $1 AND gap_ended_at >= $2 AND gap_started_at < $3
+             WHERE venue = $1 AND instrument_symbol = $2
+               AND gap_ended_at >= $3 AND gap_started_at < $4
              ORDER BY gap_started_at ASC`,
-            [query.symbol, new Date(query.fromMs), new Date(query.toMs)],
+            [query.venue, query.symbol, new Date(query.fromMs), new Date(query.toMs)],
         );
 
         return rows.map(toRecordingGap);
     }
 
-    private async resolveInstrumentGrid(instrumentSymbol: string): Promise<InstrumentGrid> {
+    private async resolveInstrumentGrid(contract: WindowQuery): Promise<InstrumentGrid> {
         const rows = await this.postgres.selectRows<{
             price_bucket_size: number;
             frame_interval_ms: number;
         }>(
             `SELECT price_bucket_size, frame_interval_ms
              FROM instrument_registry
-             WHERE instrument_symbol = $1`,
-            [instrumentSymbol],
+             WHERE venue = $1 AND instrument_symbol = $2`,
+            [contract.venue, contract.symbol],
         );
 
         const row = rows[0];
         if (row === undefined) {
-            throw new Error(`Instrument ${instrumentSymbol} has never been recorded`);
+            throw new Error(
+                `${contract.venue} has never recorded ${contract.symbol}`,
+            );
         }
         return {
             priceBucketSize: row.price_bucket_size,

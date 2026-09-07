@@ -1,6 +1,7 @@
 import type { LiquidityFrame } from '../../shared/core/liquidity-frame.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
+import type { ChunkContract } from '../core/chunk-row-store.ts';
 
 /**
  * A frame as the browser stores it.
@@ -18,6 +19,7 @@ export interface FrameRecord {
 }
 
 export interface TradeClusterRecord {
+    readonly venue: string;
     readonly instrumentSymbol: string;
     readonly executedAtMs: number;
     readonly priceBucketSize: number;
@@ -29,6 +31,7 @@ export interface TradeClusterRecord {
 }
 
 export interface GapRecord {
+    readonly venue: string;
     readonly instrumentSymbol: string;
     readonly gapStartedAtMs: number;
     readonly gapEndedAtMs: number;
@@ -37,14 +40,8 @@ export interface GapRecord {
 
 export interface InstrumentRecord {
     readonly instrumentSymbol: string;
-    /**
-     * Which venue this was recorded from.
-     *
-     * Optional on the way in, because a page that recorded under an older build
-     * has rows written before the field existed, and those rows came from the
-     * one venue the build could reach.
-     */
-    readonly venue?: string;
+    /** Which venue this was recorded from, which is half the row's key. */
+    readonly venue: string;
     readonly priceBucketSize: number;
     readonly frameIntervalMs: number;
     readonly registeredAtMs: number;
@@ -105,11 +102,11 @@ export function toLiquidityFrame(record: FrameRecord): LiquidityFrame {
  * @returns The row to write.
  */
 export function toTradeClusterRecord(
-    instrumentSymbol: string,
+    contract: ChunkContract,
     priceBucketSize: number,
     cluster: TradeCluster,
 ): TradeClusterRecord {
-    return { instrumentSymbol, priceBucketSize, ...cluster };
+    return { ...contract, priceBucketSize, ...cluster };
 }
 
 /**

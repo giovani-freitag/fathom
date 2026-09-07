@@ -1,8 +1,9 @@
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 import { describe, expect, it, vi } from 'vitest';
 import type { LiquidityQueryService } from '../../../src/database/services/liquidity-query-service.ts';
 import { PostgresLiveTailSource } from '../../../src/server/services/postgres-live-tail-source.ts';
 
-const BETWEEN = { symbol: 'BTCUSDT', fromMs: 1_000, toMs: 2_000 };
+const BETWEEN = { symbol: 'BTCUSDT', venue: FIRST_VENUE, fromMs: 1_000, toMs: 2_000 };
 
 function buildSource() {
     const fetchTradeClusters = vi.fn().mockResolvedValue({

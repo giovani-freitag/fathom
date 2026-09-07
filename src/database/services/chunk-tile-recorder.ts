@@ -72,7 +72,7 @@ export interface ChunkTileRecorderConfig {
      * the visitor arrived, and sixteen seconds of that is most of a first look.
      */
     readonly liveEdgeColumns?: number;
-    readonly onWriteFailed?: (instrumentSymbol: string, reason: unknown) => void;
+    readonly onWriteFailed?: (contract: ChunkContract, reason: unknown) => void;
     /**
      * Told after a square of the finest level has landed.
      *
@@ -81,14 +81,8 @@ export interface ChunkTileRecorderConfig {
      * never before: told to catch up on a write that then failed, a reader
      * fetches nothing and moves its cursor past the range it was meant to read.
      *
-     * Named by the symbol alone, unlike everything this recorder stores. Two
-     * venues recording one symbol would each wake the other's readers, which
-     * costs a fetch that finds nothing new — where a stored square addressed
-     * that way would have been written over history nobody can record again.
-     * The announcement is a wire between two processes, so it moves when they
-     * are both replaced, and it is not what makes the recording safe.
      */
-    readonly onWritten?: (instrumentSymbol: string) => void;
+    readonly onWritten?: (contract: ChunkContract) => void;
 }
 
 /** How one contract's whole book is framed, and who receives it. */
@@ -479,7 +473,7 @@ export class ChunkTileRecorder {
             }
             level.writtenColumns = level.columns.length;
         } catch (reason) {
-            this.config.onWriteFailed?.(pick.instrumentSymbol, reason);
+            this.config.onWriteFailed?.(pick, reason);
         }
     }
 
@@ -531,7 +525,7 @@ export class ChunkTileRecorder {
             // What was gathered is written anyway. Refusing would hold the live
             // edge back for as long as the read keeps failing, and the reader
             // would watch the chart stop.
-            this.config.onWriteFailed?.(pick.instrumentSymbol, reason);
+            this.config.onWriteFailed?.(pick, reason);
             return held;
         }
 
@@ -573,10 +567,10 @@ export class ChunkTileRecorder {
             // Only the finest level: the levels above it are folded from this
             // one and carry nothing a reader has not already been told about.
             if (detailLevel === 0) {
-                this.config.onWritten?.(instrumentSymbol);
+                this.config.onWritten?.({ venue, instrumentSymbol });
             }
         } catch (reason) {
-            this.config.onWriteFailed?.(instrumentSymbol, reason);
+            this.config.onWriteFailed?.({ venue, instrumentSymbol }, reason);
         }
     }
 }

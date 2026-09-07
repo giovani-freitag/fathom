@@ -6,6 +6,7 @@ import type { WebSocket } from '@fastify/websocket';
 export interface LiveSocketBridgeConfig {
     readonly socket: WebSocket;
     readonly liveTail: LiveTailService;
+    readonly venue: string;
     readonly instrumentSymbol: string;
     readonly afterMs: number;
     readonly priceBucketSize: number;
@@ -42,6 +43,7 @@ export class LiveSocketBridge {
 
         try {
             this.unsubscribe = this.config.liveTail.subscribe({
+                venue: this.config.venue,
                 instrumentSymbol: this.config.instrumentSymbol,
                 afterMs: this.config.afterMs,
                 priceBucketSize: this.config.priceBucketSize,
@@ -102,6 +104,7 @@ export class LiveSocketBridge {
             return;
         }
         this.config.log?.warning('A live tail could not read, and was let go', {
+            venue: this.config.venue,
             instrumentSymbol: this.config.instrumentSymbol,
             failuresInARow,
             reason: reason instanceof Error ? reason.message : String(reason),

@@ -8,6 +8,7 @@ import type { IndexedDbService } from './indexed-db-service.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import { STORES } from './browser-schema.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
+import type { ChunkContract } from '../core/chunk-row-store.ts';
 
 export interface IndexedDbLiveTailSourceConfig {
     readonly database: IndexedDbService;
@@ -33,8 +34,8 @@ export class IndexedDbLiveTailSource implements TailCompanions {
         const records = await this.database.readRange<TradeClusterRecord>(
             STORES.tradeCluster,
             IDBKeyRange.bound(
-                [request.symbol, request.fromMs],
-                [request.symbol, request.toMs, Number.POSITIVE_INFINITY],
+                [request.venue, request.symbol, request.fromMs],
+                [request.venue, request.symbol, request.toMs, Number.POSITIVE_INFINITY],
                 true,
                 true,
             ),
@@ -51,17 +52,22 @@ export class IndexedDbLiveTailSource implements TailCompanions {
     async fetchGapsBetween(request: BetweenRequest): Promise<readonly RecordingGap[]> {
         const records = await this.database.readRange<GapRecord>(
             STORES.recordingGap,
-            IDBKeyRange.bound([request.symbol], [request.symbol, request.toMs], false, true),
+            IDBKeyRange.bound(
+                [request.venue, request.symbol],
+                [request.venue, request.symbol, request.toMs],
+                false,
+                true,
+            ),
         );
         return records
             .filter((record) => record.gapEndedAtMs > request.fromMs)
             .map(toRecordingGap);
     }
 
-    private async readGrid(instrumentSymbol: string): Promise<InstrumentRecord | null> {
+    private async readGrid(contract: ChunkContract): Promise<InstrumentRecord | null> {
         const registered = await this.database.readRange<InstrumentRecord>(
             STORES.instrumentRegistry,
-            IDBKeyRange.only(instrumentSymbol),
+            IDBKeyRange.only([contract.venue, contract.instrumentSymbol]),
         );
         return registered[0] ?? null;
     }

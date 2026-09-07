@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ArchiveWriteBuffer } from '../../../src/workers/services/archive-write-buffer.ts';
 import type { TradeCluster } from '../../../src/shared/core/trade-cluster.ts';
@@ -17,6 +18,7 @@ function buildHarness(): Harness {
 
     const buffer = new ArchiveWriteBuffer({
         archive,
+        venue: FIRST_VENUE,
         instrumentSymbol: 'BTCUSDT',
         priceBucketSize: 1,
         maximumBufferedTradeClusters: MAXIMUM_BUFFERED_CLUSTERS,
@@ -70,6 +72,7 @@ describe('ArchiveWriteBuffer', () => {
         await harness.buffer.flush();
 
         expect(harness.archive.appendTradeClusters).toHaveBeenLastCalledWith({
+            venue: FIRST_VENUE,
             instrumentSymbol: 'BTCUSDT',
             priceBucketSize: 1,
             clusters: [buildCluster(1_002), buildCluster(1_003), buildCluster(1_004)],
@@ -105,6 +108,7 @@ describe('ArchiveWriteBuffer', () => {
         await harness.buffer.flush();
 
         expect(harness.archive.recordGap).toHaveBeenCalledWith({
+            venue: FIRST_VENUE,
             instrumentSymbol: 'BTCUSDT',
             gap: { gapStartedAtMs: 1_000, gapEndedAtMs: 3_000, gapReason: 'archive down' },
         });

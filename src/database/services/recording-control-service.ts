@@ -28,14 +28,16 @@ const RECORDED_TABLES = [
 ] as const;
 
 /**
- * The recorded tables that name the venue, and can be deleted from by contract.
+ * Every recorded table, all of which now name the venue a row came from.
  *
- * `trade_cluster` is not among them. Its two continuous aggregates group by the
- * symbol and a continuous aggregate cannot be altered, so naming the venue on
- * it is a migration of its own — until that runs, a contract taken away takes
- * the executions of every venue's copy of that symbol with it.
+ * Kept as its own list rather than folded into the one above, because the two
+ * answer different questions — that one is what the disk budget counts, this is
+ * what a contract taken away can be deleted from without touching another
+ * venue's. They agree today; a store added to one and not the other is a bug
+ * either way, and the difference should be visible rather than assumed.
  */
 const TABLES_NAMING_THE_VENUE: readonly string[] = [
+    'trade_cluster',
     'whole_book.liquidity_block',
     'whole_book.liquidity_chunk',
     'recording_gap',
@@ -133,10 +135,9 @@ export class RecordingControlService implements RecordingControl {
         );
 
         for (const table of [...RECORDED_TABLES, 'recording_gap']) {
-            // By the whole contract wherever the table can say which venue a
-            // row came from. Deleted by the symbol alone, taking bybit's
-            // BTCUSDT away would take binance's recording of it too — and an
-            // order book cannot be recorded again after the fact.
+            // By the whole contract. Deleted by the symbol alone, taking
+            // bybit's BTCUSDT away would take binance's recording of it too —
+            // and an order book cannot be recorded again after the fact.
             const namesVenue = TABLES_NAMING_THE_VENUE.includes(table);
             await this.postgres.execute(
                 namesVenue

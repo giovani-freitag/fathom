@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildFrame, buildWindow } from '../../mocks/chart-services.ts';
 import {
@@ -18,6 +19,7 @@ describe('LiveSocketBridge', () => {
         return new LiveSocketBridge({
             socket,
             liveTail: { subscribe } as unknown as LiveTailService,
+            venue: FIRST_VENUE,
             instrumentSymbol: 'BTCUSDT',
             afterMs: 1_000,
             priceBucketSize: 10,

@@ -1,9 +1,11 @@
 import { LiveTail, type LiveTailSource } from '../../shared/core/live-tail.ts';
 import type { LiveMessage } from '../../shared/core/live-message.ts';
+import type { ContractIdentity } from '../../shared/core/recording-control.ts';
 
 export type Unsubscribe = () => void;
 
 export interface LiveTailSubscriptionRequest {
+    readonly venue: string;
     readonly instrumentSymbol: string;
     /** Newest frame the client already holds; the tail resumes after it. */
     readonly afterMs: number;
@@ -55,8 +57,7 @@ export class TooManySubscribersError extends Error {
     }
 }
 
-interface RunningTail {
-    readonly instrumentSymbol: string;
+interface RunningTail extends ContractIdentity {
     readonly tail: LiveTail;
     readonly timer: NodeJS.Timeout;
 }
@@ -86,6 +87,7 @@ export class LiveTailService {
 
         const tail = new LiveTail({
             source: this.config.source,
+            venue: request.venue,
             instrumentSymbol: request.instrumentSymbol,
             afterMs: request.afterMs,
             maxFramesPerPoll: this.config.maxFramesPerPoll,
@@ -103,7 +105,12 @@ export class LiveTailService {
         const timer = setInterval(() => { void tail.advance(); }, this.config.pollIntervalMs);
         timer.unref();
 
-        const entry: RunningTail = { instrumentSymbol: request.instrumentSymbol, tail, timer };
+        const entry: RunningTail = {
+            venue: request.venue,
+            instrumentSymbol: request.instrumentSymbol,
+            tail,
+            timer,
+        };
         this.running.add(entry);
 
         tail.announce(request.priceBucketSize);
@@ -118,11 +125,12 @@ export class LiveTailService {
      * Called when the archive says it has written something, which is what
      * turns the interval above into a backstop rather than the only trigger.
      *
-     * @param instrumentSymbol - The contract that just grew.
+     * @param contract - The contract that just grew.
      */
-    nudge(instrumentSymbol: string): void {
+    nudge(contract: ContractIdentity): void {
         for (const entry of this.running) {
-            if (entry.instrumentSymbol === instrumentSymbol) {
+            if (entry.venue === contract.venue
+                && entry.instrumentSymbol === contract.instrumentSymbol) {
                 void entry.tail.advance();
             }
         }

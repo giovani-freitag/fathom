@@ -107,6 +107,7 @@ band:
 ```sql
 CREATE TABLE trade_cluster (
     executed_at            TIMESTAMPTZ,
+    venue                  TEXT,
     instrument_symbol      TEXT,
     price_bucket_size      DOUBLE PRECISION,
     price_bucket_index     INTEGER,
@@ -115,6 +116,11 @@ CREATE TABLE trade_cluster (
     trade_count            INTEGER,
     largest_trade_quantity REAL
 );
+-- A print that collides with one already stored is dropped rather than written,
+-- so this decides which prints are the same print. Keyed by the symbol alone,
+-- the second venue to trade at an instant and price would lose that print.
+CREATE UNIQUE INDEX ON trade_cluster
+    (venue, instrument_symbol, executed_at DESC, price_bucket_index);
 ```
 
 Every field rolls to a coarser grid without loss: quantities and counts sum,
@@ -123,7 +129,16 @@ visible after aggregating by hour rather than dissolved into an average.
 
 The continuous aggregates `trade_cluster_minute` and `trade_cluster_hour`
 materialise the two widest zooms. Price granularity is kept at every level; only
-time is aggregated.
+time is aggregated, and the venue is carried down with the symbol — grouped by
+the symbol alone, two venues' prints at one price would be summed into a figure
+neither of them traded.
+
+A continuous aggregate's definition cannot be altered, only dropped and built
+again, so a database created before the venue was named on them does not get the
+new grouping from a migration. `scripts/rekey-trade-rollups.mjs` does that once:
+it rebuilds both and materialises them over their whole history, which is safe
+to run against a live recording because everything in them is derived from
+`trade_cluster` and nothing is derived from them.
 
 The same table answers a second question with the price bands dropped rather
 than kept: how much traded in a stretch of time, which is what a bar means by

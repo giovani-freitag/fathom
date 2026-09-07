@@ -5,6 +5,7 @@ import {
     TooManySubscribersError,
 } from '../../../src/server/services/live-tail-service.ts';
 import type { LiveMessage } from '../../../src/shared/core/live-message.ts';
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 
 const POLL_INTERVAL_MS = 100;
 
@@ -21,8 +22,9 @@ describe('LiveTailService', () => {
         });
     }
 
-    function buildRequest(instrumentSymbol = 'BTCUSDT') {
+    function buildRequest(instrumentSymbol = 'BTCUSDT', venue = FIRST_VENUE) {
         return {
+            venue,
             instrumentSymbol,
             afterMs: 5_000,
             priceBucketSize: 10,
@@ -54,7 +56,7 @@ describe('LiveTailService', () => {
         await vi.advanceTimersByTimeAsync(1);
         const readsBefore = source.fetchFramesAfter.mock.calls.length;
 
-        service.nudge('BTCUSDT');
+        service.nudge({ venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT' });
         await vi.advanceTimersByTimeAsync(1);
 
         expect(source.fetchFramesAfter.mock.calls.length).toBeGreaterThan(readsBefore);
@@ -66,7 +68,22 @@ describe('LiveTailService', () => {
         await vi.advanceTimersByTimeAsync(1);
         const readsBefore = source.fetchFramesAfter.mock.calls.length;
 
-        service.nudge('ETHUSDT');
+        service.nudge({ venue: FIRST_VENUE, instrumentSymbol: 'ETHUSDT' });
+        await vi.advanceTimersByTimeAsync(1);
+
+        expect(source.fetchFramesAfter.mock.calls).toHaveLength(readsBefore);
+    });
+
+    it('leaves a tail alone when another venue writes the same symbol', async () => {
+        // The announcement names a contract, and two venues recording BTCUSDT
+        // announce it once each. Woken by the symbol alone, every reader of one
+        // venue would fetch on every write of the other and be handed nothing.
+        const service = buildService();
+        service.subscribe(buildRequest('BTCUSDT'));
+        await vi.advanceTimersByTimeAsync(1);
+        const readsBefore = source.fetchFramesAfter.mock.calls.length;
+
+        service.nudge({ venue: 'bybit-futures', instrumentSymbol: 'BTCUSDT' });
         await vi.advanceTimersByTimeAsync(1);
 
         expect(source.fetchFramesAfter.mock.calls).toHaveLength(readsBefore);
@@ -145,6 +162,7 @@ describe('LiveTailService and the one store it streams', () => {
         // anywhere else, the two disagree about what they hold and the chart
         // grows teeth along its live edge.
         buildService().subscribe({
+            venue: FIRST_VENUE,
             instrumentSymbol: 'BTCUSDT',
             afterMs: 5_000,
             priceBucketSize: 10,

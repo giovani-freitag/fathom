@@ -8,12 +8,12 @@ import {
 } from '../../shared/core/heatmap-source.ts';
 import type { IndexedDbService } from './indexed-db-service.ts';
 import type { InstrumentCoverage } from '../../shared/core/api-contract.ts';
-import { FIRST_VENUE } from '../../shared/core/recording-control.ts';
 import type { LiquidityFrameWindow } from '../../shared/core/liquidity-frame.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import { ChunkArchiveService } from '../services/chunk-archive-service.ts';
 import { IndexedDbChunkRowStore } from './indexed-db-chunk-row-store.ts';
 import { STORES } from './browser-schema.ts';
+import type { ChunkContract } from '../core/chunk-row-store.ts';
 import {
     toRecordingGap,
     toTradeCluster,
@@ -48,14 +48,10 @@ export class IndexedDbHeatmapSource implements ArchiveSource {
         const registered = await this.read<InstrumentRecord>(STORES.instrumentRegistry, null);
 
         return Promise.all(registered.map(async (record) => {
-            const venue = record.venue ?? FIRST_VENUE;
-            const coverage = await this.rows.readCoverage({
-                venue,
-                instrumentSymbol: record.instrumentSymbol,
-            });
+            const coverage = await this.rows.readCoverage(record);
             return {
                 instrumentSymbol: record.instrumentSymbol,
-                venue,
+                venue: record.venue,
                 priceBucketSize: record.priceBucketSize,
                 frameIntervalMs: record.frameIntervalMs,
                 firstFrameAtMs: coverage?.firstFrameAtMs ?? null,
@@ -101,12 +97,15 @@ export class IndexedDbHeatmapSource implements ArchiveSource {
      * @throws HeatmapSourceError when the archive cannot be read.
      */
     async fetchTradeClusters(query: TradeClusterQuery): Promise<TradeClusterResult> {
-        const grid = await this.readGrid(query.symbol);
+        const grid = await this.readGrid({
+            venue: query.venue,
+            instrumentSymbol: query.symbol,
+        });
         const records = await this.read<TradeClusterRecord>(
             STORES.tradeCluster,
             IDBKeyRange.bound(
-                [query.symbol, query.fromMs],
-                [query.symbol, query.toMs, Number.POSITIVE_INFINITY],
+                [query.venue, query.symbol, query.fromMs],
+                [query.venue, query.symbol, query.toMs, Number.POSITIVE_INFINITY],
                 false,
                 true,
             ),
@@ -129,7 +128,12 @@ export class IndexedDbHeatmapSource implements ArchiveSource {
     async fetchGaps(query: FrameWindowQuery): Promise<readonly RecordingGap[]> {
         const records = await this.read<GapRecord>(
             STORES.recordingGap,
-            IDBKeyRange.bound([query.symbol], [query.symbol, query.toMs], false, true),
+            IDBKeyRange.bound(
+                [query.venue, query.symbol],
+                [query.venue, query.symbol, query.toMs],
+                false,
+                true,
+            ),
         );
 
         return records
@@ -137,9 +141,12 @@ export class IndexedDbHeatmapSource implements ArchiveSource {
             .map(toRecordingGap);
     }
 
-    private async readGrid(instrumentSymbol: string): Promise<InstrumentRecord | null> {
+    private async readGrid(contract: ChunkContract): Promise<InstrumentRecord | null> {
         const registered = await this.read<InstrumentRecord>(STORES.instrumentRegistry, null);
-        return registered.find((record) => record.instrumentSymbol === instrumentSymbol) ?? null;
+        return registered.find((record) => (
+            record.venue === contract.venue
+            && record.instrumentSymbol === contract.instrumentSymbol
+        )) ?? null;
     }
 
     private async read<TRecord>(

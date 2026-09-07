@@ -2,6 +2,7 @@ import type { LiquidityQueryService } from '../../../database/services/liquidity
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { refuseUnansweredWindow } from './window-guard.ts';
 import type { WindowFilters } from '../schemas/window-schema.ts';
+import { FIRST_VENUE } from '../../../shared/core/recording-control.ts';
 
 export interface GapsHandlerConfig {
     readonly query: LiquidityQueryService;
@@ -23,7 +24,10 @@ export function createGapsHandler(config: GapsHandlerConfig) {
             return refused;
         }
 
-        const gaps = await config.query.fetchGaps(request.query);
+        const gaps = await config.query.fetchGaps({
+            ...request.query,
+            venue: request.query.venue ?? FIRST_VENUE,
+        });
         return reply.send({ gaps });
     };
 }

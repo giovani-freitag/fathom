@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 import { describe, expect, it, vi } from 'vitest';
 import {
     StoredDepthTailSource,
@@ -32,7 +33,7 @@ describe('StoredDepthTailSource', () => {
         // from one and streamed from another shows neither.
         const { source, readWindow, rest } = buildSource();
 
-        await source.fetchFramesAfter({ symbol: 'BTCUSDT', afterMs: NOW_MS - 5_000, maxFrames: 60 });
+        await source.fetchFramesAfter({ symbol: 'BTCUSDT', venue: FIRST_VENUE, afterMs: NOW_MS - 5_000, maxFrames: 60 });
 
         expect([readWindow.mock.calls.length, rest.fetchFramesAfter.mock.calls.length])
             .toEqual([1, 0]);
@@ -43,7 +44,7 @@ describe('StoredDepthTailSource', () => {
         // that kept offering it would never move.
         const { source, readWindow } = buildSource();
 
-        await source.fetchFramesAfter({ symbol: 'BTCUSDT', afterMs: NOW_MS - 5_000, maxFrames: 60 });
+        await source.fetchFramesAfter({ symbol: 'BTCUSDT', venue: FIRST_VENUE, afterMs: NOW_MS - 5_000, maxFrames: 60 });
 
         expect(readWindow.mock.calls[0]?.[0]).toMatchObject({ fromMs: NOW_MS - 4_999 });
     });
@@ -51,7 +52,7 @@ describe('StoredDepthTailSource', () => {
     it('stops at the present rather than asking for time nobody has recorded', async () => {
         const { source, readWindow } = buildSource();
 
-        await source.fetchFramesAfter({ symbol: 'BTCUSDT', afterMs: NOW_MS - 5_000, maxFrames: 60 });
+        await source.fetchFramesAfter({ symbol: 'BTCUSDT', venue: FIRST_VENUE, afterMs: NOW_MS - 5_000, maxFrames: 60 });
 
         expect(readWindow.mock.calls[0]?.[0]).toMatchObject({ toMs: NOW_MS, maxColumns: 60 });
     });
@@ -66,7 +67,7 @@ describe('StoredDepthTailSource', () => {
         const { source, readWindow } = buildSource();
 
         await source.fetchFramesAfter({
-            symbol: 'BTCUSDT', afterMs: NOW_MS - 20 * 60_000, maxFrames: 60, frameIntervalMs: 1_000,
+            symbol: 'BTCUSDT', venue: FIRST_VENUE, afterMs: NOW_MS - 20 * 60_000, maxFrames: 60, frameIntervalMs: 1_000,
         });
 
         const read = readWindow.mock.calls[0]?.[0] as StoredDepthWindowRequest;
@@ -77,7 +78,7 @@ describe('StoredDepthTailSource', () => {
         const { source, readWindow } = buildSource();
 
         await source.fetchFramesAfter({
-            symbol: 'BTCUSDT', afterMs: NOW_MS - 20 * 60_000, maxFrames: 60, frameIntervalMs: 1_000,
+            symbol: 'BTCUSDT', venue: FIRST_VENUE, afterMs: NOW_MS - 20 * 60_000, maxFrames: 60, frameIntervalMs: 1_000,
         });
 
         expect(readWindow.mock.calls[0]?.[0]).toMatchObject({ fromMs: NOW_MS - 20 * 60_000 + 1 });
@@ -87,7 +88,7 @@ describe('StoredDepthTailSource', () => {
         const { source, readWindow } = buildSource();
 
         await source.fetchFramesAfter({
-            symbol: 'BTCUSDT', afterMs: NOW_MS - 5_000, maxFrames: 60, frameIntervalMs: 1_000,
+            symbol: 'BTCUSDT', venue: FIRST_VENUE, afterMs: NOW_MS - 5_000, maxFrames: 60, frameIntervalMs: 1_000,
         });
 
         expect(readWindow.mock.calls[0]?.[0]).toMatchObject({ toMs: NOW_MS });
@@ -100,7 +101,7 @@ describe('StoredDepthTailSource', () => {
         const { source, readWindow } = buildSource();
 
         await source.fetchFramesAfter({
-            symbol: 'BTCUSDT', afterMs: NOW_MS - 5_000, maxFrames: 60,
+            symbol: 'BTCUSDT', venue: FIRST_VENUE, afterMs: NOW_MS - 5_000, maxFrames: 60,
             lowPrice: 90_000, highPrice: 110_000,
         });
 
@@ -111,7 +112,7 @@ describe('StoredDepthTailSource', () => {
     it('asks for every price when the reader named none', async () => {
         const { source, readWindow } = buildSource();
 
-        await source.fetchFramesAfter({ symbol: 'BTCUSDT', afterMs: NOW_MS - 5_000, maxFrames: 60 });
+        await source.fetchFramesAfter({ symbol: 'BTCUSDT', venue: FIRST_VENUE, afterMs: NOW_MS - 5_000, maxFrames: 60 });
 
         expect(readWindow.mock.calls[0]?.[0]).not.toHaveProperty('lowPrice');
     });
@@ -121,7 +122,7 @@ describe('StoredDepthTailSource', () => {
         // stores in one answer.
         const { source, rest } = buildSource();
 
-        await source.fetchTradeClustersBetween({ symbol: 'BTCUSDT', fromMs: 1, toMs: 2 });
+        await source.fetchTradeClustersBetween({ symbol: 'BTCUSDT', venue: FIRST_VENUE, fromMs: 1, toMs: 2 });
 
         expect(rest.fetchTradeClustersBetween).toHaveBeenCalledTimes(1);
     });
@@ -129,7 +130,7 @@ describe('StoredDepthTailSource', () => {
     it('leaves the holes in the recording to it as well', async () => {
         const { source, rest } = buildSource();
 
-        await source.fetchGapsBetween({ symbol: 'BTCUSDT', fromMs: 1, toMs: 2 });
+        await source.fetchGapsBetween({ symbol: 'BTCUSDT', venue: FIRST_VENUE, fromMs: 1, toMs: 2 });
 
         expect(rest.fetchGapsBetween).toHaveBeenCalledTimes(1);
     });

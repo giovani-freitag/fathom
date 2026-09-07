@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 import { LiveFeedService, type LiveFeedStatus } from '../../../src/app/services/live-feed-service.ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -48,6 +49,7 @@ function installSocketStub(): void {
 function buildSubscription(statuses: LiveFeedStatus[]) {
     return {
         instrumentSymbol: 'BTCUSDT',
+        venue: FIRST_VENUE,
         afterMs: 1_000,
         onMessage: vi.fn(),
         onStatusChanged: (status: LiveFeedStatus) => statuses.push(status),

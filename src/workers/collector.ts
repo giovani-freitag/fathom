@@ -12,6 +12,7 @@ import { PostgresService } from '../database/postgres/postgres-service.ts';
 import { readCollectorConfiguration, readDatabaseUrl, readLogFilePath } from './collector-environment.ts';
 import { RecordingControlService } from '../database/services/recording-control-service.ts';
 import { WHOLE_BOOK_FRAMING, WRITE_SETTINGS } from './core/collector-configuration.ts';
+import { nameContract } from '../shared/core/recording-control.ts';
 
 /** One writer per recorded contract, plus headroom for a retry and the control reads. */
 const DATABASE_POOL_SIZE = 8;
@@ -48,9 +49,10 @@ const chunkTiles = new ChunkTileRecorder({
     priceRangeRatio: WHOLE_BOOK_FRAMING.priceRangeRatio,
     intervalMs: WHOLE_BOOK_FRAMING.frameIntervalMs,
     stepRatio: 1 + WHOLE_BOOK_FRAMING.stepPrecision,
-    onWriteFailed: (instrumentSymbol, reason) => {
+    onWriteFailed: (contract, reason) => {
         log.warning('A square of the book would not store', {
-            instrumentSymbol,
+            venue: contract.venue,
+            instrumentSymbol: contract.instrumentSymbol,
             reason: describeError(reason),
         });
     },
@@ -60,8 +62,8 @@ const chunkTiles = new ChunkTileRecorder({
     //
     // Deliberately unawaited and unreported: a reader that misses a nudge
     // catches up on its own, and a write must not be held up by the telling.
-    onWritten: (instrumentSymbol) => {
-        void postgres.notify(RECORDING_CHANNEL, instrumentSymbol).catch(() => undefined);
+    onWritten: (contract) => {
+        void postgres.notify(RECORDING_CHANNEL, nameContract(contract)).catch(() => undefined);
     },
 });
 

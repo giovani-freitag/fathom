@@ -1,4 +1,5 @@
 import { describe, expect, it, type Mock, vi } from 'vitest';
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 import type { FastifyRequest } from 'fastify';
 import { createLiveHandler } from '../../../src/server/http/actions/live-action.ts';
 import type { LiquidityQueryService } from '../../../src/database/services/liquidity-query-service.ts';
@@ -9,9 +10,19 @@ import type {
 } from '../../../src/server/services/live-tail-service.ts';
 import { type FakeSocket, openFakeSocket } from '../../mocks/websocket.ts';
 
+const OTHER_VENUE = 'bybit-futures';
+
 const RECORDED = [{
     instrumentSymbol: 'BTCUSDT',
+    venue: FIRST_VENUE,
     priceBucketSize: 10,
+    frameIntervalMs: 1_000,
+    firstFrameAtMs: 1_000,
+    lastFrameAtMs: 2_000,
+}, {
+    instrumentSymbol: 'BTCUSDT',
+    venue: OTHER_VENUE,
+    priceBucketSize: 25,
     frameIntervalMs: 1_000,
     firstFrameAtMs: 1_000,
     lastFrameAtMs: 2_000,
@@ -39,8 +50,14 @@ function buildHarness(): Harness {
 }
 
 /** A connect request for one instrument, resuming after an instant. */
-function buildRequest(symbol: string, afterMs = 1_500): FastifyRequest<{ Querystring: LiveFilters }> {
-    return { query: { symbol, afterMs } } as FastifyRequest<{ Querystring: LiveFilters }>;
+function buildRequest(
+    symbol: string,
+    afterMs = 1_500,
+    venue?: string,
+): FastifyRequest<{ Querystring: LiveFilters }> {
+    return {
+        query: { symbol, afterMs, ...(venue === undefined ? {} : { venue }) },
+    } as FastifyRequest<{ Querystring: LiveFilters }>;
 }
 
 describe('createLiveHandler', () => {
@@ -58,7 +75,7 @@ describe('createLiveHandler', () => {
         await harness.handler(harness.socket, buildRequest('DOGEUSDT'));
 
         expect(harness.socket.closures).toEqual([
-            { code: 1008, reason: 'Instrument DOGEUSDT has never been recorded' },
+            { code: 1008, reason: `${FIRST_VENUE} has never recorded DOGEUSDT` },
         ]);
     });
 
@@ -88,5 +105,32 @@ describe('createLiveHandler', () => {
         await harness.handler(harness.socket, buildRequest('BTCUSDT'));
 
         expect(harness.socket.closures[0]?.code).not.toBe(1008);
+    });
+});
+
+describe('createLiveHandler and two venues on one symbol', () => {
+    it('places the tail on the grid of the venue that was asked for', async () => {
+        // The two are recorded on different grids, and a tail is laid onto
+        // whichever grid it is handed. Matched by the symbol alone, the row
+        // that sorted first would decide what the other venue's book is drawn
+        // against — and every price on it would land in the wrong row.
+        const harness = buildHarness();
+
+        await harness.handler(harness.socket, buildRequest('BTCUSDT', 1_500, OTHER_VENUE));
+
+        expect(harness.subscribe.mock.calls[0]?.[0]).toMatchObject({
+            venue: OTHER_VENUE,
+            priceBucketSize: 25,
+        });
+    });
+
+    it('refuses a symbol this venue has never recorded, though another has', async () => {
+        const harness = buildHarness();
+
+        await harness.handler(harness.socket, buildRequest('BTCUSDT', 1_500, 'okx-futures'));
+
+        expect(harness.socket.closures).toEqual([
+            { code: 1008, reason: 'okx-futures has never recorded BTCUSDT' },
+        ]);
     });
 });

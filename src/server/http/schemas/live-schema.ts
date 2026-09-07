@@ -2,6 +2,14 @@ import { type Static, Type } from '@sinclair/typebox';
 
 export const LiveFiltersSchema = Type.Object({
     symbol: Type.String({ minLength: 1, maxLength: 32 }),
+    /**
+     * Which venue's recording to follow, or absent for the one that came first.
+     *
+     * Optional so a page built before the recording was keyed by venue still
+     * gets a tail, rather than being refused by a gateway it cannot know
+     * changed under it.
+     */
+    venue: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
     /** Newest frame the client already holds; the tail resumes strictly after it. */
     afterMs: Type.Integer({ minimum: 0, default: 0 }),
     /**

@@ -278,6 +278,7 @@ describe('the whole book as squares, kept in a page', () => {
 
         const window = await tail.fetchFramesAfter({
             symbol: 'BTCUSDT',
+            venue: CONTRACT.venue,
             afterMs: STARTED_AT_MS + 20 * INTERVAL_MS,
             maxFrames: 100,
             frameIntervalMs: INTERVAL_MS,

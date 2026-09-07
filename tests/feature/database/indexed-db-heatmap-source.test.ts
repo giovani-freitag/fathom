@@ -89,10 +89,12 @@ describe('IndexedDbHeatmapSource', () => {
         // A gap the reader is looking at from the middle still has to be drawn,
         // or the chart claims that stretch was recorded.
         await archive.recordGap({
+            venue: FIRST_VENUE,
             instrumentSymbol: 'BTCUSDT',
             gap: { gapStartedAtMs: FIRST_MS - 5_000, gapEndedAtMs: FIRST_MS + 2_000, gapReason: 'the stream dropped' },
         });
         await archive.recordGap({
+            venue: FIRST_VENUE,
             instrumentSymbol: 'BTCUSDT',
             gap: { gapStartedAtMs: FIRST_MS - 90_000, gapEndedAtMs: FIRST_MS - 80_000, gapReason: 'the stream dropped' },
         });
@@ -111,6 +113,7 @@ describe('IndexedDbHeatmapSource', () => {
             buyQuantity: 1, sellQuantity: 0, tradeCount: 1, largestTradeQuantity: 1,
         });
         await archive.appendTradeClusters({
+            venue: FIRST_VENUE,
             instrumentSymbol: 'BTCUSDT',
             priceBucketSize: 10,
             clusters: [build(FIRST_MS + 1_000), build(FIRST_MS + 30_000), build(FIRST_MS + 500_000)],

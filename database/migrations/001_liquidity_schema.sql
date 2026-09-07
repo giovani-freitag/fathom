@@ -9,6 +9,7 @@ CREATE EXTENSION IF NOT EXISTS timescaledb;
 -- visible after aggregation instead of dissolving into its neighbours.
 CREATE TABLE IF NOT EXISTS trade_cluster (
     executed_at            TIMESTAMPTZ      NOT NULL,
+    venue                  TEXT             NOT NULL DEFAULT 'binance-futures',
     instrument_symbol      TEXT             NOT NULL,
     price_bucket_size      DOUBLE PRECISION NOT NULL,
     price_bucket_index     INTEGER          NOT NULL,
@@ -25,6 +26,7 @@ CREATE TABLE IF NOT EXISTS trade_cluster (
 CREATE TABLE IF NOT EXISTS recording_gap (
     gap_started_at    TIMESTAMPTZ NOT NULL,
     gap_ended_at      TIMESTAMPTZ NOT NULL,
+    venue             TEXT        NOT NULL DEFAULT 'binance-futures',
     instrument_symbol TEXT        NOT NULL,
     gap_reason        TEXT        NOT NULL,
     CONSTRAINT recording_gap_ends_after_it_starts CHECK (gap_ended_at >= gap_started_at)
@@ -35,8 +37,13 @@ SELECT create_hypertable(
     if_not_exists => TRUE
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS trade_cluster_identity_idx
-    ON trade_cluster (instrument_symbol, executed_at DESC, price_bucket_index);
+-- The venue leads, because a contract is a venue and a symbol. Keyed by the
+-- symbol alone, the second venue to print at a given instant and price would
+-- have that print dropped by the collector's ON CONFLICT DO NOTHING.
+--
+-- Migration 013 puts this index on a database that already has the other one.
+CREATE UNIQUE INDEX IF NOT EXISTS trade_cluster_contract_identity_idx
+    ON trade_cluster (venue, instrument_symbol, executed_at DESC, price_bucket_index);
 
 CREATE INDEX IF NOT EXISTS recording_gap_symbol_time_idx
     ON recording_gap (instrument_symbol, gap_started_at DESC);

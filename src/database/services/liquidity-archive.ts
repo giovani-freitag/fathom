@@ -2,22 +2,17 @@ import type { ChunkContract } from '../core/chunk-row-store.ts';
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
 
-export interface TradeClusterAppendRequest {
-    readonly instrumentSymbol: string;
+export interface TradeClusterAppendRequest extends ChunkContract {
     readonly priceBucketSize: number;
     readonly clusters: readonly TradeCluster[];
 }
 
-export interface InstrumentRegistrationRequest {
-    readonly instrumentSymbol: string;
-    /** Which venue the collector is reading, which is half the row's key. */
-    readonly venue: string;
+export interface InstrumentRegistrationRequest extends ChunkContract {
     readonly priceBucketSize: number;
     readonly frameIntervalMs: number;
 }
 
-export interface GapRecordRequest {
-    readonly instrumentSymbol: string;
+export interface GapRecordRequest extends ChunkContract {
     readonly gap: RecordingGap;
 }
 

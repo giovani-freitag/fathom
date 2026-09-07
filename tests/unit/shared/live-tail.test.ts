@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildTailFrame, buildTailWindow, createLiveTailSourceMock, type LiveTailSourceMock } from '../../mocks/live-tail-source.ts';
 import { LiveTail } from '../../../src/shared/core/live-tail.ts';
@@ -15,6 +16,7 @@ describe('LiveTail', () => {
         delivered = [];
         tail = new LiveTail({
             source: source.source,
+            venue: FIRST_VENUE,
             instrumentSymbol: 'BTCUSDT',
             afterMs: RESUME_FROM_MS,
             maxFramesPerPoll: 50,
@@ -30,6 +32,7 @@ describe('LiveTail', () => {
         const told: number[] = [];
         const failing = new LiveTail({
             source: source.source,
+            venue: FIRST_VENUE,
             instrumentSymbol: 'BTCUSDT',
             afterMs: RESUME_FROM_MS,
             maxFramesPerPoll: 50,
@@ -69,6 +72,7 @@ describe('LiveTail', () => {
         // hundredth of it.
         const banded = new LiveTail({
             source: source.source,
+            venue: FIRST_VENUE,
             instrumentSymbol: 'BTCUSDT',
             afterMs: RESUME_FROM_MS,
             maxFramesPerPoll: 50,
@@ -91,6 +95,7 @@ describe('LiveTail', () => {
         // chart stops dead at the live edge.
         const banded = new LiveTail({
             source: source.source,
+            venue: FIRST_VENUE,
             instrumentSymbol: 'BTCUSDT',
             afterMs: RESUME_FROM_MS,
             maxFramesPerPoll: 50,
@@ -107,6 +112,7 @@ describe('LiveTail', () => {
     it('tells the store what one instant covers, so no catch-up is folded', async () => {
         const paced = new LiveTail({
             source: source.source,
+            venue: FIRST_VENUE,
             instrumentSymbol: 'BTCUSDT',
             afterMs: RESUME_FROM_MS,
             maxFramesPerPoll: 50,

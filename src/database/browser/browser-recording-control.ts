@@ -125,9 +125,14 @@ export class BrowserRecordingControl implements RecordingControl {
             maximumBytes: (await this.read())?.maximumBytes ?? null,
         });
 
-        // Every store the recording touches, by the one field they all key on.
-        const named = IDBKeyRange.only(instrumentSymbol);
-        const under = IDBKeyRange.bound([instrumentSymbol], [instrumentSymbol, []]);
+        // Every store the recording touches, by the pair they all key on.
+        // Bounded by the symbol alone, taking one exchange's BTCUSDT away
+        // would take every exchange's recording of it.
+        const named = IDBKeyRange.only([venue, instrumentSymbol]);
+        const under = IDBKeyRange.bound(
+            [venue, instrumentSymbol],
+            [venue, instrumentSymbol, []],
+        );
         await this.config.database.transact([
             STORES.instrumentRegistry,
             STORES.tradeCluster,

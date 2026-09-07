@@ -3,11 +3,21 @@
 -- rollups below pre-compute the two coarser time grids the viewer actually asks for.
 -- Price granularity is preserved at every level; only time is rolled up, which lets
 -- a query pick the coarsest grid finer than its requested resolution.
+--
+-- The venue is carried down with the symbol, because a contract is both. Grouped
+-- by the symbol alone, two venues' prints at one price would be summed into one
+-- figure that neither of them traded.
+--
+-- A continuous aggregate's definition cannot be altered, so a database that
+-- already holds these under the older grouping does not get the new one from
+-- here: `CREATE ... IF NOT EXISTS` finds them and leaves them. That is what
+-- `scripts/rekey-trade-rollups.mjs` is for, once.
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS trade_cluster_minute
 WITH (timescaledb.continuous) AS
 SELECT
     time_bucket(INTERVAL '1 minute', executed_at) AS executed_at,
+    venue,
     instrument_symbol,
     price_bucket_size,
     price_bucket_index,
@@ -16,13 +26,14 @@ SELECT
     SUM(trade_count)::INTEGER                     AS trade_count,
     MAX(largest_trade_quantity)::REAL             AS largest_trade_quantity
 FROM trade_cluster
-GROUP BY 1, 2, 3, 4
+GROUP BY 1, 2, 3, 4, 5
 WITH NO DATA;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS trade_cluster_hour
 WITH (timescaledb.continuous) AS
 SELECT
     time_bucket(INTERVAL '1 hour', executed_at) AS executed_at,
+    venue,
     instrument_symbol,
     price_bucket_size,
     price_bucket_index,
@@ -31,7 +42,7 @@ SELECT
     SUM(trade_count)::INTEGER                   AS trade_count,
     MAX(largest_trade_quantity)::REAL           AS largest_trade_quantity
 FROM trade_cluster_minute
-GROUP BY 1, 2, 3, 4
+GROUP BY 1, 2, 3, 4, 5
 WITH NO DATA;
 
 -- `end_offset` stays ahead of the newest data so the refresh never competes with

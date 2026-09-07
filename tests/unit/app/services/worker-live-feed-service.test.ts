@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import { buildFrame, buildWindow } from '../../../mocks/chart-services.ts';
 import type { LiveFeedStatus } from '../../../../src/app/services/live-feed.ts';
@@ -16,6 +17,7 @@ describe('WorkerLiveFeedService', () => {
     function follow(instrumentSymbol = 'BTCUSDT'): void {
         feed.connect({
             instrumentSymbol,
+            venue: FIRST_VENUE,
             afterMs: RESUME_FROM_MS,
             onMessage: (message) => { received.push(message); },
             onStatusChanged: (status) => { statuses.push(status); },

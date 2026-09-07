@@ -147,12 +147,25 @@ function describeContract(state: ChartState): string {
     return `${state.venue ?? ''}/${state.instrumentSymbol ?? ''}`;
 }
 
-export function isOpenRecorded(state: ChartState): boolean {
+export function isOpenRecorded(state: ChartState): state is OpenRecordedChart {
     return state.instruments.some((candidate) => (
         candidate.instrumentSymbol === state.instrumentSymbol
         && candidate.venue === state.venue
     ));
 }
+
+/**
+ * A chart open on a contract the archive holds, with both halves of it named.
+ *
+ * Narrowed by the check above rather than asserted beside it: a listed
+ * instrument always names a venue and a symbol, so a state that matched one has
+ * them both — and stating that here means a caller cannot pass the recorded-ness
+ * gate and still have to remember a separate check for the venue.
+ */
+type OpenRecordedChart = ChartState & {
+    readonly venue: string;
+    readonly instrumentSymbol: string;
+};
 
 export interface ChartControllerConfig {
     readonly api: HeatmapSource;
@@ -702,14 +715,10 @@ export class ChartController {
 
     private openLiveTail(): void {
         const state = this.store.read();
-        if (state.instrumentSymbol === null || this.wasDisposed) {
-            return;
-        }
-
         // The gate lives here rather than at each caller, so no caller can get
         // past it: the window's own correction used to reopen a tail with no
         // such check at all, on a contract the archive has never held.
-        if (!isOpenRecorded(state)) {
+        if (this.wasDisposed || !isOpenRecorded(state)) {
             return;
         }
 
@@ -720,6 +729,7 @@ export class ChartController {
 
         this.config.liveFeed.connect({
             instrumentSymbol: state.instrumentSymbol,
+            venue: state.venue,
             afterMs: newestFrameTimestamp(state.dataset) ?? Date.now(),
             // A band the chart has not framed itself on yet names no prices,
             // and a tail asked for none of them reads all of them, which is

@@ -3,6 +3,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { QUERY_LIMITS } from '../../core/gateway-configuration.ts';
 import { refuseUnansweredWindow } from './window-guard.ts';
 import type { TradeClustersFilters } from '../schemas/trade-clusters-schema.ts';
+import { FIRST_VENUE } from '../../../shared/core/recording-control.ts';
 
 export interface TradeClustersHandlerConfig {
     readonly query: LiquidityQueryService;
@@ -27,6 +28,7 @@ export function createTradeClustersHandler(config: TradeClustersHandlerConfig) {
 
         const window = await config.query.fetchTradeClusters({
             ...filters,
+            venue: filters.venue ?? FIRST_VENUE,
             maxClusters: QUERY_LIMITS.maximumClusters,
         });
 

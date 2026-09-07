@@ -75,6 +75,7 @@ export class LiveFeedService implements LiveFeed {
         const socketUrl = new URL(`${this.config.baseUrl}${API_ROUTES.live}`);
         socketUrl.protocol = socketUrl.protocol === 'https:' ? 'wss:' : 'ws:';
         socketUrl.searchParams.set('symbol', subscription.instrumentSymbol);
+        socketUrl.searchParams.set('venue', subscription.venue);
         socketUrl.searchParams.set('afterMs', String(Math.floor(this.newestFrameMs)));
         if (subscription.source !== undefined) {
             socketUrl.searchParams.set('source', subscription.source);

@@ -36,6 +36,7 @@ describe('IndexedDbLiveTailSource carrying what no store keeps twice', () => {
         // The read the tail makes on every pass. It is the one that never ran
         // in the page, which left aggressor bubbles frozen until a reload.
         await archive.appendTradeClusters({
+            venue: FIRST_VENUE,
             instrumentSymbol: 'BTCUSDT',
             priceBucketSize: 10,
             clusters: [
@@ -47,7 +48,7 @@ describe('IndexedDbLiveTailSource carrying what no store keeps twice', () => {
         });
 
         const clusters = await source.fetchTradeClustersBetween({
-            symbol: 'BTCUSDT', fromMs: FIRST_MS, toMs: FIRST_MS + 1_001,
+            symbol: 'BTCUSDT', venue: FIRST_VENUE, fromMs: FIRST_MS, toMs: FIRST_MS + 1_001,
         });
 
         expect(clusters).toHaveLength(3);
@@ -55,11 +56,12 @@ describe('IndexedDbLiveTailSource carrying what no store keeps twice', () => {
 
     it('keeps one contract s executions out of another s', async () => {
         await archive.appendTradeClusters({
-            instrumentSymbol: 'ETHUSDT', priceBucketSize: 0.5, clusters: [buildCluster(FIRST_MS)],
+            venue: FIRST_VENUE, instrumentSymbol: 'ETHUSDT',
+            priceBucketSize: 0.5, clusters: [buildCluster(FIRST_MS)],
         });
 
         const clusters = await source.fetchTradeClustersBetween({
-            symbol: 'BTCUSDT', fromMs: 0, toMs: FIRST_MS + 100_000,
+            symbol: 'BTCUSDT', venue: FIRST_VENUE, fromMs: 0, toMs: FIRST_MS + 100_000,
         });
 
         expect(clusters).toEqual([]);
@@ -67,12 +69,13 @@ describe('IndexedDbLiveTailSource carrying what no store keeps twice', () => {
 
     it('reports a gap that ended inside the stretch', async () => {
         await archive.recordGap({
+            venue: FIRST_VENUE,
             instrumentSymbol: 'BTCUSDT',
             gap: { gapStartedAtMs: FIRST_MS - 500, gapEndedAtMs: FIRST_MS + 500, gapReason: 'the stream dropped' },
         });
 
         const gaps = await source.fetchGapsBetween({
-            symbol: 'BTCUSDT', fromMs: FIRST_MS, toMs: FIRST_MS + 1_000,
+            symbol: 'BTCUSDT', venue: FIRST_VENUE, fromMs: FIRST_MS, toMs: FIRST_MS + 1_000,
         });
 
         expect(gaps).toHaveLength(1);
@@ -80,12 +83,13 @@ describe('IndexedDbLiveTailSource carrying what no store keeps twice', () => {
 
     it('does not report a gap the reader has already been told about', async () => {
         await archive.recordGap({
+            venue: FIRST_VENUE,
             instrumentSymbol: 'BTCUSDT',
             gap: { gapStartedAtMs: 1, gapEndedAtMs: 2, gapReason: 'the stream dropped' },
         });
 
         const gaps = await source.fetchGapsBetween({
-            symbol: 'BTCUSDT', fromMs: FIRST_MS, toMs: FIRST_MS + 1_000,
+            symbol: 'BTCUSDT', venue: FIRST_VENUE, fromMs: FIRST_MS, toMs: FIRST_MS + 1_000,
         });
 
         expect(gaps).toEqual([]);

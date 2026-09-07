@@ -5,6 +5,7 @@ import type { WebSocket } from '@fastify/websocket';
 import { LiveSocketBridge } from '../../services/live-socket-bridge.ts';
 import type { LiveTailService } from '../../services/live-tail-service.ts';
 import type { LiveFilters } from '../schemas/live-schema.ts';
+import { FIRST_VENUE } from '../../../shared/core/recording-control.ts';
 
 /** Close code for a refusal no retry will fix. */
 const SOCKET_POLICY_VIOLATION = 1008;
@@ -35,6 +36,7 @@ export function createLiveHandler(config: LiveHandlerConfig): LiveHandler {
         request: FastifyRequest<{ Querystring: LiveFilters }>,
     ): Promise<void> {
         const { symbol, afterMs, lowPrice, highPrice } = request.query;
+        const venue = request.query.venue ?? FIRST_VENUE;
 
         let instruments: readonly InstrumentCoverage[];
         try {
@@ -46,15 +48,25 @@ export function createLiveHandler(config: LiveHandlerConfig): LiveHandler {
             return;
         }
 
-        const instrument = instruments.find((candidate) => candidate.instrumentSymbol === symbol);
+        // Matched on both halves. Two venues listing one symbol have two
+        // grids, and the tail is placed on whichever grid it is handed —
+        // so the first row to sort would decide what the other's book is
+        // drawn against.
+        const instrument = instruments.find((candidate) => (
+            candidate.venue === venue && candidate.instrumentSymbol === symbol
+        ));
         if (instrument === undefined) {
-            socket.close(SOCKET_POLICY_VIOLATION, `Instrument ${symbol} has never been recorded`);
+            socket.close(
+                SOCKET_POLICY_VIOLATION,
+                `${venue} has never recorded ${symbol}`,
+            );
             return;
         }
 
         new LiveSocketBridge({
             socket,
             liveTail: config.liveTail,
+            venue,
             instrumentSymbol: symbol,
             afterMs: afterMs === 0 ? Date.now() : afterMs,
             priceBucketSize: instrument.priceBucketSize,

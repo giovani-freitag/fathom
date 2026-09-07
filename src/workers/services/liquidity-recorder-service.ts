@@ -104,6 +104,7 @@ export class LiquidityRecorderService {
         });
         this.writeBuffer = new ArchiveWriteBuffer({
             archive: config.archive,
+            venue: config.venue,
             instrumentSymbol: config.instrumentSymbol,
             priceBucketSize: config.priceBucketSize,
             maximumBufferedTradeClusters: config.maximumBufferedTradeClusters,

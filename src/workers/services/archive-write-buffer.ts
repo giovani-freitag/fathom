@@ -1,11 +1,11 @@
 import type { RecordingGap } from '../../shared/core/recording-gap.ts';
 import type { TradeCluster } from '../../shared/core/trade-cluster.ts';
+import type { ChunkContract } from '../../database/core/chunk-row-store.ts';
 import type { LiquidityArchive } from '../../database/services/liquidity-archive.ts';
 import { describeError } from '../core/collector-log.ts';
 
-export interface ArchiveWriteBufferConfig {
+export interface ArchiveWriteBufferConfig extends ChunkContract {
     readonly archive: LiquidityArchive;
-    readonly instrumentSymbol: string;
     readonly priceBucketSize: number;
     readonly maximumBufferedTradeClusters: number;
     readonly onWriteFailed: (reason: string) => void;
@@ -103,6 +103,7 @@ export class ArchiveWriteBuffer {
         for (const gap of gaps) {
             try {
                 await this.config.archive.recordGap({
+                    venue: this.config.venue,
                     instrumentSymbol: this.config.instrumentSymbol,
                     gap,
                 });
@@ -123,6 +124,7 @@ export class ArchiveWriteBuffer {
 
         try {
             await this.config.archive.appendTradeClusters({
+                venue: this.config.venue,
                 instrumentSymbol: this.config.instrumentSymbol,
                 priceBucketSize: this.config.priceBucketSize,
                 clusters,

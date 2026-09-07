@@ -71,6 +71,14 @@ export interface InstrumentListResponse {
 /** Time window shared by every history query. */
 export interface WindowQuery {
     readonly symbol: string;
+    /**
+     * Which venue's recording answers it.
+     *
+     * The registry, the squares and the hole ledger are all keyed by the venue
+     * and the symbol together, so a window named by the symbol alone is one
+     * whichever venue sorted first would answer.
+     */
+    readonly venue: string;
     readonly fromMs: number;
     readonly toMs: number;
     readonly maxColumns: number;

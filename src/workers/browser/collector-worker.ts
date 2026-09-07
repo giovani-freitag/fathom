@@ -16,6 +16,7 @@ import { IndexedDbChunkRowStore } from '../../database/browser/indexed-db-chunk-
 import { StoredDepthTailSource } from '../../shared/core/stored-depth-tail-source.ts';
 import { LiveTail } from '../../shared/core/live-tail.ts';
 import { openBrowserMarketDataSocket } from './browser-market-data-socket.ts';
+import type { ChunkContract } from '../../database/core/chunk-row-store.ts';
 
 /**
  * How often the chosen contracts and the ceiling are re-read.
@@ -171,6 +172,7 @@ function subscribe(instrumentSymbol: string, afterMs: number): void {
             rest: recorded,
             readNowMs: () => Date.now(),
         }),
+        venue: FIRST_VENUE,
         instrumentSymbol,
         afterMs,
         maxFramesPerPoll: MAXIMUM_FRAMES_PER_CATCH_UP,
@@ -195,8 +197,11 @@ function unsubscribe(): void {
 /**
  * Catches the tail up when the contract it follows has just grown.
  */
-function handleArchiveWritten(writtenSymbol: string): void {
-    if (writtenSymbol === tailSymbol) {
+function handleArchiveWritten(written: ChunkContract): void {
+    // The page records one venue, so the symbol is what tells its contracts
+    // apart — matched on both anyway, so that the day it records two the tail
+    // is not woken by the other one's writes.
+    if (written.venue === FIRST_VENUE && written.instrumentSymbol === tailSymbol) {
         void tail?.advance();
     }
 }

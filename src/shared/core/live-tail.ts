@@ -5,6 +5,8 @@ import type { TradeCluster } from './trade-cluster.ts';
 
 export interface FramesAfterRequest {
     readonly symbol: string;
+    /** Which venue's recording is being extended. */
+    readonly venue: string;
     /** Newest instant already delivered; the read resumes strictly after it. */
     readonly afterMs: number;
     readonly maxFrames: number;
@@ -33,6 +35,8 @@ export interface FramesAfterRequest {
 
 export interface BetweenRequest {
     readonly symbol: string;
+    /** Which venue's recording is being extended. */
+    readonly venue: string;
     readonly fromMs: number;
     readonly toMs: number;
 }
@@ -54,6 +58,7 @@ export interface LiveTailSource {
 
 export interface LiveTailConfig {
     readonly source: LiveTailSource;
+    readonly venue: string;
     readonly instrumentSymbol: string;
     /** Newest instant the reader already holds. */
     readonly afterMs: number;
@@ -155,6 +160,7 @@ export class LiveTail {
     private async deliverFrames(): Promise<void> {
         const window = await this.config.source.fetchFramesAfter({
             symbol: this.config.instrumentSymbol,
+            venue: this.config.venue,
             afterMs: this.frameCursorMs,
             maxFrames: this.config.maxFramesPerPoll,
             // Prices only, never a row budget. Folded to a budget the tail would
@@ -184,6 +190,7 @@ export class LiveTail {
 
         const clusters = await this.config.source.fetchTradeClustersBetween({
             symbol: this.config.instrumentSymbol,
+            venue: this.config.venue,
             fromMs: this.tradeCursorMs,
             // Inclusive of the newest frame's own instant, which is the last one
             // the reader is about to draw.
@@ -203,6 +210,7 @@ export class LiveTail {
 
         const gaps = await this.config.source.fetchGapsBetween({
             symbol: this.config.instrumentSymbol,
+            venue: this.config.venue,
             fromMs: this.gapCursorMs,
             toMs: this.frameCursorMs + 1,
         });

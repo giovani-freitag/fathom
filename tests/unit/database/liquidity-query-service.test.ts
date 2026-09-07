@@ -1,3 +1,4 @@
+import { FIRST_VENUE } from '../../../src/shared/core/recording-control.ts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChunkCoverage, ChunkRowStore } from '../../../src/database/core/chunk-row-store.ts';
 import { LiquidityQueryService } from '../../../src/database/services/liquidity-query-service.ts';
@@ -5,7 +6,7 @@ import type { PostgresService } from '../../../src/database/postgres/postgres-se
 
 const REGISTRY_ROW = {
     instrument_symbol: 'BTCUSDT',
-    venue: 'binance-futures',
+    venue: FIRST_VENUE,
     price_bucket_size: 10,
     frame_interval_ms: 1_000,
 };
@@ -50,7 +51,7 @@ describe('LiquidityQueryService', () => {
         await service.listInstruments();
 
         expect(readCoverage).toHaveBeenCalledWith({
-            venue: 'binance-futures',
+            venue: FIRST_VENUE,
             instrumentSymbol: 'BTCUSDT',
         });
     });
@@ -82,15 +83,19 @@ describe('LiquidityQueryService', () => {
     });
 
     it('asks for gaps that overlap the window, not only those inside it', async () => {
-        await service.fetchGaps({ symbol: 'BTCUSDT', fromMs: 1_000, toMs: 2_000, maxColumns: 60 });
+        await service.fetchGaps({
+            symbol: 'BTCUSDT', venue: FIRST_VENUE,
+            fromMs: 1_000, toMs: 2_000, maxColumns: 60,
+        });
 
         expect(theQuery().statement)
-            .toContain('gap_ended_at >= $2 AND gap_started_at < $3');
+            .toContain('gap_ended_at >= $3 AND gap_started_at < $4');
     });
 
     it('reads what traded from the execution grid', async () => {
         await service.fetchTradeClusters({
             symbol: 'BTCUSDT',
+            venue: FIRST_VENUE,
             fromMs: 1_000,
             toMs: 2_000,
             maxColumns: 60,

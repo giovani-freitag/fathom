@@ -15,7 +15,7 @@ export type {
     TradeClusterAppendRequest,
 } from './liquidity-archive.ts';
 
-const TRADE_CLUSTER_COLUMN_COUNT = 8;
+const TRADE_CLUSTER_COLUMN_COUNT = 9;
 const TRADE_CLUSTERS_PER_STATEMENT = 800;
 
 export interface LiquidityArchiveServiceConfig {
@@ -87,12 +87,14 @@ export class LiquidityArchiveService implements LiquidityArchive {
      */
     async recordGap(request: GapRecordRequest): Promise<void> {
         await this.postgres.execute(
-            `INSERT INTO recording_gap (gap_started_at, gap_ended_at, instrument_symbol, gap_reason)
-             VALUES ($1, $2, $3, $4)
-             ON CONFLICT (instrument_symbol, gap_started_at) DO NOTHING`,
+            `INSERT INTO recording_gap
+                 (gap_started_at, gap_ended_at, venue, instrument_symbol, gap_reason)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (venue, instrument_symbol, gap_started_at) DO NOTHING`,
             [
                 new Date(request.gap.gapStartedAtMs),
                 new Date(request.gap.gapEndedAtMs),
+                request.venue,
                 request.instrumentSymbol,
                 request.gap.gapReason,
             ],
@@ -120,6 +122,7 @@ export class LiquidityArchiveService implements LiquidityArchive {
         for (const cluster of clusters) {
             parameters.push(
                 new Date(cluster.executedAtMs),
+                request.venue,
                 request.instrumentSymbol,
                 request.priceBucketSize,
                 cluster.priceBucketIndex,
@@ -132,7 +135,7 @@ export class LiquidityArchiveService implements LiquidityArchive {
 
         await this.postgres.execute(
             `INSERT INTO trade_cluster (
-                 executed_at, instrument_symbol, price_bucket_size, price_bucket_index,
+                 executed_at, venue, instrument_symbol, price_bucket_size, price_bucket_index,
                  buy_quantity, sell_quantity, trade_count, largest_trade_quantity
              ) VALUES ${buildValuesClause(clusters.length, TRADE_CLUSTER_COLUMN_COUNT)}
              ON CONFLICT DO NOTHING`,

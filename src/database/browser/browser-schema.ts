@@ -2,13 +2,13 @@
 export const DATABASE_NAME = 'fathom-demo';
 
 /** Bumped only when a store or a key path changes. */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 /** The store a page kept a row per instant in, before it kept squares. */
 const RETIRED_STORE = 'liquidity_frame';
 
 /**
- * The square stores whose key gained the venue, and what it cost to add it.
+ * The stores whose key gained the venue, and what it cost to add it.
  *
  * A key path cannot be altered, so a store keyed by the symbol alone has to be
  * dropped and made again — and what a page recorded under the old key goes with
@@ -17,7 +17,10 @@ const RETIRED_STORE = 'liquidity_frame';
  * one, so everything in it was already on its way out. The history that cannot
  * be recorded again lives on a server, under a migration that kept every row.
  */
-const REKEYED_STORES = ['liquidity_block', 'liquidity_chunk'] as const;
+const REKEYED_STORES = [
+    'instrument_registry', 'liquidity_block', 'liquidity_chunk',
+    'trade_cluster', 'recording_gap',
+] as const;
 
 /**
  * Store names, deliberately identical to the SQL tables.
@@ -68,11 +71,13 @@ export function createStores(database: IDBDatabase, upgrade: IDBTransaction): vo
     }
 
     if (!database.objectStoreNames.contains(STORES.instrumentRegistry)) {
-        database.createObjectStore(STORES.instrumentRegistry, { keyPath: 'instrumentSymbol' });
+        database.createObjectStore(STORES.instrumentRegistry, {
+            keyPath: ['venue', 'instrumentSymbol'],
+        });
     }
     if (!database.objectStoreNames.contains(STORES.tradeCluster)) {
         database.createObjectStore(STORES.tradeCluster, {
-            keyPath: ['instrumentSymbol', 'executedAtMs', 'priceBucketIndex'],
+            keyPath: ['venue', 'instrumentSymbol', 'executedAtMs', 'priceBucketIndex'],
         });
     }
     if (!database.objectStoreNames.contains(STORES.recordingControl)) {
@@ -83,7 +88,7 @@ export function createStores(database: IDBDatabase, upgrade: IDBTransaction): vo
     }
     if (!database.objectStoreNames.contains(STORES.recordingGap)) {
         database.createObjectStore(STORES.recordingGap, {
-            keyPath: ['instrumentSymbol', 'gapStartedAtMs'],
+            keyPath: ['venue', 'instrumentSymbol', 'gapStartedAtMs'],
         });
     }
     // The whole book as fixed squares, the same shape a server keeps it in. A
