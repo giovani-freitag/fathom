@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.17.0](https://github.com/giovani-freitag/fathom/compare/v0.16.6...v0.17.0) (2026-09-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* record as many pairs as the reader asks for
+
+### Features
+
+* record as many pairs as the reader asks for ([acaabde](https://github.com/giovani-freitag/fathom/commit/acaabde7c0ed3bbe02ed4ea68840cb279c17b914))
+
 ## [0.16.6](https://github.com/giovani-freitag/fathom/compare/v0.16.5...v0.16.6) (2026-09-08)
 
 
