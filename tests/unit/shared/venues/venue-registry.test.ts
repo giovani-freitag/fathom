@@ -3,6 +3,7 @@ import {
     forgetConnector,
     readMarkFor,
     isLegalConnectorId,
+    isShippedVenue,
     listConnectors,
     readFactsFor,
     registerConnector,
@@ -96,17 +97,29 @@ describe('what may be a connector name', () => {
 });
 
 describe('the mark a venue is drawn with', () => {
-    it('guesses it from the host the venue answers on', () => {
-        // Most venues serve one at the root of the same domain their API is on,
-        // and guessing costs a connector author nothing.
-        registerConnector('marked', Object.assign(buildConnector({
+    it('guesses nothing from the host the venue answers on', () => {
+        // It used to guess `/favicon.ico` there, which named the API host — and
+        // an API host serves no mark for most venues. The guess failed for five
+        // of the six shipped, failed silently, and so nobody went looking for
+        // the address that would have worked.
+        registerConnector('unmarked', Object.assign(buildConnector({
             book: null, tape: null, bars: null,
         }), { planInstruments: () => ({ url: 'https://api.example.test/v1/pairs?from=0' }) }));
 
-        expect(readMarkFor('marked')).toBe('https://api.example.test/favicon.ico');
+        expect(readMarkFor('unmarked')).toBeNull();
     });
 
-    it('takes the address a connector named over the guess', () => {
+    it('every shipped venue names one, because a letter is the reader-brought case', () => {
+        // A connector added to the build without one draws a letter for ever,
+        // and nothing fails to say so.
+        const shipped = listConnectors()
+            .map(([id]) => id)
+            .filter((id) => isShippedVenue(id));
+
+        expect(shipped.filter((id) => readMarkFor(id) === null)).toEqual([]);
+    });
+
+    it('takes the address a connector named', () => {
         registerConnector('named', Object.assign(buildConnector({
             book: null, tape: null, bars: null,
         }), {

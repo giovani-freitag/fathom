@@ -616,16 +616,19 @@ Yours, inside your own class:
   hold is yours to keep correct across a reconnect, a second chart, and a replay.
 
 - **The mark your venue is drawn with.** Lists that name a venue draw its icon
-  beside it, guessed from the host your first request goes to — `/favicon.ico`
-  at that origin. Where your venue's API answers on a host with no mark of its
-  own, name the address outright:
+  beside it, from the address you name and from nowhere else:
 
   ```ts
   readonly markUrl = 'https://brand.example.com/icon.svg';
   ```
 
-  A guess that fails costs nothing: the row falls back to the letter the venue
-  starts with, and nothing about it moves when the picture does not arrive.
+  It used to be guessed at `/favicon.ico` on the host your first request goes
+  to. That host serves no mark for most venues, so the guess failed almost
+  always and failed silently — name it, or leave it null on purpose.
+
+  Naming nothing costs nothing: the row draws the letter your venue starts with,
+  in a colour its name decides, and nothing about it moves when no picture
+  arrives.
 
 The engine's, today:
 

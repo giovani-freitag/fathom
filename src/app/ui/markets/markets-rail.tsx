@@ -5,6 +5,7 @@ import { RailAdd, RailHeading, RailRow, type RailRowProps } from './rail-row.tsx
 import { FAVOURITES_ID, type PairTag, type TagColour } from '../../../shared/core/pair-tags.ts';
 import { labelOf } from '../../markets/tag-names.ts';
 import { TagColourPicker } from './tag-colour-picker.tsx';
+import { VenueMark } from './venue-mark.tsx';
 import type { Translate } from '../../i18n/translator.ts';
 import { useState } from 'react';
 
@@ -105,6 +106,7 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
                         said={venue}
                         isOn={props.showing.kind === 'venue' && props.showing.venue === venue}
                         onPress={() => { props.onBrowse(venue); }}
+
                         {...props.broughtVenues.has(venue)
                             ? {
                                 onRemove: () => { props.onRemoveVenue(venue); },
@@ -120,7 +122,13 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
                                 editLabel: translate('markets.editConnector'),
                             }
                             : {}}
-                    />
+                    >
+                        {/* The same mark the phone's own picker draws. A tag in
+                            this rail carries its colour and a venue carried
+                            nothing, so one column read as two kinds of thing on
+                            a desktop and as one kind on a phone. */}
+                        <VenueMark venue={venue} className="ml-2 size-4" />
+                    </RailRow>
                 ))}
 
                 {props.onWriteConnector !== undefined && (

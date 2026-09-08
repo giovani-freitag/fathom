@@ -155,11 +155,14 @@ export interface VenueConnector {
     /**
      * Where the venue's own mark can be fetched, for the lists it appears in.
      *
-     * Null unless a connector says otherwise, and then the engine falls back to
-     * the icon the venue serves at the root of whatever host it answers from —
-     * which is right for most and wrong for the few whose API lives on a host
-     * with no mark of its own. A connector that knows better names the address
-     * outright rather than being guessed at.
+     * Named outright or not at all. It was once guessed at `/favicon.ico` on
+     * the host the API answers from, which is a host that serves no mark for
+     * most venues: the guess failed for five of the six shipped, and failed
+     * silently, so nobody looked for the address that would have worked.
+     *
+     * Null draws the letter the venue starts with, which is not a stopgap but
+     * the other half of the design — a venue a reader brought themselves may
+     * have no mark to name.
      */
     readonly markUrl: string | null;
 
@@ -356,7 +359,7 @@ export abstract class Connector implements VenueConnector {
     /** What the shipped venues tolerate, until a connector says otherwise. */
     readonly pacing: VenuePacing = DEFAULT_PACING;
 
-    /** Guessed from where the venue answers, unless a connector names it. */
+    /** The letter the venue starts with, unless a connector names an address. */
     readonly markUrl: string | null = null;
 
     abstract planInstruments(from: number): VenueRequest;

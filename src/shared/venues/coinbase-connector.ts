@@ -24,6 +24,9 @@ const DAY_MS = 24 * HOUR_MS;
  * lists, what it traded, and the candles it has kept.
  */
 class Coinbase extends Connector {
+    /** The mark, from the storefront: the API host serves none of its own. */
+    override readonly markUrl = 'https://www.coinbase.com/favicon.ico';
+
     private static readonly REST = 'https://api.exchange.coinbase.com';
 
     private static readonly SOCKET = 'wss://ws-feed.exchange.coinbase.com';

@@ -628,16 +628,21 @@ Seus, dentro da sua própria classe:
   gráfico e de um replay.
 
 - **A marca com que a sua corretora é desenhada.** As listas que nomeiam uma
-  corretora desenham o ícone dela ao lado, adivinhado a partir do host para onde
-  vai a sua primeira requisição — o `/favicon.ico` daquela origem. Se a API da
-  sua corretora responde num host sem marca própria, diga o endereço:
+  corretora desenham o ícone dela ao lado, a partir do endereço que você diz e
+  de nenhum outro:
 
   ```ts
   readonly markUrl = 'https://brand.example.com/icon.svg';
   ```
 
-  Um palpite que falha não custa nada: a linha cai para a letra inicial da
-  corretora, e nada nela se mexe quando a imagem não chega.
+  Isso já foi adivinhado no `/favicon.ico` do host para onde vai a sua primeira
+  requisição. Esse host não serve marca para a maioria das corretoras, então o
+  palpite falhava quase sempre e falhava calado — diga o endereço, ou deixe null
+  de propósito.
+
+  Não dizer nada não custa nada: a linha desenha a letra inicial da corretora,
+  numa cor que o nome dela decide, e nada nela se mexe quando imagem nenhuma
+  chega.
 
 Do motor, hoje:
 

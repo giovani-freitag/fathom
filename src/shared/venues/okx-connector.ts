@@ -29,6 +29,9 @@ const DAY_MS = 24 * HOUR_MS;
  * declaration: no heatmap here, and the reason is a sentence rather than a gap.
  */
 class Okx extends Connector {
+    /** The mark, from the storefront: the API host serves none of its own. */
+    override readonly markUrl = 'https://www.okx.com/favicon.ico';
+
     private static readonly REST = 'https://www.okx.com';
 
     private static readonly SOCKET = 'wss://ws.okx.com:8443';

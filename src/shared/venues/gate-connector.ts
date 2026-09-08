@@ -22,6 +22,9 @@ const DAY_MS = 24 * HOUR_MS;
  * `close, high, low, open`, with the quote volume before any of them.
  */
 class Gate extends Connector {
+    /** The mark, from the storefront: the API host serves none of its own. */
+    override readonly markUrl = 'https://www.gate.io/favicon.ico';
+
     private static readonly REST = 'https://api.gateio.ws';
 
     private static readonly SOCKET = 'wss://api.gateio.ws/ws/v4/';

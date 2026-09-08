@@ -22,6 +22,15 @@ import type { VenueDeclaration } from '../core/venue-plan.ts';
  */
 class BinanceFutures extends Connector {
     /** Where the venue serves its past and its ladders from. */
+    /**
+     * The mark, taken from the static host rather than the storefront.
+     *
+     * `www` answers a bot wall here — 202 and a page of HTML where an icon
+     * was asked for — so the address that actually serves the picture is
+     * the one the storefront itself loads it from.
+     */
+    override readonly markUrl = 'https://bin.bnbstatic.com/static/images/common/favicon.ico';
+
     private static readonly REST = 'https://fapi.binance.com';
 
     /** Where it publishes what is happening now. */

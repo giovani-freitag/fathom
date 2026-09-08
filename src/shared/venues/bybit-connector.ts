@@ -22,6 +22,9 @@ const DAY_MS = 24 * HOUR_MS;
  * be walked. It is here for that as much as for the market.
  */
 class Bybit extends Connector {
+    /** The mark, from the storefront: the API host serves none of its own. */
+    override readonly markUrl = 'https://www.bybit.com/favicon.ico';
+
     private static readonly REST = 'https://api.bybit.com';
 
     private static readonly SOCKET = 'wss://stream.bybit.com';

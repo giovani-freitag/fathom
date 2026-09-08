@@ -413,7 +413,7 @@ const DEFAULT_PACING = {
 var Connector = class {
 	/** What the shipped venues tolerate, until a connector says otherwise. */
 	pacing = DEFAULT_PACING;
-	/** Guessed from where the venue answers, unless a connector names it. */
+	/** The letter the venue starts with, unless a connector names an address. */
 	markUrl = null;
 	/**
 	* How many the venue says it lists. None said, unless a connector says so.

@@ -28,6 +28,9 @@ const DAY_MS = 24 * HOUR_MS;
  * than a list of them, which is why nothing here reaches for `requireList`.
  */
 class Kraken extends Connector {
+    /** The mark, from the storefront: the API host serves none of its own. */
+    override readonly markUrl = 'https://www.kraken.com/favicon.ico';
+
     private static readonly REST = 'https://api.kraken.com';
 
     private static readonly SOCKET = 'wss://ws.kraken.com/v2';

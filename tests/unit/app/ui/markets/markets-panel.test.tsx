@@ -137,6 +137,16 @@ describe('the card a reader picks a contract on', () => {
         expect(railRow('Favourites')).toBeDefined();
     });
 
+    it('draws the venue its own mark in the rail, as the phone picker does', () => {
+        // A tag in this rail carries its colour and a venue carried nothing, so
+        // one column read as two kinds of thing on a desktop and as one kind on
+        // a phone, where the picker had drawn the mark all along.
+        renderPanel();
+
+        const row = screen.getByRole('button', { name: FIRST_VENUE }).parentElement;
+        expect(row?.querySelector('img, [aria-hidden="true"]')).not.toBeNull();
+    });
+
     it('asks the venue what it trades the moment one is picked', async () => {
         renderPanel();
 

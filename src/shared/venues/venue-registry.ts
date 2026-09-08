@@ -163,15 +163,9 @@ export function readMarkFor(connectorId: string): string | null {
     if (connector === undefined) {
         return null;
     }
-    if (connector.markUrl !== null) {
-        return connector.markUrl;
-    }
-
-    try {
-        return new URL('/favicon.ico', connector.planInstruments(0).url).href;
-    } catch {
-        // A connector that cannot describe its first request has bigger
-        // problems than a missing picture.
-        return null;
-    }
+    // Declared or nothing. It was once guessed at `/favicon.ico` on the host the
+    // API answers from, which for most venues is a host serving no mark at all:
+    // the guess failed for five of the six shipped, failed silently, and left
+    // nobody looking for the address that would have worked.
+    return connector.markUrl;
 }
