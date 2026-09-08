@@ -1,4 +1,4 @@
-import { boundDrawing, type Drawing, type DrawingAnchor, priceAtTime } from '../../shared/core/drawing.ts';
+import { boundDrawing, type Drawing, type DrawingAnchor, isPathKind, priceAtTime } from '../../shared/core/drawing.ts';
 import type { ViewportProjector } from '../core/viewport-projector.ts';
 
 /**
@@ -106,11 +106,63 @@ interface DistanceRequest {
  * @returns The distance, or null when the mark is not drawn there at all.
  */
 function measureDistance(request: DistanceRequest): number | null {
+    // A path doubles back on itself, so there is no one price at an instant to
+    // measure against: the nearest of its own segments is the answer.
+    if (isPathKind(request.drawing.kind)) {
+        return measurePathDistance(request);
+    }
     // A retracement is a stack of lines across the window; grabbing the band
     // they span is how a thumb reaches one at all.
     return request.drawing.kind === 'zone' || request.drawing.kind === 'fibonacci'
         ? measureZoneDistance(request)
         : measureLineDistance(request);
+}
+
+/**
+ * How far the pointer is from the nearest piece of a path.
+ *
+ * @returns The distance, or null when the path has no piece to be near.
+ */
+function measurePathDistance(request: DistanceRequest): number | null {
+    const { drawing, point, projector } = request;
+    const points = drawing.anchors.map((anchor) => ({
+        x: projector.timeToX(anchor.atMs),
+        y: projector.priceToY(anchor.price),
+    }));
+
+    let nearest: number | null = null;
+    for (let index = 1; index < points.length; index += 1) {
+        const gap = distanceToSegment(point, points[index - 1]!, points[index]!);
+        if (nearest === null || gap < nearest) {
+            nearest = gap;
+        }
+    }
+    return nearest;
+}
+
+/**
+ * How far a point lies from a segment, rather than from the line through it.
+ *
+ * Measured to the segment because a stroke is made of many: the line through
+ * one piece runs off across the whole plot, and every piece would claim a
+ * pointer anywhere along it.
+ */
+function distanceToSegment(
+    point: { readonly x: number; readonly y: number },
+    from: { readonly x: number; readonly y: number },
+    to: { readonly x: number; readonly y: number },
+): number {
+    const runX = to.x - from.x;
+    const runY = to.y - from.y;
+    const lengthSquared = runX * runX + runY * runY;
+    if (lengthSquared === 0) {
+        return Math.hypot(point.x - from.x, point.y - from.y);
+    }
+
+    const along = Math.min(1, Math.max(0, (
+        (point.x - from.x) * runX + (point.y - from.y) * runY
+    ) / lengthSquared));
+    return Math.hypot(point.x - (from.x + along * runX), point.y - (from.y + along * runY));
 }
 
 /**

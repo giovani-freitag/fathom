@@ -6,6 +6,7 @@ import {
     type Drawing,
     DRAWING_KINDS,
     isDrawing,
+    isPathKind,
     isTransientKind,
     moveDrawingAnchor,
     MAXIMUM_LABEL_LENGTH,
@@ -127,13 +128,17 @@ describe('shiftDrawing', () => {
 });
 
 describe('ANCHORS_PER_KIND', () => {
-    it('pins a level by one point, and everything that covers ground by two', () => {
+    it('pins a level by one point, ground by two, and a path by at least one', () => {
+        // A path is the one kind whose count is a floor: it starts on the press
+        // and grows for as long as the hand keeps moving.
         expect(ANCHORS_PER_KIND).toEqual({
             'horizontal-line': 1,
             'trend-line': 2,
             zone: 2,
             fibonacci: 2,
             measure: 2,
+            freehand: 1,
+            highlighter: 1,
         });
     });
 
@@ -231,7 +236,39 @@ describe('isTransientKind', () => {
 
     it('says a mark a reader drew is theirs to keep', () => {
         expect(DRAWING_KINDS.filter((kind) => !isTransientKind(kind)))
-            .toEqual(['horizontal-line', 'trend-line', 'zone', 'fibonacci']);
+            .toEqual(['horizontal-line', 'trend-line', 'zone', 'fibonacci', 'freehand', 'highlighter']);
+    });
+});
+
+describe('a path a reader drew', () => {
+    const STROKE: Drawing = {
+        id: 'stroke',
+        kind: 'freehand',
+        venue: FIRST_VENUE,
+        instrumentSymbol: 'BTCUSDT',
+        anchors: [
+            { atMs: 1_000, price: 100 },
+            { atMs: 1_100, price: 104 },
+            { atMs: 1_200, price: 99 },
+        ],
+        tone: 'phosphor',
+    };
+
+    it('loads back with every anchor it was drawn with', () => {
+        // The count in the table is a floor for a path. Read as an exact number,
+        // every stroke a reader had drawn would be dropped on the next load —
+        // and dropped silently, because a mark this build cannot place is meant
+        // to be discarded.
+        expect(isDrawing(STROKE)).toBe(true);
+    });
+
+    it('is still refused when it has no anchors at all', () => {
+        expect(isDrawing({ ...STROKE, anchors: [] })).toBe(false);
+    });
+
+    it('says which kinds are drawn by dragging a path', () => {
+        expect(DRAWING_KINDS.filter((kind) => isPathKind(kind)))
+            .toEqual(['freehand', 'highlighter']);
     });
 });
 

@@ -28,6 +28,15 @@ const WIDTH_PIXELS: Readonly<Record<DrawingWidth, number>> = {
 
 const SELECTED_WIDTH_FACTOR = 1.8;
 
+/**
+ * How much wider a highlighter is than the pen, and how much of it shows.
+ *
+ * A highlighter is a pen held sideways: the same stroke, laid down broad
+ * enough to cover what it is drawn over and thin enough to leave it legible.
+ */
+const HIGHLIGHTER_WIDTH_FACTOR = 6;
+const HIGHLIGHTER_ALPHA = 0.28;
+
 /** How each line is broken up. Solid says so with no dashes at all. */
 const STYLE_DASHES: Readonly<Record<DrawingStyle, readonly number[]>> = {
     solid: [],
@@ -129,7 +138,20 @@ export class DrawingPainter implements FieldLayerPainter {
         paint.context.lineCap = look.style === 'dotted' ? 'round' : 'butt';
         paint.context.setLineDash([...stroke.dash ?? STYLE_DASHES[look.style]]);
 
-        if (drawing.kind === 'measure') {
+        if (drawing.kind === 'highlighter') {
+            // Broad, soft and never dashed: a dashed highlighter covers half of
+            // what it was drawn over, which is the half a reader wanted seen.
+            paint.context.lineWidth *= HIGHLIGHTER_WIDTH_FACTOR;
+            paint.context.globalAlpha = HIGHLIGHTER_ALPHA;
+            paint.context.lineCap = 'round';
+            paint.context.lineJoin = 'round';
+            paint.context.setLineDash([]);
+            this.strokePath(stroke);
+        } else if (drawing.kind === 'freehand') {
+            paint.context.lineCap = 'round';
+            paint.context.lineJoin = 'round';
+            this.strokePath(stroke);
+        } else if (drawing.kind === 'measure') {
             this.strokeMeasure(stroke);
         } else if (drawing.kind === 'fibonacci') {
             this.strokeFibonacci(stroke);
@@ -216,6 +238,31 @@ export class DrawingPainter implements FieldLayerPainter {
     /**
      * Strokes a level or a segment across the span it is drawn over.
      */
+    /**
+     * Draws the path the hand left, anchor by anchor.
+     *
+     * Every anchor rather than its ends: a stroke is the shape between them,
+     * and read as a pair it would straighten into the segment a trend line
+     * already draws.
+     */
+    private strokePath(stroke: DrawingStroke): void {
+        const { paint, drawing } = stroke;
+        const [first, ...rest] = drawing.anchors;
+        if (first === undefined) {
+            return;
+        }
+
+        paint.context.beginPath();
+        paint.context.moveTo(paint.projector.timeToX(first.atMs), paint.projector.priceToY(first.price));
+        for (const anchor of rest) {
+            paint.context.lineTo(
+                paint.projector.timeToX(anchor.atMs),
+                paint.projector.priceToY(anchor.price),
+            );
+        }
+        paint.context.stroke();
+    }
+
     private strokeLine(stroke: DrawingStroke): void {
         const { paint, drawing } = stroke;
         const span = resolveSpan(drawing, paint.layout.plotWidth, paint.projector);

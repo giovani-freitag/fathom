@@ -5,7 +5,9 @@ import {
     type DrawingKind,
     type DrawingStyle,
     type DrawingWidth,
+    isPathKind,
     isTransientKind,
+    MOST_PATH_ANCHORS,
     moveDrawingAnchor,
     shiftDrawing,
 } from '../../shared/core/drawing.ts';
@@ -242,6 +244,12 @@ export class DrawingsController {
         const before = this.beforeGesture;
         this.beforeGesture = null;
         const { draft } = this.store.read();
+        if (draft !== null && isPathKind(draft.kind) && draft.anchors.length < 2) {
+            // A press that never moved. Kept, it would be a dot nobody meant to
+            // leave and nothing on the chart to grab it by.
+            this.store.update((state) => ({ ...state, draft: null, armedTool: disarm(state) }));
+            return;
+        }
         if (draft !== null && !hasExtent(draft)) {
             // A press that did not drag, on a mark that needs two ends. Held
             // open rather than thrown away: it follows the pointer until the
@@ -355,11 +363,14 @@ export class DrawingsController {
             if (state.draft === null) {
                 return state;
             }
-            // Every anchor but the first follows: a level has only the first, so
-            // the drag fine-tunes it in place rather than doing nothing.
-            const anchors = state.draft.anchors.length === 1
-                ? [anchor]
-                : [state.draft.anchors[0]!, anchor];
+            // A path grows; everything else has its ends moved. Every anchor
+            // but the first follows, and a level has only the first, so the drag
+            // fine-tunes that one in place rather than doing nothing.
+            const anchors = isPathKind(state.draft.kind)
+                ? growPath(state.draft.anchors, anchor)
+                : state.draft.anchors.length === 1
+                    ? [anchor]
+                    : [state.draft.anchors[0]!, anchor];
             return { ...state, draft: { ...state.draft, anchors } };
         });
     }
@@ -446,6 +457,24 @@ export class DrawingsController {
  * @param drawing - The mark to measure.
  * @returns True when it is something a reader could see and grab.
  */
+/**
+ * The path with the pointer's latest instant on the end of it.
+ *
+ * Stops growing at the cap rather than refusing the stroke: a reader mid-line
+ * has not made a mistake, and a mark that vanished under their hand would be
+ * read as the tool breaking.
+ *
+ * @param anchors - The path so far.
+ * @param anchor - Where the hand is now.
+ * @returns The path to draw.
+ */
+function growPath(
+    anchors: readonly DrawingAnchor[],
+    anchor: DrawingAnchor,
+): readonly DrawingAnchor[] {
+    return anchors.length >= MOST_PATH_ANCHORS ? anchors : [...anchors, anchor];
+}
+
 function hasExtent(drawing: Drawing): boolean {
     const [first, second] = drawing.anchors;
     if (first === undefined || second === undefined) {

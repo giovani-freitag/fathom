@@ -265,3 +265,50 @@ describe('findDrawingAt over a retracement', () => {
         expect(findDrawingAt({ drawings: [retracement], projector, point })).toBeNull();
     });
 });
+
+describe('finding a path a reader drew', () => {
+    /** A stroke that doubles back, so no one price answers for an instant. */
+    function buildStroke(id: string): Drawing {
+        return {
+            id,
+            kind: 'freehand',
+            venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
+            anchors: [
+                { atMs: 20_000, price: 20 },
+                { atMs: 40_000, price: 60 },
+                { atMs: 20_000, price: 80 },
+            ],
+            tone: 'phosphor',
+        };
+    }
+
+    it('finds it by a piece that is not the first', () => {
+        // On the middle of the second leg, where the stroke has doubled back.
+        // Asked for one price at that instant — which is what every other kind
+        // answers with — the mark reports the first leg and the pointer misses.
+        const stroke = buildStroke('stroke');
+
+        const found = findDrawingAt({
+            drawings: [stroke],
+            point: { x: projector.timeToX(30_000), y: yOf(70) },
+            projector,
+        });
+
+        expect(found).toBe('stroke');
+    });
+
+    it('leaves it alone out where a leg would run if it kept going', () => {
+        // Exactly on the line through the first leg, well past where that leg
+        // stops. Measured to the line rather than to the piece, every stroke on
+        // the chart would claim a pointer anywhere along its own extensions.
+        const stroke = buildStroke('stroke');
+
+        const found = findDrawingAt({
+            drawings: [stroke],
+            point: { x: projector.timeToX(60_000), y: yOf(100) },
+            projector,
+        });
+
+        expect(found).toBeNull();
+    });
+});

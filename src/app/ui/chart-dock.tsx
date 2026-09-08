@@ -1,11 +1,13 @@
 import { MarketsButton } from './markets/markets-button.tsx';
 import type { MarketPair } from '../../shared/core/pair-tags.ts';
 import { Code2,
+    Highlighter,
     Layers,
     Lock,
     LockOpen,
     Minus,
     MousePointer2,
+    Pencil,
     Redo2,
     Rows3,
     Ruler,
@@ -45,6 +47,8 @@ const TOOL_FACES: Readonly<Record<DrawingKind, ToolFace>> = {
     'trend-line': { Icon: TrendingUp, labelKey: 'drawing.trendLine' },
     zone: { Icon: Square, labelKey: 'drawing.zone' },
     fibonacci: { Icon: Rows3, labelKey: 'drawing.fibonacci' },
+    freehand: { Icon: Pencil, labelKey: 'drawing.freehand' },
+    highlighter: { Icon: Highlighter, labelKey: 'drawing.highlighter' },
     measure: { Icon: Ruler, labelKey: 'drawing.measure' },
 };
 

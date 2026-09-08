@@ -12,7 +12,14 @@ export interface DrawingAnchor {
 }
 
 /** The kinds of mark a reader can leave on the chart. */
-export type DrawingKind = 'horizontal-line' | 'trend-line' | 'zone' | 'fibonacci' | 'measure';
+export type DrawingKind =
+    | 'horizontal-line'
+    | 'trend-line'
+    | 'zone'
+    | 'fibonacci'
+    | 'measure'
+    | 'freehand'
+    | 'highlighter';
 
 /** Every kind, in the order the dock offers them. */
 export const DRAWING_KINDS: readonly DrawingKind[] = [
@@ -20,6 +27,8 @@ export const DRAWING_KINDS: readonly DrawingKind[] = [
     'trend-line',
     'zone',
     'fibonacci',
+    'freehand',
+    'highlighter',
     'measure',
 ];
 
@@ -30,6 +39,10 @@ export const ANCHORS_PER_KIND: Readonly<Record<DrawingKind, number>> = {
     zone: 2,
     fibonacci: 2,
     measure: 2,
+    // One to start on. A path grows for as long as the hand moves, so this
+    // is the fewest it can have rather than the number it will end with.
+    freehand: 1,
+    highlighter: 1,
 };
 
 /**
@@ -43,6 +56,38 @@ const BOXED_KINDS: ReadonlySet<DrawingKind> = new Set<DrawingKind>([
     'fibonacci',
     'measure',
 ]);
+
+/**
+ * Kinds whose anchors are a path the hand drew rather than its ends.
+ *
+ * Every other kind knows how many anchors it has before the reader starts. A
+ * path knows only that it has at least one, so the count in the table above is
+ * a floor for these and an exact number for the rest.
+ */
+const PATH_KINDS: ReadonlySet<DrawingKind> = new Set<DrawingKind>([
+    'freehand',
+    'highlighter',
+]);
+
+/**
+ * Whether a kind is drawn by dragging a path rather than by placing ends.
+ *
+ * @param kind - The kind to ask about.
+ * @returns True when its anchors are however many the hand left behind.
+ */
+export function isPathKind(kind: DrawingKind): boolean {
+    return PATH_KINDS.has(kind);
+}
+
+/**
+ * The most anchors one path keeps.
+ *
+ * A stroke across a wide chart is thousands of moves, and every one of them
+ * would be stored, sent to the painter and walked by the hit test on every
+ * frame. Past this the path stops growing rather than the mark being refused:
+ * a reader mid-stroke has not made a mistake.
+ */
+export const MOST_PATH_ANCHORS = 512;
 
 /**
  * Whether a mark is read and then done with rather than kept.
@@ -190,9 +235,15 @@ export function isDrawing(candidate: unknown): candidate is Drawing {
     }
 
     const anchors: unknown = drawing.anchors;
-    return Array.isArray(anchors)
-        && anchors.length === ANCHORS_PER_KIND[drawing.kind as DrawingKind]
-        && anchors.every(isAnchor);
+    if (!Array.isArray(anchors) || !anchors.every(isAnchor)) {
+        return false;
+    }
+    // A count for the kinds that know theirs, a floor for a path: read as an
+    // exact number, every stroke a reader had drawn would fail to load.
+    const wanted = ANCHORS_PER_KIND[drawing.kind as DrawingKind];
+    return isPathKind(drawing.kind as DrawingKind)
+        ? anchors.length >= wanted
+        : anchors.length === wanted;
 }
 
 /**

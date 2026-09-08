@@ -1,6 +1,6 @@
 import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
-import type { Drawing, DrawingAnchor } from '../../../../src/shared/core/drawing.ts';
+import { type Drawing, type DrawingAnchor, MOST_PATH_ANCHORS } from '../../../../src/shared/core/drawing.ts';
 import {
     DrawingsController,
     MAXIMUM_DRAWINGS_PER_INSTRUMENT,
@@ -704,5 +704,58 @@ describe('DrawingsController naming a mark', () => {
             label: 'support',
             tone: 'phosphor',
         });
+    });
+});
+
+describe('DrawingsController drawing a path', () => {
+    let harness: Harness;
+
+    beforeEach(() => { harness = buildHarness(); });
+
+    it('grows the stroke as the hand moves instead of moving its end', () => {
+        // Every other kind has its ends dragged. Read that way a stroke would
+        // straighten into the segment a trend line already draws.
+        harness.drawings.arm('freehand');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+
+        harness.drawings.drag(at(1_100, 104));
+        harness.drawings.drag(at(1_200, 99));
+
+        expect(harness.drawings.store.read().draft?.anchors).toEqual([
+            at(1_000, 100), at(1_100, 104), at(1_200, 99),
+        ]);
+    });
+
+    it('keeps the stroke once the hand has left', () => {
+        harness.drawings.arm('freehand');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.drag(at(1_100, 104));
+
+        harness.drawings.settle();
+
+        expect(readPersisted(harness).map((one) => one.anchors.length)).toEqual([2]);
+    });
+
+    it('leaves nothing behind for a press that never moved', () => {
+        // A dot nobody meant to leave, and nothing on the chart to grab it by.
+        harness.drawings.arm('freehand');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+
+        harness.drawings.settle();
+
+        expect([harness.drawings.store.read().draft, readPersisted(harness).length]).toEqual([null, 0]);
+    });
+
+    it('stops the stroke growing at the cap rather than refusing it', () => {
+        // A stroke across a wide chart is thousands of moves, and a mark that
+        // vanished under the hand would read as the tool breaking.
+        harness.drawings.arm('freehand');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+
+        for (let step = 1; step <= MOST_PATH_ANCHORS + 50; step += 1) {
+            harness.drawings.drag(at(1_000 + step, 100 + (step % 7)));
+        }
+
+        expect(harness.drawings.store.read().draft?.anchors.length).toBe(MOST_PATH_ANCHORS);
     });
 });
