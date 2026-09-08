@@ -1018,6 +1018,37 @@ describe('ChartController following a recording rather than a clock', () => {
         expect(controller.store.read().viewport.toMs).toBeGreaterThanOrEqual(openedAtMs + foldedMs);
     });
 
+    it('does not nudge a chart already on the live edge it is asked for', async () => {
+        // A double click sets the edge to the wall clock and the chart rests it
+        // back on the recording. Resting it somewhere other than where following
+        // live had left it, the one gesture meaning "where I already am" moved
+        // the chart a whole column every time it was used.
+        vi.useFakeTimers();
+        vi.setSystemTime(2_100_000);
+        try {
+            const mocks = createChartServiceMocks();
+            const controller = buildController(mocks);
+            await controller.initialize();
+            controller.applyView({
+                viewport: controller.store.read().viewport,
+                surfaceWidthPx: SURFACE_WIDTH,
+                isFollowingLive: true,
+            });
+            mocks.deliverFrames(buildWindow([buildFrame(2_050_000)]));
+            const settled = controller.store.read().viewport;
+
+            controller.applyView({
+                viewport: { ...settled, fromMs: Date.now() - 900_000, toMs: Date.now() },
+                surfaceWidthPx: SURFACE_WIDTH,
+                isFollowingLive: true,
+            });
+
+            expect(controller.store.read().viewport.toMs).toBe(settled.toMs);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('keeps the span the gesture asked for while it pulls the edge back', async () => {
         // A gesture that zoomed still has to zoom.
         const mocks = createChartServiceMocks();

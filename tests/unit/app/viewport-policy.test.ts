@@ -33,6 +33,15 @@ const INSTRUMENT: InstrumentCoverage = {
     lastMidPrice: 79_000,
 };
 
+/**
+ * What one column of the test dataset covers.
+ *
+ * Written into the expectations rather than folded into their numbers: the
+ * edge is kept past the whole of the newest column, and a test that spelled
+ * the sum out as one figure would not say which half of it moved.
+ */
+const COLUMN_MS = EMPTY_DATASET.sampleIntervalMs;
+
 function datasetWith(...frames: ReturnType<typeof buildFrame>[]) {
     return { ...EMPTY_DATASET, priceBucketSize: 10, frames };
 }
@@ -181,7 +190,7 @@ describe('followLiveEdge', () => {
     it('slides the window onto the newest frame', () => {
         const advanced = followLiveEdge(VIEWPORT, datasetWith(buildFrame(2_000_000)));
 
-        expect(advanced.toMs).toBe(2_000_000);
+        expect(advanced.toMs).toBe(2_000_000 + COLUMN_MS);
     });
 
     it('keeps the span while sliding', () => {
@@ -403,7 +412,7 @@ describe('followLiveEdge keeping room after the newest bar', () => {
 
         const followed = followLiveEdge(VIEWPORT, dataset, 30_000);
 
-        expect(followed.toMs).toBe(1_980_000);
+        expect(followed.toMs).toBe(1_980_000 + COLUMN_MS);
     });
 
     it('keeps the span while it does so', () => {
@@ -416,8 +425,9 @@ describe('followLiveEdge keeping room after the newest bar', () => {
 
     it('stays put once the room is already there', () => {
         // The edge is ahead of the newest frame by design; that is not a reason
-        // to keep sliding it.
-        const dataset = datasetWith(buildFrame(1_880_000, 78_500));
+        // to keep sliding it. Placed so the room asked for and the column's own
+        // width together reach the edge exactly.
+        const dataset = datasetWith(buildFrame(1_880_000 - COLUMN_MS, 78_500));
 
         expect(followLiveEdge(VIEWPORT, dataset, 20_000)).toBe(VIEWPORT);
     });

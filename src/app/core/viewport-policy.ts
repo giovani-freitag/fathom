@@ -76,7 +76,13 @@ export function followLiveEdge(
 
     // The edge is kept a few bars ahead of the newest one, which is the room a
     // chart leaves to read the bar being built without it touching the axis.
-    const edgeMs = newestMs + Math.max(0, rightMarginMs);
+    //
+    // Ahead of the whole of that column, not of the instant it opens on. Zoomed
+    // out the archive answers on folded columns covering minutes, and counting
+    // one as a single instant left this edge a column short of where a gesture
+    // arriving on the same data rests it — so a double click, which means the
+    // live edge, nudged the chart a column forward every time.
+    const edgeMs = newestMs + dataset.sampleIntervalMs + Math.max(0, rightMarginMs);
     if (edgeMs <= viewport.toMs) {
         return viewport;
     }
