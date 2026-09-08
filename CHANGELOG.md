@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.16.6](https://github.com/giovani-freitag/fathom/compare/v0.16.5...v0.16.6) (2026-09-08)
+
+
+### Bug Fixes
+
+* name the venue on a contract chosen before it had one ([06d2b55](https://github.com/giovani-freitag/fathom/commit/06d2b5510508cc1d453c14c0b5136ae9472ca926))
+* say a refused change over the screen, not under the fold ([a5c78b9](https://github.com/giovani-freitag/fathom/commit/a5c78b99bbfd86aa7643e5b42744e68bc77eda6c))
+
 ## [0.16.5](https://github.com/giovani-freitag/fathom/compare/v0.16.4...v0.16.5) (2026-09-08)
 
 
