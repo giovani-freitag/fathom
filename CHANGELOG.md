@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.19.0](https://github.com/giovani-freitag/fathom/compare/v0.18.1...v0.19.0) (2026-09-08)
+
+
+### Features
+
+* pin an emoji to a place on the chart ([1a6d993](https://github.com/giovani-freitag/fathom/commit/1a6d9935479464b0e4f24ff524ffd9ab35534626))
+* point at the chart with a laser ([d7fbee4](https://github.com/giovani-freitag/fathom/commit/d7fbee408a787f36cdd0ce9f96a3b3c4a518940c))
+
 ## [0.18.1](https://github.com/giovani-freitag/fathom/compare/v0.18.0...v0.18.1) (2026-09-08)
 
 
