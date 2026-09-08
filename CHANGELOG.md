@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.2](https://github.com/giovani-freitag/fathom/compare/v0.17.1...v0.17.2) (2026-09-08)
+
+
+### Bug Fixes
+
+* draw the venue mark in the rail and from a named address ([7ef1067](https://github.com/giovani-freitag/fathom/commit/7ef106760ec5c34b15d774abd3255c0f434250b3))
+
 ## [0.17.1](https://github.com/giovani-freitag/fathom/compare/v0.17.0...v0.17.1) (2026-09-08)
 
 
