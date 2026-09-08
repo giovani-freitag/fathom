@@ -785,3 +785,28 @@ describe('WindowLoader and the prices it is willing to ask for', () => {
         expect(bands.every((band) => band.maxRows > 0)).toBe(true);
     });
 });
+
+describe('WindowLoader after a read that held nothing', () => {
+    it('asks for the whole range again rather than the sliver past it', async () => {
+        // An empty answer over a live recording is the stretch not having been
+        // written yet, not the knowledge that it is empty. Kept as held, every
+        // later read asks only for the sliver past it — which is ahead of the
+        // recording and empty in its turn — so a page that records for itself
+        // never drew a book at all, however much it went on to record.
+        const harness = buildHarness();
+        harness.mocks.fetchFrameWindow.mockResolvedValue(buildWindow([]));
+        await harness.loader.load(buildRequest());
+        harness.mocks.fetchFrameWindow.mockClear();
+
+        await harness.loader.load(buildRequest({
+            viewport: { ...VIEWPORT, fromMs: VIEWPORT.fromMs + 1_000, toMs: VIEWPORT.toMs + 1_000 },
+        }));
+
+        // The widest stretch asked for, because reading ahead of the window is
+        // allowed to ask for a narrow one beside it.
+        const spans = harness.mocks.fetchFrameWindow.mock.calls
+            .map(([query]) => (query as { fromMs: number; toMs: number }))
+            .map((query) => query.toMs - query.fromMs);
+        expect(Math.max(...spans)).toBeGreaterThan(VIEWPORT.toMs - VIEWPORT.fromMs);
+    });
+});

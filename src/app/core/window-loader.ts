@@ -619,11 +619,36 @@ export class WindowLoader {
             // a grid is what makes two readings the same picture. Nothing about
             // the request guarantees it, so the whole thing is asked for again.
             const whole = await this.config.api.fetchFrameWindow(frameQuery, signal);
-            this.cache.keep(range.stitchKey, wanted, whole);
+            this.keepIfAnything(range.stitchKey, wanted, whole);
             return whole;
         }
-        this.cache.keep(range.stitchKey, wanted, assembled);
+        this.keepIfAnything(range.stitchKey, wanted, assembled);
         return assembled;
+    }
+
+    /**
+     * Remembers a window, unless it holds nothing.
+     *
+     * An empty answer over a live recording is not the knowledge that a stretch
+     * is empty — it is the stretch not having been written yet. Kept as held,
+     * the next read asks only for the sliver past it, which is ahead of the
+     * recording and answers with nothing in its turn; the read after that asks
+     * for the sliver past THAT. A page that records for itself never escapes,
+     * because its first read always lands before the first block is written.
+     *
+     * @param stitchKey - What has to match for two reads to be one picture.
+     * @param region - The stretch this answers for.
+     * @param window - What came back.
+     */
+    private keepIfAnything(
+        stitchKey: string,
+        region: FrameRegion,
+        window: LiquidityFrameWindow,
+    ): void {
+        if (window.frames.length === 0) {
+            return;
+        }
+        this.cache.keep(stitchKey, region, window);
     }
 
     private async fetchAll(
