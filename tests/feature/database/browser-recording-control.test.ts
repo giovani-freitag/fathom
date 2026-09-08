@@ -9,6 +9,7 @@ import { IDBFactory } from 'fake-indexeddb';
 import { IndexedDbLiquidityArchive } from '../../../src/database/browser/indexed-db-liquidity-archive.ts';
 import { IndexedDbService } from '../../../src/database/browser/indexed-db-service.ts';
 import type { RecordedContract } from '../../../src/shared/core/recording-control.ts';
+import { STORES } from '../../../src/database/browser/browser-schema.ts';
 
 const CATALOGUE: readonly RecordedContract[] = [
     { venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT', priceBucketSize: 10, frameIntervalMs: 1_000, isEnabled: true },
@@ -92,6 +93,33 @@ describe('BrowserRecordingControl', () => {
 
         const offered = await control.listContracts();
         expect(offered.map((contract) => contract.instrumentSymbol)).toEqual(['BTCUSDT']);
+    });
+
+    it('recognises a contract chosen before the venue was part of its name', async () => {
+        // This row is not one of the stores the venue re-key rebuilt, so a
+        // reader who had chosen anything before it carries contracts naming
+        // only a symbol. Unrecognised, every catalogue pair was listed twice
+        // and the page went over the limit it counts against.
+        await database.transact([STORES.recordingControl], 'readwrite', ([store]) => {
+            store!.put({
+                key: 'choice',
+                choice: {
+                    // Written the way a page wrote them before the venue was
+                    // part of a contract's name: a symbol and nothing else.
+                    contracts: CATALOGUE.map((one) => ({
+                        instrumentSymbol: one.instrumentSymbol,
+                        priceBucketSize: one.priceBucketSize,
+                        frameIntervalMs: one.frameIntervalMs,
+                        isEnabled: true,
+                    })),
+                    maximumBytes: null,
+                },
+            });
+        });
+
+        const offered = await buildControl().listContracts();
+
+        expect(offered.map((contract) => contract.instrumentSymbol)).toEqual(['BTCUSDT', 'ETHUSDT']);
     });
 
     it('keeps the ceiling when a contract is switched', async () => {

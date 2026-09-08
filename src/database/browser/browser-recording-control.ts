@@ -6,7 +6,11 @@ import type {
 import type { IndexedDbLiquidityArchive } from './indexed-db-liquidity-archive.ts';
 import type { IndexedDbService } from './indexed-db-service.ts';
 import { STORES } from './browser-schema.ts';
-import { MINIMUM_BUDGET_BYTES } from '../../shared/core/recording-control.ts';
+import {
+    FIRST_VENUE,
+    MINIMUM_BUDGET_BYTES,
+    RecordingRefusedError,
+} from '../../shared/core/recording-control.ts';
 
 /** Key of the single row holding what this browser chose. */
 const CHOICE_KEY = 'choice';
@@ -67,6 +71,42 @@ function isSameContract(one: ContractName, other: ContractName): boolean {
 }
 
 /**
+ * A contract as this row may hold one, rather than as everything reads one.
+ *
+ * The venue is optional here and nowhere else. This row is not one of the
+ * stores the venue re-key rebuilt, so a reader who had chosen anything before
+ * it carries contracts naming only a symbol, and a type claiming otherwise
+ * would be asserting something about bytes on their disk that nothing wrote.
+ */
+type StoredContract = Omit<RecordedContract, 'venue'> & { readonly venue?: string };
+
+/** The row as it comes off the disk, before anything is assumed about it. */
+interface StoredRow {
+    readonly contracts: readonly StoredContract[];
+    readonly maximumBytes: number | null;
+    readonly dismissed?: readonly ContractName[];
+}
+
+/**
+ * The stored choice with a venue named on every contract in it.
+ *
+ * Matched against a catalogue that names both venue and symbol, a contract
+ * naming only a symbol was recognised as none of them: every catalogue pair
+ * was listed twice — once from the catalogue, once as a pair the reader had
+ * added — and a page offering five showed ten, then refused to record anything
+ * more for being over the limit it counts against.
+ *
+ * @param row - What was stored, in whatever shape it was written.
+ * @returns The same choice, keyed the way everything reads it now.
+ */
+function withVenuesNamed(row: StoredRow): StoredChoice {
+    return {
+        ...row,
+        contracts: row.contracts.map((one) => ({ ...one, venue: one.venue ?? FIRST_VENUE })),
+    };
+}
+
+/**
  * What this browser records, and how much of its quota it may fill.
  */
 export class BrowserRecordingControl implements RecordingControl {
@@ -113,7 +153,7 @@ export class BrowserRecordingControl implements RecordingControl {
         const current = await this.listContracts();
         const isKnown = current.some((existing) => isSameContract(existing, contract));
         if (!isKnown && current.length >= CONTRACTS_PER_PAGE) {
-            throw new Error(`A page records at most ${String(CONTRACTS_PER_PAGE)} contracts at once.`);
+            throw new RecordingRefusedError(CONTRACTS_PER_PAGE);
         }
 
         const kept = isKnown
@@ -242,11 +282,12 @@ export class BrowserRecordingControl implements RecordingControl {
 
     private async read(): Promise<StoredChoice | null> {
         try {
-            const rows = await this.config.database.readRange<{ key: string; choice: StoredChoice }>(
+            const rows = await this.config.database.readRange<{ key: string; choice: StoredRow }>(
                 STORES.recordingControl,
                 IDBKeyRange.only(CHOICE_KEY),
             );
-            return rows[0]?.choice ?? null;
+            const choice = rows[0]?.choice;
+            return choice === undefined ? null : withVenuesNamed(choice);
         } catch {
             return null;
         }
