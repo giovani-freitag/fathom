@@ -26,9 +26,6 @@ const DEFAULT_CAPACITY = 4_000;
 /** How much time one recorded instant stands for. */
 const INSTANT_MS = 1_000;
 
-/**
- * The browser's write side, keeping the newest window and dropping the rest.
- */
 /** Which squares a prune is dropping, and the stores holding them. */
 interface SquarePrune extends ChunkContract {
     readonly blocks: IDBObjectStore;
@@ -36,6 +33,9 @@ interface SquarePrune extends ChunkContract {
     readonly horizonMs: number;
 }
 
+/**
+ * The browser's write side, keeping the newest window and dropping the rest.
+ */
 export class IndexedDbLiquidityArchive implements LiquidityArchive {
     private readonly database: IndexedDbService;
     private readonly chunks: ChunkRowStore;
@@ -226,7 +226,6 @@ export class IndexedDbLiquidityArchive implements LiquidityArchive {
     }
 }
 
-/** Every record of one instrument: `[symbol]` sorts before every `[symbol, n]`. */
 /** One contract's records strictly older than an instant. */
 function boundedRange(contract: ChunkContract, horizonMs: number): IDBKeyRange {
     return IDBKeyRange.bound(

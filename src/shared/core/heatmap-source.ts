@@ -1,3 +1,6 @@
+/**
+ * Where the chart reads recorded history from.
+ */
 import type { InstrumentCoverage } from './api-contract.ts';
 import type { LiquidityFrameWindow } from './liquidity-frame.ts';
 import type { RecordingGap } from './recording-gap.ts';
@@ -40,9 +43,6 @@ export interface TradeClusterResult {
     readonly sampleIntervalMs: number;
 }
 
-/**
- * Where the chart reads recorded history from.
- */
 /**
  * The four questions only this recording can answer.
  *

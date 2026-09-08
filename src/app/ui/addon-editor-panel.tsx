@@ -61,7 +61,6 @@ const UNSAVED_CHOICE = 'unsaved';
 /** How long the strip's own news stays up before the compiler has the floor. */
 const FILE_NOTICE_MS = 5_000;
 
-/** Where the worked examples live, since a reader cannot go and find them. */
 /**
  * The editor this panel runs on.
  *

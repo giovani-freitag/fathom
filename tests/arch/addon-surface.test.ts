@@ -116,6 +116,20 @@ describe('the types the in-page editor is given', () => {
         rmSync(staging, { recursive: true, force: true });
     }, 60_000);
 
+    it('leave no docblock standing over something it does not describe', () => {
+        // A declaration dropped from the surface used to leave its prose
+        // behind, and the prose then read as documentation for whichever
+        // declaration happened to follow it.
+        const lines = ADDON_SURFACE_TYPES.split('\n');
+        const stranded = lines
+            .map((line, index) => ({ line, next: lines[index + 1] ?? '' }))
+            .filter(({ line }) => /^\s*\*\/\s*$/.test(line) || /^\s*\/\*\*.*\*\/\s*$/.test(line))
+            .filter(({ next }) => next.trim() === '' || /^\s*\/\*\*/.test(next))
+            .map(({ next }) => next.trim());
+
+        expect(stranded).toEqual([]);
+    });
+
     it('are the same surface a repository of readings depends on', () => {
         // The package's own types, which anything depending on this repository
         // resolves `import … from 'fathom'` to. Generated from the same barrel

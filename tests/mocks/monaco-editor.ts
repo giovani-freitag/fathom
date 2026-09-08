@@ -1,5 +1,3 @@
-import { vi } from 'vitest';
-
 /**
  * A Monaco with models and nothing else.
  *
@@ -7,6 +5,7 @@ import { vi } from 'vitest';
  * building them, rewriting them, taking them away — without a browser, a
  * worker, or the megabyte of editor behind them.
  */
+import { vi } from 'vitest';
 
 /** One model, tracking what was done to it so a test can say what happened. */
 export class FakeModel {

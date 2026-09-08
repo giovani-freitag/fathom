@@ -71,6 +71,14 @@ export const CONTROL_RESTING_CLASSES = 'text-ink-400 hover:bg-abyss-700 hover:te
 export const FLOATING_SURFACE_CLASSES = 'border border-hairline bg-abyss-800/95 backdrop-blur';
 
 /**
+ * A row that scrolls sideways, without a bar of its own to drag.
+ *
+ * The fade is the whole of it: a control cut by a fade reads as one that
+ * continues, and a control cut by the frame reads as the last one.
+ */
+export const SCROLLER_CLASSES = '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden edge-fade';
+
+/**
  * The shell a bar of controls shares, top or bottom.
  *
  * Scrollable sideways rather than wrapping: a bar that wraps onto two lines has
@@ -84,14 +92,6 @@ export const FLOATING_SURFACE_CLASSES = 'border border-hairline bg-abyss-800/95 
  * fade reads as one that continues; a control cut by the frame reads as the
  * last one.
  */
-/**
- * A row that scrolls sideways, without a bar of its own to drag.
- *
- * The fade is the whole of it: a control cut by a fade reads as one that
- * continues, and a control cut by the frame reads as the last one.
- */
-export const SCROLLER_CLASSES = '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden edge-fade';
-
 export const CONTROL_BAR_CLASSES =
     `flex shrink-0 items-center gap-2 px-3 py-2 max-w-full overflow-x-auto ${SCROLLER_CLASSES}`;
 
@@ -111,12 +111,6 @@ export const PANEL_ADD_CLASSES =
     + ' px-3 py-2 text-xs font-semibold text-ink-400 transition-colors'
     + ' hover:border-hairline-bright hover:text-ink-100 disabled:opacity-40';
 
-/**
- * What a panel calls itself, wherever one opens.
- *
- * Written once because it is the first thing read in every panel, and three
- * spellings of it is three panels that look like they came from three places.
- */
 /**
  * What is behind anything that takes over the screen.
  *
@@ -157,4 +151,10 @@ export const LIST_ROW_CLASSES = 'flex min-h-12 w-full items-center gap-3 px-3 te
  */
 export const CONTROL_SELECT_CLASSES = 'min-w-0 flex-1';
 
+/**
+ * What a panel calls itself, wherever one opens.
+ *
+ * Written once because it is the first thing read in every panel, and three
+ * spellings of it is three panels that look like they came from three places.
+ */
 export const PANEL_TITLE_CLASSES = 'text-sm font-semibold tracking-wide text-ink-100';

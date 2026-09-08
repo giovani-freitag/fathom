@@ -1,7 +1,3 @@
-import { CONTROL_CHOSEN_CLASSES, CONTROL_HEIGHT } from '../control-shell.ts';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
-import type { ReactElement } from 'react';
-
 /**
  * The rail's own vocabulary, written once.
  *
@@ -9,6 +5,9 @@ import type { ReactElement } from 'react';
  * pairs a venue offers to record — and a second set of rows written to look
  * like the first is a set that stops looking like it on the next change.
  */
+import { CONTROL_CHOSEN_CLASSES, CONTROL_HEIGHT } from '../control-shell.ts';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 /**
  * What a control on a row looks like: nothing, until the row is under a pointer.

@@ -19,12 +19,11 @@ interface ToggleSwitchProps {
  * The knob travels eighteen pixels because that is what the geometry says: a
  * track of thirty-six less a knob of sixteen leaves two pixels of clearance at
  * each end, and stopping at sixteen parks it off-centre against the far edge.
- */
-/**
- * The switch is drawn small and touched large: twenty pixels of height is a
- * miss on a phone, and on the recording rows the neighbour it would be missed
- * for is the delete button. The ring is drawn on keyboard focus only, because
- * without one the control a switch-access reader lands on shows nothing at all.
+ *
+ * It is drawn small and touched large: twenty pixels of height is a miss on a
+ * phone, and on the recording rows the neighbour it would be missed for is the
+ * delete button. The ring is drawn on keyboard focus only, because without one
+ * the control a switch-access reader lands on shows nothing at all.
  */
 export function ToggleSwitch({ isOn, onChange, isDisabled, label }: ToggleSwitchProps): ReactElement {
     return (

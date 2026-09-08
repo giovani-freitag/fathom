@@ -10,7 +10,6 @@ export interface LiveSocketBridgeConfig {
     readonly instrumentSymbol: string;
     readonly afterMs: number;
     readonly priceBucketSize: number;
-    /** Which store the reader is drawing, or absent for the frame table. */
     /** The prices on screen, so the tail carries only those. */
     readonly lowPrice?: number;
     readonly highPrice?: number;

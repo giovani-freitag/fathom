@@ -19,9 +19,9 @@ export interface RenderRequest {
     readonly viewport: ChartViewport;
     readonly dataset: ChartDataset;
     readonly colourGain: number;
-    /** False leaves a plain price chart, with no book behind it. */
     /** The instant being painted, for what counts down rather than sits still. */
     readonly nowMs: number;
+    /** False leaves a plain price chart, with no book behind it. */
     readonly isDepthVisible: boolean;
     readonly isCandleOverlayVisible: boolean;
     /**

@@ -63,6 +63,19 @@ function readBlocks(directory) {
         .map((name) => ({ file: name, blocks: cutIntoBlocks(readFileSync(join(directory, name), 'utf8')) }));
 }
 
+/**
+ * Whether a line begins a new block rather than joining what is held.
+ *
+ * A docblock and the thing it documents have to travel as one block, because a
+ * block is the unit that gets dropped: split apart, dropping an unoffered
+ * function left its prose behind, documenting whatever declaration followed.
+ * A docblock still opens a block of its own, so prose that documents nothing
+ * stays on its own and can be recognised as such.
+ */
+function startsBlock(line, held) {
+    return /^\/\*\*/.test(line) || !/\*\/\s*$/.test(held[held.length - 1] ?? '');
+}
+
 function cutIntoBlocks(source) {
     const lines = source.split('\n')
         .filter((line) => !/^\s*(import|export)\s.*\sfrom\s/.test(line))
@@ -71,7 +84,7 @@ function cutIntoBlocks(source) {
     let held = [];
 
     for (const line of lines) {
-        if (held.length > 0 && DECLARATION_START.test(line)) {
+        if (held.length > 0 && DECLARATION_START.test(line) && startsBlock(line, held)) {
             blocks.push(held);
             held = [];
         }
@@ -82,7 +95,19 @@ function cutIntoBlocks(source) {
     return blocks
         .map((block) => block.join('\n').replace(/\n{3,}/g, '\n\n').trim())
         .filter((block) => block !== '')
+        .filter((block) => !isProseOnly(block))
         .map((text) => ({ text, declares: nameDeclaredBy(text) }));
+}
+
+/**
+ * Whether a block is prose with nothing under it.
+ *
+ * One source file's own header reads that way here: the file it describes is a
+ * comment marker in this bundle, so the prose would sit above whichever
+ * declaration came next and claim to describe it.
+ */
+function isProseOnly(text) {
+    return text.replace(/\/\*\*[\s\S]*?\*\//g, '').trim() === '';
 }
 
 function nameDeclaredBy(text) {

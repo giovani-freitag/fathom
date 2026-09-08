@@ -55,17 +55,17 @@ const readVisibleSpanMs = (state: ChartState): number => state.viewport.toMs - s
 const readIsDepthVisible = (state: ChartState): boolean => state.isDepthVisible;
 const readSampleIntervalMs = (state: ChartState): number => state.dataset.sampleIntervalMs;
 
+/** The editor's module, fetched once and shared by both callers. */
+function loadEditor(): Promise<{ readonly AddonEditorPanel: ComponentType<AddonEditorPanelProps> }> {
+    return import('./addon-editor-panel.tsx');
+}
+
 /**
  * Fetched only once a reader opens it.
  *
  * The editor carries a compiler, which is several times the weight of the chart
  * itself and of no use to anybody who never writes a reading.
  */
-/** The editor's module, fetched once and shared by both callers. */
-function loadEditor(): Promise<{ readonly AddonEditorPanel: ComponentType<AddonEditorPanelProps> }> {
-    return import('./addon-editor-panel.tsx');
-}
-
 const AddonEditorPanel = lazy(async () => {
     const loaded = await loadEditor();
     return { default: loaded.AddonEditorPanel };

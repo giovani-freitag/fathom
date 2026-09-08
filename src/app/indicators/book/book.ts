@@ -65,6 +65,9 @@ const SHOW_EXECUTIONS: ToggleParameter = { name: 'showExecutions', kind: 'toggle
 const SHOW_PROFILE: ToggleParameter = { name: 'showProfile', kind: 'toggle', defaultValue: true };
 const SHOW_GAPS: ToggleParameter = { name: 'showGaps', kind: 'toggle', defaultValue: true };
 
+/** The id this layer is stored and found under. */
+export const BOOK_LAYER_ID = 'depth';
+
 /**
  * The recorded book, and everything that is the book seen another way.
  *
@@ -76,9 +79,6 @@ const SHOW_GAPS: ToggleParameter = { name: 'showGaps', kind: 'toggle', defaultVa
  * How much traded does not, though it was recorded alongside. A bar carries its
  * own volume, so that reading needs no book and is an indicator of its own.
  */
-/** The id this layer is stored and found under. */
-export const BOOK_LAYER_ID = 'depth';
-
 export const BOOK_LAYER: FieldLayer = {
     label: 'layer.depth',
     about: 'layer.depth.help',
@@ -97,7 +97,6 @@ export interface BookSettings {
     readonly isDepthVisible: boolean;
     readonly isTradeOverlayVisible: boolean;
     readonly isVolumeProfileVisible: boolean;
-    /** Which stored shape the drawn window is read out of. */
     /**
      * Whether the stretches nothing was recorded through are marked.
      *

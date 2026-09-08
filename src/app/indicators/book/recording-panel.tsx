@@ -37,7 +37,6 @@ export interface RecordingPanelProps {
      */
     readonly isPicking: boolean;
     readonly onPickingChange: (isPicking: boolean) => void;
-    /** Called after a contract is switched on or off, so the picker keeps up. */
     /**
       * Confirms the change, and may refuse.
       *

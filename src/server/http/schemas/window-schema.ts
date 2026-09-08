@@ -6,15 +6,6 @@ import {
 } from '../../../shared/core/api-contract.ts';
 
 /**
- * Query shared by every history route: an instrument, a range, and a band.
- *
- * The band is the price half of what `maxColumns` already does for time. A
- * whole-book store answers for every price from nothing to twice the market,
- * and a reader with a screenful of them pays to receive fifteen thousand rows
- * to draw a hundred. Left out, the window still answers with everything, which
- * is what a caller that does not know its own viewport should get.
- */
-/**
  * The most a price may be before it stops being one.
  *
  * A trillion is far above anything a venue has ever quoted and far below the
@@ -25,6 +16,15 @@ import {
  */
 const HIGHEST_ASKABLE_PRICE = 1e12;
 
+/**
+ * Query shared by every history route: an instrument, a range, and a band.
+ *
+ * The band is the price half of what `maxColumns` already does for time. A
+ * whole-book store answers for every price from nothing to twice the market,
+ * and a reader with a screenful of them pays to receive fifteen thousand rows
+ * to draw a hundred. Left out, the window still answers with everything, which
+ * is what a caller that does not know its own viewport should get.
+ */
 export const WindowFiltersSchema = Type.Object({
     symbol: Type.String({ minLength: 1, maxLength: 32 }),
     /**
@@ -48,4 +48,3 @@ export const WindowFiltersSchema = Type.Object({
 });
 
 export type WindowFilters = Static<typeof WindowFiltersSchema>;
-

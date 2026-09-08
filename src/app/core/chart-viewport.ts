@@ -6,13 +6,6 @@ export interface ChartViewport {
     readonly highPrice: number;
 }
 
-/**
- * The narrowest window a chart opens on, however little has been recorded.
- *
- * The same as the narrowest span offered: below it a reader is looking at slabs
- * rather than a chart, and a recording that has just started is exactly when
- * they most need it to look like one.
- */
 /** Hard bounds a viewport is never allowed past. */
 export interface ViewportBounds {
     readonly earliestMs: number;

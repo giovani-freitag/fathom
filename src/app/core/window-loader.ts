@@ -79,7 +79,6 @@ const TARGET_TRADE_COLUMNS = 420;
 const MAXIMUM_COLUMNS = 4_000;
 const MINIMUM_COLUMNS = 120;
 
-/** Bars a window shows. */
 
 export interface LoadedWindow {
     readonly window: LiquidityFrameWindow;
@@ -91,6 +90,7 @@ export interface LoadedWindow {
      * what the band was introduced to stop.
      */
     readonly priceBand: PriceBandQuery | null;
+    /** Bars a window shows. */
     readonly bars: PriceBarWindow;
     /** Coarser rungs, for whatever on the chart declared it reads one. */
     readonly higher: ReadonlyMap<number, PriceBarWindow>;

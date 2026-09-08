@@ -3,6 +3,13 @@ import type { ChartViewport, ViewportBounds } from './chart-viewport.ts';
 import { type ChartDataset, newestFrameTimestamp } from './chart-dataset.ts';
 import type { MarketPair } from '../../shared/core/pair-tags.ts';
 
+/**
+ * The narrowest window a chart opens on, however little has been recorded.
+ *
+ * The same as the narrowest span offered: below it a reader is looking at slabs
+ * rather than a chart, and a recording that has just started is exactly when
+ * they most need it to look like one.
+ */
 const MINIMUM_SPAN_MS = 5_000;
 const MAXIMUM_SPAN_MS = 90 * 24 * 60 * 60 * 1_000;
 

@@ -29,7 +29,6 @@ import {
     toFoldedBucketIndex,
 } from '../../shared/core/price-band.ts';
 
-/** What the first step of the size scale stands for, matching the other stores. */
 
 export interface ChunkArchiveServiceConfig {
     /** Where the rows are kept — a server's tables, or a page's object stores. */
@@ -389,13 +388,13 @@ export interface ChunkWindowQuery extends ChunkContract {
     }
 }
 
-/** Which block a recorder is picking back up. */
 /** Where one block sits: the instrument, the level, and when it starts. */
 export interface BlockAddress extends ChunkContract {
     readonly detailLevel: number;
     readonly startedAtMs: number;
 }
 
+/** Which block a recorder is picking back up. */
 export interface BlockResume extends BlockAddress {
     /** The grid the recording asking for it is on, which may not be the stored one. */
     readonly priceBucketSize: number;
@@ -415,7 +414,6 @@ interface SquareWrite {
     readonly steps: ReadonlyMap<number, number>[];
 }
 
-/** One block being read back, and what the reader can draw of it. */
 /**
  * A column's steps on a coarser grid, largest winning within each row.
  *

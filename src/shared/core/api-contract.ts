@@ -107,7 +107,3 @@ export interface HealthResponse {
     readonly isDatabaseReachable: boolean;
     readonly serverTimeMs: number;
 }
-
-/**
- * Messages the live socket sends as text.
- */

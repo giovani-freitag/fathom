@@ -8,7 +8,6 @@ import type { ChartLayout } from '../painting/render-types.ts';
 import type { PointerReadout } from '../painting/heatmap-renderer.ts';
 import type { ViewRequest } from './chart-controller.ts';
 
-/** One wheel notch, chosen so a few clicks cross a zoom level without overshooting. */
 /**
  * How long after the last notch a turn of the wheel counts as over.
  *
@@ -18,6 +17,7 @@ import type { ViewRequest } from './chart-controller.ts';
  */
 const WHEEL_SETTLE_MS = 90;
 
+/** One wheel notch, chosen so a few clicks cross a zoom level without overshooting. */
 const WHEEL_ZOOM_FACTOR = 1.18;
 
 /** A pinch narrower than this is one finger's noise, not an intended scale. */
@@ -404,9 +404,6 @@ export class ChartGestureController {
     }
 
     /**
-     * Which band the given point falls in.
-     */
-    /**
      * What the pointer looks like where it is resting.
      */
     private resolveCursor(position: PointerPosition): string {
@@ -417,6 +414,9 @@ export class ChartGestureController {
         return this.config.claimant?.describeCursor(position) ?? REGION_CURSORS.plot;
     }
 
+    /**
+    * Which band the given point falls in.
+    */
     private resolveRegion(position: PointerPosition): SurfaceRegion {
         const layout = this.config.readLayout();
         const priceScaleX = layout.isCompact ? layout.priceAxisX : layout.profileX;

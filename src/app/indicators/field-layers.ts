@@ -14,10 +14,10 @@ export const FIELD_LAYERS: readonly Registered<FieldLayer>[] = [
     { id: CANDLES_LAYER_ID, layer: CANDLES_LAYER },
 ];
 
-/** What the layers currently on the chart amount to, for the parts that draw them. */
 /** What each drawn layer is tuned to, by the id it was added under. */
 export type LayerSettings = Readonly<Record<string, IndicatorSettings>>;
 
+/** What the layers currently on the chart amount to, for the parts that draw them. */
 export interface FieldSettings extends BookSettings, CandleSettings {
     readonly layerSettings: LayerSettings;
 }

@@ -427,9 +427,6 @@ interface PairRowProps {
  * starts and never after: a contract recorded on one and re-recorded on another
  * has two grids in one history, and nothing downstream can tell which row
  * belongs to which.
- */
-/**
- * One pair's row, rebuilt only when that pair changes.
  *
  * Memoised for the same reason the contract listing's rows are: the card
  * re-renders whenever anything above the list moves — a character typed, a

@@ -45,18 +45,6 @@ function interpolate(phrase: string, values?: TranslationValues): string {
 }
 
 /**
- * Renders a label that may name a phrase or already be one.
- *
- * An addon ships labels the build has never heard of, and a missing phrase must
- * read as what its author wrote rather than as the key they chose.
- *
- * @param translate - The renderer for the language in force.
- * @param labelKey - A catalogue key, or the label itself.
- * @param otherwise - What to draw where the key names nothing, for a caller
- *     that built the key out of something more readable than the key is.
- * @returns The text to draw.
- */
-/**
  * Why a layer drew nothing, in the reader's language.
  *
  * A reading's own thrown message passes through as its author wrote it; the

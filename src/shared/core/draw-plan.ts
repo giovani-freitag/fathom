@@ -31,20 +31,14 @@ export const PLOT_TONES: readonly PlotTone[] = [
 ];
 
 /**
- * The tones one added copy can be given to tell it from another.
- *
- * A subset rather than the whole list: `bid` sits too close to `phosphor` to
- * separate two lines crossing each other, and `muted` is what an accent is
- * drawn in, so neither can carry an identity.
- */
-/**
  * The colours a copy is identified by, in the order they are handed out.
  *
  * Neither side of the book is in here. Green means buying and red means the
  * offer everywhere else on this chart — the candles, the volume, the delta, the
  * heat ramp, the resistances of a pivot set — so handing one of them to a mean
  * as an identity teaches a reader something false about a line that has no side
- * at all.
+ * at all. `muted` is out for a reason of its own: it is what an accent is drawn
+ * in, so a copy given it would be identified by the colour of an aside.
  *
  * Five, and a reader with more copies than that gets a colour twice. That is
  * the point where colour has stopped being able to say which line is which, and
@@ -407,13 +401,6 @@ export function readSessions(input: IndicatorInput, name: string): SettledSessio
 }
 
 /**
- * One indicator: a description of its knobs, and a pure function from bars to vertices.
- *
- * Stateless on purpose. The settings arrive with the call rather than with a
- * constructor, so the same object serves every copy a reader has added and
- * nothing has to be rebuilt when one of them is retuned.
- */
-/**
  * A layer the host draws itself, rather than one built from arithmetic.
  *
  * The depth map is the reason this exists. It is a picture of hundreds of
@@ -442,6 +429,13 @@ export interface Registered<T> {
     readonly layer: T;
 }
 
+/**
+ * One indicator: a description of its knobs, and a pure function from bars to vertices.
+ *
+ * Stateless on purpose. The settings arrive with the call rather than with a
+ * constructor, so the same object serves every copy a reader has added and
+ * nothing has to be rebuilt when one of them is retuned.
+ */
 export interface Indicator {
     /**
      * What the reading is called.

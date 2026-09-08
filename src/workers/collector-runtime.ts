@@ -16,9 +16,6 @@ import {
 } from './services/liquidity-recorder-service.ts';
 
 /**
- * The collector's object graph and its lifecycle, wired by hand in one place.
- */
-/**
  * What the runtime needs beyond the settings read from the environment.
  */
 export interface CollectorRuntimeConfig {
@@ -40,6 +37,9 @@ export interface CollectorRuntimeConfig {
     readonly wideRecordings?: readonly WideRecordingConfig[];
 }
 
+/**
+ * The collector's object graph and its lifecycle, wired by hand in one place.
+ */
 export class CollectorRuntime {
     private readonly configuration: CollectorConfiguration;
     private readonly archive: LiquidityArchive;

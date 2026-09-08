@@ -26,7 +26,6 @@ export interface IndexedDbHeatmapSourceConfig {
 /**
  * The chart's read side when the page is its own collector.
  */
-/** How far a contract's recording reaches, and where its price was last. */
 export class IndexedDbHeatmapSource implements ArchiveSource {
     private readonly database: IndexedDbService;
     private readonly rows: IndexedDbChunkRowStore;
@@ -161,7 +160,3 @@ export class IndexedDbHeatmapSource implements ArchiveSource {
         }
     }
 }
-
-
-
-

@@ -155,9 +155,6 @@ export class PlotPainter {
     }
 
     /**
-     * Draws one band of the stack, and everything sharing it, on one scale.
-     */
-    /**
      * Writes what a band is, inside the band.
      *
      * A stack of them is otherwise told apart only by the figures in the
@@ -222,6 +219,9 @@ export class PlotPainter {
         context.restore();
     }
 
+    /**
+    * Draws one band of the stack, and everything sharing it, on one scale.
+    */
     private paintPane(
         paint: PaintContext,
         band: readonly DrawPlan[],

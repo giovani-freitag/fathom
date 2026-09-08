@@ -41,15 +41,15 @@ export interface BetweenRequest {
     readonly toMs: number;
 }
 
-/**
- * The reads a tail makes, narrow enough for any archive to answer.
- */
 /** The half of a tail that no store keeps a copy of. */
 export interface TailCompanions {
     fetchTradeClustersBetween(request: BetweenRequest): Promise<readonly TradeCluster[]>;
     fetchGapsBetween(request: BetweenRequest): Promise<readonly RecordingGap[]>;
 }
 
+/**
+ * The reads a tail makes, narrow enough for any archive to answer.
+ */
 export interface LiveTailSource {
     fetchFramesAfter(request: FramesAfterRequest): Promise<LiquidityFrameWindow>;
     fetchTradeClustersBetween(request: BetweenRequest): Promise<readonly TradeCluster[]>;

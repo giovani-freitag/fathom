@@ -552,18 +552,18 @@ function configureWorkers(): void {
 }
 
 
-/**
- * Teaches the language service what an addon may reach, once per page.
- *
- * CommonJS on purpose: what comes out is run by handing it a `require`, so the
- * page never has to resolve a bare specifier at run time.
- */
 /** Folders before loose files, then by name, so a list reads like a tree. */
 function byPath(one: string, other: string): number {
     const depth = folderOf(other).split('/').length - folderOf(one).split('/').length;
     return folderOf(one) === folderOf(other) ? one.localeCompare(other) : depth || one.localeCompare(other);
 }
 
+/**
+ * Teaches the language service what an addon may reach, once per page.
+ *
+ * CommonJS on purpose: what comes out is run by handing it a `require`, so the
+ * page never has to resolve a bare specifier at run time.
+ */
 function configureLanguage(): void {
     if (isLanguageConfigured) {
         return;

@@ -49,7 +49,6 @@ import { collectSessions } from '../../shared/core/settled-sessions.ts';
 import { FIRST_VENUE } from '../../shared/core/recording-control.ts';
 import type { MarketPair } from '../../shared/core/pair-tags.ts';
 
-/** How often the instrument listing and its coverage are re-read. */
 /** Bars of clear space kept after the newest one. */
 const RIGHT_MARGIN_BARS = 5;
 
@@ -140,23 +139,23 @@ export interface ChartState {
     readonly pickedInstanceId: string | null;
 }
 
-/**
- * Whether the open contract is one this recording holds a book for.
- *
- * Derived rather than kept, because it is a fact about two things that move
- * independently: which contract is open, and what the archive covers. Held as a
- * field it was written when the contract changed and never again — so a reader
- * who started recording the pair in front of them saw nothing change, on a
- * chart that had stopped asking for frames.
- *
- * @param state - The chart as it stands.
- * @returns True where the archive lists the open contract.
- */
 /** The open contract as one string, for comparing one against another. */
 function describeContract(state: ChartState): string {
     return `${state.venue ?? ''}/${state.instrumentSymbol ?? ''}`;
 }
 
+/**
+* Whether the open contract is one this recording holds a book for.
+*
+* Derived rather than kept, because it is a fact about two things that move
+* independently: which contract is open, and what the archive covers. Held as a
+* field it was written when the contract changed and never again — so a reader
+* who started recording the pair in front of them saw nothing change, on a
+* chart that had stopped asking for frames.
+*
+* @param state - The chart as it stands.
+* @returns True where the archive lists the open contract.
+*/
 export function isOpenRecorded(state: ChartState): state is OpenRecordedChart {
     return state.instruments.some((candidate) => (
         candidate.instrumentSymbol === state.instrumentSymbol
@@ -254,7 +253,6 @@ export class ChartController {
     private needsPriceFraming = true;
     /** Newest instant the tail has handed over, which is where it will resume. */
     private tailDeliveredMs = 0;
-    /** The store the running tail is streaming out of. */
     /**
      * Which contract the running tail is on, or null while none is running.
      *
@@ -1115,13 +1113,6 @@ function resolveWindowSources(state: ChartState): readonly WindowSource[] {
 }
 
 /**
- * Whether the window holds anything to draw.
- *
- * Counted across both, because which of them was fetched depends on what is on
- * the chart: a chart showing candles alone loads no book at all, and reading
- * emptiness off the book would tell it nothing was ever recorded.
- */
-/**
  * Empty room kept after the newest bar.
  *
  * Measured in bars rather than pixels, so it is the same amount of chart at
@@ -1137,6 +1128,13 @@ function resolveRightMarginMs(state: ChartState): number {
     );
 }
 
+/**
+* Whether the window holds anything to draw.
+*
+* Counted across both, because which of them was fetched depends on what is on
+* the chart: a chart showing candles alone loads no book at all, and reading
+* emptiness off the book would tell it nothing was ever recorded.
+*/
 function hasAnything(dataset: ChartDataset): boolean {
     return dataset.frames.length > 0 || dataset.bars.bars.length > 0;
 }

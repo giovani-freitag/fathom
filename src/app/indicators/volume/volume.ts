@@ -26,16 +26,16 @@ const MODE: ChoiceParameter = {
     choices: ['total', 'sides'],
 };
 
-/**
- * How much changed hands in each bar.
- *
- * Offered two ways because the recording knows something a tape of prints does
- * not: which side crossed the spread. The total is what a reader expects to
- * see; the split is what this archive can say that others cannot.
- */
 /** The id the volume is stored and found under. */
 export const VOLUME_ID = 'volume';
 
+/**
+* How much changed hands in each bar.
+*
+* Offered two ways because the recording knows something a tape of prints does
+* not: which side crossed the spread. The total is what a reader expects to
+* see; the split is what this archive can say that others cannot.
+*/
 export class Volume implements Indicator {
     readonly label = 'indicator.volume';
     readonly about = 'indicator.volume.help';

@@ -1,6 +1,3 @@
-import type { DepthDiff, DepthSnapshot, ExecutedTrade } from './depth-types.ts';
-import type { VenueDeclaration } from './venue-plan.ts';
-
 /**
  * A connector: what a venue can do, and how to read what it says.
  *
@@ -13,6 +10,8 @@ import type { VenueDeclaration } from './venue-plan.ts';
  * and one that never settles wedges the reconcile pass for every contract on the
  * machine, one bad connector stopping four good recordings.
  */
+import type { DepthDiff, DepthSnapshot, ExecutedTrade } from './depth-types.ts';
+import type { VenueDeclaration } from './venue-plan.ts';
 
 /** How a request is made, for the few venues that will not answer a plain read. */
 export type RequestMethod = 'GET' | 'POST';

@@ -24,16 +24,16 @@ const STYLE: ChoiceParameter = {
     choices: [...CANDLE_STYLES],
 };
 
-/**
- * The price itself, drawn as bars.
- *
- * Apart from the book because a chart of the price with nothing else on it is a
- * thing somebody wants, and because a bar is fetched whether or not any book
- * was ever recorded.
- */
 /** The id this layer is stored and found under. */
 export const CANDLES_LAYER_ID = 'candles';
 
+/**
+* The price itself, drawn as bars.
+*
+* Apart from the book because a chart of the price with nothing else on it is a
+* thing somebody wants, and because a bar is fetched whether or not any book
+* was ever recorded.
+*/
 export const CANDLES_LAYER: FieldLayer = {
     label: 'layer.candles',
     about: 'layer.candles.help',

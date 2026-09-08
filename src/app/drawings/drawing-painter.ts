@@ -263,9 +263,6 @@ export class DrawingPainter implements FieldLayerPainter {
     }
 
     /**
-     * Strokes a level or a segment across the span it is drawn over.
-     */
-    /**
      * Draws the trail behind a laser, brightest where the hand is.
      *
      * Segment by segment rather than as one path: a canvas stroke carries one
@@ -372,6 +369,9 @@ export class DrawingPainter implements FieldLayerPainter {
         paint.context.stroke();
     }
 
+    /**
+     * Strokes a level or a segment across the span it is drawn over.
+     */
     private strokeLine(stroke: DrawingStroke): void {
         const { paint, drawing } = stroke;
         const span = resolveSpan(drawing, paint.layout.plotWidth, paint.projector);

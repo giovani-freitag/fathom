@@ -118,15 +118,6 @@ export function findIndicator(indicatorId: string): Indicator | null {
 }
 
 /**
- * The deepest history any added indicator needs behind the drawn window.
- *
- * One figure for the whole set because they share a fetch: reading each one's
- * own depth would mean a request per indicator over the same range.
- *
- * @param added - What is on the chart.
- * @returns Bars to read before the window, and never fewer than one.
- */
-/**
  * The coarser sessions everything on the chart between them reads.
  *
  * Merged rather than listed per indicator: two copies of a reading anchored to

@@ -473,12 +473,6 @@ export class DrawingsController {
 }
 
 /**
- * Whether a mark covers any ground at all.
- *
- * @param drawing - The mark to measure.
- * @returns True when it is something a reader could see and grab.
- */
-/**
  * The path with the pointer's latest instant on the end of it.
  *
  * Stops growing at the cap rather than refusing the stroke: a reader mid-line
@@ -503,6 +497,12 @@ function growPath(
     return anchors.length >= MOST_PATH_ANCHORS ? anchors : [...anchors, anchor];
 }
 
+/**
+ * Whether a mark covers any ground at all.
+ *
+ * @param drawing - The mark to measure.
+ * @returns True when it is something a reader could see and grab.
+ */
 function hasExtent(drawing: Drawing): boolean {
     const [first, second] = drawing.anchors;
     if (first === undefined || second === undefined) {

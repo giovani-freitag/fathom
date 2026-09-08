@@ -5,12 +5,6 @@
 
 // addon-api.d.ts
 /**
- * Everything an addon may reach, and nothing else.
- *
- * One file so the surface is a list somebody can read, and so widening it is a
- * deliberate edit rather than a stray export somewhere in the tree.
- */
-/**
  * Starts a plan, bound to the bars every series lines up with.
  *
  * @example
@@ -108,26 +102,6 @@ export interface OrderBookReading extends TopOfBook {
 export type PlotTone = 'bid' | 'ask' | 'amber' | 'phosphor' | 'violet' | 'cyan' | 'ink' | 'muted';
 /** Every tone a plan may name. */
 export declare const PLOT_TONES: readonly PlotTone[];
-/**
- * The tones one added copy can be given to tell it from another.
- *
- * A subset rather than the whole list: `bid` sits too close to `phosphor` to
- * separate two lines crossing each other, and `muted` is what an accent is
- * drawn in, so neither can carry an identity.
- */
-/**
- * The colours a copy is identified by, in the order they are handed out.
- *
- * Neither side of the book is in here. Green means buying and red means the
- * offer everywhere else on this chart — the candles, the volume, the delta, the
- * heat ramp, the resistances of a pivot set — so handing one of them to a mean
- * as an identity teaches a reader something false about a line that has no side
- * at all.
- *
- * Five, and a reader with more copies than that gets a colour twice. That is
- * the point where colour has stopped being able to say which line is which, and
- * it is why a plan can write its own names on the chart instead.
- */
 /**
  * How a series is drawn.
  *
@@ -452,13 +426,6 @@ export interface IndicatorInput {
  */
 export declare function readSessions(input: IndicatorInput, name: string): SettledSessions;
 /**
- * One indicator: a description of its knobs, and a pure function from bars to vertices.
- *
- * Stateless on purpose. The settings arrive with the call rather than with a
- * constructor, so the same object serves every copy a reader has added and
- * nothing has to be rebuilt when one of them is retuned.
- */
-/**
  * A layer the host draws itself, rather than one built from arithmetic.
  *
  * The depth map is the reason this exists. It is a picture of hundreds of
@@ -485,6 +452,13 @@ export interface Registered<T> {
     readonly id: string;
     readonly layer: T;
 }
+/**
+ * One indicator: a description of its knobs, and a pure function from bars to vertices.
+ *
+ * Stateless on purpose. The settings arrive with the call rather than with a
+ * constructor, so the same object serves every copy a reader has added and
+ * nothing has to be rebuilt when one of them is retuned.
+ */
 export interface Indicator {
     /**
      * What the reading is called.
@@ -554,13 +528,6 @@ export declare function readToggle(settings: IndicatorSettings, parameter: Toggl
  * @returns One of the declared choices.
  */
 export declare function readChoice(settings: IndicatorSettings, parameter: ChoiceParameter): string;
-/**
- * The bars a reading needs before the drawn window.
- *
- * @param indicator - The reading being asked.
- * @param settings - Values the reader chose.
- * @returns The count, or none where it declared no sources at all.
- */
 /** What the host completes a draft with. */
 export interface PlanStamp {
     /** The id the copy was added under. */
@@ -570,13 +537,6 @@ export interface PlanStamp {
     /** Bars of warm-up the archive actually supplied. */
     readonly warmupBarCount: number;
 }
-/**
- * Completes a draft with everything the host already knew.
- *
- * @param stamp - Who asked, how it was tuned, and what warm-up arrived.
- * @param draft - What the arithmetic produced.
- * @returns The plan the painters are given.
- */
 /**
  * The knobs a legend shows, for a plan that did not say.
  *
@@ -588,30 +548,6 @@ export interface PlanStamp {
  * @returns The figures, in declaration order, or an empty string where none.
  */
 export declare function summariseParameters(parameters: readonly IndicatorParameter[], settings: IndicatorSettings): string;
-/**
- * Recolours a plan to the tone its copy was given.
- *
- * A plan that says its colours are a reading is left alone. Otherwise only what
- * was drawn in the indicator's own colour moves: a tone the author chose to
- * differ — a dashed midline, a signal line, the shading of a band —
- * is an accent that says something about the reading, and flattening those into
- * one colour would lose what the author was distinguishing.
- *
- * @param plan - What the indicator produced.
- * @param tone - The colour this copy is identified by.
- * @returns The plan, with its own colour replaced.
- */
-/**
- * The value a series carried at an instant.
- *
- * The bar the instant falls in rather than the nearest vertex: a reading
- * belongs to the bucket it was computed over, and rounding to the closer
- * neighbour would show the next bar's value for half of this one.
- *
- * @param series - The series to read.
- * @param atMs - The instant asked about.
- * @returns The value, or NaN where the series says nothing there.
- */
 
 // parameter-builder.d.ts
 /**
@@ -900,7 +836,6 @@ export interface PriceBarQuery {
     /** Bars before `fromMs`, at the same interval. Costs rows, never columns. */
     readonly warmupBars: number;
 }
-/** A window that holds nothing, for a chart that has not loaded one yet. */
 /** How much of a bar's own width was recorded, and whether that is settled yet. */
 export type BarCompleteness = 'forming' | 'partial' | 'whole';
 /**
@@ -920,12 +855,6 @@ export declare const BAR_BUDGET: {
     readonly maximumSourceFrames: 180000;
     readonly maximumBars: 2000;
 };
-/**
- * Trims a run of bars to what a window may return, keeping the newest.
- *
- * @param bars - Bars for the whole range, oldest first.
- * @returns At most the budgeted count, still oldest first.
- */
 
 // reading-words.d.ts
 /** The languages the interface is written in. */
@@ -940,14 +869,6 @@ export type Locale = 'en' | 'pt-BR';
 export type Words = {
     readonly en: string;
 } & Partial<Record<Locale, string>>;
-/**
- * Sets the language readings answer in.
- *
- * The host's, not a reading's: a reading says what it is called, and the page
- * says which language it is being read in.
- *
- * @param locale - The language the interface is now in.
- */
 /**
  * One phrase in the language the page is being read in.
  *
@@ -1074,38 +995,8 @@ export declare function collectTrueRanges(bars: readonly PriceBar[], segment: Ba
  * @returns One entry per drawn bar, undefined where nothing had closed yet.
  */
 export declare function holdLastClosed(bars: readonly PriceBar[], higher: readonly PriceBar[]): readonly (PriceBar | undefined)[];
-/**
- * Aligns a coarser rung to the drawn bars, holding each back to what it knew.
- *
- * Run by the host, so a reading has nothing to remember to do and no raw
- * window to reach into.
- *
- * @param bars - The window being drawn.
- * @param higher - The coarser bars the archive supplied, or null where it had none.
- * @returns The sessions aligned to the drawn bars, with their turnovers marked.
- */
-/**
- * The sessions one reading declared, under the names it declared them with.
- *
- * @param bars - The window being drawn.
- * @param supplied - The coarser windows fetched for the chart, by rung.
- * @param declared - What this reading asked for.
- * @returns One entry per declared name, blank where the archive had no rung.
- */
 
 // venue-connector.d.ts
-/**
- * A connector: what a venue can do, and how to read what it says.
- *
- * Every method here is pure and synchronous, and every argument and return is
- * plain data. A connector holds no socket, no promise and no timer; it describes
- * a request and reads an answer, and the engine does the rest.
- *
- * That is not a matter of taste. The supervisor awaits each recording it tears
- * down, so a connector owning its own socket would own a close that can hang —
- * and one that never settles wedges the reconcile pass for every contract on the
- * machine, one bad connector stopping four good recordings.
- */
 /** How a request is made, for the few venues that will not answer a plain read. */
 export type RequestMethod = 'GET' | 'POST';
 /**
@@ -1146,9 +1037,6 @@ export interface VenuePacing {
     /** How many requests may be in the air at this venue at once. */
     readonly requestsAtOnce: number;
 }
-/**
- * What the shipped venues tolerate, and what a connector gets for saying nothing.
- */
 /** A socket to open, and what to say once it is open. */
 export interface VenueStreamPlan {
     readonly url: string;
@@ -1335,31 +1223,6 @@ export interface VenueConnector {
     readBars: (payload: unknown, request: BarPageRequest) => readonly VenueBar[];
 }
 /**
- * Where a connector contradicts itself.
- *
- * Checked when it is registered rather than when a recording starts, because the
- * second is hours later, on a machine nobody is watching, and the contradiction
- * was already in the file.
- *
- * The declaration is what claims; the methods are what can answer. A venue that
- * declares a book and never wrote the methods behind one is a chart waiting for
- * a message that never comes, and a venue with the methods and no declaration is
- * one quietly doing more than the chart was told to expect.
- *
- * @param connector - The connector being registered.
- * @returns One sentence per contradiction, empty where there are none.
- */
-/**
- * Where a connector asks to be paced in a way the engine will not perform.
- *
- * Read at registration beside the contradictions, and for the same reason: a
- * listing capped at nought pages fetches nothing, and the reader finds out when
- * the chart stays empty rather than when the file was written.
- *
- * @param connector - The connector being registered.
- * @returns One sentence per fault, empty where there are none.
- */
-/**
  * What a connector is written as.
  *
  * Methods on the class, not objects of functions hung off it. Every one a venue
@@ -1493,12 +1356,6 @@ export declare abstract class Connector implements VenueConnector {
 }
 
 // venue-plan.d.ts
-/**
- * What a venue can and cannot do, said by whoever connected to it.
- *
- * The other half of the idea an indicator already follows: what the host has to
- * know is said by the one who knows it, before anything is fetched or drawn.
- */
 /** How trustworthy the ordering of one venue's book updates is. */
 export type BookGrade =
 /** Every update names the one before it. The strongest check there is. */
@@ -1639,23 +1496,3 @@ export type VenueFact =
  | 'takerSplit'
 /** How many prints made a bar. */
  | 'tradeCount';
-/**
- * Which of those facts a venue actually supplies.
- *
- * The taker split is read off the bars rather than off the tape. Five of the
- * shipped readings compute over the drawn bars, and outside the shipped venue
- * no candle endpoint carries a split — so a sided tape grants the fact only
- * where the bars are folded from that tape. Granting it off the tape alone
- * would draw cumulative delta correct over the collector's uptime and blank
- * before it, with the seam moving on every restart.
- *
- * @param declaration - What the connector declared.
- * @returns The facts a reading may rely on.
- */
-/**
- * The facts a reading asked for that the venue does not supply.
- *
- * @param needed - What the reading declared it reads.
- * @param offered - What the venue was found to supply.
- * @returns The shortfall, in the order the reading named it.
- */

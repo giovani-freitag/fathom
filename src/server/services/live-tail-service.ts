@@ -13,13 +13,6 @@ export interface LiveTailSubscriptionRequest {
     readonly onMessage: (message: LiveMessage) => void;
     /** Told when a run of passes has read nothing, so the socket can be let go. */
     readonly onAdvanceFailed?: ((failuresInARow: number, reason: unknown) => void) | undefined;
-    /**
-     * Which store the reader is drawing, or absent for the frame table.
-     *
-     * A tail has to stream what the window it is extending holds. Reading the
-     * band around the price into a chart drawn from the whole book leaves
-     * everything outside that band standing still.
-     */
     /** The prices the reader is drawing, so the tail carries only those. */
     readonly lowPrice?: number;
     readonly highPrice?: number;
@@ -29,7 +22,6 @@ export interface LiveTailSubscriptionRequest {
 
 export interface LiveTailServiceConfig {
     readonly source: LiveTailSource;
-    /** The stores a reader may name, beside the frame table the default reads. */
     /**
      * How often a tail catches up on its own.
      *

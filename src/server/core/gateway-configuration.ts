@@ -16,8 +16,6 @@ export interface GatewayConfiguration {
     readonly port: number;
     readonly databaseUrl: string;
     readonly viewerDistPath: string;
-    /** Secret a shared link must carry; empty leaves every route open. */
-    /** True when the gateway is reached through a public tunnel. */
 }
 
 export const LIVE_TAIL_SETTINGS = {
