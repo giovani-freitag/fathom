@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.16.4](https://github.com/giovani-freitag/fathom/compare/v0.16.3...v0.16.4) (2026-09-08)
+
+
+### Bug Fixes
+
+* draw the demo's chart before its first column is recorded ([c7fa966](https://github.com/giovani-freitag/fathom/commit/c7fa96601c7823fbd76c8db9912f7edc49234fb3))
+* keep no window that came back without a book ([10e754a](https://github.com/giovani-freitag/fathom/commit/10e754a807ad40f4ad69056788ae2cefb6c36a70))
+
 ## [0.16.3](https://github.com/giovani-freitag/fathom/compare/v0.16.2...v0.16.3) (2026-09-08)
 
 
