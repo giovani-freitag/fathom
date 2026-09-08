@@ -72,6 +72,16 @@ const RIGHT_MARGIN_SPAN_RATIO = 0.04;
  */
 const COVERAGE_REFRESH_MS = 30_000;
 
+/**
+ * How often the listing is re-read while the chart is on no contract at all.
+ *
+ * The reader is looking at an empty screen and the next answer is the one that
+ * fills it, so the reasoning above does not hold: a page that records for
+ * itself lists nothing for its first seconds, and half a minute of nothing is
+ * read as a page that does not work.
+ */
+const EMPTY_LISTING_REFRESH_MS = 1_000;
+
 export type ChartPhase = 'initialising' | 'ready' | 'empty' | 'failed';
 
 export interface ChartState {
@@ -261,6 +271,8 @@ export class ChartController {
     private wasDisposed = false;
     private wasInitialised = false;
     private coverageTimer: ReturnType<typeof setInterval> | null = null;
+    /** The pace the running timer was armed at, so a change can rebuild it. */
+    private coverageIntervalMs = COVERAGE_REFRESH_MS;
 
     constructor(config: ChartControllerConfig) {
         this.config = config;
@@ -317,6 +329,17 @@ export class ChartController {
         const instruments = await this.config.api.fetchInstruments();
         const wasRecorded = isOpenRecorded(this.store.read());
         this.store.update((current) => ({ ...current, instruments }));
+
+        // A chart on nothing takes what the listing now offers. Choosing only
+        // at startup meant a page whose first listing was empty — which is
+        // every page that records for itself — never drew anything at all.
+        if (this.store.read().instrumentSymbol === null) {
+            const preferred = this.choosePreferredInstrument(instruments);
+            if (preferred !== null) {
+                await this.openChosenInstrument(preferred, instruments);
+            }
+            return;
+        }
         // A contract the reader has just started recording is a contract this
         // chart was asking nothing about: the frames were left out of every
         // request, so the window it holds would go on showing candles alone
@@ -341,28 +364,46 @@ export class ChartController {
             const preferred = this.choosePreferredInstrument(instruments);
 
             if (preferred === null) {
+                // Watched all the same. A page that records for itself lists no
+                // contract at all for its first seconds, and stopping here left
+                // the chart on nothing for the rest of the session.
                 this.store.update((current) => ({ ...current, phase: 'empty', instruments }));
+                this.watchCoverage(this.resolveCoveragePace());
                 return;
             }
 
-            // Told where the market is, the chart is already framed: the very
-            // first window can then ask for the band it will draw instead of
-            // reading a whole book to find out where to look.
-            this.needsPriceFraming = preferred.lastMidPrice === null;
-            this.store.update((current) => ({
-                ...current,
-                instruments,
-                instrumentSymbol: preferred.instrumentSymbol,
-                venue: preferred.venue,
-                viewport: buildInitialViewport(preferred, current.viewport.toMs - current.viewport.fromMs),
-                phase: 'ready',
-            }));
-            await this.loadWindow();
-            this.openLiveTail();
-            this.watchCoverage();
+            // Armed by the open itself, at the pace what it found deserves.
+            await this.openChosenInstrument(preferred, instruments);
         } catch (error) {
             this.publishFailure(error);
         }
+    }
+
+    /**
+     * Puts the chart on a contract and loads what it draws.
+     *
+     * @param preferred - The contract to open.
+     * @param instruments - The listing it was chosen from.
+     */
+    private async openChosenInstrument(
+        preferred: InstrumentCoverage,
+        instruments: readonly InstrumentCoverage[],
+    ): Promise<void> {
+        // Told where the market is, the chart is already framed: the very first
+        // window can then ask for the band it will draw instead of reading a
+        // whole book to find out where to look.
+        this.needsPriceFraming = preferred.lastMidPrice === null;
+        this.store.update((current) => ({
+            ...current,
+            instruments,
+            instrumentSymbol: preferred.instrumentSymbol,
+            venue: preferred.venue,
+            viewport: buildInitialViewport(preferred, current.viewport.toMs - current.viewport.fromMs),
+            phase: 'ready',
+        }));
+        await this.loadWindow();
+        this.openLiveTail();
+        this.watchCoverage(this.resolveCoveragePace());
     }
 
     /**
@@ -371,12 +412,19 @@ export class ChartController {
      * @param intervalMs - How often to re-read.
      */
     private watchCoverage(intervalMs = COVERAGE_REFRESH_MS): void {
-        if (this.coverageTimer !== null) {
+        if (this.coverageTimer !== null && this.coverageIntervalMs === intervalMs) {
             return;
+        }
+        // Rebuilt rather than left alone when the pace changes: the chart asks
+        // quickly while it has no contract to draw and slowly once it has one,
+        // and a timer armed at the first pace would keep that pace for ever.
+        if (this.coverageTimer !== null) {
+            clearInterval(this.coverageTimer);
         }
         // Read once at startup, the listing freezes: a contract switched on
         // never appears in the picker, and "recorded so far" keeps reporting
         // the span the page happened to open with.
+        this.coverageIntervalMs = intervalMs;
         this.coverageTimer = setInterval(this.handleCoverageDue, intervalMs);
         document.addEventListener('visibilitychange', this.handleVisibilityChange);
     }
@@ -392,6 +440,53 @@ export class ChartController {
             return;
         }
         void this.refreshInstruments();
+        void this.reaskWhileHoldingNothing();
+        this.watchCoverage(this.resolveCoveragePace());
+    }
+
+    /**
+     * How often the listing is worth re-reading, from what is on screen.
+     *
+     * @returns The interval to watch at.
+     */
+    private resolveCoveragePace(): number {
+        const state = this.store.read();
+        // Framed is the mark, not merely holding a frame: the live tail lands
+        // one within a second or two of opening, and stopping at that left the
+        // chart with a column nobody could see and a band still asking for
+        // nothing.
+        const isWaitingForItsFirstColumn = state.instrumentSymbol === null
+            || (isOpenRecorded(state) && this.needsPriceFraming);
+        return isWaitingForItsFirstColumn ? EMPTY_LISTING_REFRESH_MS : COVERAGE_REFRESH_MS;
+    }
+
+    /**
+     * Asks again for a window that came back with no book in it.
+     *
+     * The right edge follows the recording rather than the wall clock, which
+     * leaves a chart holding nothing with nothing to follow: the window it
+     * asked for on opening never moves, every later read is deduplicated
+     * against it, and the first column recorded is never fetched.
+     */
+    private async reaskWhileHoldingNothing(): Promise<void> {
+        const state = this.store.read();
+        if (!state.isFollowingLive || !isOpenRecorded(state)) {
+            return;
+        }
+        if (!this.needsPriceFraming) {
+            return;
+        }
+
+        const span = state.viewport.toMs - state.viewport.fromMs;
+        const toMs = Date.now() + resolveRightMarginMs(state);
+        this.store.update((current) => ({
+            ...current,
+            viewport: clampViewport(
+                { ...current.viewport, fromMs: toMs - span, toMs },
+                this.resolveBounds(),
+            ),
+        }));
+        await this.loadWindow();
     }
 
     /**
@@ -597,13 +692,21 @@ export class ChartController {
     private choosePreferredInstrument(
         instruments: readonly InstrumentCoverage[],
     ): InstrumentCoverage | null {
+        // One with history first, and one without rather than none at all. The
+        // heatmap is the only layer that needs a recorded frame — the candles,
+        // the live book and the tape are all asked of the venue — so refusing
+        // to open a contract until its first column existed left a page that
+        // records for itself showing nothing whatever until it had one.
         const recorded = instruments.filter((candidate) => candidate.lastFrameAtMs !== null);
         const preferred = this.config.preferences.read();
-        return recorded.find((candidate) => (
+        const isPreferred = (candidate: InstrumentCoverage): boolean => (
             candidate.venue === preferred.venue
             && candidate.instrumentSymbol === preferred.instrumentSymbol
-        ))
+        );
+        return recorded.find(isPreferred)
+            ?? instruments.find(isPreferred)
             ?? recorded[0]
+            ?? instruments[0]
             ?? null;
     }
 
@@ -874,8 +977,19 @@ export class ChartController {
         if (!this.needsPriceFraming || !hasAnything(dataset)) {
             return viewport;
         }
+
+        const state = this.store.read();
+        const framed = frameOnBook(viewport, dataset, state.isDepthVisible);
+        // The axis is framed on whatever there is, because a reader has to see
+        // the candles. What waits for a book is the band the archive is asked
+        // for: settled from candles alone it named a hundred dollars around the
+        // market and matched no square held, so no book came back to correct it.
+        if (state.isDepthVisible && isOpenRecorded(state) && dataset.frames.length === 0) {
+            return framed;
+        }
+
         this.needsPriceFraming = false;
-        return frameOnBook(viewport, dataset, this.store.read().isDepthVisible);
+        return framed;
     }
 
     /**

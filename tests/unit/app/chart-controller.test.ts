@@ -35,6 +35,38 @@ describe('ChartController.initialize', () => {
         expect(controller.store.read().instrumentSymbol).toBe('BTCUSDT');
     });
 
+    it('opens a contract that has recorded nothing yet', async () => {
+        // A page that starts its own recording lists its contract before the
+        // first column exists. Skipping it there left the chart on nothing at
+        // all, when the candles and the live book were ready to draw.
+        const mocks = createChartServiceMocks();
+        mocks.fetchInstruments.mockResolvedValue([
+            { ...INSTRUMENT, firstFrameAtMs: null, lastFrameAtMs: null },
+        ]);
+        const controller = buildController(mocks);
+
+        await controller.initialize();
+
+        expect(controller.store.read().instrumentSymbol).toBe(INSTRUMENT.instrumentSymbol);
+    });
+
+    it('prefers a contract with history over one with none', async () => {
+        // Both are openable now, so the order has to be stated: a reader with a
+        // recording to look at should not land on the empty one beside it.
+        // Preferring neither is what leaves the order to decide — named, the
+        // preference finds it either way and the ordering goes untested.
+        const mocks = createChartServiceMocks({ instrumentSymbol: 'PREFERS-NEITHER' });
+        mocks.fetchInstruments.mockResolvedValue([
+            { ...INSTRUMENT, instrumentSymbol: 'NOTHINGUSDT', firstFrameAtMs: null, lastFrameAtMs: null },
+            INSTRUMENT,
+        ]);
+        const controller = buildController(mocks);
+
+        await controller.initialize();
+
+        expect(controller.store.read().instrumentSymbol).toBe(INSTRUMENT.instrumentSymbol);
+    });
+
     it('loads a window and reports itself ready', async () => {
         const controller = buildController();
 
@@ -438,6 +470,132 @@ describe('ChartController.refreshInstruments', () => {
 
         expect(controller.store.read().instruments.map((i) => i.instrumentSymbol))
             .toContain('ETHUSDT');
+    });
+
+    it('opens the first contract to appear when it started on none', async () => {
+        // A page that records for itself lists nothing at all for its first
+        // seconds. Choosing only at startup left such a page on an empty chart
+        // for the rest of the session, however much it went on to record.
+        const mocks = createChartServiceMocks();
+        mocks.fetchInstruments.mockResolvedValue([]);
+        const controller = buildController(mocks);
+        await controller.initialize();
+        mocks.fetchInstruments.mockResolvedValue([INSTRUMENT]);
+
+        await controller.refreshInstruments();
+
+        expect(controller.store.read().instrumentSymbol).toBe(INSTRUMENT.instrumentSymbol);
+    });
+
+    it('keeps looking on its own while it has nothing to draw', async () => {
+        // Nobody asks the chart to try again, so an empty first listing has to
+        // be re-read by the chart itself — and at a pace a reader staring at an
+        // empty screen will sit through, not the half-minute a listing that is
+        // already drawing something deserves.
+        vi.useFakeTimers();
+        try {
+            const mocks = createChartServiceMocks();
+            mocks.fetchInstruments.mockResolvedValue([]);
+            const controller = buildController(mocks);
+            await controller.initialize();
+            mocks.fetchInstruments.mockResolvedValue([INSTRUMENT]);
+
+            await vi.advanceTimersByTimeAsync(1_500);
+
+            expect(controller.store.read().instrumentSymbol).toBe(INSTRUMENT.instrumentSymbol);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('draws the book that lands after it opened on an empty archive', async () => {
+        // The contract is listed before its first block is written, so the read
+        // on adoption comes back with nothing. Nothing else reloads it, and the
+        // chart stayed blank until a reload — which is what a page recording for
+        // itself always does.
+        //
+        // The clock is set beside the frames: with nothing recorded the chart
+        // frames itself on the clock, and a window in 1970 under a viewport in
+        // 2026 would report a working fix broken.
+        vi.useFakeTimers();
+        vi.setSystemTime(1_500_000);
+        try {
+            const mocks = createChartServiceMocks();
+            mocks.fetchInstruments.mockResolvedValue([]);
+            mocks.fetchFrameWindow.mockResolvedValue(buildWindow([]));
+            const controller = buildController(mocks);
+            await controller.initialize();
+            mocks.fetchInstruments.mockResolvedValue([
+                { ...INSTRUMENT, firstFrameAtMs: null, lastFrameAtMs: null, lastMidPrice: null },
+            ]);
+            await vi.advanceTimersByTimeAsync(1_500);
+            mocks.fetchFrameWindow.mockResolvedValue(buildWindow([buildFrame(1_500_000)]));
+
+            await vi.advanceTimersByTimeAsync(1_500);
+
+            expect(controller.store.read().dataset.frames.length).toBeGreaterThan(0);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('does not settle the archive band on candles alone', async () => {
+        // The candles arrive from the venue long before the first block is
+        // written, so a chart that framed itself on them settled the band every
+        // later read carries — while the book it is waiting for had not been
+        // written at any price yet. Held open instead, each read asks for the
+        // market rather than for a stretch chosen without it.
+        vi.useFakeTimers();
+        vi.setSystemTime(1_500_000);
+        try {
+            const mocks = createChartServiceMocks();
+            mocks.fetchInstruments.mockResolvedValue([
+                { ...INSTRUMENT, firstFrameAtMs: null, lastFrameAtMs: null, lastMidPrice: null },
+            ]);
+            mocks.fetchFrameWindow.mockResolvedValue(buildWindow([]));
+            mocks.fetchPriceBars.mockResolvedValue(buildBarWindow([
+                buildBar(1_440_000, 79_000),
+                buildBar(1_500_000, 79_010),
+            ]));
+            const controller = buildController(mocks);
+            await controller.initialize();
+
+            await vi.advanceTimersByTimeAsync(1_500);
+
+            const asked = mocks.fetchFrameWindow.mock.calls
+                .map(([query]) => (query as { priceBand?: { lowPrice: number; highPrice: number } }))
+                .at(-1);
+            const band = asked?.priceBand;
+            expect(band === undefined || !(band.highPrice > band.lowPrice)).toBe(true);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('keeps asking when the tail lands a frame the archive still will not answer for', async () => {
+        // The live tail delivers a column within a second or two of opening,
+        // long before a block is written. Counting frames, the chart stopped
+        // asking right there and sat on one column nobody could see.
+        vi.useFakeTimers();
+        vi.setSystemTime(1_500_000);
+        try {
+            const mocks = createChartServiceMocks();
+            mocks.fetchInstruments.mockResolvedValue([
+                { ...INSTRUMENT, firstFrameAtMs: null, lastFrameAtMs: null, lastMidPrice: null },
+            ]);
+            mocks.fetchFrameWindow.mockResolvedValue(buildWindow([]));
+            const controller = buildController(mocks);
+            await controller.initialize();
+            await vi.advanceTimersByTimeAsync(1_500);
+            mocks.deliverFrames(buildWindow([buildFrame(1_500_000)]));
+            mocks.fetchFrameWindow.mockClear();
+
+            await vi.advanceTimersByTimeAsync(1_500);
+
+            expect(mocks.fetchFrameWindow).toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('keeps the contracts it knows when the listing will not answer', async () => {

@@ -426,8 +426,6 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'recording.ceiling': 'Teto de armazenamento',
     'recording.ceilingHelp': 'Ao atingir o teto, os dias mais antigos são descartados para abrir espaço para os mais novos.',
 
-    'demo.preRollTitle': 'A gravação começa agora',
-    'demo.preRollBody': 'Esta página grava o livro de ofertas ao vivo, aqui mesmo. A primeira coluna aparece em instantes — não há histórico para carregar, porque um livro de ofertas não pode ser recuperado depois.',
     'demo.connecting': 'Conectando à corretora e espelhando o livro de ofertas. As primeiras colunas aparecem em segundos.',
     'demo.stopped': 'Gravação interrompida. Recarregue para começar de novo.',
     'demo.wasHidden': 'Esta aba ficou em segundo plano, onde a gravação desacelera. Esses segundos aparecem como lacunas em vez de dados inventados.',
