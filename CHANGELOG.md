@@ -1,5 +1,120 @@
 # Changelog
 
+## [0.16.0](https://github.com/giovani-freitag/fathom/compare/v0.15.0...v0.16.0) (2026-09-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* page listings in parallel, search them, free the tag colours
+* keep pairs under tags instead of in lists
+* flatten the connector contract onto the class
+
+### Features
+
+* ask the tag and the venue in two controls, each with its own way to add one ([adff279](https://github.com/giovani-freitag/fathom/commit/adff279c48574aa044864563b726189897063c44))
+* delete a recording, and size its grid from what the pair trades at ([59ba5c9](https://github.com/giovani-freitag/fathom/commit/59ba5c963edaaf6b79155d6a34ab0039c7e502b6))
+* draw the pair listing as a table, with columns the browser sizes ([7098a98](https://github.com/giovani-freitag/fathom/commit/7098a98692538f5d46a88f1bdc6f16261f1e0f95))
+* file a pair under tags from a menu on its own row ([8625a2e](https://github.com/giovani-freitag/fathom/commit/8625a2e4159c7163dc115edbd7a9e8a7b066831f))
+* flatten the connector contract onto the class ([7735bb8](https://github.com/giovani-freitag/fathom/commit/7735bb8b9efcdffc4ae46c8c06eeaa56effdab18))
+* give each source a mark of its own, and set a group heading apart from what it heads ([835cb77](https://github.com/giovani-freitag/fathom/commit/835cb77ee3c3251a86f3e42225bd3284c8ebdd01))
+* give the contract picker the room a listing needs, in the same dropdown ([3c221c8](https://github.com/giovani-freitag/fathom/commit/3c221c8d82b1c674552787ae6a0e936dcc3beae3))
+* keep pairs in lists, and let a reader bring the venue they come from ([76db238](https://github.com/giovani-freitag/fathom/commit/76db238a9b8cd7a92b6c28735457a36274438450))
+* keep pairs under tags instead of in lists ([5f955dc](https://github.com/giovani-freitag/fathom/commit/5f955dcbf7fd2b5abfc0d6f08ddd2705c05e2fd8))
+* key the recorded book by the venue and the symbol together ([24b4be7](https://github.com/giovani-freitag/fathom/commit/24b4be71b69a5c3d9fa6a6faa417e4292d0961b0))
+* key the tape and the live tail by the venue and the symbol ([f0c1c28](https://github.com/giovani-freitag/fathom/commit/f0c1c28fbc923c8ba8fbaf8c1e4d2623e6d6a324))
+* let a connector declare how fast its venue may be asked ([0df31e8](https://github.com/giovani-freitag/fathom/commit/0df31e81644fadfd0a6ba1c56d862f9c44e3a455))
+* let a contract's grid be changed after it started recording ([bc84fd3](https://github.com/giovani-freitag/fathom/commit/bc84fd327eaa31aabf2d9125380231246ee5a957))
+* let a reading declare the venue facts it cannot be computed without ([096fa3a](https://github.com/giovani-freitag/fathom/commit/096fa3a82f194ce24166007fccd723f106afb0f7))
+* let a tag be renamed, recoloured and deleted from one card on either screen ([ef47624](https://github.com/giovani-freitag/fathom/commit/ef476241df8f044187325f9e79becd490c2a2fdd))
+* let the seed contract name its venue, checked against what ships ([32142b7](https://github.com/giovani-freitag/fathom/commit/32142b7c5e93ce0bf6457ba62d3dce56904fe5f5))
+* name the venue a contract was recorded from ([e6ecaa7](https://github.com/giovani-freitag/fathom/commit/e6ecaa73b19d26f5fd00568769bc75e898ee57ef))
+* offer the way to record a book from the chart, and frame a contract with none ([ed96ee2](https://github.com/giovani-freitag/fathom/commit/ed96ee2ec72efcd762b75ca209bca65b5f45843c))
+* one source control, a mark for each kind of add, and every tag on the row ([557c567](https://github.com/giovani-freitag/fathom/commit/557c5671566f192aadf8dd1b08b4065b3544ae16))
+* open any contract a venue lists, drawing its candles and volume ([604c02b](https://github.com/giovani-freitag/fathom/commit/604c02b79f78ff9bbd6f86e96e9db57299824ed4))
+* open the contracts picker as a sheet from the bottom edge on a phone ([27ca004](https://github.com/giovani-freitag/fathom/commit/27ca00497d2b465188f583f03a8150a500a37330))
+* open the picker on the pairs a reader already has, with chips that narrow one list ([43fc809](https://github.com/giovani-freitag/fathom/commit/43fc8099a77a3db373c5bf48357d5144bed07ae8))
+* page listings in parallel, search them, free the tag colours ([cc28097](https://github.com/giovani-freitag/fathom/commit/cc28097ad150b1b0691e30888369e60f2118e441))
+* perform a connector's plan on the server, where a page cannot ([55b143f](https://github.com/giovani-freitag/fathom/commit/55b143f1727ac92777ed52a9a3b5578ff9837224))
+* pick a contract from lists a reader keeps, across every venue they added ([ab729f6](https://github.com/giovani-freitag/fathom/commit/ab729f6a72932ea28b15424fe726b6c2afe892d0))
+* pick a contract on a card the listing actually fits on ([635bcde](https://github.com/giovani-freitag/fathom/commit/635bcde3084c23d047d9d92c6866f35b1173820c))
+* put a reading out of reach on a venue that cannot answer it ([831f764](https://github.com/giovani-freitag/fathom/commit/831f764cef2ccafa5828048d1b28bcb82f06aaa8))
+* put two shapes of the phone picker behind a switch, so readers can settle it ([58ad46a](https://github.com/giovani-freitag/fathom/commit/58ad46a48f27e58155203689b249e1f5a43a4bc3))
+* read a venue that names only where a candle opens ([be33155](https://github.com/giovani-freitag/fathom/commit/be331554d2aa660981bc28b6f6c3e5d8fabf2bf9))
+* read every venue through a connector that describes and never performs ([1a31675](https://github.com/giovani-freitag/fathom/commit/1a316750a1b6d3e352ca2e323224ac7324536e61))
+* record a pair from any venue that publishes a book ([ab08879](https://github.com/giovani-freitag/fathom/commit/ab088799983c728e3ca1a465c8751f59673f5e45))
+* record or stop the contract on the chart from the book's own panel ([67ab58d](https://github.com/giovani-freitag/fathom/commit/67ab58d54e7ab731693009ed06d3aea51d74722e))
+* refuse to seed a collector on a venue with no book to record ([b04a159](https://github.com/giovani-freitag/fathom/commit/b04a1593535c6809cdbd25e8d0fbe56a97a791c5))
+* search every catalogue already open, with the venue riding on the row ([0fc6140](https://github.com/giovani-freitag/fathom/commit/0fc6140c33c6625e3ee823227987741ed79eee7f))
+* ship five more venues, and read their pages through a pool ([5ffd6bb](https://github.com/giovani-freitag/fathom/commit/5ffd6bbcae6775374030fdbe63d49c2383c9f33f))
+* switch a recording on from the row the pair is listed on ([94c7a21](https://github.com/giovani-freitag/fathom/commit/94c7a21714775b46a82682a6952721648d7ea688))
+* take the plain user/repo address github itself writes ([c49ebca](https://github.com/giovani-freitag/fathom/commit/c49ebca36608c9c85991889ab72f53ba4644229b))
+* write a connector as a class, and ship the values an addon imports ([50e1a7b](https://github.com/giovani-freitag/fathom/commit/50e1a7b701a13ebdb1ea9f81096277be56f5dbb4))
+* write a venue connector in the same editor a reading is written in ([3eb4b01](https://github.com/giovani-freitag/fathom/commit/3eb4b01a01fb44c6eebbc5bf7976575ac27b53e9))
+
+
+### Bug Fixes
+
+* admit DELETE on the API's preflight allow-list ([ee5f4f1](https://github.com/giovani-freitag/fathom/commit/ee5f4f1b1407f6cbd80c0c2e9531851b9bed9906))
+* answer a contract nobody recorded with an empty tape, not a fault ([a353ffc](https://github.com/giovani-freitag/fathom/commit/a353ffcff5b631617f7dcb18526dcc6bd3dc1d3b))
+* answer every state of a listing in one place, so both cards say what is happening ([7d8289d](https://github.com/giovani-freitag/fathom/commit/7d8289dc065d17aaede3051ecc1abc466da2538d))
+* ask which source outright on a phone instead of a strip mixing tags and venues ([13ba325](https://github.com/giovani-freitag/fathom/commit/13ba325c74d9be1b9aa34e8bcb06ccca9b76f8cb))
+* ask which venue the same way on both cards, and keep the reason three of six are offered ([6099d72](https://github.com/giovani-freitag/fathom/commit/6099d72afaf2c9691c64a4da996326b6ae48baa6))
+* bind a mark and the reopened chart to a contract, not a symbol ([573ce5a](https://github.com/giovani-freitag/fathom/commit/573ce5adbca2d357c204c626abb0a16cd26a2dc0))
+* carry the venue the live tail follows into the window it reads ([0fa277d](https://github.com/giovani-freitag/fathom/commit/0fa277db19abf8036d64a2e6cc86cac83ff1a97a))
+* clamp the source picker to the room on screen, so its last venues stay reachable ([82c1231](https://github.com/giovani-freitag/fathom/commit/82c123179f8fbef1d82aaf61d43206900d960ba9))
+* delete a contract's recording by its venue, not by its symbol alone ([c2fbfa9](https://github.com/giovani-freitag/fathom/commit/c2fbfa96f2e982f16903498b3938ebb14f4c1b91))
+* derive the repaint key from the painters instead of restating it ([45d3a57](https://github.com/giovani-freitag/fathom/commit/45d3a570b4625860d2f0e758c33db0127cb7e4f9))
+* dismiss one level at a time, and keep a row's controls inside the card that holds it ([0ea3a8d](https://github.com/giovani-freitag/fathom/commit/0ea3a8d40560925ce70c4998764a58ec1fc20f59))
+* gate the live tail once, inside the one place that opens it ([33a74bf](https://github.com/giovani-freitag/fathom/commit/33a74bf137659bed9c9a31a8d7a3684159f106b2))
+* give a pair name a floor, so the row with the delete button still says which pair ([f5e982b](https://github.com/giovani-freitag/fathom/commit/f5e982b15af4c335bf352563f8362946b204a0b7))
+* give a swallowed failure somewhere to go on all four channels ([e377d17](https://github.com/giovani-freitag/fathom/commit/e377d17a7d23a3b8090687b774d37a819da90cf8))
+* give every control one height, the pointer's cursor and radio semantics for a colour ([5d3d74b](https://github.com/giovani-freitag/fathom/commit/5d3d74ba89f4590a15c718bc8935af5f8d8ad58e))
+* give the focus back, count the rows drawn, and stop inventing a pair's assets ([927c182](https://github.com/giovani-freitag/fathom/commit/927c1822a974d773d0a43a6fd71f52d97ad9a2ab))
+* head each group as a heading, and stop offering a switch that is already off ([abc6f3d](https://github.com/giovani-freitag/fathom/commit/abc6f3d84755ad06268ab0b331ecb6f65d90ffb1))
+* keep a connector draft out of the reading editor ([a444c74](https://github.com/giovani-freitag/fathom/commit/a444c74c1943156df8daf891ec9fe45059ee45b4))
+* keep a dismissal inside the thing it dismisses, and say which grid is in force ([db2c324](https://github.com/giovani-freitag/fathom/commit/db2c3243e2fd7fdceecb7c9f4207f74b01f22d52))
+* keep a long note from giving the listing a sideways scroll ([fbf6bdd](https://github.com/giovani-freitag/fathom/commit/fbf6bdd3221b41e5316701cdf699cccdd779a760))
+* keep every file of a connector, and stop calling one a reading ([f82375f](https://github.com/giovani-freitag/fathom/commit/f82375f3019908d72b0442e0b8e30748f8b59895))
+* keep the chart's bar one row deep by giving the interval dropdown a width ([61a445f](https://github.com/giovani-freitag/fathom/commit/61a445f5056947f5c3e297b78788aa8d99bd868a))
+* keep the delete button on the row when the grid figure is long ([172a75e](https://github.com/giovani-freitag/fathom/commit/172a75e74405153e57b2a1b8205b060ac87261f7))
+* keep the pair chooser and every control on it inside a phone screen ([13a7e5b](https://github.com/giovani-freitag/fathom/commit/13a7e5b8cd77303afbef3c59d76e22625ffad40b))
+* keep the way to make a tag and reach a venue inside the library ([09eb14c](https://github.com/giovani-freitag/fathom/commit/09eb14c355c657be6a42632a88a1b0cb57b38f08))
+* key a running collector by its contract, in one entry instead of three maps ([5be37f4](https://github.com/giovani-freitag/fathom/commit/5be37f4a0ba7346efaf5a08d371fa36149259bb4))
+* lay the listing out for the card it is in, not for the window around it ([0edc96a](https://github.com/giovani-freitag/fathom/commit/0edc96a81ea48b8839de45f6c25e274982786c05))
+* leave a fresh database with the rollups keyed by venue too ([f9fa283](https://github.com/giovani-freitag/fathom/commit/f9fa283b1d8033f10293940758878f1e55a86386))
+* let a pair's name use the room on a card too narrow for columns ([6f66815](https://github.com/giovani-freitag/fathom/commit/6f66815a24b83bc7ede7484329dcd9065e02a603))
+* let escape give up on a half-typed tag without closing the sheet ([d6152ee](https://github.com/giovani-freitag/fathom/commit/d6152ee855cda7a4721cc4bf2390f29657348745))
+* make the chart's controls reachable by thumb, keyboard and voice ([b101a08](https://github.com/giovani-freitag/fathom/commit/b101a08d7ac3336477048edb070d01496cfa08dd))
+* mark the way to bring a venue in with a plug, not a building ([19f4eb1](https://github.com/giovani-freitag/fathom/commit/19f4eb19a317737806c2f28b48be976c6f39ef38))
+* measure recorded history for the contract on screen, not the symbol ([56230ec](https://github.com/giovani-freitag/fathom/commit/56230ecc2ec3a7f89c2c917f96eafc6bacd3a1ba))
+* name a listed row by its contract, not by where it happens to sit ([8067f58](https://github.com/giovani-freitag/fathom/commit/8067f58bfa9bf6eae34c0c4aa8108f0217d33f82))
+* name a new mark without the call a secure context gates ([22a63e2](https://github.com/giovani-freitag/fathom/commit/22a63e2f5b5f7e04574f582e171572408eee0d58))
+* name each layer control after the layer it acts on, and say whether it is hidden ([d8226eb](https://github.com/giovani-freitag/fathom/commit/d8226eb8155a3ae6c50536b9fd8805fa1f156ded))
+* name every card that opens, and stop announcing an action as a switch ([401febc](https://github.com/giovani-freitag/fathom/commit/401febc205fc4c956381b3c782e8da22563283fd))
+* never let the row cut hide a pair the chart is recording ([4e575d6](https://github.com/giovani-freitag/fathom/commit/4e575d685f1b49993f41fca029838e62557d437a))
+* notice when the contract on the chart starts being recorded ([bbc7ebc](https://github.com/giovani-freitag/fathom/commit/bbc7ebcd23d5c88afffaeb902f07702fe08dcd51))
+* one sheet, one row height, and the editor fetched before it is asked for ([7c19b98](https://github.com/giovani-freitag/fathom/commit/7c19b987ba49fd65ae87ff7e8c4d8374c4d2722e))
+* open the connector starter, and say what the extension error means ([43f7ec7](https://github.com/giovani-freitag/fathom/commit/43f7ec7d113c5705cf92c0e7f347d59bfa337cb7))
+* open the tag menu from any kind of press, and stop rebuilding the list per keystroke ([fd5d197](https://github.com/giovani-freitag/fathom/commit/fd5d197a6c11a52b9af96c96e7710662f1b4890a))
+* open the tag name field on a phone, where the rail that held it is not built ([f65d26f](https://github.com/giovani-freitag/fathom/commit/f65d26fbf471b9acbee689bb432832dce608eec4))
+* pre-bundle mermaid's commonjs dependency so the guide renders in dev ([c30a60d](https://github.com/giovani-freitag/fathom/commit/c30a60d21f54c6ff567164466c4edaf375796f42))
+* rank the pair search, clear it on switch, and ask before dropping a tag ([55f92c6](https://github.com/giovani-freitag/fathom/commit/55f92c672112b5b212180ebb3a1a2a1616283f2b))
+* read a block's stamp before the block, not after ([5b16266](https://github.com/giovani-freitag/fathom/commit/5b162665e87f807f14880a8433db263aa62262dd))
+* say one pair as one pair, and stop claiming a venue publishes no book ([bb73959](https://github.com/giovani-freitag/fathom/commit/bb739596e7bfb9d99e1df1b3b4ed364b996f54c5))
+* say the count, the colour and the source the way each control means it ([c24f066](https://github.com/giovani-freitag/fathom/commit/c24f06632aee1985572cf006da5442d376550e33))
+* size a control for the pointer touching it, not for the width of the window ([ea4e616](https://github.com/giovani-freitag/fathom/commit/ea4e616042f1116030baef1d10d92454c217bc88))
+* stop a tag made once from filtering every venue after it ([0e865ee](https://github.com/giovani-freitag/fathom/commit/0e865ee6259bd3d6e4feac86cbb53c9f3634cb47))
+* stop the recording card naming the venue twice on a phone ([6ae015b](https://github.com/giovani-freitag/fathom/commit/6ae015b34517a5b2d94de09d3e47c402366ea69f))
+* take a contract's candles from its own venue rather than always from binance ([5a66677](https://github.com/giovani-freitag/fathom/commit/5a666771dad8bef3bd785591d0499e649f58d1e0))
+
+
+### Performance Improvements
+
+* bring collectors up and let them go through a pool ([7c1d326](https://github.com/giovani-freitag/fathom/commit/7c1d326825df96a2dddaf7acd2f849da8d4c2db8))
+* build one menu at a time and the long tail of rows when the thread is free ([52e1e49](https://github.com/giovani-freitag/fathom/commit/52e1e49e9929e87835d2a241aa67fc11edd40172))
+* read a listing's pages through a pool instead of in batches ([9dad9f8](https://github.com/giovani-freitag/fathom/commit/9dad9f80786fca3951b898845f4fd20d37195508))
+* stop re-asking for work already in flight or already done ([1b97346](https://github.com/giovani-freitag/fathom/commit/1b97346f22835decbe76090096192d277b6a4726))
+
 ## [0.15.0](https://github.com/giovani-freitag/fathom/compare/v0.14.0...v0.15.0) (2026-09-04)
 
 
