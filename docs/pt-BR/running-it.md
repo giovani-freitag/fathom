@@ -27,9 +27,9 @@ nenhuma. Ela roda o coletor num Web Worker e grava no armazenamento do
 navegador.
 
 É uma demo, e se comporta como uma: só grava com a aba aberta, guarda uma janela
-corrida em vez de um histórico, acompanha um contrato por vez, e o armazenamento
-do navegador pode ser limpo por baixo dela a qualquer momento. Volte aqui quando
-quiser guardar o que foi gravado.
+corrida em vez de um histórico, cada par que ela acompanha divide o mesmo
+aparelho, e o armazenamento do navegador pode ser limpo por baixo dela a
+qualquer momento. Volte aqui quando quiser guardar o que foi gravado.
 
 ## Configuração
 

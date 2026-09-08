@@ -93,7 +93,10 @@ servidor entra na história.
 - **Guarda uma janela, não um histórico.** Os quadros mais novos até uma fatia
   da cota do aparelho, os mais velhos descartados primeiro. Dias num desktop,
   horas num celular.
-- **Acompanha um contrato por vez**, não quatro.
+- **Cada par que ele acompanha divide o mesmo aparelho.** Não existe uma
+  contagem em que ele recuse — o teto de armazenamento é o único limite —
+  mas cada um é um socket, uma escada espelhada e uma escrita por segundo,
+  e um celular com uma dúzia vai sentir.
 - **Armazenamento de navegador não é durável.** Limpar dados do site, encher o
   disco ou o navegador recuperando espaço levam a gravação junto.
 

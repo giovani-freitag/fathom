@@ -26,9 +26,9 @@ If you only want to see what Fathom draws, the
 all. It runs the collector in a Web Worker and records into browser storage.
 
 It is a demo, and it behaves like one: it records only while the tab is open, it
-keeps a rolling window rather than a history, it follows one contract at a time,
-and browser storage can be cleared out from under it at any moment. Come back
-here when you want to keep what it recorded.
+keeps a rolling window rather than a history, every pair it follows shares the
+one device, and browser storage can be cleared out from under it at any moment.
+Come back here when you want to keep what it recorded.
 
 ## Configuration
 

@@ -90,7 +90,10 @@ It is genuinely the same code, and it is genuinely limited:
 - **It records only while the tab is open.** Close it and the recording stops.
 - **It keeps a window, not a history.** Newest frames up to a share of the
   device's quota, oldest dropped first. Days on a desktop, hours on a phone.
-- **It watches one contract at a time**, not four.
+- **Every pair it watches shares one device.** There is no count it refuses
+  at — the storage ceiling is the only limit — but each one is a socket, a
+  mirrored ladder and a write every second, and a phone asked for a dozen
+  will feel it.
 - **Browser storage is not durable.** Clearing site data, a full disk, or the
   browser reclaiming space will take the recording with it.
 
