@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.17.1](https://github.com/giovani-freitag/fathom/compare/v0.17.0...v0.17.1) (2026-09-08)
+
+
+### Bug Fixes
+
+* count the whole newest column when resting the live edge ([eec1096](https://github.com/giovani-freitag/fathom/commit/eec1096fd01036a09a3adcf7f4146e37aa1a6cfa))
+* stop the guide saying the demo follows one contract ([1cace9b](https://github.com/giovani-freitag/fathom/commit/1cace9bdede048c41d0076d3929a38e17a49610e))
+
 ## [0.17.0](https://github.com/giovani-freitag/fathom/compare/v0.16.6...v0.17.0) (2026-09-08)
 
 
