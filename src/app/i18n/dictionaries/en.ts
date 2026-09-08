@@ -396,7 +396,6 @@ export const EN_DICTIONARY = {
     'recording.contractsHelp': 'What is captured is the book and everything that trades in it, on the price grid shown. Turning a contract off stops recording it; everything it already captured stays.',
     'recording.toggle': 'Record {symbol}',
     'recording.saveFailed': 'That change could not be saved.',
-    'recording.tooMany': 'This page records at most {most} pairs at once. Delete one to make room.',
     'recording.addPair': 'Choose what to record',
     'recording.startThis': 'Record {symbol}',
     'recording.stopThis': 'Stop recording {symbol}',

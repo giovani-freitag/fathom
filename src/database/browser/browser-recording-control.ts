@@ -6,11 +6,7 @@ import type {
 import type { IndexedDbLiquidityArchive } from './indexed-db-liquidity-archive.ts';
 import type { IndexedDbService } from './indexed-db-service.ts';
 import { STORES } from './browser-schema.ts';
-import {
-    FIRST_VENUE,
-    MINIMUM_BUDGET_BYTES,
-    RecordingRefusedError,
-} from '../../shared/core/recording-control.ts';
+import { FIRST_VENUE, MINIMUM_BUDGET_BYTES } from '../../shared/core/recording-control.ts';
 
 /** Key of the single row holding what this browser chose. */
 const CHOICE_KEY = 'choice';
@@ -20,15 +16,6 @@ const DEFAULT_QUOTA_SHARE = 0.25;
 
 /** Bytes one frame costs in the store, measured on a 325-bucket ladder. */
 const BYTES_PER_FRAME = 1_300;
-
-/**
- * Contracts one page may record at once.
- *
- * Each is a socket, a mirror of a ladder and a write every second. A server
- * records four of them and is a server; a phone asked for twenty stops being a
- * phone, and the recording it was already making goes down with it.
- */
-export const CONTRACTS_PER_PAGE = 6;
 
 /** A contract by name alone, which is all a refusal has to remember. */
 interface ContractName {
@@ -152,10 +139,6 @@ export class BrowserRecordingControl implements RecordingControl {
     async saveContract(contract: RecordedContract): Promise<void> {
         const current = await this.listContracts();
         const isKnown = current.some((existing) => isSameContract(existing, contract));
-        if (!isKnown && current.length >= CONTRACTS_PER_PAGE) {
-            throw new RecordingRefusedError(CONTRACTS_PER_PAGE);
-        }
-
         const kept = isKnown
             ? current.map((existing) => (isSameContract(existing, contract) ? contract : existing))
             : [...current, contract];

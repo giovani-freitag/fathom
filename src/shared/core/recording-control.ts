@@ -29,25 +29,6 @@ export interface ContractIdentity {
 }
 
 /** One contract a supervisor may record, and the grid it records on. */
-/**
- * A change to what is recorded that this page will not make.
- *
- * Named rather than described, and thrown rather than returned. The sentence a
- * reader is shown belongs to whoever reads it, so the message here — written
- * for whoever wrote the rule — is not the one that reaches the screen: the
- * count travels with it and the interface says it in the reader's own words.
- */
-export class RecordingRefusedError extends Error {
-    /** How many contracts a page will record at once. */
-    readonly most: number;
-
-    constructor(most: number) {
-        super(`A page records at most ${String(most)} contracts at once.`);
-        this.name = 'RecordingRefusedError';
-        this.most = most;
-    }
-}
-
 export interface RecordedContract {
     /**
      * Which connector the symbol belongs to.

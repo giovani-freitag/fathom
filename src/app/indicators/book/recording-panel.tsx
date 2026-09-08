@@ -10,7 +10,6 @@ import { usePanelTakeover } from '../../ui/indicators/panel-takeover.ts';
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { RecordingListing } from './recording-card.tsx';
 import type { RecordedContract, RecordingControl, StorageBudget } from '../../../shared/core/recording-control.ts';
-import { RecordingRefusedError } from '../../../shared/core/recording-control.ts';
 import type { TranslationKey } from '../../i18n/dictionaries/en.ts';
 import type { TranslationValues } from '../../i18n/translator.ts';
 import { Toast } from '../../ui/toast.tsx';
@@ -112,14 +111,10 @@ export function RecordingPanel(props: RecordingPanelProps): ReactElement {
             await onContractsChanged();
             setState(await read());
             setFailure(null);
-        } catch (error) {
+        } catch {
             // Quoting the driver would put a sentence written for whoever
-            // wrote it on a screen belonging to whoever is reading it. A
-            // refusal this page decided is the exception: it carries what it
-            // counted, and the dictionaries say it in the reader's language.
-            setFailure(error instanceof RecordingRefusedError
-                ? { key: 'recording.tooMany', values: { most: error.most } }
-                : { key: 'recording.saveFailed', values: {} });
+            // wrote it on a screen belonging to whoever is reading it.
+            setFailure({ key: 'recording.saveFailed', values: {} });
         } finally {
             setIsSaving(false);
         }

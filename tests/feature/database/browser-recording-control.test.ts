@@ -122,6 +122,27 @@ describe('BrowserRecordingControl', () => {
         expect(offered.map((contract) => contract.instrumentSymbol)).toEqual(['BTCUSDT', 'ETHUSDT']);
     });
 
+    it('records as many pairs as the reader asks for, the disk being the only limit', async () => {
+        // There was a count of six here and nowhere else — the gateway has
+        // never had one — and the ceiling on storage is the limit that stands.
+        // A count reintroduced would refuse a recording there is room for.
+        const control = buildControl();
+        const wanted = Array.from({ length: 12 }, (_unused, index) => ({
+            venue: FIRST_VENUE,
+            instrumentSymbol: `PAIR${String(index)}USDT`,
+            priceBucketSize: 1,
+            frameIntervalMs: 1_000,
+            isEnabled: false,
+        }));
+
+        for (const one of wanted) {
+            await control.saveContract(one);
+        }
+
+        const offered = await control.listContracts();
+        expect(offered.length).toBe(CATALOGUE.length + wanted.length);
+    });
+
     it('keeps the ceiling when a contract is switched', async () => {
         // Both live in one stored row, so each writer has to carry the other's
         // half forward or the last one to write erases it.
