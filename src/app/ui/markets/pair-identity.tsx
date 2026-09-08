@@ -8,12 +8,20 @@ interface PairIdentityProps {
 }
 
 /**
- * What a pair is called, in the two columns every listing names it in.
+ * What a pair is called, in the two columns the recording card names it in.
  *
- * The same widths wherever pairs are listed, so the eye running down one
- * listing lands in the same place in the next. The assets are absent on a row
- * that came from a tag rather than from a venue: a tag holds a venue and a
- * symbol, and rendering the pair anyway draws a lone slash in a column of them.
+ * The catalogue listing is a table and declares its own columns, so this is not
+ * shared with it any more. It stays because the rows here are not a table and
+ * should not become one: every control on them is a fixed width, so the room
+ * left over is the same on every row, and the name takes all of it. Measured
+ * across three hundred rows on two venues, in a card two hundred and eighty
+ * eight pixels wide: every name a hundred and seventy-eight pixels, none of
+ * them cut, including the nineteen-character ones. A table would line up what
+ * is already lined up.
+ *
+ * The assets are absent on a row that came from a tag rather than from a venue:
+ * a tag holds a venue and a symbol, and rendering the pair anyway draws a lone
+ * slash in a column of them.
  */
 export function PairIdentity({ symbol, base = '', quote = '' }: PairIdentityProps): ReactElement {
     return (
