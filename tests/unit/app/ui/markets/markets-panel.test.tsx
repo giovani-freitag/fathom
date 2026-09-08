@@ -405,6 +405,27 @@ describe('the listing as a table', () => {
         expect([...shapes]).toEqual([4]);
     });
 
+    it('keeps a row on its own pair when the listing narrows under it', async () => {
+        // Rows carry state of their own — an open tag menu, the mark that says
+        // which pair the chart is on — and a table names them by position
+        // unless it is told otherwise. Named that way, narrowing the search
+        // hands a row's place to a different pair, and the row goes on wearing
+        // what belonged to the one before it.
+        renderPanel();
+        await browse();
+        const before = listedRows().length;
+        // The element itself, not what it says: named by position, this node is
+        // handed to whichever pair lands where this one used to be, and its
+        // open menu and its marks go with it. Named by the contract, the node
+        // moves with the pair.
+        const nano = rowFor(/Open NANOUSDT on the chart/);
+
+        fireEvent.change(screen.getByLabelText('Search pairs'), { target: { value: 'NANO' } });
+        await waitFor(() => { expect(listedRows().length).toBeLessThan(before); });
+
+        expect([nano.isConnected, String(nano.textContent).includes('NANOUSDT')]).toEqual([true, true]);
+    });
+
     it('names the venue on its own column only where rows can span venues', async () => {
         // On a venue's own listing the answer is the same nine hundred times,
         // and a column that repeats it says nothing. Under a tag it is the one
