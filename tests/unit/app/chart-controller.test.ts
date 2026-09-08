@@ -991,6 +991,33 @@ describe('ChartController following a recording rather than a clock', () => {
         expect(controller.store.read().viewport.toMs).toBeLessThanOrEqual(newestMs + 60_000);
     });
 
+    it('counts the whole of the newest column as recorded, not just its start', async () => {
+        // Zoomed out, the archive answers on folded columns: one column covers
+        // minutes, and the instant it carries is the minute it OPENS on. Read as
+        // the newest instant that exists, a drag towards the live edge is pulled
+        // back by everything that column covers — a reader dragging forward on a
+        // wide window was thrown back several bars.
+        const foldedMs = 180_000;
+        const mocks = createChartServiceMocks();
+        const openedAtMs = 2_000_000;
+        mocks.fetchFrameWindow.mockResolvedValue({
+            priceBucketSize: 10,
+            sampleIntervalMs: foldedMs,
+            frames: [buildFrame(openedAtMs)],
+        });
+        const controller = buildController(mocks);
+        await controller.initialize();
+
+        const nowMs = Date.now();
+        controller.applyView({
+            viewport: { ...controller.store.read().viewport, fromMs: nowMs - 900_000, toMs: nowMs },
+            surfaceWidthPx: SURFACE_WIDTH,
+            isFollowingLive: true,
+        });
+
+        expect(controller.store.read().viewport.toMs).toBeGreaterThanOrEqual(openedAtMs + foldedMs);
+    });
+
     it('keeps the span the gesture asked for while it pulls the edge back', async () => {
         // A gesture that zoomed still has to zoom.
         const mocks = createChartServiceMocks();

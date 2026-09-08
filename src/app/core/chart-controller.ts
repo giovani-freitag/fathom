@@ -963,7 +963,16 @@ export class ChartController {
             return viewport;
         }
 
-        const edgeMs = newestMs + resolveRightMarginMs({ ...state, viewport });
+        // The whole of the newest column, not the instant it opens on. Zoomed
+        // out the archive answers on folded columns covering minutes, and read
+        // as one instant the newest of them is minutes of recording the edge is
+        // not allowed to reach: a reader dragging towards the live edge was
+        // thrown back by everything that column covers, about three bars of a
+        // minute each. Nothing can overshoot by counting it — the viewport is
+        // clamped to the recorded extent before this, so a column reaching past
+        // the clock leaves the edge where the clamp already put it.
+        const recordedToMs = newestMs + state.dataset.sampleIntervalMs;
+        const edgeMs = recordedToMs + resolveRightMarginMs({ ...state, viewport });
         if (viewport.toMs <= edgeMs) {
             return viewport;
         }
