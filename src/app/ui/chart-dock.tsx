@@ -1,7 +1,6 @@
 import { MarketsButton } from './markets/markets-button.tsx';
 import type { MarketPair } from '../../shared/core/pair-tags.ts';
 import { Code2,
-    Crosshair,
     Highlighter,
     Layers,
     Lock,
@@ -12,7 +11,6 @@ import { Code2,
     Redo2,
     Rows3,
     Ruler,
-    Smile,
     Square,
     TrendingUp,
     Undo2,
@@ -28,6 +26,8 @@ import {
 import { ADDON_EDITOR_ID } from './panel-ids.ts';
 import { DockPopover } from './dock-popover.tsx';
 import { DRAWING_KINDS, type DrawingKind } from '../../shared/core/drawing.ts';
+import { EmojiFace } from './icons/emoji-face.tsx';
+import { LaserPointer } from './icons/laser-pointer.tsx';
 import type { DrawingControls } from '../react/use-drawings.ts';
 import { formatDuration } from '../core/formatting.ts';
 import type { IndicatorControls } from '../react/use-indicators.ts';
@@ -51,8 +51,8 @@ const TOOL_FACES: Readonly<Record<DrawingKind, ToolFace>> = {
     fibonacci: { Icon: Rows3, labelKey: 'drawing.fibonacci' },
     freehand: { Icon: Pencil, labelKey: 'drawing.freehand' },
     highlighter: { Icon: Highlighter, labelKey: 'drawing.highlighter' },
-    emoji: { Icon: Smile, labelKey: 'drawing.emoji' },
-    laser: { Icon: Crosshair, labelKey: 'drawing.laser' },
+    emoji: { Icon: EmojiFace, labelKey: 'drawing.emoji' },
+    laser: { Icon: LaserPointer, labelKey: 'drawing.laser' },
     measure: { Icon: Ruler, labelKey: 'drawing.measure' },
 };
 
@@ -333,7 +333,7 @@ export function DockButton({
                 : isActive === undefined ? {} : { 'aria-pressed': isActive }}
             disabled={isDisabled}
             onClick={onPress}
-            className={`${CONTROL_BUTTON_CLASSES} ${isActive ? CONTROL_ACTIVE_CLASSES : CONTROL_RESTING_CLASSES} disabled:opacity-30`}
+            className={`group ${CONTROL_BUTTON_CLASSES} ${isActive ? CONTROL_ACTIVE_CLASSES : CONTROL_RESTING_CLASSES} disabled:opacity-30`}
         >
             {children}
         </button>

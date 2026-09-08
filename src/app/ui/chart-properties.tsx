@@ -19,11 +19,15 @@ export interface ChartPropertiesProps {
  *
  * One slot rather than two, because a reader picks one thing at a time and two
  * panels arguing over the same corner is a layout deciding what they meant. A
- * mark wins while there is one: it is the thing they just pressed.
+ * mark wins while there is one: it is the thing they just pressed, and an armed
+ * tool behind it is what they will do next rather than what they are doing.
  */
 export function ChartProperties({ drawings, indicators }: ChartPropertiesProps): ReactElement | null {
     const translate = useTranslate();
-    if (drawings.selected !== null) {
+    // A tool in hand counts as something picked. Some marks can never be
+    // selected — a laser is gone by the time the hand lifts — so a panel that
+    // only ever opened on a selection was a panel those tools had none of.
+    if (drawings.selected !== null || drawings.armedTool !== null) {
         return <DrawingProperties controls={drawings} />;
     }
 

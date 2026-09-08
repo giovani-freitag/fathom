@@ -1,3 +1,4 @@
+import { createDrawingControls } from '../../../mocks/drawing-controls.ts';
 import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 import { describe, expect, it } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
@@ -22,33 +23,19 @@ const LEVEL: Drawing = {
 };
 
 function buildDrawings(selected: Drawing | null): DrawingControls {
-    return {
-        armedTool: null,
-        isToolLocked: false,
-        toggleToolLock: () => undefined,
-        selectedId: selected?.id ?? null,
-        selected,
-        canUndo: false,
-        canRedo: false,
-        toggleTool: () => undefined,
-        disarm: () => undefined,
-        restyleSelected: () => undefined,
-        removeSelected: () => undefined,
-        undo: () => undefined,
-        redo: () => undefined,
-    };
+    return createDrawingControls({ selectedId: selected?.id ?? null, selected });
 }
 
 /** The slot as the page mounts it, over a chart carrying one average. */
 function renderSlot(
-    selected: Drawing | null,
+    drawings: DrawingControls,
     pickedId: string | null,
     added: readonly AddedIndicator[] = [AVERAGE],
 ): IndicatorKernel {
     const kernel = createIndicatorKernel(added);
 
     function Slot(): ReactElement {
-        return <ChartProperties drawings={buildDrawings(selected)} indicators={useIndicators()} />;
+        return <ChartProperties drawings={drawings} indicators={useIndicators()} />;
     }
 
     render(<KernelProvider container={kernel.container}><Slot /></KernelProvider>);
@@ -57,26 +44,42 @@ function renderSlot(
 }
 
 describe('ChartProperties', () => {
+    it('opens a tool that is armed, so one that cannot be selected has a panel', () => {
+        // A laser is gone by the time the hand lifts, so it is never the
+        // selection: without this the tool had nowhere to be set up at all.
+        renderSlot(createDrawingControls({ armedTool: 'laser' }), null);
+
+        expect(screen.getByRole('group', { name: EN_DICTIONARY['drawing.tool.setup'] })).toBeTruthy();
+    });
+
+    it('shows the selected mark rather than the tool behind it', () => {
+        // A mark wins while there is one: it is the thing they just pressed,
+        // and an armed tool behind it is what they will do next.
+        renderSlot(createDrawingControls({ selectedId: LEVEL.id, selected: LEVEL, armedTool: 'laser' }), null);
+
+        expect(screen.getByRole('group', { name: EN_DICTIONARY['drawing.properties'] })).toBeTruthy();
+    });
+
     it('stays away while nothing on the chart is picked', () => {
-        renderSlot(null, null);
+        renderSlot(buildDrawings(null), null);
 
         expect(screen.queryByRole('group')).toBeNull();
     });
 
     it('opens the mark that is selected', () => {
-        renderSlot(LEVEL, null);
+        renderSlot(buildDrawings(LEVEL), null);
 
         expect(screen.getByRole('group', { name: EN_DICTIONARY['drawing.properties'] })).toBeTruthy();
     });
 
     it('opens the reading that was pressed', () => {
-        renderSlot(null, 'sma-1');
+        renderSlot(buildDrawings(null), 'sma-1');
 
         expect(screen.getByRole('group', { name: EN_DICTIONARY['indicator.sma'] })).toBeTruthy();
     });
 
     it('offers what that reading is tuned by', () => {
-        renderSlot(null, 'sma-1');
+        renderSlot(buildDrawings(null), 'sma-1');
 
         expect(screen.getByDisplayValue('20')).toBeTruthy();
     });
@@ -84,7 +87,7 @@ describe('ChartProperties', () => {
     it('shows the mark rather than the reading, which is what was pressed last', () => {
         // A reader picks one thing at a time, and two panels arguing over the
         // same corner is a layout deciding what they meant.
-        renderSlot(LEVEL, 'sma-1');
+        renderSlot(buildDrawings(LEVEL), 'sma-1');
 
         expect(screen.queryByRole('group', { name: EN_DICTIONARY['indicator.sma'] })).toBeNull();
     });
@@ -92,7 +95,7 @@ describe('ChartProperties', () => {
     it("offers the way out on the name's own line", () => {
         // A line of its own for one glyph is a line of empty panel beside it,
         // and the name is what the glyph is about.
-        renderSlot(null, 'sma-1');
+        renderSlot(buildDrawings(null), 'sma-1');
 
         const close = screen.getByRole('button', { name: EN_DICTIONARY['indicators.close'] });
 
@@ -102,7 +105,7 @@ describe('ChartProperties', () => {
     });
 
     it('closes the reading when the reader says so', () => {
-        const kernel = renderSlot(null, 'sma-1');
+        const kernel = renderSlot(buildDrawings(null), 'sma-1');
 
         act(() => { screen.getByRole('button', { name: EN_DICTIONARY['indicators.close'] }).click(); });
 
@@ -110,7 +113,7 @@ describe('ChartProperties', () => {
     });
 
     it('says nothing about a copy that has since been taken off the chart', () => {
-        renderSlot(null, 'ema-9');
+        renderSlot(buildDrawings(null), 'ema-9');
 
         expect(screen.queryByRole('group')).toBeNull();
     });
@@ -120,7 +123,7 @@ describe('ChartProperties', () => {
         // set, and a panel that named it would have nothing to put in it.
         const foreign = { instanceId: 'gone-1', indicatorId: 'gone', settings: {}, tone: 'amber' as const };
 
-        renderSlot(null, 'gone-1', [foreign]);
+        renderSlot(buildDrawings(null), 'gone-1', [foreign]);
 
         expect(screen.queryByRole('group')).toBeNull();
     });

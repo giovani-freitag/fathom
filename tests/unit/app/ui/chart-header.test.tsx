@@ -1,3 +1,4 @@
+import { createDrawingControls } from '../../../mocks/drawing-controls.ts';
 import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -18,21 +19,7 @@ const INSTRUMENT = {
     lastMidPrice: 79_000,
 };
 
-const DRAWINGS = {
-    armedTool: null,
-    isToolLocked: false,
-    toggleToolLock: () => undefined,
-    selectedId: null,
-    selected: null,
-    canUndo: false,
-    canRedo: false,
-    toggleTool: () => undefined,
-    disarm: () => undefined,
-    restyleSelected: () => undefined,
-    removeSelected: () => undefined,
-    undo: () => undefined,
-    redo: () => undefined,
-} satisfies DrawingControls;
+const DRAWINGS: DrawingControls = createDrawingControls();
 
 function renderHeader(hasRoomForPresets: boolean): void {
     const kernel = createIndicatorKernel([]);

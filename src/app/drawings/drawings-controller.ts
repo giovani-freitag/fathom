@@ -11,7 +11,10 @@ import {
     LASER_TRAIL_ANCHORS,
     isTransientKind,
     MOST_PATH_ANCHORS,
+    MOST_RECENT_GLYPHS,
     moveDrawingAnchor,
+    readDrawingFields,
+    readStoredGlyph,
     shiftDrawing,
 } from '../../shared/core/drawing.ts';
 import { INSTANCE_TONES, type PlotTone } from '../../shared/core/draw-plan.ts';
@@ -19,6 +22,14 @@ import { DrawingHistory } from './drawing-history.ts';
 import { ObservableStore } from '../core/observable-store.ts';
 import type { PreferencesService } from '../services/preferences-service.ts';
 import type { MarketPair } from '../../shared/core/pair-tags.ts';
+
+/** What a tool holds before a reader has told it anything. */
+const OPENING_PENDING: PendingLook = {
+    tone: null,
+    width: 'medium',
+    style: 'solid',
+    glyph: EMOJI_GLYPHS[0]!,
+};
 
 /** Marks one chart may hold, past which the oldest is forgotten. */
 export const MAXIMUM_DRAWINGS_PER_INSTRUMENT = 64;
@@ -41,8 +52,36 @@ export interface DrawingsState {
     readonly selectedId: string | null;
     /** The mark being dragged out, drawn but not yet kept. */
     readonly draft: Drawing | null;
+    /** What the next mark will look like, as the reader has set it up. */
+    readonly pending: PendingLook;
     readonly canUndo: boolean;
     readonly canRedo: boolean;
+    /** The emoji this reader pins, newest first, for the picker to offer first. */
+    readonly recentGlyphs: readonly string[];
+}
+
+/**
+ * The look a tool is holding, before anything has been drawn with it.
+ *
+ * A laser is never on the chart to be selected — it is gone by the time the
+ * hand stops — so the only moment its colour and weight can be set is before
+ * the stroke. What is true of the laser is true of every tool: a reader who
+ * knows they want a red level should say so once, not draw a level and correct
+ * it.
+ */
+export interface PendingLook {
+    /**
+     * The tone every new mark takes, or null while it still cycles.
+     *
+     * Null until a reader picks one, because two crossing lines in the same
+     * colour are one line as far as a reader can tell. Once they have picked,
+     * the pick stands: they asked for that colour, not for a rotation.
+     */
+    readonly tone: PlotTone | null;
+    readonly width: DrawingWidth;
+    readonly style: DrawingStyle;
+    /** What the next emoji shows, which is whichever one was placed last. */
+    readonly glyph: string;
 }
 
 /** What about a mark is being changed. */
@@ -95,8 +134,6 @@ export class DrawingsController {
 
     /** The mark whose name is being typed, so the letters make one step. */
     private renamingId: string | null = null;
-    /** What the next emoji shows, which is what the last one was changed to. */
-    private lastGlyph: string = EMOJI_GLYPHS[0]!;
     /**
      * What was on the chart when the gesture began.
      *
@@ -107,6 +144,7 @@ export class DrawingsController {
 
     constructor(config: DrawingsControllerConfig) {
         this.config = config;
+        const recent = config.preferences.read().recentGlyphs;
         this.store = new ObservableStore<DrawingsState>({
             initialState: {
                 armedTool: null,
@@ -114,8 +152,10 @@ export class DrawingsController {
                 drawings: config.preferences.read().drawings,
                 selectedId: null,
                 draft: null,
+                pending: { ...OPENING_PENDING, glyph: openingGlyph(recent) },
                 canUndo: false,
                 canRedo: false,
+                recentGlyphs: recent,
             },
         });
     }
@@ -202,6 +242,12 @@ export class DrawingsController {
             draft: null,
             selectedId: draft.id,
             drawings: keepNewest([...state.drawings, draft]),
+            // Counted here rather than where one is picked, because picking is
+            // browsing: a reader scrolling the catalogue has not used anything
+            // until a mark of it is on the chart.
+            recentGlyphs: draft.kind === 'emoji'
+                ? withGlyphUsed(state.recentGlyphs, readStoredGlyph(draft))
+                : state.recentGlyphs,
         }));
     }
 
@@ -308,6 +354,29 @@ export class DrawingsController {
     }
 
     /**
+     * Changes how the next mark will be drawn.
+     *
+     * Not history: nothing has been drawn yet, so there is no step for an undo
+     * to take back. A reader who set up a red laser and pressed undo means the
+     * stroke before it, not the colour they just chose.
+     *
+     * @param look - Whichever of its tone, weight, line and emoji to change.
+     */
+    restylePending(look: DrawingRestyle): void {
+        this.store.update((state) => ({
+            ...state,
+            pending: {
+                tone: look.tone ?? state.pending.tone,
+                width: look.width ?? state.pending.width,
+                style: look.style ?? state.pending.style,
+                glyph: look.glyph === undefined || look.glyph === ''
+                    ? state.pending.glyph
+                    : look.glyph,
+            },
+        }));
+    }
+
+    /**
      * Changes how one mark is drawn.
      *
      * @param drawingId - The mark to restyle.
@@ -321,11 +390,14 @@ export class DrawingsController {
             this.rememberStep(this.store.read().drawings);
         }
         this.renamingId = isRenaming ? drawingId : null;
-        if (look.glyph !== undefined && look.glyph !== '') {
-            this.lastGlyph = look.glyph;
-        }
         this.store.update((state) => ({
             ...state,
+            // The emoji alone travels back to the tool. A reader who recolours
+            // one level meant that level; a reader who swaps the face on one
+            // mark has changed their mind about which face they are using.
+            pending: look.glyph === undefined || look.glyph === ''
+                ? state.pending
+                : { ...state.pending, glyph: look.glyph },
             drawings: state.drawings.map(
                 (drawing) => (drawing.id === drawingId ? { ...drawing, ...look } : drawing),
             ),
@@ -357,7 +429,8 @@ export class DrawingsController {
             return;
         }
 
-        const drawn = this.store.read().drawings;
+        const { drawings: drawn, pending } = this.store.read();
+        const fields = readDrawingFields(kind);
         this.store.update((state) => ({
             ...state,
             selectedId: null,
@@ -367,11 +440,18 @@ export class DrawingsController {
                 venue: contract.venue,
                 instrumentSymbol: contract.symbol,
                 anchors: Array.from({ length: ANCHORS_PER_KIND[kind] }, () => anchor),
-                tone: chooseDrawingTone(drawn),
-                // The one they chose last. A reader marking three places on a
-                // chart means the same thing at all three, and choosing it
-                // again each time is the tool asking a question it was told.
-                ...kind === 'emoji' ? { glyph: this.lastGlyph } : {},
+                // What the tool is holding, and only a rotation where the
+                // reader has not said. A reader marking three places on a chart
+                // means the same thing at all three, and asking them again each
+                // time is the tool asking a question it was already told.
+                tone: pending.tone ?? chooseDrawingTone(drawn),
+                // Weight is on every kind, because an emoji reads its type
+                // size out of it. A line, though, is only a line on the kinds
+                // that stroke one: written onto an emoji it is a setting the
+                // painter can never act on and a reader can never see.
+                width: pending.width,
+                ...fields.hasStyle ? { style: pending.style } : {},
+                ...fields.hasGlyph ? { glyph: pending.glyph } : {},
             },
         }));
     }
@@ -468,7 +548,8 @@ export class DrawingsController {
     }
 
     private persist(): void {
-        this.config.preferences.write({ drawings: this.store.read().drawings });
+        const { drawings, recentGlyphs } = this.store.read();
+        this.config.preferences.write({ drawings, recentGlyphs });
     }
 }
 
@@ -509,6 +590,33 @@ function hasExtent(drawing: Drawing): boolean {
         return true;
     }
     return first.atMs !== second.atMs || first.price !== second.price;
+}
+
+/**
+ * The emoji a tool opens holding.
+ *
+ * The last one pinned, because a reader who marked four places yesterday means
+ * the same thing today; the shipped first where they have pinned none.
+ *
+ * @param recent - What this reader has pinned, newest first.
+ * @returns The glyph the tool starts on.
+ */
+function openingGlyph(recent: readonly string[]): string {
+    return recent[0] ?? EMOJI_GLYPHS[0]!;
+}
+
+/**
+ * The used list with one glyph at its head, however often it appeared before.
+ *
+ * Moved rather than added again, so the row reads as the ones this reader
+ * reaches for rather than as a log of every press.
+ *
+ * @param recent - What was there, newest first.
+ * @param glyph - The one just used.
+ * @returns The list, newest first, bounded.
+ */
+function withGlyphUsed(recent: readonly string[], glyph: string): readonly string[] {
+    return [glyph, ...recent.filter((one) => one !== glyph)].slice(0, MOST_RECENT_GLYPHS);
 }
 
 /**

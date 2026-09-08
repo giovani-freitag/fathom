@@ -1,3 +1,4 @@
+import { createDrawingControls } from '../../../mocks/drawing-controls.ts';
 import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 import { describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -19,14 +20,7 @@ interface Pressed {
 }
 
 function buildControls(overrides: Partial<DrawingControls>, pressed: Pressed): DrawingControls {
-    return {
-        armedTool: null,
-        isToolLocked: false,
-        toggleToolLock: () => undefined,
-        selectedId: null,
-        selected: null,
-        canUndo: false,
-        canRedo: false,
+    return createDrawingControls({
         toggleTool: (kind) => { pressed.armed.push(kind); },
         disarm: () => { pressed.disarmed.push(1); },
         restyleSelected: (look) => { pressed.restyled.push(look); },
@@ -34,7 +28,7 @@ function buildControls(overrides: Partial<DrawingControls>, pressed: Pressed): D
         undo: () => { pressed.undone.push(1); },
         redo: () => { pressed.redone.push(1); },
         ...overrides,
-    };
+    });
 }
 
 const INSTRUMENT = {

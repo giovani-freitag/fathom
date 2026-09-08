@@ -1,4 +1,9 @@
-import { type Drawing, isDrawing } from '../../shared/core/drawing.ts';
+import {
+    type Drawing,
+    isDrawing,
+    MAXIMUM_GLYPH_LENGTH,
+    MOST_RECENT_GLYPHS,
+} from '../../shared/core/drawing.ts';
 import { VOLUME, VOLUME_ID } from '../indicators/volume/volume.ts';
 import { chooseLayerTone, OPENING_LAYERS, readLayerDefaults } from '../indicators/indicator-catalogue.ts';
 import { PLOT_TONES } from '../../shared/core/draw-plan.ts';
@@ -16,6 +21,20 @@ import { GRID_CHOICES, type GridChoice, THEME_CHOICES, type ThemeChoice } from '
 import { FIRST_VENUE } from '../../shared/core/recording-control.ts';
 
 const STORAGE_KEY = 'fathom.preferences.v1';
+
+/**
+ * The glyphs a stored record names, with anything unreadable dropped.
+ *
+ * Storage is a file a reader can edit, so what comes back is whatever is on
+ * disk. A glyph longer than any emoji is not one, and a run of them would be
+ * drawn onto the chart as a sentence.
+ */
+function readRecentGlyphs(stored: unknown): readonly string[] {
+    return (Array.isArray(stored) ? stored : [])
+        .filter((one): one is string => typeof one === 'string')
+        .filter((one) => one !== '' && one.length <= MAXIMUM_GLYPH_LENGTH)
+        .slice(0, MOST_RECENT_GLYPHS);
+}
 
 /** Bumped when a stored document has to be read differently than it was written. */
 const SCHEMA_VERSION = 8;
@@ -49,6 +68,14 @@ export interface ViewerPreferences {
     readonly pairTags: readonly PairTag[];
     /** Every connector the reader brought, by the source it was read from. */
     readonly connectorSources: readonly StoredConnector[];
+    /**
+     * The emoji this reader actually pins, newest first.
+     *
+     * Kept because a catalogue of nineteen hundred is a search every time, and
+     * the ones somebody marks a chart with are a handful they use over and
+     * over: the second time they want it should not be the second search.
+     */
+    readonly recentGlyphs: readonly string[];
 }
 
 export const DEFAULT_PREFERENCES: ViewerPreferences = {
@@ -68,6 +95,7 @@ export const DEFAULT_PREFERENCES: ViewerPreferences = {
     drawings: [],
     pairTags: openingTags(),
     connectorSources: [],
+    recentGlyphs: [],
 };
 
 export interface PreferencesServiceConfig {
@@ -142,6 +170,7 @@ export class PreferencesService {
             // would drop every pair a reader had kept before this build.
             pairTags: readTags(raw.pairTags ?? (raw as { watchLists?: unknown }).watchLists),
             connectorSources: readStoredConnectors(merged.connectorSources),
+            recentGlyphs: readRecentGlyphs(merged.recentGlyphs),
         };
     }
 

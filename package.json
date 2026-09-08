@@ -31,6 +31,7 @@
         "build:demo": "vite build --config vite.demo.config.ts",
         "dev:demo": "vite --config vite.demo.config.ts",
         "build:addon-types": "node scripts/build-addon-types.mjs && node scripts/build-addon-types.mjs --dts packages/types/fathom.d.ts && node scripts/build-addon-runtime.mjs",
+        "build:emoji": "node scripts/build-emoji-catalogue.mjs",
         "build:api": "typedoc",
         "build:guide": "npm run build:api && vitepress build docs",
         "dev:guide": "npm run build:api && vitepress dev docs"
@@ -82,6 +83,7 @@
         "@types/ws": "^8.18.1",
         "@vitejs/plugin-react": "^6.1.0",
         "@vitest/coverage-v8": "^4.1.11",
+        "emojibase-data": "^17.0.0",
         "eslint": "^10.9.1",
         "eslint-plugin-react-hooks": "^7.1.1",
         "eslint-plugin-react-refresh": "^0.5.4",

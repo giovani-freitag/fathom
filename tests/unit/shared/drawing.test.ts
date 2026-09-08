@@ -10,6 +10,7 @@ import {
     isPathKind,
     isRollingKind,
     MAXIMUM_GLYPH_LENGTH,
+    readDrawingFields,
     isTransientKind,
     moveDrawingAnchor,
     MAXIMUM_LABEL_LENGTH,
@@ -377,5 +378,36 @@ describe('a laser', () => {
         // A pen keeps the whole stroke because the stroke is the point of it. A
         // laser is where the hand is now and where it just was.
         expect(DRAWING_KINDS.filter((kind) => isRollingKind(kind))).toEqual(['laser']);
+    });
+});
+
+describe('the look controls a kind is offered', () => {
+    it('offers a line only to the kinds the painter breaks the line of', () => {
+        // The rest each overrule it: a highlighter and a trail are forced
+        // solid, retracements set their own dash, an emoji has no line.
+        const styled = DRAWING_KINDS.filter((kind) => readDrawingFields(kind).hasStyle);
+
+        expect([...styled].sort()).toEqual(['freehand', 'horizontal-line', 'measure', 'trend-line', 'zone']);
+    });
+
+    it('keeps the colour away from the kinds that paint their own', () => {
+        // A measurement is coloured by which way it was dragged, and an emoji
+        // paints over whatever was asked for.
+        const toneless = DRAWING_KINDS.filter((kind) => !readDrawingFields(kind).hasTone);
+
+        expect([...toneless].sort()).toEqual(['emoji', 'measure']);
+    });
+
+    it('asks only the emoji for a glyph, since it is the only one that shows one', () => {
+        const glyphed = DRAWING_KINDS.filter((kind) => readDrawingFields(kind).hasGlyph);
+
+        expect(glyphed).toEqual(['emoji']);
+    });
+
+    it('keeps a name away from a mark nobody keeps', () => {
+        // A name is read later, and these two are gone by then.
+        const unnameable = DRAWING_KINDS.filter((kind) => !readDrawingFields(kind).hasLabel);
+
+        expect([...unnameable].sort()).toEqual(['laser', 'measure']);
     });
 });

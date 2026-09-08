@@ -1,5 +1,5 @@
 import type { Drawing, DrawingKind } from '../../shared/core/drawing.ts';
-import type { DrawingRestyle } from '../drawings/drawings-controller.ts';
+import type { DrawingRestyle, PendingLook } from '../drawings/drawings-controller.ts';
 import type { DrawingsState } from '../drawings/drawings-controller.ts';
 import { useEffect } from 'react';
 import { useKernel } from './kernel-context.ts';
@@ -26,6 +26,8 @@ const readIsToolLocked = (state: DrawingsState): boolean => state.isToolLocked;
 const readSelectedId = (state: DrawingsState): string | null => state.selectedId;
 const readSelected = (state: DrawingsState): Drawing | null => state.drawings
     .find((drawing) => drawing.id === state.selectedId) ?? null;
+const readPending = (state: DrawingsState): PendingLook => state.pending;
+const readRecentGlyphs = (state: DrawingsState): readonly string[] => state.recentGlyphs;
 const readCanUndo = (state: DrawingsState): boolean => state.canUndo;
 const readCanRedo = (state: DrawingsState): boolean => state.canRedo;
 
@@ -41,12 +43,18 @@ export interface DrawingControls {
     readonly selectedId: string | null;
     /** How the selected mark is drawn, for the controls that show it. */
     readonly selected: Drawing | null;
+    /** How the next mark will be drawn, for the controls that set it up. */
+    readonly pending: PendingLook;
+    /** The emoji this reader pins, newest first, so the picker offers them first. */
+    readonly recentGlyphs: readonly string[];
     /** Arms a tool, or disarms the one already armed. */
     readonly toggleTool: (kind: DrawingKind) => void;
     /** Puts every tool down, so the pointer pans and selects again. */
     readonly disarm: () => void;
     /** Changes how the selected mark is drawn. */
     readonly restyleSelected: (look: DrawingRestyle) => void;
+    /** Changes how the next mark will be drawn. */
+    readonly restylePending: (look: DrawingRestyle) => void;
     /** Takes the selected mark off the chart. */
     readonly removeSelected: () => void;
     readonly canUndo: boolean;
@@ -68,6 +76,8 @@ export function useDrawings(): DrawingControls {
     const isToolLocked = useStoreSlice(kernel.drawings.store, readIsToolLocked);
     const selectedId = useStoreSlice(kernel.drawings.store, readSelectedId);
     const selected = useStoreSlice(kernel.drawings.store, readSelected);
+    const pending = useStoreSlice(kernel.drawings.store, readPending);
+    const recentGlyphs = useStoreSlice(kernel.drawings.store, readRecentGlyphs);
     const canUndo = useStoreSlice(kernel.drawings.store, readCanUndo);
     const canRedo = useStoreSlice(kernel.drawings.store, readCanRedo);
 
@@ -108,6 +118,8 @@ export function useDrawings(): DrawingControls {
         toggleToolLock: () => { kernel.drawings.lockTool(!isToolLocked); },
         selectedId,
         selected,
+        pending,
+        recentGlyphs,
         // Pressing the armed tool again is how a reader says they are done
         // drawing, which is the only way back to a pointer that pans.
         toggleTool: (kind) => { kernel.drawings.arm(armedTool === kind ? null : kind); },
@@ -117,6 +129,7 @@ export function useDrawings(): DrawingControls {
                 kernel.drawings.restyle(selectedId, look);
             }
         },
+        restylePending: (look) => { kernel.drawings.restylePending(look); },
         removeSelected: () => {
             if (selectedId !== null) {
                 kernel.drawings.remove(selectedId);

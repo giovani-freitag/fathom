@@ -828,3 +828,139 @@ describe('DrawingsController sweeping a laser', () => {
         expect([harness.drawings.store.read().draft, readPersisted(harness).length]).toEqual([null, 0]);
     });
 });
+
+describe('DrawingsController setting a tool up before it draws', () => {
+    it('draws the next mark in the colour the tool was set to', () => {
+        const harness = buildHarness();
+        harness.drawings.restylePending({ tone: 'amber' });
+
+        harness.drawings.arm('horizontal-line');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.settle();
+
+        expect(readPersisted(harness)[0]?.tone).toBe('amber');
+    });
+
+    it('keeps cycling the colour while the reader has named none', () => {
+        // Two crossing lines in the same colour are one line as far as a
+        // reader can tell, so an unasked tone still rotates.
+        const harness = buildHarness();
+
+        const tones = [1_000, 2_000].map((atMs) => {
+            harness.drawings.arm('horizontal-line');
+            harness.drawings.begin({ anchor: at(atMs, 100), hitId: null });
+            harness.drawings.settle();
+            return readPersisted(harness).at(-1)?.tone;
+        });
+
+        expect(tones[0]).not.toBe(tones[1]);
+    });
+
+    it('carries the weight and the line the tool was set to', () => {
+        const harness = buildHarness();
+        harness.drawings.restylePending({ width: 'thick', style: 'dashed' });
+
+        harness.drawings.arm('horizontal-line');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.settle();
+
+        const drawn = readPersisted(harness)[0];
+        expect([drawn?.width, drawn?.style]).toEqual(['thick', 'dashed']);
+    });
+
+    it('leaves nothing for an undo to take back, since nothing was drawn', () => {
+        const harness = buildHarness();
+
+        harness.drawings.restylePending({ tone: 'violet' });
+
+        expect(harness.drawings.store.read().canUndo).toBe(false);
+    });
+});
+
+describe('DrawingsController remembering the emoji a reader pins', () => {
+    /** Pins one emoji, having set the tool to it first. */
+    function pin(harness: Harness, glyph: string, atMs: number): void {
+        harness.drawings.restylePending({ glyph });
+        harness.drawings.arm('emoji');
+        harness.drawings.begin({ anchor: at(atMs, 100), hitId: null });
+        harness.drawings.settle();
+    }
+
+    it('records one only once it is on the chart, newest first', () => {
+        const harness = buildHarness();
+
+        pin(harness, EMOJI_GLYPHS[3]!, 1_000);
+        pin(harness, EMOJI_GLYPHS[1]!, 2_000);
+
+        expect(harness.drawings.store.read().recentGlyphs).toEqual([EMOJI_GLYPHS[1], EMOJI_GLYPHS[3]]);
+    });
+
+    it('does not record one merely picked, because picking is browsing', () => {
+        const harness = buildHarness();
+
+        harness.drawings.restylePending({ glyph: EMOJI_GLYPHS[5]! });
+
+        expect(harness.drawings.store.read().recentGlyphs).toEqual([]);
+    });
+
+    it('moves one already used to the front rather than listing it twice', () => {
+        const harness = buildHarness();
+
+        pin(harness, EMOJI_GLYPHS[2]!, 1_000);
+        pin(harness, EMOJI_GLYPHS[4]!, 2_000);
+        pin(harness, EMOJI_GLYPHS[2]!, 3_000);
+
+        expect(harness.drawings.store.read().recentGlyphs).toEqual([EMOJI_GLYPHS[2], EMOJI_GLYPHS[4]]);
+    });
+
+    it('writes them alongside the marks, so the next visit opens on them', () => {
+        const harness = buildHarness();
+
+        pin(harness, EMOJI_GLYPHS[6]!, 1_000);
+
+        expect(harness.write.mock.calls.at(-1)?.[0]?.recentGlyphs).toEqual([EMOJI_GLYPHS[6]]);
+    });
+});
+
+describe('DrawingsController writing only what a kind can use', () => {
+    /** Pins one mark of a kind with the tool set to a broken line. */
+    function pinWithDashes(kind: 'emoji' | 'highlighter' | 'trend-line' | 'freehand'): Drawing | undefined {
+        const harness = buildHarness();
+        harness.drawings.restylePending({ style: 'dashed' });
+        harness.drawings.arm(kind);
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.drag(at(1_400, 105));
+        harness.drawings.settle();
+        return readPersisted(harness)[0];
+    }
+
+    it('leaves an emoji with no line, which it could never be drawn with', () => {
+        // The painter draws a glyph. A line style on one is a setting nothing
+        // acts on and nobody can see, stored for as long as the mark lives.
+        expect(pinWithDashes('emoji')?.style).toBeUndefined();
+    });
+
+    it('leaves a highlighter with no line, which the painter forces solid', () => {
+        // A dashed highlighter covers half of what it was drawn over, which
+        // is the half a reader wanted seen.
+        expect(pinWithDashes('highlighter')?.style).toBeUndefined();
+    });
+
+    it('writes the line onto a pen stroke, which the painter does break up', () => {
+        expect(pinWithDashes('freehand')?.style).toBe('dashed');
+    });
+
+    it('writes the line onto the kinds that actually stroke one', () => {
+        expect(pinWithDashes('trend-line')?.style).toBe('dashed');
+    });
+
+    it('writes the weight onto an emoji, which reads its size out of it', () => {
+        const harness = buildHarness();
+        harness.drawings.restylePending({ width: 'thick' });
+        harness.drawings.arm('emoji');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.settle();
+
+        expect(readPersisted(harness)[0]?.width).toBe('thick');
+    });
+});

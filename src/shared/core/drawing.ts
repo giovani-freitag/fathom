@@ -97,17 +97,19 @@ export function isPathKind(kind: DrawingKind): boolean {
 export const MOST_PATH_ANCHORS = 512;
 
 /**
- * The marks an emoji tool offers, in the order it offers them.
+ * The marks the picker offers before it has read the full catalogue.
  *
- * A short list rather than every emoji there is: what a reader wants on a
- * chart is a handful of verdicts — watch this, it held, it broke, I was
- * wrong — and a grid of nine hundred faces is a search for the one of them
- * they meant.
+ * The verdicts a chart is actually annotated with — watch this, it held, it
+ * broke, I was wrong — so a reader who opens the tool and places one has
+ * waited for nothing. Everything else arrives with the catalogue.
  */
 export const EMOJI_GLYPHS: readonly string[] = [
     '\u{1F440}', '\u{2757}', '\u{2705}', '\u{274C}', '\u{1F525}',
     '\u{1F9F1}', '\u{1F4A1}', '\u{1F4A5}', '\u{1F3AF}', '\u{1F914}',
 ];
+
+/** The most recently placed emoji a reader is offered again. */
+export const MOST_RECENT_GLYPHS = 24;
 
 /**
  * The most UTF-16 units one glyph may be.
@@ -170,6 +172,68 @@ export interface DrawingLook {
 }
 
 const DEFAULT_LOOK: DrawingLook = { width: 'medium', style: 'solid' };
+
+/**
+ * Which of the look controls a kind actually answers to.
+ *
+ * Read against what the painter does rather than assumed, because a control
+ * that changes nothing is worse than a missing one: it tells a reader they
+ * have a choice, takes their answer, and draws what it was going to anyway.
+ *
+ * Weight is the one every kind uses, an emoji included — the size its glyph is
+ * set in is read out of it.
+ */
+export interface DrawingFields {
+    /** An emoji is picked, and what it is picked from is a catalogue. */
+    readonly hasGlyph: boolean;
+    readonly hasTone: boolean;
+    readonly hasStyle: boolean;
+    /** A mark nobody keeps cannot carry a name to be read later. */
+    readonly hasLabel: boolean;
+}
+
+/**
+ * Kinds the painter will actually break the line of.
+ *
+ * The rest each overrule it. A highlighter that was dashed would cover half of
+ * what it was drawn over and a trail is lit rather than drawn, so both are
+ * forced solid; retracements set their own dash per ratio, so the whole ladder
+ * would look the same whatever was asked for; and an emoji has no line at all.
+ */
+const STYLED_KINDS: ReadonlySet<DrawingKind> = new Set<DrawingKind>([
+    'horizontal-line',
+    'trend-line',
+    'zone',
+    'measure',
+    'freehand',
+]);
+
+/**
+ * Kinds whose colour is not the reader's to choose.
+ *
+ * A measurement is coloured by which way it was dragged, because whether the
+ * move it spans is up or down is the first thing read off it. An emoji comes
+ * with its own colours and paints over any that were asked for.
+ */
+const TONELESS_KINDS: ReadonlySet<DrawingKind> = new Set<DrawingKind>([
+    'emoji',
+    'measure',
+]);
+
+/**
+ * The look controls one kind offers.
+ *
+ * @param kind - The kind being set up or restyled.
+ * @returns Which controls apply to it; weight applies to every kind.
+ */
+export function readDrawingFields(kind: DrawingKind): DrawingFields {
+    return {
+        hasGlyph: kind === 'emoji',
+        hasTone: !TONELESS_KINDS.has(kind),
+        hasStyle: STYLED_KINDS.has(kind),
+        hasLabel: !isTransientKind(kind),
+    };
+}
 
 /**
  * How long a mark's name may be.
