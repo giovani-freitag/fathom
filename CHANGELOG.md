@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.4](https://github.com/giovani-freitag/fathom/compare/v0.17.3...v0.17.4) (2026-09-08)
+
+
+### Bug Fixes
+
+* rest and follow the live edge on the same instant ([15b150f](https://github.com/giovani-freitag/fathom/commit/15b150f2e9ae978817630ea1d248453892da768a))
+
 ## [0.17.3](https://github.com/giovani-freitag/fathom/compare/v0.17.2...v0.17.3) (2026-09-08)
 
 
