@@ -597,13 +597,21 @@ export class ChartController {
     private choosePreferredInstrument(
         instruments: readonly InstrumentCoverage[],
     ): InstrumentCoverage | null {
+        // One with history first, and one without rather than none at all. The
+        // heatmap is the only layer that needs a recorded frame — the candles,
+        // the live book and the tape are all asked of the venue — so refusing
+        // to open a contract until its first column existed left a page that
+        // records for itself showing nothing whatever until it had one.
         const recorded = instruments.filter((candidate) => candidate.lastFrameAtMs !== null);
         const preferred = this.config.preferences.read();
-        return recorded.find((candidate) => (
+        const isPreferred = (candidate: InstrumentCoverage): boolean => (
             candidate.venue === preferred.venue
             && candidate.instrumentSymbol === preferred.instrumentSymbol
-        ))
+        );
+        return recorded.find(isPreferred)
+            ?? instruments.find(isPreferred)
             ?? recorded[0]
+            ?? instruments[0]
             ?? null;
     }
 
