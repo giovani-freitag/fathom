@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.2](https://github.com/giovani-freitag/fathom/compare/v0.16.1...v0.16.2) (2026-09-08)
+
+
+### Bug Fixes
+
+* open the first contract to appear when the chart started on none ([676a1eb](https://github.com/giovani-freitag/fathom/commit/676a1ebcb76d5fe0ab5b138761830e46a3f25e3c))
+
 ## [0.16.1](https://github.com/giovani-freitag/fathom/compare/v0.16.0...v0.16.1) (2026-09-08)
 
 
