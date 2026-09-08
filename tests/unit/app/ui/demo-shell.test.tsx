@@ -63,30 +63,26 @@ describe('DemoShell', () => {
         fetchInstruments = vi.fn().mockResolvedValue([NOTHING_YET]);
     });
 
-    it('draws the chart before anything has been recorded', async () => {
-        // Only the heatmap needs a recorded frame; the candles, the live book
-        // and the tape are asked of the venue. Holding the whole page back
-        // until the first column existed showed a wall of text for the seconds
-        // a live recording takes to produce one.
+    it('holds the chart back until a second exists for it to draw', async () => {
+        // The chart decides there is nothing to show the first time it looks,
+        // and a page that starts its own recording is empty at that moment.
         renderShell();
 
-        await vi.advanceTimersByTimeAsync(3_000);
-
-        // Waited for rather than asserted straight after: the open resolves a
-        // microtask later, and under fake timers React has nothing else ticking
-        // to make it flush the render that follows.
-        await vi.waitFor(() => { expect(screen.queryByTestId('chart')).not.toBeNull(); });
-    });
-
-    it('draws nothing until the connection it reads through is open', async () => {
-        // Every query before the open throws, so a chart mounted ahead of one
-        // asks a closed archive for its first window.
-        openDatabase.mockReturnValue(new Promise<void>(() => undefined));
-
-        renderShell();
         await vi.advanceTimersByTimeAsync(3_000);
 
         expect(screen.queryByTestId('chart')).toBeNull();
+        expect(screen.getByText('Recording starts now')).toBeTruthy();
+    });
+
+    it('mounts the chart once the first frame has been recorded', async () => {
+        renderShell();
+        fetchInstruments.mockResolvedValue([RECORDED]);
+
+        await vi.advanceTimersByTimeAsync(2_000);
+
+        // Waited for rather than asserted straight after the tick: advancing a
+        // timer starts the read, and the answer lands a promise later.
+        await vi.waitFor(() => { expect(screen.queryByTestId('chart')).not.toBeNull(); });
     });
 
     it('explains itself when the browser will not let the page record', async () => {
@@ -95,9 +91,7 @@ describe('DemoShell', () => {
         renderShell();
         await vi.advanceTimersByTimeAsync(0);
 
-        await vi.waitFor(() => {
-            expect(screen.queryByText('This browser will not let the demo record')).not.toBeNull();
-        });
+        expect(screen.getByText('This browser will not let the demo record')).toBeTruthy();
         // The driver's own sentence goes to the console, not to the reader.
         expect(screen.queryByText(/exposes no IndexedDB/)).toBeNull();
     });

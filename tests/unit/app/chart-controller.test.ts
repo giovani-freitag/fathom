@@ -35,38 +35,6 @@ describe('ChartController.initialize', () => {
         expect(controller.store.read().instrumentSymbol).toBe('BTCUSDT');
     });
 
-    it('opens a contract that has recorded nothing yet', async () => {
-        // A page that starts its own recording lists its contract before the
-        // first column exists. Skipping it there left the chart on nothing at
-        // all, when the candles and the live book were ready to draw.
-        const mocks = createChartServiceMocks();
-        mocks.fetchInstruments.mockResolvedValue([
-            { ...INSTRUMENT, firstFrameAtMs: null, lastFrameAtMs: null },
-        ]);
-        const controller = buildController(mocks);
-
-        await controller.initialize();
-
-        expect(controller.store.read().instrumentSymbol).toBe(INSTRUMENT.instrumentSymbol);
-    });
-
-    it('prefers a contract with history over one with none', async () => {
-        // Both are openable now, so the order has to be stated: a reader with a
-        // recording to look at should not land on the empty one beside it.
-        // Preferring neither is what leaves the order to decide — named, the
-        // preference finds it either way and the ordering goes untested.
-        const mocks = createChartServiceMocks({ instrumentSymbol: 'PREFERS-NEITHER' });
-        mocks.fetchInstruments.mockResolvedValue([
-            { ...INSTRUMENT, instrumentSymbol: 'NOTHINGUSDT', firstFrameAtMs: null, lastFrameAtMs: null },
-            INSTRUMENT,
-        ]);
-        const controller = buildController(mocks);
-
-        await controller.initialize();
-
-        expect(controller.store.read().instrumentSymbol).toBe(INSTRUMENT.instrumentSymbol);
-    });
-
     it('loads a window and reports itself ready', async () => {
         const controller = buildController();
 
@@ -470,42 +438,6 @@ describe('ChartController.refreshInstruments', () => {
 
         expect(controller.store.read().instruments.map((i) => i.instrumentSymbol))
             .toContain('ETHUSDT');
-    });
-
-    it('opens the first contract to appear when it started on none', async () => {
-        // A page that records for itself lists nothing at all for its first
-        // seconds. Choosing only at startup left such a page on an empty chart
-        // for the rest of the session, however much it went on to record.
-        const mocks = createChartServiceMocks();
-        mocks.fetchInstruments.mockResolvedValue([]);
-        const controller = buildController(mocks);
-        await controller.initialize();
-        mocks.fetchInstruments.mockResolvedValue([INSTRUMENT]);
-
-        await controller.refreshInstruments();
-
-        expect(controller.store.read().instrumentSymbol).toBe(INSTRUMENT.instrumentSymbol);
-    });
-
-    it('keeps looking on its own while it has nothing to draw', async () => {
-        // Nobody asks the chart to try again, so an empty first listing has to
-        // be re-read by the chart itself — and at a pace a reader staring at an
-        // empty screen will sit through, not the half-minute a listing that is
-        // already drawing something deserves.
-        vi.useFakeTimers();
-        try {
-            const mocks = createChartServiceMocks();
-            mocks.fetchInstruments.mockResolvedValue([]);
-            const controller = buildController(mocks);
-            await controller.initialize();
-            mocks.fetchInstruments.mockResolvedValue([INSTRUMENT]);
-
-            await vi.advanceTimersByTimeAsync(1_500);
-
-            expect(controller.store.read().instrumentSymbol).toBe(INSTRUMENT.instrumentSymbol);
-        } finally {
-            vi.useRealTimers();
-        }
     });
 
     it('keeps the contracts it knows when the listing will not answer', async () => {

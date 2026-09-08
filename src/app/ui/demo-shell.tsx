@@ -43,16 +43,7 @@ export function DemoShell({ factory, storage, appearanceHost, build }: DemoShell
     // times knows why the gaps are there, and a page that keeps saying so is a
     // page with a strip across it for the rest of the session.
     const [hasHeardAboutGaps, setHasHeardAboutGaps] = useState(false);
-    /**
-     * Whether the connection the chart reads through is open yet.
-     *
-     * The chart used to wait on a recorded frame instead, which held the whole
-     * page back for the seconds a live recording takes to produce its first
-     * column — though only the heatmap needed one, and the candles and the book
-     * beside it did not. What it truly cannot do without is somewhere to read:
-     * every query before the open throws.
-     */
-    const [isReadable, setIsReadable] = useState(false);
+    const [hasFirstFrame, setHasFirstFrame] = useState(false);
     // Built once, lazily, so the collector's handle survives a re-render and
     // React never sees construction happen during one.
     const [container] = useState<DemoServiceContainer>(() => build({
@@ -97,7 +88,6 @@ export function DemoShell({ factory, storage, appearanceHost, build }: DemoShell
                 if (wasCancelled) {
                     return;
                 }
-                setIsReadable(true);
                 container.collector.start();
             },
             (error: unknown) => {
@@ -119,6 +109,24 @@ export function DemoShell({ factory, storage, appearanceHost, build }: DemoShell
             container.appearance.dispose();
         };
     }, [container]);
+
+    // The chart decides there is nothing to show the first time it looks, and a
+    // page that starts its own recording is always empty at that moment. It is
+    // only mounted once a second exists for it to draw.
+    useEffect(() => {
+        if (hasFirstFrame) {
+            return;
+        }
+        const timer = setInterval(() => {
+            void container.api.fetchInstruments().then((instruments) => {
+                if (instruments.some((instrument) => instrument.lastFrameAtMs !== null)) {
+                    setHasFirstFrame(true);
+                }
+            }, () => undefined);
+        }, 1_000);
+
+        return () => { clearInterval(timer); };
+    }, [container, hasFirstFrame]);
 
     // Browsers slow a hidden page's timers to about one wake a minute, so the
     // seconds it misses are recorded as gaps. That is correct, and it looks
@@ -146,12 +154,10 @@ export function DemoShell({ factory, storage, appearanceHost, build }: DemoShell
     if (state === 'refused') {
         return <RefusalNotice translate={translate} />;
     }
-    // Nothing rather than a notice: opening the connection takes milliseconds,
-    // and a sentence nobody can finish reading is worse than the blank it
-    // replaces. A refusal is the case that earns words.
-    if (!isReadable) {
-        return <div className="size-full" />;
+    if (!hasFirstFrame) {
+        return <PreRollNotice translate={translate} />;
     }
+
     return (
         <div className="relative size-full">
             <App container={container} />
@@ -166,6 +172,15 @@ export function DemoShell({ factory, storage, appearanceHost, build }: DemoShell
                 translate={translate}
             />
         </div>
+    );
+}
+
+function PreRollNotice({ translate }: { readonly translate: Translate }): ReactElement {
+    return (
+        <PageNotice
+            title={translate('demo.preRollTitle')}
+            body={translate('demo.preRollBody')}
+        />
     );
 }
 

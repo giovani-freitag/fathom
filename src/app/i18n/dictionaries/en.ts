@@ -424,6 +424,8 @@ export const EN_DICTIONARY = {
     'recording.ceiling': 'Storage ceiling',
     'recording.ceilingHelp': 'Once the ceiling is reached, the oldest days are dropped to make room for the newest.',
 
+    'demo.preRollTitle': 'Recording starts now',
+    'demo.preRollBody': 'This page records the order book itself, live. The first column appears in a moment — there is no history to load, because an order book cannot be recovered after the fact.',
     'demo.connecting': 'Connecting to the exchange and mirroring the order book. The first columns appear within seconds.',
     'demo.stopped': 'Recording stopped. Reload to start again.',
     'demo.wasHidden': 'This tab was in the background, where recording slows down. Those seconds show as gaps rather than as made-up data.',
