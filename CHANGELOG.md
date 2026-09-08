@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.1](https://github.com/giovani-freitag/fathom/compare/v0.16.0...v0.16.1) (2026-09-08)
+
+
+### Bug Fixes
+
+* draw the chart before the first column is recorded ([af00d0d](https://github.com/giovani-freitag/fathom/commit/af00d0d2aa96788bcbe28eb0498753550e79c33f))
+
 ## [0.16.0](https://github.com/giovani-freitag/fathom/compare/v0.15.0...v0.16.0) (2026-09-08)
 
 
