@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.5](https://github.com/giovani-freitag/fathom/compare/v0.16.4...v0.16.5) (2026-09-08)
+
+
+### Bug Fixes
+
+* stop offering a pair the reader deleted ([c888faa](https://github.com/giovani-freitag/fathom/commit/c888faa7e039f1d590126205ff25166f3e6a90c7))
+
 ## [0.16.4](https://github.com/giovani-freitag/fathom/compare/v0.16.3...v0.16.4) (2026-09-08)
 
 
