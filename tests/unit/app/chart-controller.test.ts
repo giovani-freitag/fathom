@@ -472,6 +472,42 @@ describe('ChartController.refreshInstruments', () => {
             .toContain('ETHUSDT');
     });
 
+    it('opens the first contract to appear when it started on none', async () => {
+        // A page that records for itself lists nothing at all for its first
+        // seconds. Choosing only at startup left such a page on an empty chart
+        // for the rest of the session, however much it went on to record.
+        const mocks = createChartServiceMocks();
+        mocks.fetchInstruments.mockResolvedValue([]);
+        const controller = buildController(mocks);
+        await controller.initialize();
+        mocks.fetchInstruments.mockResolvedValue([INSTRUMENT]);
+
+        await controller.refreshInstruments();
+
+        expect(controller.store.read().instrumentSymbol).toBe(INSTRUMENT.instrumentSymbol);
+    });
+
+    it('keeps looking on its own while it has nothing to draw', async () => {
+        // Nobody asks the chart to try again, so an empty first listing has to
+        // be re-read by the chart itself — and at a pace a reader staring at an
+        // empty screen will sit through, not the half-minute a listing that is
+        // already drawing something deserves.
+        vi.useFakeTimers();
+        try {
+            const mocks = createChartServiceMocks();
+            mocks.fetchInstruments.mockResolvedValue([]);
+            const controller = buildController(mocks);
+            await controller.initialize();
+            mocks.fetchInstruments.mockResolvedValue([INSTRUMENT]);
+
+            await vi.advanceTimersByTimeAsync(1_500);
+
+            expect(controller.store.read().instrumentSymbol).toBe(INSTRUMENT.instrumentSymbol);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('keeps the contracts it knows when the listing will not answer', async () => {
         const mocks = createChartServiceMocks();
         const controller = buildController(mocks);
