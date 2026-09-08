@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.17.3](https://github.com/giovani-freitag/fathom/compare/v0.17.2...v0.17.3) (2026-09-08)
+
+
+### Bug Fixes
+
+* make the whole rail row open the listing it names ([24fd0d6](https://github.com/giovani-freitag/fathom/commit/24fd0d6a3bc9838ece4a1dc9cda7e55fa57ff889))
+* name the layer tabs official and custom ([0e61aaa](https://github.com/giovani-freitag/fathom/commit/0e61aaa688b3df203b1fb822a398301c8f5215a7))
+
 ## [0.17.2](https://github.com/giovani-freitag/fathom/compare/v0.17.1...v0.17.2) (2026-09-08)
 
 
