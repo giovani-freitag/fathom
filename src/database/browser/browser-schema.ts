@@ -14,8 +14,19 @@ const RETIRED_STORE = 'liquidity_frame';
  * dropped and made again — and what a page recorded under the old key goes with
  * it. It is allowed to go because this store is a window, not an archive: it is
  * bounded by a disk budget and drops its own oldest recording to stay inside
- * one, so everything in it was already on its way out. The history that cannot
- * be recorded again lives on a server, under a migration that kept every row.
+ * one, so everything in it was already on its way out. It is also only the demo
+ * page's: the served chart reads a server, and the history that cannot be
+ * recorded again lives there, under a migration that kept every row.
+ *
+ * Carrying it across was weighed and refused, which is worth writing down so
+ * that it is not weighed again from nothing. Between dropping the store and
+ * making it again the records exist only where they are held, and the ceiling
+ * here is a quarter of the browser's whole quota — half a gibibyte on a browser
+ * offering two — so reading them into memory at once is the crash it is trying
+ * to avoid. Streaming them through a store kept aside costs no memory but twice
+ * the disk while it runs, and a reader near their ceiling would abort the
+ * upgrade: a page that will not open at all, in place of a recording that was
+ * leaving anyway.
  */
 const REKEYED_STORES = [
     'instrument_registry', 'liquidity_block', 'liquidity_chunk',
