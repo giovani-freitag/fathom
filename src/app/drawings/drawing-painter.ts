@@ -4,6 +4,7 @@ import {
     FIBONACCI_RATIOS,
     type DrawingStyle,
     type DrawingWidth,
+    readStoredGlyph,
     resolveDrawingLabel,
     resolveDrawingLook,
 } from '../../shared/core/drawing.ts';
@@ -28,6 +29,12 @@ const WIDTH_PIXELS: Readonly<Record<DrawingWidth, number>> = {
 
 const SELECTED_WIDTH_FACTOR = 1.8;
 
+/** How much bigger a chosen emoji is drawn, since a line width says nothing. */
+const SELECTED_GLYPH_FACTOR = 1.25;
+
+/** Whatever the host has that draws emoji, and the text font behind it. */
+const GLYPH_FONT_STACK = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+
 /**
  * How much wider a highlighter is than the pen, and how much of it shows.
  *
@@ -36,6 +43,13 @@ const SELECTED_WIDTH_FACTOR = 1.8;
  */
 const HIGHLIGHTER_WIDTH_FACTOR = 6;
 const HIGHLIGHTER_ALPHA = 0.28;
+
+/** How tall an emoji is drawn, by the weight the reader chose for it. */
+const GLYPH_SIZE_PX: Readonly<Record<DrawingWidth, number>> = {
+    thin: 16,
+    medium: 22,
+    thick: 32,
+};
 
 /** How each line is broken up. Solid says so with no dashes at all. */
 const STYLE_DASHES: Readonly<Record<DrawingStyle, readonly number[]>> = {
@@ -138,7 +152,9 @@ export class DrawingPainter implements FieldLayerPainter {
         paint.context.lineCap = look.style === 'dotted' ? 'round' : 'butt';
         paint.context.setLineDash([...stroke.dash ?? STYLE_DASHES[look.style]]);
 
-        if (drawing.kind === 'highlighter') {
+        if (drawing.kind === 'emoji') {
+            this.strokeGlyph(stroke, look.width);
+        } else if (drawing.kind === 'highlighter') {
             // Broad, soft and never dashed: a dashed highlighter covers half of
             // what it was drawn over, which is the half a reader wanted seen.
             paint.context.lineWidth *= HIGHLIGHTER_WIDTH_FACTOR;
@@ -238,6 +254,37 @@ export class DrawingPainter implements FieldLayerPainter {
     /**
      * Strokes a level or a segment across the span it is drawn over.
      */
+    /**
+     * Draws the mark a reader pinned to one place.
+     *
+     * Filled rather than stroked, and centred on its anchor: an emoji is a
+     * glyph and not a shape, so the line width and the dash the rest of a
+     * mark's look decides say nothing about it — only how big it is drawn.
+     */
+    private strokeGlyph(stroke: DrawingStroke, width: DrawingWidth): void {
+        const { paint, drawing, isSelected } = stroke;
+        const [anchor] = drawing.anchors;
+        if (anchor === undefined) {
+            return;
+        }
+
+        const sizePx = GLYPH_SIZE_PX[width] * (isSelected ? SELECTED_GLYPH_FACTOR : 1);
+        paint.context.setLineDash([]);
+        // Filled text takes the fill, and the rest of a mark's look sets only
+        // the stroke: left alone the glyph took whatever colour the last thing
+        // painted happened to leave. Colour emoji carry their own and ignore
+        // this; a host with none falls back to a shape, and that shape reads.
+        paint.context.fillStyle = resolveToneColour(drawing.tone);
+        paint.context.font = `${String(Math.round(sizePx))}px ${GLYPH_FONT_STACK}`;
+        paint.context.textAlign = 'center';
+        paint.context.textBaseline = 'middle';
+        paint.context.fillText(
+            readStoredGlyph(drawing),
+            paint.projector.timeToX(anchor.atMs),
+            paint.projector.priceToY(anchor.price),
+        );
+    }
+
     /**
      * Draws the path the hand left, anchor by anchor.
      *

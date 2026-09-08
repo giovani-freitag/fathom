@@ -36,7 +36,7 @@ If you install it on Friday, you get Friday. There is no history to download.
 | 📊 **Depth ladder** | Resting size and traded volume per price, beside the chart |
 | 🎚️ **Two-cut colour map** | Mute the background churn so the real walls stand out |
 | 🔭 **Bands that survive zooming out** | Over days, prices fold into rows you can still follow |
-| ✏️ **Marks and measures** | Levels, trend lines, zones, retracements, a pen and a highlighter, all pinned to time and price |
+| ✏️ **Marks and measures** | Levels, trend lines, zones, retracements, a pen, a highlighter and emoji, all pinned to time and price |
 | 📱 **Built for touch** | One finger pans, two pinch both axes, and the axes are scale handles |
 | ⚡ **Live tail** | A WebSocket appends each new second without refetching the window |
 

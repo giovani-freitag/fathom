@@ -5,6 +5,7 @@ import {
     type DrawingKind,
     type DrawingStyle,
     type DrawingWidth,
+    EMOJI_GLYPHS,
     isPathKind,
     isTransientKind,
     MOST_PATH_ANCHORS,
@@ -49,6 +50,8 @@ export interface DrawingRestyle {
     readonly style?: DrawingStyle;
     /** What the reader calls it; an empty name takes the label off. */
     readonly label?: string;
+    /** The mark an emoji shows; every later one the reader places takes it too. */
+    readonly glyph?: string;
 }
 
 /** Where a press landed, and on what. */
@@ -90,6 +93,8 @@ export class DrawingsController {
 
     /** The mark whose name is being typed, so the letters make one step. */
     private renamingId: string | null = null;
+    /** What the next emoji shows, which is what the last one was changed to. */
+    private lastGlyph: string = EMOJI_GLYPHS[0]!;
     /**
      * What was on the chart when the gesture began.
      *
@@ -307,6 +312,9 @@ export class DrawingsController {
             this.rememberStep(this.store.read().drawings);
         }
         this.renamingId = isRenaming ? drawingId : null;
+        if (look.glyph !== undefined && look.glyph !== '') {
+            this.lastGlyph = look.glyph;
+        }
         this.store.update((state) => ({
             ...state,
             drawings: state.drawings.map(
@@ -351,6 +359,10 @@ export class DrawingsController {
                 instrumentSymbol: contract.symbol,
                 anchors: Array.from({ length: ANCHORS_PER_KIND[kind] }, () => anchor),
                 tone: chooseDrawingTone(drawn),
+                // The one they chose last. A reader marking three places on a
+                // chart means the same thing at all three, and choosing it
+                // again each time is the tool asking a question it was told.
+                ...kind === 'emoji' ? { glyph: this.lastGlyph } : {},
             },
         }));
     }

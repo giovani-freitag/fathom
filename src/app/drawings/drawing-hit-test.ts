@@ -111,11 +111,33 @@ function measureDistance(request: DistanceRequest): number | null {
     if (isPathKind(request.drawing.kind)) {
         return measurePathDistance(request);
     }
+    // A glyph is a mark at one place rather than a line across the window,
+    // so it is reached from any side: measured the way a level is, a press
+    // level with it anywhere along the chart would grab it.
+    if (request.drawing.kind === 'emoji') {
+        return measureAnchorDistance(request);
+    }
     // A retracement is a stack of lines across the window; grabbing the band
     // they span is how a thumb reaches one at all.
     return request.drawing.kind === 'zone' || request.drawing.kind === 'fibonacci'
         ? measureZoneDistance(request)
         : measureLineDistance(request);
+}
+
+/**
+ * How far the pointer is from the one place a mark is pinned to.
+ *
+ * @returns The distance, or null when the mark is pinned to nothing.
+ */
+function measureAnchorDistance(request: DistanceRequest): number | null {
+    const [anchor] = request.drawing.anchors;
+    if (anchor === undefined) {
+        return null;
+    }
+    return Math.hypot(
+        request.point.x - request.projector.timeToX(anchor.atMs),
+        request.point.y - request.projector.priceToY(anchor.price),
+    );
 }
 
 /**

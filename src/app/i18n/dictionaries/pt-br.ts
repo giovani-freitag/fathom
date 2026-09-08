@@ -27,6 +27,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'drawing.redo': 'Refazer',
     'drawing.zone': 'Zona',
     'drawing.fibonacci': 'Retrações',
+    'drawing.emoji': 'Emoji',
     'drawing.freehand': 'Caneta',
     'drawing.highlighter': 'Pincel de destaque',
     'drawing.measure': 'Medir',

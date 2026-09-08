@@ -1,6 +1,11 @@
 import { FIRST_VENUE } from '../../../../src/shared/core/recording-control.ts';
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
-import { type Drawing, type DrawingAnchor, MOST_PATH_ANCHORS } from '../../../../src/shared/core/drawing.ts';
+import {
+    type Drawing,
+    type DrawingAnchor,
+    EMOJI_GLYPHS,
+    MOST_PATH_ANCHORS,
+} from '../../../../src/shared/core/drawing.ts';
 import {
     DrawingsController,
     MAXIMUM_DRAWINGS_PER_INSTRUMENT,
@@ -757,5 +762,37 @@ describe('DrawingsController drawing a path', () => {
         }
 
         expect(harness.drawings.store.read().draft?.anchors.length).toBe(MOST_PATH_ANCHORS);
+    });
+});
+
+describe('DrawingsController pinning an emoji', () => {
+    let harness: Harness;
+
+    beforeEach(() => { harness = buildHarness(); });
+
+    /** Pins one where the reader pressed, the way a press with the tool armed does. */
+    function pin(): void {
+        harness.drawings.arm('emoji');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.settle();
+    }
+
+    it('places the first the tool offers before the reader has chosen', () => {
+        pin();
+
+        expect(readPersisted(harness).at(-1)?.glyph).toBe(EMOJI_GLYPHS[0]);
+    });
+
+    it('places the one the reader chose last, not the first again', () => {
+        // A reader marking three places on a chart means the same thing at all
+        // three, and choosing it again each time is the tool asking a question
+        // it has already been told the answer to.
+        pin();
+        const first = readPersisted(harness).at(-1)!;
+        harness.drawings.restyle(first.id, { glyph: EMOJI_GLYPHS[4]! });
+
+        pin();
+
+        expect(readPersisted(harness).at(-1)?.glyph).toBe(EMOJI_GLYPHS[4]);
     });
 });

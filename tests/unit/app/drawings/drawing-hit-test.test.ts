@@ -312,3 +312,38 @@ describe('finding a path a reader drew', () => {
         expect(found).toBeNull();
     });
 });
+
+describe('finding an emoji a reader pinned', () => {
+    function buildPin(id: string): Drawing {
+        return {
+            id,
+            kind: 'emoji',
+            venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
+            anchors: [{ atMs: 50_000, price: 50 }],
+            tone: 'phosphor',
+        };
+    }
+
+    it('finds it from any side of where it sits', () => {
+        const found = findDrawingAt({
+            drawings: [buildPin('pin')],
+            point: { x: projector.timeToX(50_000) + 6, y: yOf(50) + 6 },
+            projector,
+        });
+
+        expect(found).toBe('pin');
+    });
+
+    it('leaves it alone from across the chart at its own price', () => {
+        // Measured the way a level is, a press level with the glyph anywhere
+        // along the window would grab it — and a level is exactly what the
+        // reader would have drawn if that is what they wanted.
+        const found = findDrawingAt({
+            drawings: [buildPin('pin')],
+            point: { x: projector.timeToX(95_000), y: yOf(50) },
+            projector,
+        });
+
+        expect(found).toBeNull();
+    });
+});

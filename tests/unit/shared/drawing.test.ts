@@ -5,12 +5,15 @@ import {
     boundDrawing,
     type Drawing,
     DRAWING_KINDS,
+    EMOJI_GLYPHS,
     isDrawing,
     isPathKind,
+    MAXIMUM_GLYPH_LENGTH,
     isTransientKind,
     moveDrawingAnchor,
     MAXIMUM_LABEL_LENGTH,
     priceAtTime,
+    readStoredGlyph,
     readStoredLabel,
     resolveDrawingLabel,
     resolveDrawingLook,
@@ -139,6 +142,7 @@ describe('ANCHORS_PER_KIND', () => {
             measure: 2,
             freehand: 1,
             highlighter: 1,
+            emoji: 1,
         });
     });
 
@@ -236,7 +240,10 @@ describe('isTransientKind', () => {
 
     it('says a mark a reader drew is theirs to keep', () => {
         expect(DRAWING_KINDS.filter((kind) => !isTransientKind(kind)))
-            .toEqual(['horizontal-line', 'trend-line', 'zone', 'fibonacci', 'freehand', 'highlighter']);
+            .toEqual([
+                'horizontal-line', 'trend-line', 'zone', 'fibonacci',
+                'freehand', 'highlighter', 'emoji',
+            ]);
     });
 });
 
@@ -325,5 +332,36 @@ describe('resolveDrawingLabel', () => {
         const stored = { ...LEVEL, label: { text: 'support' } } as unknown as Drawing;
 
         expect(resolveDrawingLabel(stored)).toBeNull();
+    });
+});
+
+describe('the mark an emoji shows', () => {
+    const PINNED: Drawing = {
+        id: 'pin',
+        kind: 'emoji',
+        venue: FIRST_VENUE,
+        instrumentSymbol: 'BTCUSDT',
+        anchors: [{ atMs: 1_000, price: 100 }],
+        tone: 'phosphor',
+    };
+
+    it('falls back to the first the tool offers where none was stored', () => {
+        // Every kind before this one drew its own shape, so a mark stored by an
+        // older build carries no glyph at all.
+        expect(readStoredGlyph(PINNED)).toBe(EMOJI_GLYPHS[0]);
+    });
+
+    it('shows the one the reader chose', () => {
+        expect(readStoredGlyph({ ...PINNED, glyph: EMOJI_GLYPHS[3]! })).toBe(EMOJI_GLYPHS[3]);
+    });
+
+    it('refuses a glyph longer than any emoji is', () => {
+        // The reader's own text on their own chart, so it is bounded rather
+        // than trusted: a stored string of any length would be drawn.
+        expect(isDrawing({ ...PINNED, glyph: 'x'.repeat(MAXIMUM_GLYPH_LENGTH + 1) })).toBe(false);
+    });
+
+    it('takes one as long as an emoji with a tone and a flag on it', () => {
+        expect(isDrawing({ ...PINNED, glyph: 'x'.repeat(MAXIMUM_GLYPH_LENGTH) })).toBe(true);
     });
 });

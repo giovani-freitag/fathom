@@ -11,6 +11,7 @@ import { Code2,
     Redo2,
     Rows3,
     Ruler,
+    Smile,
     Square,
     TrendingUp,
     Undo2,
@@ -49,6 +50,7 @@ const TOOL_FACES: Readonly<Record<DrawingKind, ToolFace>> = {
     fibonacci: { Icon: Rows3, labelKey: 'drawing.fibonacci' },
     freehand: { Icon: Pencil, labelKey: 'drawing.freehand' },
     highlighter: { Icon: Highlighter, labelKey: 'drawing.highlighter' },
+    emoji: { Icon: Smile, labelKey: 'drawing.emoji' },
     measure: { Icon: Ruler, labelKey: 'drawing.measure' },
 };
 

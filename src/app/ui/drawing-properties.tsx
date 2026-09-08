@@ -4,9 +4,11 @@ import {
     type Drawing,
     DRAWING_STYLES,
     DRAWING_WIDTHS,
+    EMOJI_GLYPHS,
     type DrawingStyle,
     type DrawingWidth,
     MAXIMUM_LABEL_LENGTH,
+    readStoredGlyph,
     readStoredLabel,
     resolveDrawingLook,
 } from '../../shared/core/drawing.ts';
@@ -90,6 +92,21 @@ export function DrawingProperties({ controls }: DrawingPropertiesProps): ReactEl
                     className={`${CONTROL_INPUT_CLASSES} px-2 text-xs placeholder:text-ink-500`}
                 />
             </Field>
+
+            {selected.kind === 'emoji' && (
+                <Field title={translate('drawing.emoji')}>
+                    {EMOJI_GLYPHS.map((glyph) => (
+                        <Option
+                            key={glyph}
+                            label={glyph}
+                            isChosen={readStoredGlyph(selected) === glyph}
+                            onPress={() => { controls.restyleSelected({ glyph }); }}
+                        >
+                            <span className="text-base leading-none">{glyph}</span>
+                        </Option>
+                    ))}
+                </Field>
+            )}
 
             <Field title={translate('drawing.colour')}>
                 {INSTANCE_TONES.map((tone) => (

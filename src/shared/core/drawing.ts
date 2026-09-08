@@ -19,7 +19,8 @@ export type DrawingKind =
     | 'fibonacci'
     | 'measure'
     | 'freehand'
-    | 'highlighter';
+    | 'highlighter'
+    | 'emoji';
 
 /** Every kind, in the order the dock offers them. */
 export const DRAWING_KINDS: readonly DrawingKind[] = [
@@ -29,6 +30,7 @@ export const DRAWING_KINDS: readonly DrawingKind[] = [
     'fibonacci',
     'freehand',
     'highlighter',
+    'emoji',
     'measure',
 ];
 
@@ -43,6 +45,7 @@ export const ANCHORS_PER_KIND: Readonly<Record<DrawingKind, number>> = {
     // is the fewest it can have rather than the number it will end with.
     freehand: 1,
     highlighter: 1,
+    emoji: 1,
 };
 
 /**
@@ -88,6 +91,28 @@ export function isPathKind(kind: DrawingKind): boolean {
  * a reader mid-stroke has not made a mistake.
  */
 export const MOST_PATH_ANCHORS = 512;
+
+/**
+ * The marks an emoji tool offers, in the order it offers them.
+ *
+ * A short list rather than every emoji there is: what a reader wants on a
+ * chart is a handful of verdicts — watch this, it held, it broke, I was
+ * wrong — and a grid of nine hundred faces is a search for the one of them
+ * they meant.
+ */
+export const EMOJI_GLYPHS: readonly string[] = [
+    '\u{1F440}', '\u{2757}', '\u{2705}', '\u{274C}', '\u{1F525}',
+    '\u{1F9F1}', '\u{1F4A1}', '\u{1F4A5}', '\u{1F3AF}', '\u{1F914}',
+];
+
+/**
+ * The most UTF-16 units one glyph may be.
+ *
+ * An emoji is not one character: a face with a skin tone is two code points
+ * and a flag is two more, so this is counted in the units a string is made
+ * of rather than in anything a reader would call a letter.
+ */
+export const MAXIMUM_GLYPH_LENGTH = 16;
 
 /**
  * Whether a mark is read and then done with rather than kept.
@@ -203,6 +228,13 @@ export interface Drawing {
      * reconstruct a week later from a line on a screen.
      */
     readonly label?: string;
+    /**
+     * The mark an emoji draws, absent on every kind that draws its own shape.
+     *
+     * Stored rather than derived, because it is the whole of what the reader
+     * chose: two emoji marks on one chart differ in nothing else.
+     */
+    readonly glyph?: string;
 }
 
 /**
@@ -234,6 +266,13 @@ export function isDrawing(candidate: unknown): candidate is Drawing {
         return false;
     }
 
+    // A glyph is the reader's own text on their own chart, so it is bounded
+    // rather than trusted: a stored string of any length would be drawn.
+    const glyph: unknown = drawing.glyph;
+    if (glyph !== undefined && (typeof glyph !== 'string' || glyph.length > MAXIMUM_GLYPH_LENGTH)) {
+        return false;
+    }
+
     const anchors: unknown = drawing.anchors;
     if (!Array.isArray(anchors) || !anchors.every(isAnchor)) {
         return false;
@@ -244,6 +283,17 @@ export function isDrawing(candidate: unknown): candidate is Drawing {
     return isPathKind(drawing.kind as DrawingKind)
         ? anchors.length >= wanted
         : anchors.length === wanted;
+}
+
+/**
+ * The mark an emoji drawing shows.
+ *
+ * @param drawing - The mark to read.
+ * @returns Its glyph, or the first the tool offers where it named none.
+ */
+export function readStoredGlyph(drawing: Drawing): string {
+    const glyph = drawing.glyph;
+    return glyph === undefined || glyph === '' ? EMOJI_GLYPHS[0]! : glyph;
 }
 
 /**

@@ -25,6 +25,7 @@ export const EN_DICTIONARY = {
     'drawing.redo': 'Redo',
     'drawing.zone': 'Zone',
     'drawing.fibonacci': 'Retracements',
+    'drawing.emoji': 'Emoji',
     'drawing.freehand': 'Pen',
     'drawing.highlighter': 'Highlighter',
     'drawing.measure': 'Measure',
