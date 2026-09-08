@@ -113,6 +113,8 @@ export interface PointerClaimant {
 export interface ChartGestureControllerConfig {
     readonly surface: HTMLElement;
     readonly readViewport: () => ChartViewport;
+    /** The instant the chart rests its right edge on, or null with nothing recorded. */
+    readonly readLiveEdgeMs: () => number | null;
     readonly readSurfaceSize: () => SurfaceSize;
     readonly readLayout: () => ChartLayout;
     readonly onView: (request: ViewRequest) => void;
@@ -364,10 +366,13 @@ export class ChartGestureController {
 
         const viewport = this.config.readViewport();
         const spanMs = viewport.toMs - viewport.fromMs;
-        const nowMs = Date.now();
+        // Where the chart rests its edge, not what the clock says. The clock is
+        // behind that by the clear space kept past the newest bar, so naming it
+        // threw the view backwards by that much every time this was used.
+        const edgeMs = this.config.readLiveEdgeMs() ?? Date.now();
 
         this.config.onView({
-            viewport: { ...viewport, fromMs: nowMs - spanMs, toMs: nowMs },
+            viewport: { ...viewport, fromMs: edgeMs - spanMs, toMs: edgeMs },
             surfaceWidthPx: this.config.readSurfaceSize().width,
             pricePaneHeightPx: this.config.readLayout().pricePaneHeight,
             isFollowingLive: true,

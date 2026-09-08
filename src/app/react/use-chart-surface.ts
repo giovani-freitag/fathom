@@ -204,6 +204,7 @@ export function useChartSurface(): ChartSurfaceHandles {
         const gestures = new ChartGestureController({
             surface: container,
             readViewport: () => kernel.chart.store.read().viewport,
+            readLiveEdgeMs: () => kernel.chart.readLiveEdgeMs(),
             readSurfaceSize: () => container.getBoundingClientRect(),
             readLayout: () => resolveSurfaceLayout(container, kernel),
             onView: (request) => kernel.chart.applyView(request),

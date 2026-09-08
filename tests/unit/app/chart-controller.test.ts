@@ -1018,6 +1018,23 @@ describe('ChartController following a recording rather than a clock', () => {
         expect(controller.store.read().viewport.toMs).toBeGreaterThanOrEqual(openedAtMs + foldedMs);
     });
 
+    it('rests the edge past the clear space, not on the newest column', () => {
+        // What a gesture meaning "the live edge" is answered with. Short of the
+        // clear space the chart keeps past the newest bar, the answer sits behind
+        // where the chart already is — and the edge only ever gets pulled back,
+        // so nothing corrects it and the view lurches backwards.
+        const mocks = createChartServiceMocks();
+        const controller = buildController(mocks);
+
+        return controller.initialize().then(() => {
+            const { dataset } = controller.store.read();
+            const newestMs = dataset.frames.at(-1)!.capturedAtMs;
+
+            expect(controller.readLiveEdgeMs())
+                .toBeGreaterThan(newestMs + dataset.sampleIntervalMs);
+        });
+    });
+
     it('does not nudge a chart already on the live edge it is asked for', async () => {
         // A double click sets the edge to the wall clock and the chart rests it
         // back on the recording. Resting it somewhere other than where following

@@ -24,6 +24,9 @@ function buildHarness(): Harness {
     const controller = new ChartGestureController({
         surface: surface.surface,
         readViewport: surface.readViewport,
+        // Nothing recorded in this harness, so the gesture falls back to the
+        // clock the way it does on a chart with no book behind it.
+        readLiveEdgeMs: () => null,
         readSurfaceSize: () => ({ width: surface.width, height: surface.height }),
         readLayout: () => resolveChartLayout({
             cssWidth: surface.width,
@@ -136,6 +139,34 @@ describe('ChartGestureController', () => {
         surface.fire('dblclick', { clientX: 500, clientY: 250 });
 
         expect(surface.published.at(-1)?.isFollowingLive).toBe(true);
+    });
+
+    it('lands on the edge the chart rests on, not on the clock', () => {
+        // The clock is behind that edge by the whole of the clear space the
+        // chart keeps past the newest bar — two and a half hours of it on a
+        // three-day window. Naming the clock threw the view backwards by that
+        // much, and nothing corrected it: the edge only ever gets pulled back.
+        const surface = createGestureSurface(VIEWPORT);
+        const restedAtMs = 2_500_000;
+        const controller = new ChartGestureController({
+            surface: surface.surface,
+            readViewport: surface.readViewport,
+            readLiveEdgeMs: () => restedAtMs,
+            readSurfaceSize: () => ({ width: surface.width, height: surface.height }),
+            readLayout: () => resolveChartLayout({
+                cssWidth: surface.width,
+                cssHeight: surface.height,
+                isVolumeProfileVisible: true,
+            }),
+            onView: (request) => surface.published.push(request),
+            onPointerMove: (pointer) => surface.pointers.push(pointer),
+            onRefitPrice: () => { surface.refits += 1; },
+        });
+        controller.attach();
+
+        surface.fire('dblclick', { clientX: 500, clientY: 250 });
+
+        expect(surface.published.at(-1)?.viewport.toMs).toBe(restedAtMs);
     });
 
     it('refits the price axis on a double click over the axis itself', () => {
@@ -321,6 +352,7 @@ function buildPhoneHarness(): Harness {
     const controller = new ChartGestureController({
         surface: surface.surface,
         readViewport: surface.readViewport,
+        readLiveEdgeMs: () => null,
         readSurfaceSize: () => ({ width: surface.width, height: surface.height }),
         readLayout: () => resolveChartLayout({
             cssWidth: surface.width,
@@ -461,6 +493,7 @@ describe('ChartGestureController offering a press to a claimant', () => {
         const controller = new ChartGestureController({
             surface: surface.surface,
             readViewport: surface.readViewport,
+            readLiveEdgeMs: () => null,
             readSurfaceSize: () => ({ width: surface.width, height: surface.height }),
             readLayout: () => resolveChartLayout({
                 cssWidth: surface.width,

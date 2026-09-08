@@ -945,6 +945,27 @@ export class ChartController {
     }
 
     /**
+     * The instant the right edge rests on while the chart follows the recording.
+     *
+     * Asked for rather than worked out again by whoever wants it. A gesture
+     * meaning "the live edge" used to name the wall clock, which is behind this
+     * by the whole of the clear space the chart keeps past the newest bar — on a
+     * three-day window, two and a half hours of it. The edge only ever gets
+     * pulled back, so nothing corrected the difference and the chart lurched
+     * backwards on every double click.
+     *
+     * @returns The instant, or null while nothing is recorded to rest on.
+     */
+    readLiveEdgeMs(): number | null {
+        const state = this.store.read();
+        const newestMs = newestFrameTimestamp(state.dataset);
+        if (newestMs === null) {
+            return null;
+        }
+        return newestMs + state.dataset.sampleIntervalMs + resolveRightMarginMs(state);
+    }
+
+    /**
      * The viewport with its right edge held to the newest instant that exists.
      *
      * A reader following the recording is following the recording, not the wall
