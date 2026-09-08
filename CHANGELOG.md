@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.3](https://github.com/giovani-freitag/fathom/compare/v0.16.2...v0.16.3) (2026-09-08)
+
+
+### Reverts
+
+* hold the demo's chart back until its first column exists ([0f587ff](https://github.com/giovani-freitag/fathom/commit/0f587ffa8fa398abebd5530ba64f7d7c7027e2c2))
+
 ## [0.16.2](https://github.com/giovani-freitag/fathom/compare/v0.16.1...v0.16.2) (2026-09-08)
 
 
