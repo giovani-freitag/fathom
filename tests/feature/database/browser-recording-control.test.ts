@@ -55,6 +55,45 @@ describe('BrowserRecordingControl', () => {
         expect(reopened.find((c) => c.instrumentSymbol === 'ETHUSDT')?.isEnabled).toBe(true);
     });
 
+    it('stops offering a pair the reader deleted', async () => {
+        // The catalogue is merged into every listing, so a pair taken out of
+        // the stored choice alone came back from it on the next read: the
+        // reader confirmed the delete, the recording went, and the row stayed
+        // on screen as though nothing had happened.
+        const control = buildControl();
+
+        await control.removeContract(FIRST_VENUE, 'ETHUSDT');
+
+        const offered = await control.listContracts();
+        expect(offered.map((contract) => contract.instrumentSymbol)).toEqual(['BTCUSDT']);
+    });
+
+    it('offers it again once the reader asks for it again', async () => {
+        // A refusal is about this pair now, not for ever: added back, it is a
+        // contract the reader chose, and deleting that one has to be able to
+        // refuse it a second time.
+        const control = buildControl();
+        await control.removeContract(FIRST_VENUE, 'ETHUSDT');
+
+        await control.saveContract({ ...CATALOGUE[1]!, isEnabled: true });
+
+        const offered = await control.listContracts();
+        expect(offered.map((contract) => `${contract.instrumentSymbol}:${String(contract.isEnabled)}`))
+            .toEqual(['BTCUSDT:true', 'ETHUSDT:true']);
+    });
+
+    it('keeps a deletion across a change of ceiling', async () => {
+        // Every write puts the whole choice back, so a write that forgot the
+        // refusals would let the catalogue offer them again by a side door.
+        const control = buildControl();
+        await control.removeContract(FIRST_VENUE, 'ETHUSDT');
+
+        await control.setBudget(2_000_000_000);
+
+        const offered = await control.listContracts();
+        expect(offered.map((contract) => contract.instrumentSymbol)).toEqual(['BTCUSDT']);
+    });
+
     it('keeps the ceiling when a contract is switched', async () => {
         // Both live in one stored row, so each writer has to carry the other's
         // half forward or the last one to write erases it.

@@ -26,9 +26,26 @@ const BYTES_PER_FRAME = 1_300;
  */
 export const CONTRACTS_PER_PAGE = 6;
 
+/** A contract by name alone, which is all a refusal has to remember. */
+interface ContractName {
+    readonly venue: string;
+    readonly instrumentSymbol: string;
+}
+
 interface StoredChoice {
     readonly contracts: readonly RecordedContract[];
     readonly maximumBytes: number | null;
+    /**
+     * Pairs the reader deleted, which are not offered again.
+     *
+     * The catalogue is both what a first visit opens with and what else may
+     * be switched on, so it is merged into every listing. Taken out of the
+     * stored choice alone, a pair the reader deleted came back from the
+     * catalogue on the very next read — the row still on screen, its
+     * recording already gone. Absent on a choice written before this, which
+     * is a reader who has refused nothing.
+     */
+    readonly dismissed?: readonly ContractName[];
 }
 
 export interface BrowserRecordingControlConfig {
@@ -45,7 +62,7 @@ export interface BrowserRecordingControlConfig {
  * By the venue as well as the symbol: two venues both list BTCUSDT, and keyed
  * by the symbol alone switching one off switched off the other's recording.
  */
-function isSameContract(one: RecordedContract, other: RecordedContract): boolean {
+function isSameContract(one: ContractName, other: ContractName): boolean {
     return one.venue === other.venue && one.instrumentSymbol === other.instrumentSymbol;
 }
 
@@ -65,11 +82,15 @@ export class BrowserRecordingControl implements RecordingControl {
      * @returns The catalogue, with stored choices applied over it.
      */
     async listContracts(): Promise<readonly RecordedContract[]> {
-        const stored = (await this.read())?.contracts ?? [];
-        const offered = this.config.catalogue.map((one) => {
-            const chosen = stored.find((contract) => isSameContract(contract, one));
-            return chosen === undefined ? one : { ...one, isEnabled: chosen.isEnabled };
-        });
+        const choice = await this.read();
+        const stored = choice?.contracts ?? [];
+        const refused = choice?.dismissed ?? [];
+        const offered = this.config.catalogue
+            .filter((one) => !refused.some((gone) => isSameContract(gone, one)))
+            .map((one) => {
+                const chosen = stored.find((contract) => isSameContract(contract, one));
+                return chosen === undefined ? one : { ...one, isEnabled: chosen.isEnabled };
+            });
 
         // What the reader added themselves, after what this build opens with:
         // the catalogue is where a first visit starts, not the whole of what a
@@ -99,9 +120,13 @@ export class BrowserRecordingControl implements RecordingControl {
             ? current.map((existing) => (isSameContract(existing, contract) ? contract : existing))
             : [...current, contract];
 
+        const choice = await this.read();
         await this.write({
             contracts: kept,
-            maximumBytes: (await this.read())?.maximumBytes ?? null,
+            maximumBytes: choice?.maximumBytes ?? null,
+            // Asked for again is no longer refused, so the catalogue may
+            // offer it once more if the reader deletes what they just added.
+            dismissed: (choice?.dismissed ?? []).filter((gone) => !isSameContract(gone, contract)),
         });
     }
 
@@ -117,12 +142,17 @@ export class BrowserRecordingControl implements RecordingControl {
      * @param instrumentSymbol - Which contract.
      */
     async removeContract(venue: string, instrumentSymbol: string): Promise<void> {
+        const gone = { venue, instrumentSymbol };
         const kept = (await this.listContracts())
-            .filter((contract) => !(contract.venue === venue
-                && contract.instrumentSymbol === instrumentSymbol));
+            .filter((contract) => !isSameContract(contract, gone));
+        const choice = await this.read();
+        const refused = choice?.dismissed ?? [];
         await this.write({
             contracts: kept,
-            maximumBytes: (await this.read())?.maximumBytes ?? null,
+            maximumBytes: choice?.maximumBytes ?? null,
+            dismissed: refused.some((one) => isSameContract(one, gone))
+                ? refused
+                : [...refused, gone],
         });
 
         // Every store the recording touches, by the pair they all key on.
@@ -174,6 +204,7 @@ export class BrowserRecordingControl implements RecordingControl {
         await this.write({
             contracts: current,
             maximumBytes: Math.max(MINIMUM_BUDGET_BYTES, Math.floor(maximumBytes)),
+            dismissed: (await this.read())?.dismissed ?? [],
         });
     }
 
