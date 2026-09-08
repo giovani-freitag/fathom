@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/giovani-freitag/fathom/compare/v0.17.4...v0.18.0) (2026-09-08)
+
+
+### Features
+
+* draw with a pen and a highlighter ([08671e7](https://github.com/giovani-freitag/fathom/commit/08671e768ce9c96bbc5bf4e3c99bc3f580fd9f37))
+
 ## [0.17.4](https://github.com/giovani-freitag/fathom/compare/v0.17.3...v0.17.4) (2026-09-08)
 
 
