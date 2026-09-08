@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createIndicatorKernel, renderWithKernel } from '../../../../mocks/indicator-kernel.tsx';
-import { FIRST_VENUE } from '../../../../../src/shared/core/recording-control.ts';
+import { FIRST_VENUE, RecordingRefusedError } from '../../../../../src/shared/core/recording-control.ts';
 import type { RecordedContract, RecordingControl, StorageBudget } from '../../../../../src/shared/core/recording-control.ts';
 import { type ReactElement, useState } from 'react';
 import { buildTranslate } from '../../../../../src/app/i18n/translator.ts';
@@ -156,6 +156,34 @@ describe('RecordingPanel', () => {
         });
     });
 
+    it('says which rule refused the change, and says it over the screen', async () => {
+        // The generic sentence names neither the rule nor what to do about it,
+        // and printed at the end of the panel it sat below the fold on a phone
+        // — so a page already recording as many pairs as it will simply looked
+        // as though nothing had happened.
+        setBudget.mockRejectedValue(new RecordingRefusedError(6));
+        renderPanel();
+
+        fireEvent.keyDown(await screen.findByRole('slider', { name: 'Storage ceiling' }), { key: 'ArrowRight' });
+
+        const said = await screen.findByRole('status');
+        expect(said.textContent).toBe('This page records at most 6 pairs at once. Delete one to make room.');
+    });
+
+    it('says it on the document, not inside the drawer that slides', async () => {
+        // The drawer these panels live in slides on a transform, and a
+        // transform makes its own box the one a fixed descendant is fixed to.
+        // Left in place, the toast landed mid-drawer across the rows it was
+        // talking about rather than at the foot of the screen.
+        setBudget.mockRejectedValue(new RecordingRefusedError(6));
+        renderPanel();
+
+        fireEvent.keyDown(await screen.findByRole('slider', { name: 'Storage ceiling' }), { key: 'ArrowRight' });
+
+        const said = await screen.findByRole('status');
+        expect(said.parentElement?.parentElement).toBe(document.body);
+    });
+
     it('names a failed change rather than quoting the driver at the reader', async () => {
         setBudget.mockRejectedValue(new Error('The local archive aborted a transaction'));
         renderPanel();
@@ -204,6 +232,22 @@ describe('what else could be recorded', () => {
             />
         ));
     }
+
+    it('says a refusal from the listing too, which is where changes are made', async () => {
+        // Every refusal is raised from the screen the reader makes changes on.
+        // Written into the section alone, the sentence was mounted nowhere at
+        // all while that screen was open, and the change looked as though it
+        // had simply not run.
+        const saveContract = vi.fn<(contract: RecordedContract) => Promise<void>>()
+            .mockRejectedValue(new RecordingRefusedError(6));
+        renderInKernel(saveContract);
+        fireEvent.click(await screen.findByRole('button', { name: 'Choose what to record' }));
+
+        fireEvent.click(await screen.findByRole('switch', { name: 'Record BTCUSDT' }));
+
+        const said = await screen.findByRole('status');
+        expect(said.textContent).toBe('This page records at most 6 pairs at once. Delete one to make room.');
+    });
 
     it('names the venue in the count, because two of them list the same pair', async () => {
         renderInKernel(vi.fn<(contract: RecordedContract) => Promise<void>>().mockResolvedValue(undefined));

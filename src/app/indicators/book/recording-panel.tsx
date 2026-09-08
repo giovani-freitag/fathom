@@ -10,6 +10,10 @@ import { usePanelTakeover } from '../../ui/indicators/panel-takeover.ts';
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { RecordingListing } from './recording-card.tsx';
 import type { RecordedContract, RecordingControl, StorageBudget } from '../../../shared/core/recording-control.ts';
+import { RecordingRefusedError } from '../../../shared/core/recording-control.ts';
+import type { TranslationKey } from '../../i18n/dictionaries/en.ts';
+import type { TranslationValues } from '../../i18n/translator.ts';
+import { Toast } from '../../ui/toast.tsx';
 import type { VenueInstrument } from '../../../shared/core/venue-connector.ts';
 import { formatFixed } from '../../core/formatting.ts';
 import { RangeField } from '../../ui/range-field.tsx';
@@ -58,13 +62,26 @@ interface PanelState {
     readonly budget: StorageBudget;
 }
 
+/** Why a change did not happen, as the phrase to render and its numbers. */
+interface RecordingFailure {
+    readonly key: TranslationKey;
+    readonly values: TranslationValues;
+}
+
 /**
  * What is being recorded, and how much disk it may take.
  */
 export function RecordingPanel(props: RecordingPanelProps): ReactElement {
     const { recording, onContractsChanged, translate } = props;
     const [state, setState] = useState<PanelState | null>(null);
-    const [hasFailed, setHasFailed] = useState(false);
+    /**
+     * Why the last change did not happen, or null where it did.
+     *
+     * A key and its numbers rather than a flag: a page already recording as
+     * many pairs as it will said only that the change could not be saved,
+     * which names neither the rule nor what to do about it.
+     */
+    const [failure, setFailure] = useState<RecordingFailure | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const takeover = usePanelTakeover();
     const { isPicking, onPickingChange: setIsPicking } = props;
@@ -94,11 +111,15 @@ export function RecordingPanel(props: RecordingPanelProps): ReactElement {
             await change;
             await onContractsChanged();
             setState(await read());
-            setHasFailed(false);
-        } catch {
+            setFailure(null);
+        } catch (error) {
             // Quoting the driver would put a sentence written for whoever
-            // wrote it on a screen belonging to whoever is reading it.
-            setHasFailed(true);
+            // wrote it on a screen belonging to whoever is reading it. A
+            // refusal this page decided is the exception: it carries what it
+            // counted, and the dictionaries say it in the reader's language.
+            setFailure(error instanceof RecordingRefusedError
+                ? { key: 'recording.tooMany', values: { most: error.most } }
+                : { key: 'recording.saveFailed', values: {} });
         } finally {
             setIsSaving(false);
         }
@@ -113,7 +134,7 @@ export function RecordingPanel(props: RecordingPanelProps): ReactElement {
                 // promise the render depends on is a screen stuck on its
                 // loading state for as long as the reader leaves it open.
                 if (!wasCancelled) {
-                    setHasFailed(true);
+                    setFailure({ key: 'recording.readFailed', values: {} });
                 }
             },
         );
@@ -129,7 +150,7 @@ export function RecordingPanel(props: RecordingPanelProps): ReactElement {
     }, [isPicking, takeover]);
 
     if (state === null) {
-        return hasFailed
+        return failure !== null
             ? (
                 <button
                     type="button"
@@ -174,6 +195,13 @@ export function RecordingPanel(props: RecordingPanelProps): ReactElement {
         },
     };
 
+    // Shown from whichever screen raised it. Rendered inside the section
+    // alone, a refusal raised while the reader was adding a pair — which is
+    // the screen every refusal is raised from — was mounted nowhere at all.
+    const said = failure === null
+        ? null
+        : <Toast message={translate(failure.key, failure.values)} />;
+
     if (isPicking) {
         return (
             <PanelStep
@@ -184,7 +212,10 @@ export function RecordingPanel(props: RecordingPanelProps): ReactElement {
                 // of link pointing at nothing.
                 title={translateLabel(translate, BOOK_LAYER.label)}
             >
-                <RecordingListing {...listing} />
+                <>
+                    <RecordingListing {...listing} />
+                    {said}
+                </>
             </PanelStep>
         );
     }
@@ -238,9 +269,7 @@ export function RecordingPanel(props: RecordingPanelProps): ReactElement {
                 {translate('recording.ceilingHelp')}
             </p>
 
-            {hasFailed && (
-                <p className="text-[11px] text-ask">{translate('recording.saveFailed')}</p>
-            )}
+            {said}
         </PanelSection>
     );
 }
