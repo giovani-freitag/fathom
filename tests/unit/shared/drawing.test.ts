@@ -8,6 +8,7 @@ import {
     EMOJI_GLYPHS,
     isDrawing,
     isPathKind,
+    isRollingKind,
     MAXIMUM_GLYPH_LENGTH,
     isTransientKind,
     moveDrawingAnchor,
@@ -143,6 +144,7 @@ describe('ANCHORS_PER_KIND', () => {
             freehand: 1,
             highlighter: 1,
             emoji: 1,
+            laser: 1,
         });
     });
 
@@ -275,7 +277,7 @@ describe('a path a reader drew', () => {
 
     it('says which kinds are drawn by dragging a path', () => {
         expect(DRAWING_KINDS.filter((kind) => isPathKind(kind)))
-            .toEqual(['freehand', 'highlighter']);
+            .toEqual(['freehand', 'highlighter', 'laser']);
     });
 });
 
@@ -363,5 +365,17 @@ describe('the mark an emoji shows', () => {
 
     it('takes one as long as an emoji with a tone and a flag on it', () => {
         expect(isDrawing({ ...PINNED, glyph: 'x'.repeat(MAXIMUM_GLYPH_LENGTH) })).toBe(true);
+    });
+});
+
+describe('a laser', () => {
+    it('is never kept, like the measurement beside it', () => {
+        expect(isTransientKind('laser')).toBe(true);
+    });
+
+    it('is the one path that drops its oldest points', () => {
+        // A pen keeps the whole stroke because the stroke is the point of it. A
+        // laser is where the hand is now and where it just was.
+        expect(DRAWING_KINDS.filter((kind) => isRollingKind(kind))).toEqual(['laser']);
     });
 });

@@ -30,6 +30,7 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'drawing.emoji': 'Emoji',
     'drawing.freehand': 'Caneta',
     'drawing.highlighter': 'Pincel de destaque',
+    'drawing.laser': 'Laser',
     'drawing.measure': 'Medir',
     'drawing.select': 'Mover e selecionar',
     'drawing.keepTool': 'Manter a ferramenta após desenhar',

@@ -44,6 +44,15 @@ const GLYPH_FONT_STACK = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emo
 const HIGHLIGHTER_WIDTH_FACTOR = 6;
 const HIGHLIGHTER_ALPHA = 0.28;
 
+/**
+ * How a laser's trail is drawn: heavier than a line, faint at the tail.
+ *
+ * Heavier because it is a pointer and not a mark, and the eye has to find
+ * it while it is moving; faint at the tail so the trail says which way.
+ */
+const LASER_WIDTH_FACTOR = 2.5;
+const LASER_TAIL_ALPHA = 0.08;
+
 /** How tall an emoji is drawn, by the weight the reader chose for it. */
 const GLYPH_SIZE_PX: Readonly<Record<DrawingWidth, number>> = {
     thin: 16,
@@ -152,7 +161,9 @@ export class DrawingPainter implements FieldLayerPainter {
         paint.context.lineCap = look.style === 'dotted' ? 'round' : 'butt';
         paint.context.setLineDash([...stroke.dash ?? STYLE_DASHES[look.style]]);
 
-        if (drawing.kind === 'emoji') {
+        if (drawing.kind === 'laser') {
+            this.strokeLaser(stroke);
+        } else if (drawing.kind === 'emoji') {
             this.strokeGlyph(stroke, look.width);
         } else if (drawing.kind === 'highlighter') {
             // Broad, soft and never dashed: a dashed highlighter covers half of
@@ -254,6 +265,38 @@ export class DrawingPainter implements FieldLayerPainter {
     /**
      * Strokes a level or a segment across the span it is drawn over.
      */
+    /**
+     * Draws the trail behind a laser, brightest where the hand is.
+     *
+     * Segment by segment rather than as one path: a canvas stroke carries one
+     * alpha, and the fade along the trail is the whole of what makes a sweep
+     * read as a sweep instead of a line. The order of the points is their age,
+     * so nothing has to be timed or stamped to know which end is now.
+     */
+    private strokeLaser(stroke: DrawingStroke): void {
+        const { paint, drawing } = stroke;
+        const points = drawing.anchors.map((anchor) => ({
+            x: paint.projector.timeToX(anchor.atMs),
+            y: paint.projector.priceToY(anchor.price),
+        }));
+        if (points.length < 2) {
+            return;
+        }
+
+        paint.context.setLineDash([]);
+        paint.context.lineCap = 'round';
+        paint.context.lineJoin = 'round';
+        paint.context.lineWidth *= LASER_WIDTH_FACTOR;
+        for (let index = 1; index < points.length; index += 1) {
+            paint.context.globalAlpha = LASER_TAIL_ALPHA
+                + (1 - LASER_TAIL_ALPHA) * (index / (points.length - 1));
+            paint.context.beginPath();
+            paint.context.moveTo(points[index - 1]!.x, points[index - 1]!.y);
+            paint.context.lineTo(points[index]!.x, points[index]!.y);
+            paint.context.stroke();
+        }
+    }
+
     /**
      * Draws the mark a reader pinned to one place.
      *

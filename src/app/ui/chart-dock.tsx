@@ -1,6 +1,7 @@
 import { MarketsButton } from './markets/markets-button.tsx';
 import type { MarketPair } from '../../shared/core/pair-tags.ts';
 import { Code2,
+    Crosshair,
     Highlighter,
     Layers,
     Lock,
@@ -51,6 +52,7 @@ const TOOL_FACES: Readonly<Record<DrawingKind, ToolFace>> = {
     freehand: { Icon: Pencil, labelKey: 'drawing.freehand' },
     highlighter: { Icon: Highlighter, labelKey: 'drawing.highlighter' },
     emoji: { Icon: Smile, labelKey: 'drawing.emoji' },
+    laser: { Icon: Crosshair, labelKey: 'drawing.laser' },
     measure: { Icon: Ruler, labelKey: 'drawing.measure' },
 };
 

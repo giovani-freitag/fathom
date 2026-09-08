@@ -37,7 +37,7 @@ sexta. Se instalar na sexta, você tem sexta. Não existe histórico para baixar
 | 📊 **Escada de profundidade** | Tamanho em repouso e volume negociado por preço, ao lado do gráfico |
 | 🎚️ **Mapa de cor com dois cortes** | Abafe o ruído de fundo para as paredes de verdade aparecerem |
 | 🔭 **Faixas que sobrevivem ao zoom** | Ao longo de dias, os preços se dobram em linhas que você ainda acompanha |
-| ✏️ **Marcas e medidas** | Níveis, linhas de tendência, zonas, retrações, caneta, pincel de destaque e emojis, todos presos ao tempo e ao preço |
+| ✏️ **Marcas e medidas** | Níveis, linhas de tendência, zonas, retrações, caneta, pincel de destaque, emojis e laser, todos presos ao tempo e ao preço |
 | 📱 **Feito para toque** | Um dedo arrasta, dois dão pinça nos dois eixos, e os eixos são alças de escala |
 | ⚡ **Cauda ao vivo** | Um WebSocket acrescenta cada segundo novo sem rebuscar a janela |
 

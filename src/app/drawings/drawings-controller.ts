@@ -7,6 +7,8 @@ import {
     type DrawingWidth,
     EMOJI_GLYPHS,
     isPathKind,
+    isRollingKind,
+    LASER_TRAIL_ANCHORS,
     isTransientKind,
     MOST_PATH_ANCHORS,
     moveDrawingAnchor,
@@ -266,6 +268,13 @@ export class DrawingsController {
             this.store.update((state) => ({ ...state, draft: null }));
             return;
         }
+        if (draft !== null && isRollingKind(draft.kind)) {
+            // Gone the moment the hand lifts, which is what a laser is: it is
+            // lit while the button is held and dark after, so nothing lingers
+            // for the reader to tidy up or wonder about.
+            this.store.update((state) => ({ ...state, draft: null, armedTool: disarm(state) }));
+            return;
+        }
         if (draft !== null && isTransientKind(draft.kind)) {
             // Left on screen but never stored: it is read where it was drawn
             // and then done with, so it is neither persisted nor undoable.
@@ -379,7 +388,7 @@ export class DrawingsController {
             // but the first follows, and a level has only the first, so the drag
             // fine-tunes that one in place rather than doing nothing.
             const anchors = isPathKind(state.draft.kind)
-                ? growPath(state.draft.anchors, anchor)
+                ? growPath(state.draft.kind, state.draft.anchors, anchor)
                 : state.draft.anchors.length === 1
                     ? [anchor]
                     : [state.draft.anchors[0]!, anchor];
@@ -476,14 +485,21 @@ export class DrawingsController {
  * has not made a mistake, and a mark that vanished under their hand would be
  * read as the tool breaking.
  *
+ * @param kind - What is being drawn, which decides whether the tail falls off.
  * @param anchors - The path so far.
  * @param anchor - Where the hand is now.
  * @returns The path to draw.
  */
 function growPath(
+    kind: DrawingKind,
     anchors: readonly DrawingAnchor[],
     anchor: DrawingAnchor,
 ): readonly DrawingAnchor[] {
+    if (isRollingKind(kind)) {
+        // Only its own tail. Kept whole, a laser's trail is a line drawn in
+        // red rather than a pointer showing where the hand went.
+        return [...anchors, anchor].slice(-LASER_TRAIL_ANCHORS);
+    }
     return anchors.length >= MOST_PATH_ANCHORS ? anchors : [...anchors, anchor];
 }
 

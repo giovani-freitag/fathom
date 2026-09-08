@@ -28,6 +28,7 @@ export const EN_DICTIONARY = {
     'drawing.emoji': 'Emoji',
     'drawing.freehand': 'Pen',
     'drawing.highlighter': 'Highlighter',
+    'drawing.laser': 'Laser pointer',
     'drawing.measure': 'Measure',
     'drawing.select': 'Move and select',
     'drawing.keepTool': 'Keep the tool after drawing',

@@ -4,6 +4,7 @@ import {
     type Drawing,
     type DrawingAnchor,
     EMOJI_GLYPHS,
+    LASER_TRAIL_ANCHORS,
     MOST_PATH_ANCHORS,
 } from '../../../../src/shared/core/drawing.ts';
 import {
@@ -794,5 +795,36 @@ describe('DrawingsController pinning an emoji', () => {
         pin();
 
         expect(readPersisted(harness).at(-1)?.glyph).toBe(EMOJI_GLYPHS[4]);
+    });
+});
+
+describe('DrawingsController sweeping a laser', () => {
+    let harness: Harness;
+
+    beforeEach(() => { harness = buildHarness(); });
+
+    /** Sweeps one from a press through a run of moves. */
+    function sweep(count: number): void {
+        harness.drawings.arm('laser');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        for (let step = 1; step <= count; step += 1) {
+            harness.drawings.drag(at(1_000 + step, 100 + (step % 5)));
+        }
+    }
+
+    it('keeps only its own tail as the hand moves on', () => {
+        sweep(LASER_TRAIL_ANCHORS + 40);
+
+        expect(harness.drawings.store.read().draft?.anchors.length).toBe(LASER_TRAIL_ANCHORS);
+    });
+
+    it('goes dark the moment the hand lifts', () => {
+        // Lit while the button is held and dark after, so nothing lingers for
+        // the reader to tidy up or wonder about.
+        sweep(6);
+
+        harness.drawings.settle();
+
+        expect([harness.drawings.store.read().draft, readPersisted(harness).length]).toEqual([null, 0]);
     });
 });

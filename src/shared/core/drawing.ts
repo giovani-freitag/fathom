@@ -20,7 +20,8 @@ export type DrawingKind =
     | 'measure'
     | 'freehand'
     | 'highlighter'
-    | 'emoji';
+    | 'emoji'
+    | 'laser';
 
 /** Every kind, in the order the dock offers them. */
 export const DRAWING_KINDS: readonly DrawingKind[] = [
@@ -31,6 +32,7 @@ export const DRAWING_KINDS: readonly DrawingKind[] = [
     'freehand',
     'highlighter',
     'emoji',
+    'laser',
     'measure',
 ];
 
@@ -46,6 +48,7 @@ export const ANCHORS_PER_KIND: Readonly<Record<DrawingKind, number>> = {
     freehand: 1,
     highlighter: 1,
     emoji: 1,
+    laser: 1,
 };
 
 /**
@@ -70,6 +73,7 @@ const BOXED_KINDS: ReadonlySet<DrawingKind> = new Set<DrawingKind>([
 const PATH_KINDS: ReadonlySet<DrawingKind> = new Set<DrawingKind>([
     'freehand',
     'highlighter',
+    'laser',
 ]);
 
 /**
@@ -124,8 +128,31 @@ export const MAXIMUM_GLYPH_LENGTH = 16;
  * @returns True when a mark of that kind is never stored.
  */
 export function isTransientKind(kind: DrawingKind): boolean {
-    return kind === 'measure';
+    return kind === 'measure' || kind === 'laser';
 }
+
+/**
+ * Whether a path keeps only its own tail as the hand moves on.
+ *
+ * A pen keeps the whole stroke, because the stroke is the point of it. A
+ * laser is where the hand is now and where it just was, so it drops its
+ * oldest points rather than growing: the trail is what makes a sweep read
+ * as a sweep, and a trail that never ends is a line.
+ *
+ * @param kind - The kind to ask about.
+ * @returns True when the oldest points fall off the back.
+ */
+export function isRollingKind(kind: DrawingKind): boolean {
+    return kind === 'laser';
+}
+
+/**
+ * How many points a laser's trail is, which is far fewer than a stroke.
+ *
+ * Long enough to show which way the hand went, short enough that it reads as
+ * a pointer and not as something drawn.
+ */
+export const LASER_TRAIL_ANCHORS = 48;
 
 /** How heavy a mark is drawn. */
 export type DrawingWidth = 'thin' | 'medium' | 'thick';
