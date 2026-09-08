@@ -1,13 +1,12 @@
 import type { CollectorConfiguration } from '../core/collector-configuration.ts';
 import { FIRST_VENUE } from '../../shared/core/recording-control.ts';
 
-/** Whatever exposes a storage estimate: a window's navigator or a worker's. */
-export interface StorageOwner {
-    readonly storage?: { estimate(): Promise<StorageEstimate> };
-}
-
 /**
- * What a visitor may record, and what is on by default.
+ * What a first visit records, and what else may be switched on beside it.
+ *
+ * A seed and an offer, not a list of everything a page may hold: a reader
+ * adds whatever the venue lists, and deleting one of these stops it being
+ * offered again.
  */
 export const DEMO_CATALOGUE = [
     { venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT', priceBucketSize: 10, frameIntervalMs: 1_000, isEnabled: true },
@@ -28,18 +27,6 @@ const DEMO_DEFAULTS = {
     deepRepairIntervalMs: 300_000,
 } as const;
 
-/** Share of the device's quota the demo is willing to fill. */
-const QUOTA_SHARE = 0.25;
-
-/** Bytes one frame costs in the store, measured on a 325-bucket ladder. */
-const BYTES_PER_FRAME = 1_300;
-
-/** Kept even when the quota is unknown, so a page always records something. */
-const FALLBACK_FRAME_CAPACITY = 7_200;
-
-/** No window is worth more than a week; beyond that the demo is a recorder. */
-const MAXIMUM_FRAME_CAPACITY = 604_800;
-
 /**
  * Reads the demo's settings, letting a link override the contract.
  *
@@ -58,32 +45,4 @@ export function readDemoConfiguration(search: string): CollectorConfiguration {
             ? bucketSize
             : DEMO_DEFAULTS.priceBucketSize,
     };
-}
-
-/**
- * How many frames this device is willing to hold.
- *
- * @param agent - The navigator whose storage is being asked about.
- * @returns The capacity, floored so a page always records something.
- */
-export async function resolveFrameCapacity(agent: StorageOwner): Promise<number> {
-    const quotaBytes = await readQuotaBytes(agent);
-    if (quotaBytes === null) {
-        return FALLBACK_FRAME_CAPACITY;
-    }
-
-    const affordable = Math.floor((quotaBytes * QUOTA_SHARE) / BYTES_PER_FRAME);
-    return Math.min(MAXIMUM_FRAME_CAPACITY, Math.max(FALLBACK_FRAME_CAPACITY, affordable));
-}
-
-async function readQuotaBytes(agent: StorageOwner): Promise<number | null> {
-    try {
-        const estimate = await agent.storage?.estimate();
-        if (estimate === undefined) {
-            return null;
-        }
-        return estimate.quota ?? null;
-    } catch {
-        return null;
-    }
 }
