@@ -1,10 +1,10 @@
 import type { ReactElement } from 'react';
 import { RailColumn } from './listing-card.tsx';
 import { RemoveTagDialog } from './remove-tag-dialog.tsx';
-import { RailAdd, RailHeading, RailRow, type RailRowProps } from './rail-row.tsx';
+import { RailHeading, RailRow, type RailRowProps } from './rail-row.tsx';
 import { FAVOURITES_ID, type PairTag, type TagColour } from '../../../shared/core/pair-tags.ts';
 import { labelOf } from '../../markets/tag-names.ts';
-import { TagColourPicker } from './tag-colour-picker.tsx';
+import { TagSwatch } from './tag-swatch.tsx';
 import { VenueMark } from './venue-mark.tsx';
 import type { Translate } from '../../i18n/translator.ts';
 import { useState } from 'react';
@@ -28,7 +28,6 @@ interface MarketsRailProps {
     /** Opens that same card on a tag that exists. */
     readonly onEditTag: (tagId: string) => void;
     readonly onRemoveTag: (tagId: string) => void;
-    readonly onRecolourTag: (tagId: string, colour: TagColour) => void;
     /** Takes a venue the reader brought back off. The shipped one has no such offer. */
     readonly onRemoveVenue: (venue: string) => void;
     /** Which venues the reader brought, and so may take away again. */
@@ -63,7 +62,11 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
     return (
         <>
             <RailColumn said={translate('markets.sources')}>
-                <RailHeading said={translate('markets.yourTags')} />
+                <RailHeading
+                    said={translate('markets.yourTags')}
+                    onAdd={props.onAddTag}
+                    addLabel={translate('markets.newTag')}
+                />
                 {props.tags.map((tag) => (
                     <TagRow
                         key={tag.id}
@@ -71,9 +74,7 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
                         colour={tag.colour}
                         count={tag.pairs.length}
                         isOn={props.showing.kind === 'tag' && props.openTagId === tag.id}
-                        translate={translate}
                         onPress={() => { props.onOpenTag(tag.id); }}
-                        onRecolour={(colour) => { props.onRecolourTag(tag.id, colour); }}
                         onEdit={() => { props.onEditTag(tag.id); }}
                         editLabel={translate('markets.editTag')}
                         {...tag.id === FAVOURITES_ID
@@ -93,13 +94,17 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
                     />
                 ))}
 
-                {/* The same card a phone names one on, rather than a field
-                    that asks half the question: a tag made here used to arrive
-                    in whatever colour was next in the list, which is the colour
-                    a reader spends the next minutes learning to recognise. */}
-                <RailAdd said={translate('markets.newTag')} onPress={props.onAddTag} />
-
-                <RailHeading said={translate('markets.venues')} />
+                {/* The offer to add a venue sits on the heading only where
+                    this build carries an editor to write a connector in. */}
+                <RailHeading
+                    said={translate('markets.venues')}
+                    {...props.onWriteConnector === undefined
+                        ? {}
+                        : {
+                            onAdd: props.onWriteConnector,
+                            addLabel: translate('markets.addVenue'),
+                        }}
+                />
                 {props.venues.map((venue) => (
                     <RailRow
                         key={venue}
@@ -131,10 +136,6 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
                     </RailRow>
                 ))}
 
-                {props.onWriteConnector !== undefined && (
-                    <RailAdd said={translate('markets.addVenue')} onPress={props.onWriteConnector} />
-                )}
-
             </RailColumn>
 
             <RemoveTagDialog
@@ -149,26 +150,20 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
 
 interface TagRowProps extends Omit<RailRowProps, 'children'> {
     readonly colour: TagColour;
-    readonly translate: Translate;
-    readonly onRecolour: (colour: TagColour) => void;
 }
 
 /**
  * One tag in the rail, with the colour it marks its pairs in.
  *
- * The swatch is the control as well as the mark: it is where the tag's colour
- * is read and where it is changed, so the reader looking for one is already
- * pointing at the other.
+ * The swatch is a mark and nothing else. It used to open a colour picker of its
+ * own, which is the one thing a reader pressing a row in this rail does not
+ * mean: they mean show me this tag. The colour is changed on the card the
+ * pencil opens, beside the name, where both halves of one decision are.
  */
-function TagRow({ colour, translate, onRecolour, ...row }: TagRowProps): ReactElement {
+function TagRow({ colour, ...row }: TagRowProps): ReactElement {
     return (
         <RailRow {...row}>
-            <TagColourPicker
-                colour={colour}
-                label={row.said}
-                translate={translate}
-                onPick={onRecolour}
-            />
+            <TagSwatch colour={colour} className="size-2.5 shrink-0" />
         </RailRow>
     );
 }

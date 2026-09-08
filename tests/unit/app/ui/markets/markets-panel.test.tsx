@@ -137,14 +137,35 @@ describe('the card a reader picks a contract on', () => {
         expect(railRow('Favourites')).toBeDefined();
     });
 
-    it('draws the venue its own mark in the rail, as the phone picker does', () => {
-        // A tag in this rail carries its colour and a venue carried nothing, so
+    it('draws the venue its own mark inside the target that opens it', () => {
+        // A tag in this rail carried its colour and a venue carried nothing, so
         // one column read as two kinds of thing on a desktop and as one kind on
-        // a phone, where the picker had drawn the mark all along.
+        // a phone, where the picker had drawn the mark all along. Inside the
+        // target rather than beside it, because a mark is what the eye lands on
+        // first: a row where pressing the picture did nothing while pressing the
+        // word beside it worked reads as a row that is broken.
         renderPanel();
 
-        const row = screen.getByRole('button', { name: FIRST_VENUE }).parentElement;
-        expect(row?.querySelector('img, [aria-hidden="true"]')).not.toBeNull();
+        const opens = screen.getByRole('button', { name: FIRST_VENUE });
+        expect(opens.querySelector('img, [aria-hidden="true"]')).not.toBeNull();
+    });
+
+    it('draws a tag its swatch inside that same target', () => {
+        renderPanel();
+
+        const opens = screen.getByRole('button', { name: /^Favourites/ });
+        expect(opens.querySelector('[aria-hidden="true"], span[class*="bg-"]')).not.toBeNull();
+    });
+
+    it('offers a new tag from the heading of the tags, not from the foot of them', () => {
+        // A dashed row at the foot is the width of a target and reads as another
+        // entry in the column, so the eye counts it among the tags — and with
+        // two sections stacked, a row at the bottom belongs to neither clearly.
+        renderPanel();
+
+        fireEvent.click(screen.getByRole('button', { name: 'New tag' }));
+
+        expect(screen.getByRole('button', { name: 'Make the tag' })).toBeDefined();
     });
 
     it('asks the venue what it trades the moment one is picked', async () => {
@@ -197,6 +218,41 @@ describe('pointing the listing somewhere else', () => {
         fireEvent.click(railRow('Favourites'));
 
         expect(screen.getByLabelText('Search pairs').getAttribute('value')).toBe('');
+    });
+});
+
+describe('the line counting the listing', () => {
+    /** A venue with more pairs than the listing draws at once. */
+    function registerCrowded(): void {
+        registerConnector('crowded', Object.assign(
+            buildConnector({ book: null, tape: null, bars: null }),
+            {
+                planInstruments: () => ({ url: 'https://venue.test/symbols' }),
+                readInstruments: () => Array.from({ length: 400 }, (_unused, index) => ({
+                    symbol: `PAIR${String(index)}USDT`,
+                    base: `PAIR${String(index)}`,
+                    quote: 'USDT',
+                    priceStep: 0.1,
+                    isTrading: true,
+                })),
+            },
+        ));
+    }
+
+    afterEach(() => { forgetConnector('crowded'); });
+
+    it('says nothing while a card stands in front of the listing it counts', async () => {
+        // The count used to be hidden only on a narrow layout. On a desktop it
+        // sat under the tag's own name, counting a listing the card was standing
+        // in front of.
+        registerCrowded();
+        renderPanel();
+        fireEvent.click(screen.getByRole('button', { name: 'crowded' }));
+        await waitFor(() => { expect(screen.getByText(/Showing 150 of/)).toBeDefined(); });
+
+        fireEvent.click(screen.getByRole('button', { name: 'New tag' }));
+
+        expect(screen.queryByText(/Showing 150 of/)).toBeNull();
     });
 });
 
@@ -359,29 +415,37 @@ describe('keeping a pair', () => {
 });
 
 describe('the colour a tag is marked in', () => {
-    /** The swatch on a tag's row in the rail, which is also its colour control. */
-    function colourControl(name: string): HTMLElement {
-        return screen.getByRole('button', { name: `Change this tag's colour — ${name}` });
+    /**
+     * Opens the card the colour is chosen on.
+     *
+     * The swatch in the rail used to open a picker of its own, which is the one
+     * thing a reader pressing a row there does not mean. The colour is settled
+     * beside the name now, on the card the pencil opens.
+     */
+    function openCardFor(name: string): void {
+        fireEvent.click(screen.getByRole('button', { name: `Edit this tag ${name}` }));
     }
 
     it('offers the chart\'s own colours, which follow the reader between themes', () => {
         renderPanel();
+        openCardFor('Favourites');
 
-        fireEvent.click(colourControl('Favourites'));
         fireEvent.click(screen.getByRole('radio', { name: 'Blue' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-        expect(colourControl('Favourites').querySelector('.bg-cyan')).not.toBeNull();
+        expect(railRow('Favourites').querySelector('.bg-cyan')).not.toBeNull();
     });
 
     it('takes any colour a reader names, because tags outnumber the palette', () => {
         // Five colours and no limit on tags: a reader on their eighth has run
         // out of palette, not out of tags.
         renderPanel();
+        openCardFor('Favourites');
 
-        fireEvent.click(colourControl('Favourites'));
         fireEvent.change(screen.getByLabelText('Any other colour'), { target: { value: '#ff8800' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-        expect(colourControl('Favourites').querySelector('span[style]')?.getAttribute('style'))
+        expect(railRow('Favourites').querySelector('span[style]')?.getAttribute('style'))
             .toContain('rgb(255, 136, 0)');
     });
 });

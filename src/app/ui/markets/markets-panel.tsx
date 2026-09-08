@@ -353,7 +353,6 @@ export function MarketsPanel({
                             onAddTag={() => { setCarding({ kind: 'new' }); }}
                             onEditTag={(tagId) => { setCarding({ kind: 'tag', tagId }); }}
                             onRemoveTag={(tagId) => { markets.removeTag(tagId); }}
-                            onRecolourTag={(tagId, tone) => { markets.recolourTag(tagId, tone); }}
                             onRemoveVenue={(venue) => { markets.removeConnector(venue); show({ kind: 'tag' }); }}
                             broughtVenues={brought}
                             onWriteConnector={onWriteConnector}
@@ -386,10 +385,11 @@ export function MarketsPanel({
                         />
                     </ListingBanner>
                 )}
-            footing={carding !== null && !isWide
-                // The card is a step of its own: a line counting the catalogue
-                // behind it overlapped the card's own buttons in landscape, and
-                // counted rows nobody could see in either.
+            footing={carding !== null
+                // The card is a step of its own, at every width: a line counting
+                // the catalogue behind it overlapped the card's own buttons in
+                // landscape, and on a desktop it sat under the tag's name
+                // counting a listing the card was standing in front of.
                 ? undefined
                 : (
                     <ListingFooting
