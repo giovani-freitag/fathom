@@ -1,4 +1,4 @@
-import type { DrawingAnchor } from '../../shared/core/drawing.ts';
+import { type DrawingAnchor, isPathKind } from '../../shared/core/drawing.ts';
 import type { PointerClaimant, PointerPosition } from '../core/chart-gesture-controller.ts';
 import type { DrawingsController } from './drawings-controller.ts';
 import { findAnchorAt, findDrawingAt } from './drawing-hit-test.ts';
@@ -13,6 +13,17 @@ import type { MarketPair } from '../../shared/core/pair-tags.ts';
  * nudges it off the price it was drawn about, one undo step at a time.
  */
 export const DRAWING_DRAG_THRESHOLD_PX = 4;
+
+/**
+ * How far the hand moves before a stroke keeps another point.
+ *
+ * A pointer reports every few pixels at sixty a second, and a stroke that
+ * kept all of them would be a thousand points describing a line the eye
+ * reads as one curve — stored, painted and walked by the hit test on every
+ * frame. Far enough apart to halve the count many times over, close enough
+ * that the curve drawn through them still follows the hand.
+ */
+const STROKE_POINT_GAP_PX = 6;
 
 export interface DrawingSurfaceClaimantConfig {
     readonly drawings: DrawingsController;
@@ -49,6 +60,8 @@ export class DrawingSurfaceClaimant implements PointerClaimant {
     private readonly config: DrawingSurfaceClaimantConfig;
     /** Where the held press went down, for a move measured against it. */
     private pressedAt: PointerPosition | null = null;
+    /** The last point a stroke actually kept, which is not every point seen. */
+    private keptAt: PointerPosition | null = null;
     /** Set once the press has travelled far enough to be a drag rather than a click. */
     private hasTravelled = false;
 
@@ -84,6 +97,7 @@ export class DrawingSurfaceClaimant implements PointerClaimant {
         }
 
         this.pressedAt = point;
+        this.keptAt = point;
         this.hasTravelled = false;
         this.config.drawings.begin({ anchor, hitId, grabbedAnchorIndex });
         return true;
@@ -100,10 +114,38 @@ export class DrawingSurfaceClaimant implements PointerClaimant {
         }
         this.hasTravelled = true;
 
+        // A stroke grows by every point it is given, so it is thinned here
+        // rather than there: this is the layer that knows pixels, and a gap
+        // measured in time and price would be one gap at one zoom.
+        if (this.isDrawingStroke() && !this.hasCleared(point, STROKE_POINT_GAP_PX)) {
+            return;
+        }
+        this.keptAt = point;
+
         const anchor = this.toAnchor(point);
         if (anchor !== null) {
             this.config.drawings.drag(anchor);
         }
+    }
+
+    /**
+     * Whether the claimed gesture is laying down a stroke.
+     */
+    private isDrawingStroke(): boolean {
+        const { draft } = this.config.drawings.store.read();
+        return draft !== null && isPathKind(draft.kind);
+    }
+
+    /**
+     * Whether the pointer has moved far enough since the last point kept.
+     *
+     * @param point - Where the pointer is now.
+     * @param gapPx - The distance that counts as far enough.
+     * @returns True when this point is worth keeping.
+     */
+    private hasCleared(point: PointerPosition, gapPx: number): boolean {
+        const from = this.keptAt;
+        return from === null || Math.hypot(point.x - from.x, point.y - from.y) >= gapPx;
     }
 
     /**
@@ -127,6 +169,7 @@ export class DrawingSurfaceClaimant implements PointerClaimant {
      */
     settleClaim(): void {
         this.pressedAt = null;
+        this.keptAt = null;
         this.config.drawings.settle();
     }
 

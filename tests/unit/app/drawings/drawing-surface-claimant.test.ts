@@ -414,3 +414,44 @@ describe('DrawingSurfaceClaimant carrying a pointer that is not pressing', () =>
         expect(harness.drawings.store.read()).toBe(before);
     });
 });
+
+describe('DrawingSurfaceClaimant thinning a stroke', () => {
+    let harness: Harness;
+
+    beforeEach(() => { harness = buildHarness(); });
+
+    /** Drives a stroke from one point through the rest, as a hand would. */
+    function stroke(from: { x: number; y: number }, ...through: { x: number; y: number }[]): void {
+        harness.drawings.arm('freehand');
+        harness.claimant.offerPress(from);
+        for (const point of through) {
+            harness.claimant.moveClaim(point);
+        }
+    }
+
+    it('keeps one point where the hand crawled a few pixels', () => {
+        // A pointer reports every few pixels at sixty a second. Kept whole, one
+        // short stroke is a thousand points describing what the eye reads as a
+        // single curve.
+        stroke(
+            { x: 400, y: 200 },
+            { x: 406, y: 200 },
+            { x: 408, y: 200 },
+            { x: 410, y: 200 },
+            { x: 411, y: 200 },
+        );
+
+        expect(harness.drawings.store.read().draft?.anchors.length).toBe(2);
+    });
+
+    it('keeps every point the hand actually covered ground between', () => {
+        stroke(
+            { x: 400, y: 200 },
+            { x: 420, y: 200 },
+            { x: 440, y: 210 },
+            { x: 460, y: 190 },
+        );
+
+        expect(harness.drawings.store.read().draft?.anchors.length).toBe(4);
+    });
+});

@@ -486,3 +486,56 @@ describe('DrawingPainter writing what a mark is called', () => {
         expect(after).not.toBe(before);
     });
 });
+
+describe('DrawingPainter drawing a stroke', () => {
+    const painter = new DrawingPainter();
+    let recording: RecordingContext;
+
+    beforeEach(() => { recording = createRecordingContext(); });
+
+    function buildStroke(overrides: Partial<Drawing> = {}): Drawing {
+        return {
+            id: 'stroke',
+            kind: 'freehand',
+            venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
+            anchors: [
+                { atMs: MID_MS - 3_000, price: MID_PRICE },
+                { atMs: MID_MS - 2_000, price: MID_PRICE + 20 },
+                { atMs: MID_MS - 1_000, price: MID_PRICE - 10 },
+                { atMs: MID_MS, price: MID_PRICE + 5 },
+            ],
+            tone: 'phosphor',
+            ...overrides,
+        };
+    }
+
+    it('curves through the points rather than joining them corner to corner', () => {
+        // A hand moves in arcs and the points are what a pointer happened to
+        // report along one, so the corners are the sampling and not the stroke.
+        const paint = buildContext(recording, { settled: [buildStroke()] });
+
+        painter.paint(paint);
+
+        expect(recording.callsTo('quadraticCurveTo').length).toBeGreaterThan(0);
+    });
+
+    it('ends the stroke where the hand did, not halfway to it', () => {
+        // Every point but the last is a control of a curve ending halfway to
+        // the next. Curved to a midpoint at the end too, the stroke would stop
+        // short of where the reader lifted their hand.
+        const stroke = buildStroke();
+        const paint = buildContext(recording, { settled: [stroke] });
+
+        painter.paint(paint);
+
+        const last = stroke.anchors.at(-1)!;
+        const endedAt = [
+            Math.round(paint.projector.timeToX(last.atMs)),
+            Math.round(paint.projector.priceToY(last.price)),
+        ];
+        expect(recording.callsTo('lineTo').some((call) => (
+            Math.round(call.args[0] as number) === endedAt[0]
+            && Math.round(call.args[1] as number) === endedAt[1]
+        ))).toBe(true);
+    });
+});

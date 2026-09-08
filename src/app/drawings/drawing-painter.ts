@@ -252,14 +252,33 @@ export class DrawingPainter implements FieldLayerPainter {
             return;
         }
 
+        const points = [first, ...rest].map((anchor) => ({
+            x: paint.projector.timeToX(anchor.atMs),
+            y: paint.projector.priceToY(anchor.price),
+        }));
+
         paint.context.beginPath();
-        paint.context.moveTo(paint.projector.timeToX(first.atMs), paint.projector.priceToY(first.price));
-        for (const anchor of rest) {
-            paint.context.lineTo(
-                paint.projector.timeToX(anchor.atMs),
-                paint.projector.priceToY(anchor.price),
+        paint.context.moveTo(points[0]!.x, points[0]!.y);
+        // Curved through the midpoints rather than joined corner to corner: a
+        // hand moves in arcs and the points are what a pointer happened to
+        // report along one, so the corners are the sampling and not the stroke.
+        // Each point becomes the control of a curve ending halfway to the next,
+        // which passes smoothly through every one of them without having to fit
+        // anything.
+        for (let index = 1; index < points.length - 1; index += 1) {
+            const control = points[index]!;
+            const next = points[index + 1]!;
+            paint.context.quadraticCurveTo(
+                control.x,
+                control.y,
+                (control.x + next.x) / 2,
+                (control.y + next.y) / 2,
             );
         }
+        // The last point is an end, not a control: curved to the midpoint the
+        // stroke would stop short of where the hand did.
+        const last = points[points.length - 1]!;
+        paint.context.lineTo(last.x, last.y);
         paint.context.stroke();
     }
 
