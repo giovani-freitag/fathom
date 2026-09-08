@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.18.1](https://github.com/giovani-freitag/fathom/compare/v0.18.0...v0.18.1) (2026-09-08)
+
+
+### Bug Fixes
+
+* send a double click to the edge the chart rests on ([a6bd0b3](https://github.com/giovani-freitag/fathom/commit/a6bd0b39b77d49658a3c9f6d746ee54722f466fc))
+* thin a stroke to the hand and curve it through the points ([fe5c898](https://github.com/giovani-freitag/fathom/commit/fe5c8982a4255a9bcfb6cbf3597cb93e06282f1c))
+
 ## [0.18.0](https://github.com/giovani-freitag/fathom/compare/v0.17.4...v0.18.0) (2026-09-08)
 
 
