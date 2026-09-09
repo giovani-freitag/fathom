@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.20.0](https://github.com/giovani-freitag/fathom/compare/v0.19.0...v0.20.0) (2026-09-09)
+
+
+### Features
+
+* choose how far a laser's trail runs, and give a phone back its room ([cc5cc27](https://github.com/giovani-freitag/fathom/commit/cc5cc27310484e62b864408e81e2ba166e2f4f67))
+* set up a drawing tool before it draws, and pick from every emoji ([7e48dfb](https://github.com/giovani-freitag/fathom/commit/7e48dfbf156115fe68516987a04d60fac3f4583b))
+
+
+### Bug Fixes
+
+* put every stranded docblock back on what it documents ([357143b](https://github.com/giovani-freitag/fathom/commit/357143bc47134e4435ace7f57f5114ba3f5d42b9))
+* repaint a mark whose emoji changed, and offer one colour control ([7403d35](https://github.com/giovani-freitag/fathom/commit/7403d35d9dc7313f104901d4a0ec22b476097c95))
+
 ## [0.19.0](https://github.com/giovani-freitag/fathom/compare/v0.18.1...v0.19.0) (2026-09-08)
 
 
