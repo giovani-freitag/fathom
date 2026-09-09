@@ -4,13 +4,14 @@ import {
     type DrawingAnchor,
     type DrawingKind,
     type DrawingStyle,
+    type DrawingTrail,
     type DrawingWidth,
     EMOJI_GLYPHS,
     isPathKind,
     isRollingKind,
-    LASER_TRAIL_ANCHORS,
     isTransientKind,
     MOST_PATH_ANCHORS,
+    resolveTrailAnchors,
     MOST_RECENT_GLYPHS,
     moveDrawingAnchor,
     readDrawingFields,
@@ -31,6 +32,7 @@ const OPENING_PENDING: PendingLook = {
     style: 'solid',
     glyph: EMOJI_GLYPHS[0]!,
     label: '',
+    trail: 'medium',
 };
 
 /** Marks one chart may hold, past which the oldest is forgotten. */
@@ -84,6 +86,8 @@ export interface PendingLook {
     readonly style: DrawingStyle;
     /** What the next emoji shows, which is whichever one was placed last. */
     readonly glyph: string;
+    /** How far behind the hand the next pointer's light stays lit. */
+    readonly trail: DrawingTrail;
     /**
      * What the next mark will be called, typed before it exists.
      *
@@ -103,6 +107,8 @@ export interface DrawingRestyle {
     readonly label?: string;
     /** The mark an emoji shows; every later one the reader places takes it too. */
     readonly glyph?: string;
+    /** How far behind the hand a pointer's light stays lit. */
+    readonly trail?: DrawingTrail;
 }
 
 /** Where a press landed, and on what. */
@@ -387,6 +393,7 @@ export class DrawingsController {
                     ? state.pending.glyph
                     : look.glyph,
                 label: look.label ?? state.pending.label,
+                trail: look.trail ?? state.pending.trail,
             },
         }));
     }
@@ -468,6 +475,7 @@ export class DrawingsController {
                 ...fields.hasStyle ? { style: pending.style } : {},
                 ...fields.hasGlyph ? { glyph: pending.glyph } : {},
                 ...fields.hasLabel && pending.label !== '' ? { label: pending.label } : {},
+                ...fields.hasTrail ? { trail: pending.trail } : {},
             },
         }));
     }
@@ -484,7 +492,7 @@ export class DrawingsController {
             // but the first follows, and a level has only the first, so the drag
             // fine-tunes that one in place rather than doing nothing.
             const anchors = isPathKind(state.draft.kind)
-                ? growPath(state.draft.kind, state.draft.anchors, anchor)
+                ? growPath(state.draft, anchor)
                 : state.draft.anchors.length === 1
                     ? [anchor]
                     : [state.draft.anchors[0]!, anchor];
@@ -581,15 +589,13 @@ export class DrawingsController {
  * @param anchor - Where the hand is now.
  * @returns The path to draw.
  */
-function growPath(
-    kind: DrawingKind,
-    anchors: readonly DrawingAnchor[],
-    anchor: DrawingAnchor,
-): readonly DrawingAnchor[] {
+function growPath(drawing: Drawing, anchor: DrawingAnchor): readonly DrawingAnchor[] {
+    const { kind, anchors } = drawing;
     if (isRollingKind(kind)) {
-        // Only its own tail. Kept whole, a laser's trail is a line drawn in
-        // red rather than a pointer showing where the hand went.
-        return [...anchors, anchor].slice(-LASER_TRAIL_ANCHORS);
+        // Only its own tail, as long as the reader asked for. Kept whole, a
+        // laser's trail is a line drawn in red rather than a pointer showing
+        // where the hand went.
+        return [...anchors, anchor].slice(-resolveTrailAnchors(drawing));
     }
     return anchors.length >= MOST_PATH_ANCHORS ? anchors : [...anchors, anchor];
 }

@@ -404,6 +404,14 @@ describe('the look controls a kind is offered', () => {
         expect(glyphed).toEqual(['emoji']);
     });
 
+    it('offers a trail only to the kind that drops its own points', () => {
+        // A tail is only a tail because the oldest points fall off it. On a
+        // pen, where nothing falls off, the control would name nothing.
+        const trailed = DRAWING_KINDS.filter((kind) => readDrawingFields(kind).hasTrail);
+
+        expect(trailed).toEqual(['laser']);
+    });
+
     it('keeps a name away from a mark nobody keeps', () => {
         // A name is read later, and these two are gone by then.
         const unnameable = DRAWING_KINDS.filter((kind) => !readDrawingFields(kind).hasLabel);

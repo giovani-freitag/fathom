@@ -51,7 +51,7 @@ function renderSetup(armedTool: DrawingKind, pending: Partial<PendingLook> = {})
 
     const controls = createDrawingControls({
         armedTool,
-        pending: { tone: null, width: 'medium', style: 'solid', glyph: '\u{1F440}', label: '', ...pending },
+        pending: { tone: null, width: 'medium', style: 'solid', glyph: '\u{1F440}', label: '', trail: 'medium', ...pending },
         restylePending: (look: DrawingRestyle) => { pressed.restyled.push(look); },
     });
 
@@ -115,7 +115,7 @@ describe('DrawingProperties', () => {
         const controls = createDrawingControls({
             armedTool: 'emoji',
             recentGlyphs: ['\u{1F3AF}'],
-            pending: { tone: null, width: 'medium', style: 'solid', glyph: '\u{1F440}', label: '' },
+            pending: { tone: null, width: 'medium', style: 'solid', glyph: '\u{1F440}', label: '', trail: 'medium' },
         });
         const kernel = createIndicatorKernel([]);
 

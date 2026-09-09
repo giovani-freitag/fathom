@@ -156,13 +156,38 @@ export function isRollingKind(kind: DrawingKind): boolean {
     return kind === 'laser';
 }
 
+/** How far behind the hand a pointer's light is still lit. */
+export type DrawingTrail = 'short' | 'medium' | 'long';
+
+export const DRAWING_TRAILS: readonly DrawingTrail[] = ['short', 'medium', 'long'];
+
 /**
- * How many points a laser's trail is, which is far fewer than a stroke.
+ * How many points each trail keeps, which is far fewer than a stroke.
  *
  * Long enough to show which way the hand went, short enough that it reads as
- * a pointer and not as something drawn.
+ * a pointer and not as something drawn. Which of the three a reader wants
+ * depends on what they are pointing at: a dot follows the hand around one
+ * price, and a long tail draws the path a move took across the screen.
  */
-export const LASER_TRAIL_ANCHORS = 48;
+export const TRAIL_ANCHORS: Readonly<Record<DrawingTrail, number>> = {
+    short: 16,
+    medium: 48,
+    long: 120,
+};
+
+const DEFAULT_TRAIL: DrawingTrail = 'medium';
+
+/**
+ * How long a mark's trail runs, whatever it happens to say about itself.
+ *
+ * @param drawing - The mark being drawn out.
+ * @returns The points its tail keeps.
+ */
+export function resolveTrailAnchors(drawing: Drawing): number {
+    return TRAIL_ANCHORS[DRAWING_TRAILS.includes(drawing.trail as DrawingTrail)
+        ? drawing.trail as DrawingTrail
+        : DEFAULT_TRAIL];
+}
 
 /** How heavy a mark is drawn. */
 export type DrawingWidth = 'thin' | 'medium' | 'thick';
@@ -198,6 +223,8 @@ export interface DrawingFields {
     readonly hasStyle: boolean;
     /** A mark nobody keeps cannot carry a name to be read later. */
     readonly hasLabel: boolean;
+    /** Only a pointer has a tail, because only a pointer drops its own points. */
+    readonly hasTrail: boolean;
 }
 
 /**
@@ -240,6 +267,7 @@ export function readDrawingFields(kind: DrawingKind): DrawingFields {
         hasTone: !TONELESS_KINDS.has(kind),
         hasStyle: STYLED_KINDS.has(kind),
         hasLabel: !isTransientKind(kind),
+        hasTrail: isRollingKind(kind),
     };
 }
 
@@ -340,6 +368,13 @@ export interface Drawing {
      * chose: two emoji marks on one chart differ in nothing else.
      */
     readonly glyph?: string;
+    /**
+     * How far behind the hand a pointer's light stays lit.
+     *
+     * Only a laser has one, and a laser is never stored, so this lives for as
+     * long as the stroke does and no longer.
+     */
+    readonly trail?: DrawingTrail;
 }
 
 /**

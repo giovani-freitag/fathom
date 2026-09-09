@@ -4,7 +4,7 @@ import {
     type Drawing,
     type DrawingAnchor,
     EMOJI_GLYPHS,
-    LASER_TRAIL_ANCHORS,
+    TRAIL_ANCHORS,
     MOST_PATH_ANCHORS,
 } from '../../../../src/shared/core/drawing.ts';
 import {
@@ -813,9 +813,9 @@ describe('DrawingsController sweeping a laser', () => {
     }
 
     it('keeps only its own tail as the hand moves on', () => {
-        sweep(LASER_TRAIL_ANCHORS + 40);
+        sweep(TRAIL_ANCHORS.medium + 40);
 
-        expect(harness.drawings.store.read().draft?.anchors.length).toBe(LASER_TRAIL_ANCHORS);
+        expect(harness.drawings.store.read().draft?.anchors.length).toBe(TRAIL_ANCHORS.medium);
     });
 
     it('goes dark the moment the hand lifts', () => {
@@ -1038,5 +1038,54 @@ describe('DrawingsController reaching for a tool', () => {
         harness.drawings.arm('trend-line');
 
         expect(harness.drawings.store.read().drawings).toHaveLength(1);
+    });
+});
+
+describe('DrawingsController pointing with a trail', () => {
+    /** Sweeps the pointer far enough that any trail would have rolled. */
+    function sweep(harness: Harness, steps: number): void {
+        harness.drawings.arm('laser');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        for (let step = 1; step <= steps; step += 1) {
+            harness.drawings.drag(at(1_000 + step, 100 + (step % 5)));
+        }
+    }
+
+    it('keeps the tail as short as the reader asked for', () => {
+        const harness = buildHarness();
+        harness.drawings.restylePending({ trail: 'short' });
+
+        sweep(harness, TRAIL_ANCHORS.long + 40);
+
+        expect(harness.drawings.store.read().draft?.anchors.length).toBe(TRAIL_ANCHORS.short);
+    });
+
+    it('runs it as long as the reader asked for', () => {
+        const harness = buildHarness();
+        harness.drawings.restylePending({ trail: 'long' });
+
+        sweep(harness, TRAIL_ANCHORS.long + 40);
+
+        expect(harness.drawings.store.read().draft?.anchors.length).toBe(TRAIL_ANCHORS.long);
+    });
+
+    it('gives an unasked pointer the middle one', () => {
+        const harness = buildHarness();
+
+        sweep(harness, TRAIL_ANCHORS.long + 40);
+
+        expect(harness.drawings.store.read().draft?.anchors.length).toBe(TRAIL_ANCHORS.medium);
+    });
+
+    it('writes the trail onto nothing but a pointer', () => {
+        const harness = buildHarness();
+        harness.drawings.restylePending({ trail: 'long' });
+
+        harness.drawings.arm('freehand');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.drag(at(1_400, 105));
+        harness.drawings.settle();
+
+        expect(readPersisted(harness)[0]?.trail).toBeUndefined();
     });
 });

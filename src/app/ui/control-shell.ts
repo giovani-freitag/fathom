@@ -6,17 +6,23 @@
  * buttons at forty. A row of controls that do the same kind of thing at four
  * different heights reads as a row that was assembled rather than designed.
  *
- * Forty under a cursor, which is comfortable to hit and not large to look at,
- * and forty-four under a finger, which is the width of the fingertip every
- * platform sizes its own controls to. Written as one value rather than left to
- * each card: the card a tag is named on chose forty-four for the thumb it was
- * built for, and on a desk that put its buttons beside a listing eight pixels
- * shorter and a rail eight pixels shorter again.
+ * Thirty-six under a cursor and forty under a finger. It was forty and
+ * forty-four, sized to the fingertip every platform sizes its own controls to
+ * — and on a phone that fingertip is what ran the tools off the screen. There
+ * are fifteen of them now, and at forty-four the row was six hundred and sixty
+ * pixels of controls behind a three hundred and ninety pixel window: a target
+ * nobody can reach is not a target, however comfortable it would be to press.
+ * Forty is still well clear of the twenty-four a pointer target must be, and
+ * it is what the drawing tools people actually use on a phone are built at.
+ *
+ * Written as one value rather than left to each card: the card a tag is named
+ * on chose forty-four for the thumb it was built for, and on a desk that put
+ * its buttons beside a listing eight pixels shorter and a rail shorter again.
  */
-export const CONTROL_HEIGHT = 'h-10 touch:h-11';
+export const CONTROL_HEIGHT = 'h-9 touch:h-10';
 
 /** A target that is as wide as it is tall, for a control that is only a mark. */
-export const CONTROL_SQUARE_CLASSES = 'grid size-10 shrink-0 place-items-center touch:size-11';
+export const CONTROL_SQUARE_CLASSES = 'grid size-9 shrink-0 place-items-center touch:size-10';
 
 /**
  * A control the reader picks between, whatever shape it is laid out in.
@@ -55,7 +61,7 @@ export const CONTROL_INPUT_CLASSES =
 
 /** A control that is only a glyph, square at that height. */
 export const CONTROL_BUTTON_CLASSES =
-    `grid ${CONTROL_HEIGHT} min-w-10 touch:min-w-11 shrink-0 place-items-center rounded-lg px-1 transition-colors`;
+    `grid ${CONTROL_HEIGHT} min-w-9 touch:min-w-10 shrink-0 place-items-center rounded-lg px-1 transition-colors`;
 
 export const CONTROL_ACTIVE_CLASSES = 'bg-phosphor/15 text-phosphor';
 export const CONTROL_RESTING_CLASSES = 'text-ink-400 hover:bg-abyss-700 hover:text-ink-100';

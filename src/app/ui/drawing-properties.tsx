@@ -4,8 +4,10 @@ import {
     type Drawing,
     type DrawingKind,
     DRAWING_STYLES,
+    DRAWING_TRAILS,
     DRAWING_WIDTHS,
     type DrawingStyle,
+    type DrawingTrail,
     type DrawingWidth,
     MAXIMUM_LABEL_LENGTH,
     readDrawingFields,
@@ -48,7 +50,7 @@ const SIZE_TYPE: Readonly<Record<DrawingWidth, string>> = {
     thick: 'text-[24px]',
 };
 
-const OPTION_CLASSES = 'grid size-9 shrink-0 place-items-center rounded-md border transition-colors';
+const OPTION_CLASSES = 'grid size-8 shrink-0 place-items-center rounded-md border transition-colors touch:size-9';
 
 interface DrawingPropertiesProps {
     readonly controls: DrawingControls;
@@ -84,11 +86,12 @@ export function DrawingProperties({ controls }: DrawingPropertiesProps): ReactEl
 
     return (
         <div
-            // Sized to the widest row it holds rather than to a round number:
-            // six colour controls at forty pixels, and seven faces at a size
-            // somebody can tell one from another. Narrower, the palette wrapped
-            // onto a second line and read as two groups of colours.
-            className={`${FLOATING_CARD_CLASSES} flex w-80 flex-col gap-3`}
+            // As wide as the widest row it holds, and never wider than the
+            // screen. Fixed at that width it was the whole of a three hundred
+            // and twenty pixel phone, edge to edge with the chart nowhere in
+            // sight; on a phone the rows wrap instead, which is the trade a
+            // narrow screen is for.
+            className={`${FLOATING_CARD_CLASSES} flex w-full max-w-72 flex-col gap-3 sm:max-w-none sm:w-80`}
             role="group"
             aria-label={translate(isSettingUp ? 'drawing.tool.setup' : 'drawing.properties')}
         >
@@ -144,6 +147,24 @@ export function DrawingProperties({ controls }: DrawingPropertiesProps): ReactEl
                 ))}
             </Field>
 
+            {fields.hasTrail && (
+                <Field title={translate('drawing.trail')}>
+                    {DRAWING_TRAILS.map((trail) => (
+                        <Option
+                            key={trail}
+                            label={translate(`drawing.trail.${trail}`)}
+                            isChosen={look.trail === trail}
+                            onPress={() => { restyle({ trail }); }}
+                        >
+                            {/* Shown as the length it is: three words would be
+                                three words to read, and what a reader is
+                                choosing between is how far the light runs. */}
+                            <span className={`h-0.5 rounded-full bg-ink-200 ${TRAIL_BARS[trail]}`} />
+                        </Option>
+                    ))}
+                </Field>
+            )}
+
             {fields.hasStyle && (
                 <Field title={translate('drawing.line')}>
                     {DRAWING_STYLES.map((style) => (
@@ -179,6 +200,13 @@ export function DrawingProperties({ controls }: DrawingPropertiesProps): ReactEl
     );
 }
 
+/** How each trail reads as a control, which is the length of it. */
+const TRAIL_BARS: Readonly<Record<DrawingTrail, string>> = {
+    short: 'w-2',
+    medium: 'w-4',
+    long: 'w-6',
+};
+
 /** How each line looks as a control, drawn the way it draws. */
 const STYLE_BARS: Readonly<Record<DrawingStyle, string>> = {
     solid: 'border-t-2 border-solid',
@@ -190,6 +218,7 @@ const STYLE_BARS: Readonly<Record<DrawingStyle, string>> = {
 interface ShownLook {
     readonly tone: TagColour | null;
     readonly label: string;
+    readonly trail: DrawingTrail;
     readonly width: DrawingWidth;
     readonly style: DrawingStyle;
     readonly glyph: string;
@@ -219,6 +248,7 @@ function readLook(
         ...resolveDrawingLook(selected),
         tone: selected.tone,
         label: readStoredLabel(selected),
+        trail: controls.pending.trail,
         glyph: kind === 'emoji' ? readStoredGlyph(selected) : controls.pending.glyph,
     };
 }
