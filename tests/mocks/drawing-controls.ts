@@ -18,7 +18,7 @@ export function createDrawingControls(overrides: Partial<DrawingControls> = {}):
         toggleToolLock: vi.fn(),
         selectedId: null,
         selected: null,
-        pending: { tone: null, width: 'medium', style: 'solid', glyph: '\u{1F440}' },
+        pending: { tone: null, width: 'medium', style: 'solid', glyph: '\u{1F440}', label: '' },
         recentGlyphs: [],
         toggleTool: vi.fn(),
         disarm: vi.fn(),

@@ -678,7 +678,7 @@ function describeDrawing(drawing: Drawing): string {
     const anchors = drawing.anchors.map((anchor) => `${anchor.atMs}:${anchor.price}`).join(',');
     const look = resolveDrawingLook(drawing);
     return `${drawing.id}@${drawing.tone}@${look.width}@${look.style}`
-        + `@${resolveDrawingLabel(drawing) ?? ''}@${anchors}`;
+        + `@${resolveDrawingLabel(drawing) ?? ''}@${readStoredGlyph(drawing)}@${anchors}`;
 }
 
 /**

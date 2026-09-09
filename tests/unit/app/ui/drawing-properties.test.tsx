@@ -51,7 +51,7 @@ function renderSetup(armedTool: DrawingKind, pending: Partial<PendingLook> = {})
 
     const controls = createDrawingControls({
         armedTool,
-        pending: { tone: null, width: 'medium', style: 'solid', glyph: '\u{1F440}', ...pending },
+        pending: { tone: null, width: 'medium', style: 'solid', glyph: '\u{1F440}', label: '', ...pending },
         restylePending: (look: DrawingRestyle) => { pressed.restyled.push(look); },
     });
 
@@ -76,7 +76,7 @@ describe('DrawingProperties', () => {
     it('sends what an armed tool is set to forward, not at a mark', () => {
         const pressed = renderSetup('laser');
 
-        fireEvent.click(screen.getByRole('button', { name: EN_DICTIONARY[TONE_LABEL_KEYS['amber']] }));
+        fireEvent.click(screen.getByRole('radio', { name: EN_DICTIONARY[TONE_LABEL_KEYS['amber']] }));
 
         expect(pressed.restyled).toEqual([{ tone: 'amber' }]);
     });
@@ -115,7 +115,7 @@ describe('DrawingProperties', () => {
         const controls = createDrawingControls({
             armedTool: 'emoji',
             recentGlyphs: ['\u{1F3AF}'],
-            pending: { tone: null, width: 'medium', style: 'solid', glyph: '\u{1F440}' },
+            pending: { tone: null, width: 'medium', style: 'solid', glyph: '\u{1F440}', label: '' },
         });
         const kernel = createIndicatorKernel([]);
 
@@ -128,10 +128,26 @@ describe('DrawingProperties', () => {
         expect(screen.getByRole('button', { name: '\u{1F3AF}' })).toBeTruthy();
     });
 
-    it('keeps the name field away from a tool that has drawn nothing', () => {
-        // There is no mark to name yet, and a field that forgets what was
-        // typed into it the moment the stroke begins is a field that lies.
+    it('offers the name before the mark exists, so one press leaves both', () => {
+        // A reader arrives knowing what the level is; the tool should take
+        // that rather than make them draw first and label second.
         renderSetup('trend-line');
+
+        expect(screen.getByLabelText(EN_DICTIONARY['drawing.label'])).toBeTruthy();
+    });
+
+    it('sends a name typed before the stroke forward to the tool', () => {
+        const pressed = renderSetup('trend-line');
+
+        fireEvent.change(screen.getByLabelText(EN_DICTIONARY['drawing.label']), {
+            target: { value: 'Weekly high' },
+        });
+
+        expect(pressed.restyled).toEqual([{ label: 'Weekly high' }]);
+    });
+
+    it('keeps the name away from a tool whose marks nobody keeps', () => {
+        renderSetup('laser');
 
         expect(screen.queryByLabelText(EN_DICTIONARY['drawing.label'])).toBeNull();
     });
@@ -163,22 +179,24 @@ describe('DrawingProperties', () => {
         // hears what it is, and "ask" is a place a colour is used rather than
         // a colour.
         const offered = INSTANCE_TONES.filter((tone) => (
-            screen.queryByRole('button', { name: EN_DICTIONARY[TONE_LABEL_KEYS[tone]] }) !== null
+            screen.queryByRole('radio', { name: EN_DICTIONARY[TONE_LABEL_KEYS[tone]] }) !== null
         ));
         expect(offered).toHaveLength(INSTANCE_TONES.length);
     });
 
     it('shows the tone the mark already carries', () => {
+        // A radio group rather than a row of switches: picking one unpicks the
+        // rest, and six pressed buttons would say a mark may hold two colours.
         renderPanel(LEVEL);
 
-        expect(screen.getByRole('button', { name: EN_DICTIONARY['colour.teal'] })
-            .getAttribute('aria-pressed')).toBe('true');
+        expect(screen.getByRole('radio', { name: EN_DICTIONARY['colour.teal'] })
+            .getAttribute('aria-checked')).toBe('true');
     });
 
     it('paints it in the tone that was pressed', () => {
         const pressed = renderPanel(LEVEL);
 
-        screen.getByRole('button', { name: EN_DICTIONARY['colour.amber'] }).click();
+        screen.getByRole('radio', { name: EN_DICTIONARY['colour.amber'] }).click();
 
         expect(pressed.restyled).toEqual([{ tone: 'amber' }]);
     });

@@ -21,21 +21,10 @@ import {
     FLOATING_CARD_CLASSES,
 } from './control-shell.ts';
 import { EmojiPicker } from './emoji-picker.tsx';
-import { INSTANCE_TONES, type PlotTone } from '../../shared/core/draw-plan.ts';
-import { TONE_LABEL_KEYS } from './indicators/tone-labels.ts';
+import { ColourChoice } from './colour-choice.tsx';
+import { INSTANCE_TONES } from '../../shared/core/draw-plan.ts';
+import type { TagColour } from '../../shared/core/pair-tags.ts';
 import { useTranslate } from '../react/use-appearance.ts';
-
-/** The class each tone's swatch is filled with, so the canvas and the page agree. */
-const TONE_SWATCHES: Readonly<Record<PlotTone, string>> = {
-    phosphor: 'bg-phosphor',
-    amber: 'bg-amber',
-    violet: 'bg-violet',
-    cyan: 'bg-cyan',
-    ask: 'bg-ask',
-    bid: 'bg-bid',
-    ink: 'bg-ink-100',
-    muted: 'bg-ink-500',
-};
 
 /** How each weight looks as a control, which is the weight itself. */
 const WIDTH_BARS: Readonly<Record<DrawingWidth, string>> = {
@@ -54,12 +43,12 @@ const WIDTH_BARS: Readonly<Record<DrawingWidth, string>> = {
  * about line weight that an emoji has never had.
  */
 const SIZE_TYPE: Readonly<Record<DrawingWidth, string>> = {
-    thin: 'text-[10px]',
-    medium: 'text-[13px]',
-    thick: 'text-base',
+    thin: 'text-[13px]',
+    medium: 'text-[18px]',
+    thick: 'text-[24px]',
 };
 
-const OPTION_CLASSES = 'grid size-8 shrink-0 place-items-center rounded-md border transition-colors';
+const OPTION_CLASSES = 'grid size-9 shrink-0 place-items-center rounded-md border transition-colors';
 
 interface DrawingPropertiesProps {
     readonly controls: DrawingControls;
@@ -95,20 +84,24 @@ export function DrawingProperties({ controls }: DrawingPropertiesProps): ReactEl
 
     return (
         <div
-            className={`${FLOATING_CARD_CLASSES} flex w-60 flex-col gap-3`}
+            // Sized to the widest row it holds rather than to a round number:
+            // six colour controls at forty pixels, and seven faces at a size
+            // somebody can tell one from another. Narrower, the palette wrapped
+            // onto a second line and read as two groups of colours.
+            className={`${FLOATING_CARD_CLASSES} flex w-80 flex-col gap-3`}
             role="group"
             aria-label={translate(isSettingUp ? 'drawing.tool.setup' : 'drawing.properties')}
         >
             {/* First, because it is the only field a reader arrives with an
                 answer for: the rest are chosen by looking, this one by
                 remembering why the mark was made. */}
-            {fields.hasLabel && selected !== null && (
+            {fields.hasLabel && (
                 <Field title={translate('drawing.label')}>
                     <input
                         type="text"
                         name="drawingLabel"
                         aria-label={translate('drawing.label')}
-                        value={readStoredLabel(selected)}
+                        value={look.label}
                         maxLength={MAXIMUM_LABEL_LENGTH}
                         placeholder={translate('drawing.label.placeholder')}
                         onChange={(event) => { restyle({ label: event.target.value }); }}
@@ -127,16 +120,12 @@ export function DrawingProperties({ controls }: DrawingPropertiesProps): ReactEl
 
             {fields.hasTone && (
                 <Field title={translate('drawing.colour')}>
-                    {INSTANCE_TONES.map((tone) => (
-                        <Option
-                            key={tone}
-                            label={translate(TONE_LABEL_KEYS[tone])}
-                            isChosen={look.tone === tone}
-                            onPress={() => { restyle({ tone }); }}
-                        >
-                            <span className={`size-4 rounded-full ${TONE_SWATCHES[tone]}`} />
-                        </Option>
-                    ))}
+                    <ColourChoice
+                        colour={look.tone ?? INSTANCE_TONES[0]!}
+                        said={translate('drawing.colour')}
+                        translate={translate}
+                        onPick={(tone) => { restyle({ tone }); }}
+                    />
                 </Field>
             )}
 
@@ -199,7 +188,8 @@ const STYLE_BARS: Readonly<Record<DrawingStyle, string>> = {
 
 /** Everything the controls show, whether it is a mark's or a tool's. */
 interface ShownLook {
-    readonly tone: PlotTone | null;
+    readonly tone: TagColour | null;
+    readonly label: string;
     readonly width: DrawingWidth;
     readonly style: DrawingStyle;
     readonly glyph: string;
@@ -228,6 +218,7 @@ function readLook(
     return {
         ...resolveDrawingLook(selected),
         tone: selected.tone,
+        label: readStoredLabel(selected),
         glyph: kind === 'emoji' ? readStoredGlyph(selected) : controls.pending.glyph,
     };
 }

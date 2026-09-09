@@ -107,7 +107,7 @@ export function EmojiPicker({ chosen, recent, onPick }: EmojiPickerProps): React
                             aria-label={translate(TAB_LABELS[group])}
                             title={translate(TAB_LABELS[group])}
                             onClick={() => { setTab(group); }}
-                            className={`grid h-7 flex-1 place-items-center rounded text-sm transition-colors ${
+                            className={`grid h-8 flex-1 place-items-center rounded text-base transition-colors ${
                                 tab === group ? 'bg-abyss-700 text-ink-100' : 'text-ink-500 hover:bg-abyss-700/60'
                             }`}
                         >
@@ -117,7 +117,7 @@ export function EmojiPicker({ chosen, recent, onPick }: EmojiPickerProps): React
                 </div>
             )}
 
-            <div className="grid max-h-44 grid-cols-8 gap-0.5 overflow-y-auto overscroll-contain">
+            <div className="grid max-h-64 grid-cols-7 gap-1 overflow-y-auto overscroll-contain">
                 {shown.map(([glyph, label]) => (
                     <button
                         key={glyph}
@@ -126,7 +126,7 @@ export function EmojiPicker({ chosen, recent, onPick }: EmojiPickerProps): React
                         title={label}
                         aria-pressed={chosen === glyph}
                         onClick={() => { onPick(glyph); }}
-                        className={`grid size-7 place-items-center rounded text-base leading-none transition-colors ${
+                        className={`grid size-9 place-items-center rounded-md text-[22px] leading-none transition-colors ${
                             chosen === glyph ? 'bg-phosphor/15' : 'hover:bg-abyss-700'
                         }`}
                     >

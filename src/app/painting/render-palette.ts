@@ -1,4 +1,5 @@
 import type { PlotTone } from '../../shared/core/draw-plan.ts';
+import type { TagColour } from '../../shared/core/pair-tags.ts';
 import type { ResolvedTheme } from '../core/theme.ts';
 
 /** Chrome colours the canvas paints with. */
@@ -135,11 +136,15 @@ const TONE_COLOURS: Record<PlotTone, () => string> = {
  * Read through a call rather than held: the palette is re-pointed in place on a
  * theme change, and anything that captured a colour would keep the old one.
  *
- * @param tone - The tone a plan or a mark named.
+ * A colour a reader wrote themselves is handed back as it stands. It is not in
+ * the palette and cannot be: it was named for this one mark, so it holds the
+ * same value in either theme, which is what naming it asked for.
+ *
+ * @param tone - The tone a plan or a mark named, or a colour a reader wrote.
  * @returns The colour to paint it in.
  */
-export function resolveToneColour(tone: PlotTone): string {
-    return TONE_COLOURS[tone]();
+export function resolveToneColour(tone: TagColour): string {
+    return tone.startsWith('#') ? tone : TONE_COLOURS[tone as PlotTone]();
 }
 
 export const RENDER_METRICS = {

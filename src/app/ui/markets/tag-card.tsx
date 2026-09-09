@@ -1,5 +1,5 @@
 import { INSTANCE_TONES } from '../../../shared/core/draw-plan.ts';
-import { ColourChoice } from './colour-choice.tsx';
+import { ColourChoice } from '../colour-choice.tsx';
 import { CONTROL_CHIP_CLASSES, CONTROL_CHOSEN_CLASSES, CONTROL_INPUT_CLASSES, CONTROL_OFFERED_CLASSES } from '../control-shell.ts';
 import { useEscapeGuard } from '../escape-guard.ts';
 import { type ReactElement, useState } from 'react';

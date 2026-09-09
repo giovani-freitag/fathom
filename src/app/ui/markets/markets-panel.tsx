@@ -11,7 +11,7 @@ import { RemoveTagDialog } from './remove-tag-dialog.tsx';
 import { labelOf } from '../../markets/tag-names.ts';
 import { narrowPairs, summariseQuotes } from '../../markets/pair-listing.ts';
 import { PairTable, type PairRow } from './pair-table.tsx';
-import { TagSwatch } from './tag-swatch.tsx';
+import { ColourSwatch } from '../colour-swatch.tsx';
 import { VenueMark } from './venue-mark.tsx';
 import { type Listing, readInstruments } from '../../core/markets-controller.ts';
 import type { Translate } from '../../i18n/translator.ts';
@@ -267,7 +267,7 @@ export function MarketsPanel({
                                         // The colour is how a reader picks a tag
                                         // out of a column of rows; it should be
                                         // how they pick it here too.
-                                        icon: <TagSwatch colour={one.colour} className="size-2.5" />,
+                                        icon: <ColourSwatch colour={one.colour} className="size-2.5" />,
                                     })),
                                     ...state.venues.map((one) => ({
                                         value: `venue:${one}`,
@@ -374,7 +374,7 @@ export function MarketsPanel({
                     <ListingBanner
                         said={showing.kind === 'tag' ? tagLabel : showing.venue}
                         {...showing.kind === 'tag'
-                            ? { mark: <TagSwatch colour={tagColour} className="size-2" /> }
+                            ? { mark: <ColourSwatch colour={tagColour} className="size-2" /> }
                             : {}}
                     >
                         <QuoteFilter

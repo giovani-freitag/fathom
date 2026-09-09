@@ -4,7 +4,7 @@ import { RemoveTagDialog } from './remove-tag-dialog.tsx';
 import { RailHeading, RailRow, type RailRowProps } from './rail-row.tsx';
 import { FAVOURITES_ID, type PairTag, type TagColour } from '../../../shared/core/pair-tags.ts';
 import { labelOf } from '../../markets/tag-names.ts';
-import { TagSwatch } from './tag-swatch.tsx';
+import { ColourSwatch } from '../colour-swatch.tsx';
 import { VenueMark } from './venue-mark.tsx';
 import type { Translate } from '../../i18n/translator.ts';
 import { useState } from 'react';
@@ -163,7 +163,7 @@ interface TagRowProps extends Omit<RailRowProps, 'children'> {
 function TagRow({ colour, ...row }: TagRowProps): ReactElement {
     return (
         <RailRow {...row}>
-            <TagSwatch colour={colour} className="size-2.5 shrink-0" />
+            <ColourSwatch colour={colour} className="size-2.5 shrink-0" />
         </RailRow>
     );
 }

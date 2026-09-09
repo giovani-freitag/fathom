@@ -4,7 +4,7 @@ import { DropdownMenu } from 'radix-ui';
 import { labelOf } from '../../markets/tag-names.ts';
 import type { MarketPair, PairTag } from '../../../shared/core/pair-tags.ts';
 import type { ReactElement } from 'react';
-import { TagSwatch } from './tag-swatch.tsx';
+import { ColourSwatch } from '../colour-swatch.tsx';
 import type { Translate } from '../../i18n/translator.ts';
 
 /**
@@ -93,7 +93,7 @@ export function PairTagMenu({
                                 onCheckedChange={(wanted) => { onToggle(tag.id, wanted); }}
                                 className={`${LIST_ROW_CLASSES} cursor-pointer rounded text-xs text-ink-200 outline-none data-[highlighted]:bg-abyss-700 data-[highlighted]:text-ink-100`}
                             >
-                                <TagSwatch colour={tag.colour} className="size-2.5 shrink-0" />
+                                <ColourSwatch colour={tag.colour} className="size-2.5 shrink-0" />
                                 <span className="min-w-0 flex-1 truncate">{said}</span>
                                 {isOn && <Check size={13} className="shrink-0 text-phosphor" />}
                             </DropdownMenu.CheckboxItem>
@@ -172,7 +172,7 @@ export function TagMarks({ tags, held }: { readonly tags: readonly PairTag[]; re
                     className={at === 0 ? '' : '-ml-1'}
                     style={{ zIndex: TOPMOST_MARK - at }}
                 >
-                    <TagSwatch colour={tag.colour} className="size-2.5 ring-1 ring-abyss-850" />
+                    <ColourSwatch colour={tag.colour} className="size-2.5 ring-1 ring-abyss-850" />
                 </span>
             ))}
         </span>

@@ -6,16 +6,18 @@ export interface LaserPointerProps {
 }
 
 /**
- * A laser pointer: the barrel, the beam, and the spot the beam lands on.
+ * A laser: the beam, the point it lands on, and the light scattering off it.
  *
  * Drawn here because the icon set has no laser in it, and the nearest things
  * in it name other tools — a crosshair is how the chart is measured and a
  * pointing hand is the control that selects.
  *
- * The spot is what makes it a laser rather than a wand. Rays leaving the tip
- * were tried first and read as sparkles: every icon with them looked like the
- * magic wand of some other editor. A beam that ends somewhere reads as light
- * travelling, which is the whole of what this tool does.
+ * The burst rather than the device. A handheld pointer was tried twice and
+ * failed the same way both times: at the size a dock draws an icon, a barrel
+ * held at an angle is the silhouette the pen two along already has, and the
+ * detail that would separate them is the detail that is lost first. What is
+ * left of a laser at eighteen pixels is a bright point with light coming off
+ * it, and nothing else in the row looks anything like that.
  *
  * @param props - The edge length, defaulting to the box the paths are drawn in.
  * @returns The icon, as a square of the given size.
@@ -34,15 +36,11 @@ export function LaserPointer({ size = 24 }: LaserPointerProps): ReactElement {
             strokeLinejoin="round"
             aria-hidden="true"
         >
-            {/* A short barrel and a long beam, in that proportion on purpose:
-                the pen sits two along in the same row and is a diagonal shaft
-                too, so an even split of the box gave two icons one silhouette.
-                What tells them apart is that this one thins out and lands. */}
-            <path d="M8.6 15.4 5.4 18.6a2.3 2.3 0 0 1-3.2-3.2l3.2-3.2a2.3 2.3 0 0 1 3.2 3.2z" />
-            <path d="m10.4 13.6 8-8" />
-            {/* Filled, because at the size a dock draws this an outlined ring
-                closes up into a blur and stops reading as a spot of light. */}
-            <circle cx="20.4" cy="3.6" r="1.8" fill="currentColor" stroke="none" />
+            {/* The beam, running off the edge: it comes from somewhere the icon
+                does not show, which is what makes the far end the point. */}
+            <path d="M9 12h13" />
+            {/* The scatter, drawn as one path so the rays keep one weight. */}
+            <path d="M9 12H2.4m6.6 0L4.4 7.4M9 12l-4.6 4.6M9 12 7.2 5.6M9 12l-1.8 6.4m1.8-6.4 4.6-4.6M9 12l4.6 4.6" />
         </svg>
     );
 }

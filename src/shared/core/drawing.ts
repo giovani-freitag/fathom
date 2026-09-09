@@ -1,4 +1,4 @@
-import type { PlotTone } from './draw-plan.ts';
+import type { TagColour } from './pair-tags.ts';
 
 /**
  * Where a drawing is pinned, in the chart's own coordinates.
@@ -23,7 +23,15 @@ export type DrawingKind =
     | 'emoji'
     | 'laser';
 
-/** Every kind, in the order the dock offers them. */
+/**
+ * Every kind, in the order the dock offers them.
+ *
+ * The drawing tools first, then the ones that only point: a laser and a
+ * measurement leave nothing behind, and an emoji is somebody else's artwork
+ * rather than a stroke. The emoji sits last of all because its button is the
+ * one that opens a catalogue, and a control that opens onto everything belongs
+ * at the end of a row rather than in the middle of the strokes.
+ */
 export const DRAWING_KINDS: readonly DrawingKind[] = [
     'horizontal-line',
     'trend-line',
@@ -31,9 +39,9 @@ export const DRAWING_KINDS: readonly DrawingKind[] = [
     'fibonacci',
     'freehand',
     'highlighter',
-    'emoji',
-    'laser',
     'measure',
+    'laser',
+    'emoji',
 ];
 
 /** Anchors each kind is pinned by. */
@@ -308,7 +316,13 @@ export interface Drawing {
     readonly venue: string;
     readonly instrumentSymbol: string;
     readonly anchors: readonly DrawingAnchor[];
-    readonly tone: PlotTone;
+    /**
+     * What the mark is drawn in: one of the chart's own, or any a reader named.
+     *
+     * The same vocabulary a tag is coloured in, so one control offers both and
+     * a reader who has run out of the chart's five has not run out of colours.
+     */
+    readonly tone: TagColour;
     /** Absent on a mark stored before this build knew how to vary either. */
     readonly width?: DrawingWidth;
     readonly style?: DrawingStyle;

@@ -1,12 +1,12 @@
-import { CONTROL_SQUARE_CLASSES } from '../control-shell.ts';
-import { INSTANCE_TONES } from '../../../shared/core/draw-plan.ts';
-import { isPale, OPENS_ON } from './tag-colours.ts';
+import { CONTROL_SQUARE_CLASSES } from './control-shell.ts';
+import { INSTANCE_TONES } from '../../shared/core/draw-plan.ts';
+import { isPale, OPENS_ON } from './markets/tag-colours.ts';
 import { PaintBucket } from 'lucide-react';
 import type { ReactElement } from 'react';
-import type { TagColour } from '../../../shared/core/pair-tags.ts';
-import { TagSwatch } from './tag-swatch.tsx';
-import { TONE_LABEL_KEYS } from '../indicators/tone-labels.ts';
-import type { Translate } from '../../i18n/translator.ts';
+import type { TagColour } from '../../shared/core/pair-tags.ts';
+import { ColourSwatch } from './colour-swatch.tsx';
+import { TONE_LABEL_KEYS } from './indicators/tone-labels.ts';
+import type { Translate } from '../i18n/translator.ts';
 
 interface ColourChoiceProps {
     readonly colour: TagColour;
@@ -54,7 +54,7 @@ export function ColourChoice({ colour, said, translate, onPick }: ColourChoicePr
                                 : 'border-hairline hover:border-hairline-bright'
                         }`}
                     >
-                        <TagSwatch colour={tone} className="size-4" />
+                        <ColourSwatch colour={tone} className="size-4" />
                     </button>
                 ))}
             </div>

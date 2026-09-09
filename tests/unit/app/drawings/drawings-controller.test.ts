@@ -964,3 +964,79 @@ describe('DrawingsController writing only what a kind can use', () => {
         expect(readPersisted(harness)[0]?.width).toBe('thick');
     });
 });
+
+describe('DrawingsController naming a mark before it exists', () => {
+    it('gives the new mark the name that was typed for it', () => {
+        // A reader marking a level they already have a reason for should press
+        // once, not press and then find the field.
+        const harness = buildHarness();
+        harness.drawings.restylePending({ label: 'Weekly high' });
+
+        harness.drawings.arm('horizontal-line');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.settle();
+
+        expect(readPersisted(harness)[0]?.label).toBe('Weekly high');
+    });
+
+    it('leaves an unnamed mark with no name at all, rather than an empty one', () => {
+        const harness = buildHarness();
+
+        harness.drawings.arm('horizontal-line');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.settle();
+
+        expect(readPersisted(harness)[0]?.label).toBeUndefined();
+    });
+
+    it('keeps a name off a mark nobody keeps, whatever was typed', () => {
+        const harness = buildHarness();
+        harness.drawings.restylePending({ label: 'Ignored' });
+
+        harness.drawings.arm('measure');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.drag(at(1_400, 105));
+        harness.drawings.settle();
+
+        expect(harness.drawings.store.read().draft?.label).toBeUndefined();
+    });
+
+    it('draws a mark in a colour the reader wrote rather than one it names', () => {
+        // The same vocabulary a tag is coloured in: a reader who has run out
+        // of the chart's five has not run out of colours.
+        const harness = buildHarness();
+        harness.drawings.restylePending({ tone: '#ff8800' });
+
+        harness.drawings.arm('horizontal-line');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.settle();
+
+        expect(readPersisted(harness)[0]?.tone).toBe('#ff8800');
+    });
+});
+
+describe('DrawingsController reaching for a tool', () => {
+    it('lets go of the mark that was selected', () => {
+        // The panel answers one question — what am I working on — and a mark
+        // left selected behind an armed tool made it answer the older one.
+        const harness = buildHarness();
+        harness.drawings.arm('horizontal-line');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.settle();
+
+        harness.drawings.arm('trend-line');
+
+        expect(harness.drawings.store.read().selectedId).toBeNull();
+    });
+
+    it('still leaves the mark itself alone', () => {
+        const harness = buildHarness();
+        harness.drawings.arm('horizontal-line');
+        harness.drawings.begin({ anchor: at(1_000, 100), hitId: null });
+        harness.drawings.settle();
+
+        harness.drawings.arm('trend-line');
+
+        expect(harness.drawings.store.read().drawings).toHaveLength(1);
+    });
+});

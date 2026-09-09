@@ -24,6 +24,18 @@ function buildLevel(overrides: Partial<Drawing> = {}): Drawing {
     };
 }
 
+function buildPin(overrides: Partial<Drawing> = {}): Drawing {
+    return {
+        id: 'pin',
+        kind: 'emoji',
+        venue: FIRST_VENUE, instrumentSymbol: 'BTCUSDT',
+        anchors: [{ atMs: MID_MS, price: MID_PRICE }],
+        tone: 'phosphor',
+        glyph: '\u{1F440}',
+        ...overrides,
+    };
+}
+
 function buildTrend(overrides: Partial<Drawing> = {}): Drawing {
     return {
         id: 'trend',
@@ -391,6 +403,16 @@ describe('describeDrawings', () => {
     it('changes while a mark is being dragged out', () => {
         expect(describeDrawings({ ...EMPTY_DRAWINGS_VIEW, draft: buildTrend() }))
             .not.toBe(describeDrawings(EMPTY_DRAWINGS_VIEW));
+    });
+
+    it('changes when an emoji is swapped for another', () => {
+        // The chart holds the layer it drew between frames. Left out of this,
+        // a reader who picked a new face saw the old one until something else
+        // happened to repaint — a press on the chart, a bar arriving.
+        const shown = { ...EMPTY_DRAWINGS_VIEW, settled: [buildPin()] };
+        const swapped = { ...EMPTY_DRAWINGS_VIEW, settled: [buildPin({ glyph: '\u{1F525}' })] };
+
+        expect(describeDrawings(swapped)).not.toBe(describeDrawings(shown));
     });
 
     it('changes when a mark is recoloured', () => {

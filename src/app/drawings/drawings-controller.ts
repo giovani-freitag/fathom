@@ -17,7 +17,8 @@ import {
     readStoredGlyph,
     shiftDrawing,
 } from '../../shared/core/drawing.ts';
-import { INSTANCE_TONES, type PlotTone } from '../../shared/core/draw-plan.ts';
+import { INSTANCE_TONES } from '../../shared/core/draw-plan.ts';
+import type { TagColour } from '../../shared/core/pair-tags.ts';
 import { DrawingHistory } from './drawing-history.ts';
 import { ObservableStore } from '../core/observable-store.ts';
 import type { PreferencesService } from '../services/preferences-service.ts';
@@ -29,6 +30,7 @@ const OPENING_PENDING: PendingLook = {
     width: 'medium',
     style: 'solid',
     glyph: EMOJI_GLYPHS[0]!,
+    label: '',
 };
 
 /** Marks one chart may hold, past which the oldest is forgotten. */
@@ -77,16 +79,24 @@ export interface PendingLook {
      * colour are one line as far as a reader can tell. Once they have picked,
      * the pick stands: they asked for that colour, not for a rotation.
      */
-    readonly tone: PlotTone | null;
+    readonly tone: TagColour | null;
     readonly width: DrawingWidth;
     readonly style: DrawingStyle;
     /** What the next emoji shows, which is whichever one was placed last. */
     readonly glyph: string;
+    /**
+     * What the next mark will be called, typed before it exists.
+     *
+     * Asked for up front so that marking a level a reader already has a reason
+     * for is one press rather than a press and then a field: they arrive
+     * knowing what it is, and the tool should be able to take that.
+     */
+    readonly label: string;
 }
 
 /** What about a mark is being changed. */
 export interface DrawingRestyle {
-    readonly tone?: PlotTone;
+    readonly tone?: TagColour;
     readonly width?: DrawingWidth;
     readonly style?: DrawingStyle;
     /** What the reader calls it; an empty name takes the label off. */
@@ -166,7 +176,11 @@ export class DrawingsController {
      * @param armedTool - The kind to draw next, or null to select instead.
      */
     arm(armedTool: DrawingKind | null): void {
-        this.store.update((state) => ({ ...state, armedTool, draft: null }));
+        // Reaching for a tool lets go of whatever was held. They are the same
+        // question — what am I working on — and the panel can only answer it
+        // once: leaving the selection up showed the last mark's settings to a
+        // reader who had just said they were about to draw a new one.
+        this.store.update((state) => ({ ...state, armedTool, draft: null, selectedId: null }));
     }
 
     /**
@@ -372,6 +386,7 @@ export class DrawingsController {
                 glyph: look.glyph === undefined || look.glyph === ''
                     ? state.pending.glyph
                     : look.glyph,
+                label: look.label ?? state.pending.label,
             },
         }));
     }
@@ -452,6 +467,7 @@ export class DrawingsController {
                 width: pending.width,
                 ...fields.hasStyle ? { style: pending.style } : {},
                 ...fields.hasGlyph ? { glyph: pending.glyph } : {},
+                ...fields.hasLabel && pending.label !== '' ? { label: pending.label } : {},
             },
         }));
     }
