@@ -275,10 +275,20 @@ export function HeatmapPage(): ReactElement {
 
 
                     {phase === 'initialising' && <SurfaceNotice message={translate('page.probing')} translate={translate} />}
+                    {/*
+                     * Two ways of being empty, and only one is a fault.
+                     *
+                     * A contract that is open with nothing behind it is a
+                     * warning: recording was off while that time passed, and a
+                     * book cannot be recovered afterwards. No contract at all is
+                     * a first visit — not a fault, and it should not wear a
+                     * warning triangle. It is where the reader is asked what to
+                     * record, which is the first thing this page has to say.
+                     */}
                     {phase === 'empty' && (
                         <SurfaceNotice
-                            message={translate('page.empty')}
-                            tone="warning"
+                            message={translate(instrumentSymbol === null ? 'page.choose' : 'page.empty')}
+                            {...instrumentSymbol === null ? {} : { tone: 'warning' as const }}
                             translate={translate}
                         />
                     )}

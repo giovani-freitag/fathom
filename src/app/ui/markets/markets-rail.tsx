@@ -32,6 +32,17 @@ interface MarketsRailProps {
     readonly onRemoveVenue: (venue: string) => void;
     /** Which venues the reader brought, and so may take away again. */
     readonly broughtVenues: ReadonlySet<string>;
+    /**
+     * Venues that refused the last time one was asked for its listing.
+     *
+     * Marked rather than hidden, and only once asked. Hiding a venue would say
+     * it does not exist, when what happened is that it would not answer this
+     * reader — for the futures venues that is a whole country at a time, and
+     * the same venue answers a neighbour fine. Asking all six on open to find
+     * out would put back the unasked-for connections a first visit no longer
+     * makes.
+     */
+    readonly refusedVenues: ReadonlySet<string>;
     /** Absent where this build carries no editor to write a connector in. */
     readonly onWriteConnector?: (() => void) | undefined;
     /** Opens the editor on a venue the reader brought, to change its connector. */
@@ -111,6 +122,9 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
                         said={venue}
                         isOn={props.showing.kind === 'venue' && props.showing.venue === venue}
                         onPress={() => { props.onBrowse(venue); }}
+                        {...props.refusedVenues.has(venue)
+                            ? { warning: translate('markets.venueRefused') }
+                            : {}}
 
                         {...props.broughtVenues.has(venue)
                             ? {

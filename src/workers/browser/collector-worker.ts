@@ -5,7 +5,7 @@ import { createBrowserCollectorLog } from './browser-collector-log.ts';
 import { CollectorSupervisor } from '../collector-supervisor.ts';
 import type { CollectorWorkerScope } from './worker-scope.ts';
 import { FIRST_VENUE, type RecordedContract } from '../../shared/core/recording-control.ts';
-import { DEMO_CATALOGUE, readDemoConfiguration } from './demo-collector-configuration.ts';
+import { DEMO_CATALOGUE, readDemoConfiguration, requestedSymbolIn } from './demo-collector-configuration.ts';
 import { describeError } from '../core/collector-log.ts';
 import { IndexedDbLiquidityArchive } from '../../database/browser/indexed-db-liquidity-archive.ts';
 import { IndexedDbLiveTailSource } from '../../database/browser/indexed-db-live-tail-source.ts';
@@ -54,6 +54,9 @@ function announce(state: CollectorState, detail?: string): void {
 
 const { instrumentSymbol, priceBucketSize, frameIntervalMs, ...shared } =
     readDemoConfiguration(scope.location.search);
+
+/** Null unless a link named a contract, which is the only thing that switches one on unasked. */
+const requestedSymbol = requestedSymbolIn(scope.location.search);
 const database = new IndexedDbService({ factory: scope.indexedDB ?? null });
 
 let supervisor: CollectorSupervisor | null = null;
@@ -215,15 +218,17 @@ function withRequested(
     priceBucketSize: number,
     frameIntervalMs: number,
 ): readonly RecordedContract[] {
+    // Only a symbol a link actually named is switched on; the build fallback is not a request.
+    const asked = requestedSymbol !== null && requestedSymbol === symbol;
     const catalogue: RecordedContract[] = DEMO_CATALOGUE.map((contract) => ({
         ...contract,
-        isEnabled: contract.instrumentSymbol === symbol ? true : contract.isEnabled,
+        isEnabled: asked && contract.instrumentSymbol === symbol ? true : contract.isEnabled,
     }));
 
     return catalogue.some((contract) => contract.instrumentSymbol === symbol)
         ? catalogue
         : [
-            { venue: FIRST_VENUE, instrumentSymbol: symbol, priceBucketSize, frameIntervalMs, isEnabled: true },
+            { venue: FIRST_VENUE, instrumentSymbol: symbol, priceBucketSize, frameIntervalMs, isEnabled: asked },
             ...catalogue,
         ];
 }

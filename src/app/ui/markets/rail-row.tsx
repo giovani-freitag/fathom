@@ -6,7 +6,7 @@
  * like the first is a set that stops looking like it on the next change.
  */
 import { CONTROL_CHOSEN_CLASSES, CONTROL_HEIGHT } from '../control-shell.ts';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2, TriangleAlert } from 'lucide-react';
 import type { ReactElement } from 'react';
 
 /**
@@ -64,6 +64,8 @@ export interface RailRowProps {
     readonly removeLabel?: string | undefined;
     readonly onEdit?: (() => void) | undefined;
     readonly editLabel?: string | undefined;
+    /** Said beside the name when this one would not answer, and read out with it. */
+    readonly warning?: string | undefined;
     readonly children?: ReactElement | undefined;
 }
 
@@ -77,6 +79,7 @@ export function RailRow({
     removeLabel,
     onEdit,
     editLabel,
+    warning,
     children,
 }: RailRowProps): ReactElement {
     return (
@@ -95,6 +98,15 @@ export function RailRow({
                     row that is broken. */}
                 {children}
                 <span className="truncate">{said}</span>
+                {/* A mark, not a sentence: the row is a target and the reason
+                    it would not answer belongs in the listing it opens. The
+                    word is carried for a reader who cannot see the triangle. */}
+                {warning !== undefined && (
+                    <>
+                        <TriangleAlert className="size-3.5 shrink-0 text-amber" aria-hidden />
+                        <span className="sr-only">{warning}</span>
+                    </>
+                )}
                 {/* Drawn, not read: glued to the row's own words it announced
                     "binance-futures5", a name with a stray digit on the end. */}
                 {count !== undefined && count > 0 && (

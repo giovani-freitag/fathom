@@ -57,10 +57,18 @@ export function MarketsButton({
         />
     );
 
+    /*
+     * The invitation, while there is nothing open to name.
+     *
+     * A bare coin with no word beside it is what a first visit now opens on,
+     * and it reads as an icon nobody has a reason to press. Picking a market is
+     * the one thing the reader has to do, so the control says so until one is
+     * open and its symbol takes the space back.
+     */
     const face = (
         <span className="flex items-center gap-1 px-1 text-xs font-semibold">
             <Coins size={iconSizePx} />
-            {said}
+            {said === '' ? translate('markets.choose') : said}
         </span>
     );
 

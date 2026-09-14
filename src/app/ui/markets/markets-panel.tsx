@@ -92,6 +92,22 @@ export function MarketsPanel({
         () => new Set(state.installed.map((one) => one.id)),
         [state.installed],
     );
+    /*
+     * Which venues turned a reader away, from what has already been asked.
+     *
+     * Read off the listings rather than found out on purpose: a listing is only
+     * ever fetched because somebody opened that venue, so this marks what is
+     * already known and asks nothing on its own. A venue nobody has opened
+     * carries no mark, which is honest — nothing has been tried.
+     */
+    const refused = useMemo(
+        () => new Set(
+            Object.entries(state.listings)
+                .filter(([, listing]) => listing.kind === 'refused')
+                .map(([venue]) => venue),
+        ),
+        [state.listings],
+    );
     const openTag = state.tags.find((tag) => tag.id === state.openTagId) ?? state.tags[0];
     // The tag the card is on, which is nothing at all while one is being made.
     const carded = carding?.kind === 'tag'
@@ -355,6 +371,7 @@ export function MarketsPanel({
                             onRemoveTag={(tagId) => { markets.removeTag(tagId); }}
                             onRemoveVenue={(venue) => { markets.removeConnector(venue); show({ kind: 'tag' }); }}
                             broughtVenues={brought}
+                            refusedVenues={refused}
                             onWriteConnector={onWriteConnector}
                             onEditConnector={onEditConnector}
                         />
