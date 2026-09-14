@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.20.1](https://github.com/giovani-freitag/fathom/compare/v0.20.0...v0.20.1) (2026-09-14)
+
+
+### Features
+
+* ask what to record instead of opening on one venue's Bitcoin ([#23](https://github.com/giovani-freitag/fathom/pull/23)) — nothing records until a market is picked, the empty page invites rather than warns, and a venue that turned a reader away carries a mark in the rail
+* give every guide page its own address, its alternates and a card ([#22](https://github.com/giovani-freitag/fathom/pull/22)) — a canonical on every page, `hreflang` between the two languages wherever a page is written twice, Open Graph tags per page, and a sitemap
+
+### Bug Fixes
+
+* **sheet:** the drawer follows the finger, and can be resized by it ([5c99587](https://github.com/giovani-freitag/fathom/commit/5c99587)) — a stray `transition: all` was animating every drag over a fifth of a second
+* **page:** the surface notice no longer covers the controls it asks a reader to use ([b71f2ea](https://github.com/giovani-freitag/fathom/commit/b71f2ea))
+* **sheet:** set the flick threshold clear of a deliberate drag ([e25c75a](https://github.com/giovani-freitag/fathom/commit/e25c75a5b0a849905bc31e1ddb7ffc8237a94ec0))
+
 ## [0.20.0](https://github.com/giovani-freitag/fathom/compare/v0.19.0...v0.20.0) (2026-09-09)
 
 
