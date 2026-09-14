@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.1](https://github.com/giovani-freitag/fathom/compare/v0.20.0...v0.20.1) (2026-09-14)
+
+
+### Bug Fixes
+
+* **sheet:** set the flick threshold clear of a deliberate drag ([e25c75a](https://github.com/giovani-freitag/fathom/commit/e25c75a5b0a849905bc31e1ddb7ffc8237a94ec0))
+
 ## [0.20.0](https://github.com/giovani-freitag/fathom/compare/v0.19.0...v0.20.0) (2026-09-09)
 
 
