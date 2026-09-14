@@ -1,3 +1,4 @@
+import type { HeadConfig } from 'vitepress';
 import { withMermaid } from 'vitepress-plugin-mermaid';
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -5,6 +6,13 @@ import { fileURLToPath } from 'node:url';
 
 /** Beside the demo rather than at the root: one Pages site, two things on it. */
 const PUBLISHED_BASE_PATH = '/fathom/guide/';
+
+/** Where the guide answers from, for the addresses that only work absolute. */
+const PUBLISHED_ORIGIN = 'https://giovani-freitag.github.io';
+
+/** The two languages the guide is written in, and the one an unplaced reader gets. */
+const LANGUAGES = ['en', 'pt-BR'] as const;
+const DEFAULT_LANGUAGE = 'en';
 
 const DOCS = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -165,11 +173,100 @@ export default withMermaid({
     cleanUrls: true,
     lastUpdated: true,
 
+    /*
+     * Eighty-four pages that nothing links to from outside.
+     *
+     * The guide is reachable by following links from the chart, and that is the
+     * only way in: a crawler that has not found the entrance finds none of the
+     * rest. A sitemap is the list of everything, handed over at once. It is
+     * worth having here and would not be on a site of one page — it is
+     * submitted by hand in Search Console, because a `Sitemap:` line has to
+     * live in a robots.txt at the root of the host, and the root of this host
+     * is a 404 nobody here owns.
+     */
+    sitemap: { hostname: `${PUBLISHED_ORIGIN}${PUBLISHED_BASE_PATH}` },
 
     head: [
         ['link', { rel: 'icon', href: `${PUBLISHED_BASE_PATH}brand.svg` }],
         ['meta', { name: 'theme-color', content: '#087a6b' }],
     ],
+
+    /**
+     * The addresses of a page: which one it really is, and where it is in the
+     * other language.
+     *
+     * Both are missing without this, and both matter more here than on a site
+     * of one page. A page that exists in both languages is otherwise a pair of
+     * near-identical documents competing with each other; `hreflang` is what
+     * says they are the same page said twice and which reader each is for, and
+     * `x-default` names the one to fall back to for a reader neither language
+     * was written for.
+     *
+     * Only for the pages that really are written twice. A page in one language
+     * and not the other is the ordinary state here — the architecture and the
+     * decision records are English only — and an annotation pointing at an
+     * address that answers 404 is a broken one, so the set is read from the
+     * folders rather than assumed.
+     *
+     * The Open Graph tags come from the same place because a guide page pasted
+     * into a chat is currently a bare link with no title and no picture, while
+     * the chart beside it has had a card since the day it shipped.
+     *
+     * @param context - The page VitePress is about to write, and what it knows.
+     */
+    transformHead({ pageData, siteData }): HeadConfig[] {
+        // The home page of the whole guide, which belongs to neither language.
+        if (!pageData.relativePath) return [];
+
+        const language = LANGUAGES.find((code) => pageData.relativePath.startsWith(`${code}/`));
+        if (!language) return [];
+
+        const slug = pageData.relativePath.slice(language.length + 1).replace(/(?:index)?\.md$/, '');
+        const addressOf = (code: string): string => `${PUBLISHED_ORIGIN}${PUBLISHED_BASE_PATH}${code}/${slug}`;
+
+        /* A decision record lives in a folder of its own and is written once, in English. */
+        const written: readonly string[] = slug.includes('/')
+            ? [DEFAULT_LANGUAGE]
+            : LANGUAGES.filter((code) => pagesIn(code).includes(slug));
+
+        const matter = pageData.frontmatter as Record<string, unknown>;
+        const said = (key: string): string | undefined =>
+            typeof matter[key] === 'string' ? matter[key] : undefined;
+
+        // `||` rather than `??`: a page whose heading is empty should fall through, not ship blank.
+        const title = said('title') || pageData.title || siteData.title;
+        const description =
+            said('description') ?? siteData.locales[language]?.description ?? siteData.description;
+
+        const alternates: HeadConfig[] =
+            // One address in one language is not a set, and annotating it as one says nothing.
+            written.length > 1
+                ? [
+                    ...written.map(
+                        (code): HeadConfig => [
+                            'link',
+                            { rel: 'alternate', hreflang: code, href: addressOf(code) },
+                        ],
+                    ),
+                    ['link', { rel: 'alternate', hreflang: 'x-default', href: addressOf(DEFAULT_LANGUAGE) }],
+                ]
+                : [];
+
+        return [
+            ['link', { rel: 'canonical', href: addressOf(language) }],
+            ...alternates,
+            ['meta', { property: 'og:type', content: 'article' }],
+            ['meta', { property: 'og:site_name', content: 'Fathom' }],
+            ['meta', { property: 'og:title', content: title }],
+            ['meta', { property: 'og:description', content: description }],
+            ['meta', { property: 'og:url', content: addressOf(language) }],
+            ['meta', { property: 'og:locale', content: language === 'en' ? 'en_US' : language.replace('-', '_') }],
+            ['meta', { property: 'og:image', content: `${PUBLISHED_ORIGIN}/fathom/social-card.png` }],
+            ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+            ['meta', { name: 'twitter:title', content: title }],
+            ['meta', { name: 'twitter:description', content: description }],
+        ];
+    },
 
     // Neither language at the root. One of them served from `/` and the other
     // from a folder makes the first read as the real one and the second as a
