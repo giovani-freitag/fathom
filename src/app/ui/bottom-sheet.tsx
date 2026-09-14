@@ -13,8 +13,12 @@ const CLOSES_AT_PX = 96;
  * Distance alone cannot be the whole answer: from its full height the sheet is
  * five hundred pixels above the point where a pull means dismissal, which is
  * further than a thumb travels on the screens this runs on.
+ *
+ * Set well clear of a deliberate drag rather than just above it. A reader
+ * resizing in a hurry crosses a pixel a millisecond without meaning anything by
+ * it, and a sheet that shuts on that is a sheet that cannot be made shorter.
  */
-const FLICKS_SHUT_AT = 0.6;
+const FLICKS_SHUT_AT = 1.8;
 
 /** Past this long since the last move, a finger has stopped rather than flicked. */
 const STILL_MOVING_MS = 140;
