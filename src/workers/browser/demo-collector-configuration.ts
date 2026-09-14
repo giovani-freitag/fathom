@@ -4,18 +4,10 @@ import { FIRST_VENUE } from '../../shared/core/recording-control.ts';
 /**
  * What a first visit is offered, which is nothing.
  *
- * There used to be five pairs here, on Binance futures, with Bitcoin switched
- * on — so every first load recorded Bitcoin whether or not anyone wanted it,
- * and opened an unasked-for connection to a venue that refuses whole countries.
- * From the United States that was an error message and a Try again that could
- * never work.
- *
- * Emptying it takes nothing away. A reader picks from everything the venue
- * lists, not from five names written here, and the price grid a pair records on
- * is worked out from its own tick and last trade by `offerGrids` — which is a
- * better answer than a number typed beside a symbol, and the only answer for
- * the several thousand pairs that were never in this list. What is left is the
- * shape, because a link that names a contract still builds one.
+ * The five Binance pairs that used to sit here offered nothing the picker does
+ * not — it lists the whole venue, and a pair's price grid is worked out from
+ * its own tick. One of them was switched on, so every first load recorded it.
+ * The shape stays because a link that names a contract still builds one.
  */
 export const DEMO_CATALOGUE: readonly {
     readonly venue: string;
@@ -39,10 +31,8 @@ const DEMO_DEFAULTS = {
 /**
  * The contract a link asked for, when one did.
  *
- * Told apart from the default on purpose. A shared link naming a symbol is a
- * request, and the recorder should honour it by switching that contract on; the
- * symbol the build falls back to is not a request, and treating the two alike
- * is what made every first visit record Bitcoin whether or not anyone wanted it.
+ * Told apart from the build's fallback on purpose: a link naming a symbol is a
+ * request to record it, and a default is not.
  *
  * @param search - The worker location's query string.
  * @returns The symbol asked for, upper-cased, or null when none was.

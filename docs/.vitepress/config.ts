@@ -173,17 +173,9 @@ export default withMermaid({
     cleanUrls: true,
     lastUpdated: true,
 
-    /*
-     * Eighty-four pages that nothing links to from outside.
-     *
-     * The guide is reachable by following links from the chart, and that is the
-     * only way in: a crawler that has not found the entrance finds none of the
-     * rest. A sitemap is the list of everything, handed over at once. It is
-     * worth having here and would not be on a site of one page — it is
-     * submitted by hand in Search Console, because a `Sitemap:` line has to
-     * live in a robots.txt at the root of the host, and the root of this host
-     * is a 404 nobody here owns.
-     */
+    // The only way into these pages is a link from the chart, so a crawler that
+    // misses the entrance misses all of them. Submitted by hand, because a
+    // Sitemap: line belongs in a robots.txt at a host root nobody here owns.
     sitemap: { hostname: `${PUBLISHED_ORIGIN}${PUBLISHED_BASE_PATH}` },
 
     head: [
@@ -192,25 +184,12 @@ export default withMermaid({
     ],
 
     /**
-     * The addresses of a page: which one it really is, and where it is in the
-     * other language.
+     * A page's own address, its twin in the other language, and its card.
      *
-     * Both are missing without this, and both matter more here than on a site
-     * of one page. A page that exists in both languages is otherwise a pair of
-     * near-identical documents competing with each other; `hreflang` is what
-     * says they are the same page said twice and which reader each is for, and
-     * `x-default` names the one to fall back to for a reader neither language
-     * was written for.
-     *
-     * Only for the pages that really are written twice. A page in one language
-     * and not the other is the ordinary state here — the architecture and the
-     * decision records are English only — and an annotation pointing at an
-     * address that answers 404 is a broken one, so the set is read from the
-     * folders rather than assumed.
-     *
-     * The Open Graph tags come from the same place because a guide page pasted
-     * into a chat is currently a bare link with no title and no picture, while
-     * the chart beside it has had a card since the day it shipped.
+     * Without the alternates a page written twice is two near-identical
+     * documents competing with each other. They are emitted only for the pages
+     * really written twice, read from the folders, because an alternate
+     * pointing at a 404 is a broken annotation rather than a missing one.
      *
      * @param context - The page VitePress is about to write, and what it knows.
      */

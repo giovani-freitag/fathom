@@ -98,9 +98,8 @@ export function RailRow({
                     row that is broken. */}
                 {children}
                 <span className="truncate">{said}</span>
-                {/* A mark, not a sentence: the row is a target and the reason
-                    it would not answer belongs in the listing it opens. The
-                    word is carried for a reader who cannot see the triangle. */}
+                {/* A mark, not a sentence: the reason belongs in the listing
+                    this row opens. The word is for whoever cannot see it. */}
                 {warning !== undefined && (
                     <>
                         <TriangleAlert className="size-3.5 shrink-0 text-amber" aria-hidden />

@@ -35,12 +35,8 @@ interface MarketsRailProps {
     /**
      * Venues that refused the last time one was asked for its listing.
      *
-     * Marked rather than hidden, and only once asked. Hiding a venue would say
-     * it does not exist, when what happened is that it would not answer this
-     * reader — for the futures venues that is a whole country at a time, and
-     * the same venue answers a neighbour fine. Asking all six on open to find
-     * out would put back the unasked-for connections a first visit no longer
-     * makes.
+     * Marked rather than hidden, because the same venue answers other readers,
+     * and only once asked, because probing six on open is six connections.
      */
     readonly refusedVenues: ReadonlySet<string>;
     /** Absent where this build carries no editor to write a connector in. */

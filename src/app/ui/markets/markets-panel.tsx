@@ -92,14 +92,8 @@ export function MarketsPanel({
         () => new Set(state.installed.map((one) => one.id)),
         [state.installed],
     );
-    /*
-     * Which venues turned a reader away, from what has already been asked.
-     *
-     * Read off the listings rather than found out on purpose: a listing is only
-     * ever fetched because somebody opened that venue, so this marks what is
-     * already known and asks nothing on its own. A venue nobody has opened
-     * carries no mark, which is honest — nothing has been tried.
-     */
+    // Read off listings already fetched, so this asks nothing on its own: a
+    // venue nobody has opened carries no mark, because nothing has been tried.
     const refused = useMemo(
         () => new Set(
             Object.entries(state.listings)
