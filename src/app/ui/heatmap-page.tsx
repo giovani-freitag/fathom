@@ -337,12 +337,21 @@ interface SurfaceNoticeProps {
 
 function SurfaceNotice({ message, translate, tone = 'neutral', onRetry }: SurfaceNoticeProps): ReactElement {
     return (
-        <div className="absolute inset-0 grid place-items-center bg-abyss-950/80 px-6 backdrop-blur-sm">
+        // A message, not a modal. It lies over the whole surface to be read in
+        // the middle of it, and the controls float in that same space: left
+        // solid it swallowed the presses meant for them, and its scrim dimmed
+        // them to ghosts. The scrim is for a chart worth veiling — with nothing
+        // drawn there is nothing to veil, and dimming the way out is worse.
+        <div
+            className={`pointer-events-none absolute inset-0 grid place-items-center px-6${
+                onRetry === undefined ? '' : ' bg-abyss-950/80 backdrop-blur-sm'
+            }`}
+        >
             <div className="max-w-sm space-y-3 text-center">
                 {tone === 'warning' && <TriangleAlert className="mx-auto size-6 text-amber" />}
                 <p className="text-sm leading-relaxed text-ink-300">{message}</p>
                 {onRetry !== undefined && (
-                    <ControlButton onClick={onRetry} className="mx-auto">
+                    <ControlButton onClick={onRetry} className="pointer-events-auto mx-auto">
                         <RefreshCw className="size-4" />
                         {translate('page.retry')}
                     </ControlButton>
