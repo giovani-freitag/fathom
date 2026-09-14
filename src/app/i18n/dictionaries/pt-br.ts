@@ -284,6 +284,8 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'markets.title': 'Contratos',
     'markets.yourTags': 'Suas tags',
     'markets.venues': 'Corretoras',
+
+    'markets.venueRefused': 'Esta corretora não respondeu — pode não atender sua região.',
     'markets.sources': 'Tags e corretoras',
     'markets.tagsFor': 'Tags de {symbol}',
     'markets.allQuotes': 'Todas',
@@ -372,6 +374,9 @@ export const PT_BR_DICTIONARY: Dictionary = {
     'page.returnToLive': 'Voltar ao tempo real',
     'page.probing': 'Carregando a gravação…',
     'page.empty': 'Nada gravado ainda. A gravação precisa estar ligada: um livro de ofertas não pode ser recuperado depois.',
+    /* Antes da primeira escolha, o que não é defeito e não deve parecer um. */
+    'page.choose': 'Escolha um mercado para começar. O Fathom grava o livro de ofertas neste navegador a partir do instante em que você escolhe — velas vêm com histórico, livro nunca vem.',
+    'markets.choose': 'Escolher mercado',
     'page.retry': 'Tentar de novo',
 
     'settings.open': 'Preferências',

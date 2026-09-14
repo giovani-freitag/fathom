@@ -32,6 +32,13 @@ interface MarketsRailProps {
     readonly onRemoveVenue: (venue: string) => void;
     /** Which venues the reader brought, and so may take away again. */
     readonly broughtVenues: ReadonlySet<string>;
+    /**
+     * Venues that refused the last time one was asked for its listing.
+     *
+     * Marked rather than hidden, because the same venue answers other readers,
+     * and only once asked, because probing six on open is six connections.
+     */
+    readonly refusedVenues: ReadonlySet<string>;
     /** Absent where this build carries no editor to write a connector in. */
     readonly onWriteConnector?: (() => void) | undefined;
     /** Opens the editor on a venue the reader brought, to change its connector. */
@@ -111,6 +118,9 @@ export function MarketsRail(props: MarketsRailProps): ReactElement {
                         said={venue}
                         isOn={props.showing.kind === 'venue' && props.showing.venue === venue}
                         onPress={() => { props.onBrowse(venue); }}
+                        {...props.refusedVenues.has(venue)
+                            ? { warning: translate('markets.venueRefused') }
+                            : {}}
 
                         {...props.broughtVenues.has(venue)
                             ? {

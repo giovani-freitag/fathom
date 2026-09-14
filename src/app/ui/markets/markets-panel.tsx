@@ -92,6 +92,16 @@ export function MarketsPanel({
         () => new Set(state.installed.map((one) => one.id)),
         [state.installed],
     );
+    // Read off listings already fetched, so this asks nothing on its own: a
+    // venue nobody has opened carries no mark, because nothing has been tried.
+    const refused = useMemo(
+        () => new Set(
+            Object.entries(state.listings)
+                .filter(([, listing]) => listing.kind === 'refused')
+                .map(([venue]) => venue),
+        ),
+        [state.listings],
+    );
     const openTag = state.tags.find((tag) => tag.id === state.openTagId) ?? state.tags[0];
     // The tag the card is on, which is nothing at all while one is being made.
     const carded = carding?.kind === 'tag'
@@ -355,6 +365,7 @@ export function MarketsPanel({
                             onRemoveTag={(tagId) => { markets.removeTag(tagId); }}
                             onRemoveVenue={(venue) => { markets.removeConnector(venue); show({ kind: 'tag' }); }}
                             broughtVenues={brought}
+                            refusedVenues={refused}
                             onWriteConnector={onWriteConnector}
                             onEditConnector={onEditConnector}
                         />

@@ -347,8 +347,9 @@ export function DockButton({
  * @returns What the button shows.
  */
 function shortenSymbol(instrumentSymbol: string | null): string {
+    // Empty rather than a dash, so the control can name the invitation itself.
     if (instrumentSymbol === null) {
-        return '—';
+        return '';
     }
     const quote = QUOTE_SUFFIXES.find((suffix) => instrumentSymbol.endsWith(suffix));
     return quote === undefined ? instrumentSymbol : instrumentSymbol.slice(0, -quote.length);

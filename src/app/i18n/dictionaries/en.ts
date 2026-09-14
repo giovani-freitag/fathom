@@ -282,6 +282,8 @@ export const EN_DICTIONARY = {
     'markets.title': 'Contracts',
     'markets.yourTags': 'Your tags',
     'markets.venues': 'Venues',
+
+    'markets.venueRefused': 'This venue would not answer — it may not serve your region.',
     'markets.sources': 'Tags and venues',
     'markets.tagsFor': 'Tags on {symbol}',
     'markets.allQuotes': 'All',
@@ -370,6 +372,9 @@ export const EN_DICTIONARY = {
     'page.returnToLive': 'Back to live',
     'page.probing': 'Loading the recording…',
     'page.empty': 'Nothing recorded yet. Recording has to be on: an order book cannot be recovered after the fact.',
+    /* Before a first contract is chosen, which is not a fault and should not read as one. */
+    'page.choose': 'Pick a market to begin. Fathom records the order book in this browser from the moment you choose one — candles come with history, a book never does.',
+    'markets.choose': 'Pick a market',
     'page.retry': 'Try again',
 
     'settings.open': 'Settings',

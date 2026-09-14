@@ -57,10 +57,13 @@ export function MarketsButton({
         />
     );
 
+    // Nothing open to name leaves a bare coin, which reads as an icon with no
+    // reason to press it — and picking a market is the one thing left to do.
+    const names = said === '' ? translate('markets.choose') : said;
     const face = (
         <span className="flex items-center gap-1 px-1 text-xs font-semibold">
             <Coins size={iconSizePx} />
-            {said}
+            {names}
         </span>
     );
 
@@ -77,7 +80,7 @@ export function MarketsButton({
                 trigger={(
                     <button
                         type="button"
-                        aria-label={`${said} — ${translate('markets.title')}`}
+                        aria-label={`${names} — ${translate('markets.title')}`}
                         className={`${CONTROL_BUTTON_CLASSES} ${CONTROL_RESTING_CLASSES}`}
                     >
                         {face}
@@ -96,7 +99,7 @@ export function MarketsButton({
             isOpen={isOpen}
             onOpenChange={setIsOpen}
             label={translate('markets.title')}
-            said={said}
+            said={names}
             trigger={face}
         >
             {listing}
