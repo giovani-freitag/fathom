@@ -46,6 +46,10 @@ jobs:
       # from.
       - run: npm run build:guide
       - run: mv docs/.vitepress/dist dist/demo/guide
+      # One list for the whole site, at the root of it. A sitemap speaks only
+      # for the directory it sits in, and the one VitePress writes sits a level
+      # below the chart the site is named after.
+      - run: npm run build:sitemap
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist/demo
