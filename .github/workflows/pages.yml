@@ -29,6 +29,11 @@ jobs:
         with:
           # The tag the release named, not whatever main has drifted to since.
           ref: ${{ github.event.client_payload.ref || github.ref }}
+          # The whole history, because every guide page is dated from the commit
+          # that last touched it. A shallow clone answers that with the tip commit
+          # for every file, which is how each page came to say it was written the
+          # moment the site was built, and the sitemap to date all forty-two alike.
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version: 24
@@ -41,6 +46,10 @@ jobs:
       # from.
       - run: npm run build:guide
       - run: mv docs/.vitepress/dist dist/demo/guide
+      # One list for the whole site, at the root of it. A sitemap speaks only
+      # for the directory it sits in, and the one VitePress writes sits a level
+      # below the chart the site is named after.
+      - run: npm run build:sitemap
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist/demo
