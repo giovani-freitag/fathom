@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/giovani-freitag/fathom/compare/v0.20.1...v0.21.0) (2026-09-19)
+
+
+### Continuous Integration
+
+* refuse a pull request title release-please cannot read ([#26](https://github.com/giovani-freitag/fathom/issues/26)) ([a6eb7a1](https://github.com/giovani-freitag/fathom/commit/a6eb7a18cbadeed3fff36560cb42aeb89e9807b5))
+
 ## [0.20.1](https://github.com/giovani-freitag/fathom/compare/v0.20.0...v0.20.1) (2026-09-14)
 
 
