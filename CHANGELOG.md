@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.21.0](https://github.com/giovani-freitag/fathom/compare/v0.20.1...v0.21.0) (2026-09-19)
+
+
+### Features
+
+* give the guide a door that opens without a script ([#25](https://github.com/giovani-freitag/fathom/pull/25)) — the chart serves an empty body and every link into the guide was made after it mounted, so anything reading the HTML found nothing to follow
+* list the whole site in one sitemap at the root of it ([#25](https://github.com/giovani-freitag/fathom/pull/25)) — a sitemap speaks only for the directory it sits in, which had left the chart itself named in none
+
+
+### Bug Fixes
+
+* date every guide page from the commit that last touched it ([#25](https://github.com/giovani-freitag/fathom/pull/25)) — a one-commit clone dated all forty-two from the release, in the sitemap and in each page's own footer
+
+
+### Continuous Integration
+
+* refuse a pull request title release-please cannot read ([#26](https://github.com/giovani-freitag/fathom/pull/26)) — three pull requests had merged without cutting the release they owed, and nothing failed on the way through
+
 ## [0.20.1](https://github.com/giovani-freitag/fathom/compare/v0.20.0...v0.20.1) (2026-09-14)
 
 
